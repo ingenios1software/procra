@@ -1,4 +1,4 @@
-import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario } from './types';
+import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente } from './types';
 
 export const mockParcelas: Parcela[] = [
   { id: 'p1', nombre: 'Lote Norte 1', codigo: 'LN-001', superficie: 50, ubicacion: 'GPS: -34.5, -58.4', estado: 'activa' },
@@ -124,4 +124,14 @@ export const mockAsientosDiario: AsientoDiario[] = [
       { cuentaId: '3', tipo: 'haber', monto: 42000, centroCostoId: 'cc2' },
     ],
   },
+];
+
+export const mockProveedores: Proveedor[] = [
+    { id: 'prov1', razonSocial: 'AgroPro S.A.', ruc: '80012345-1', direccion: 'Ruta 1 Km 50', telefono: '0981123456', email: 'ventas@agropro.com', tipo: 'proveedor', formaPagoHabitual: 'credito-30', saldo: 15000 },
+    { id: 'prov2', razonSocial: 'ChemCo Paraguay', ruc: '80054321-2', direccion: 'Av. Aviadores 1234', telefono: '021654321', email: 'info@chemco.com.py', tipo: 'proveedor', formaPagoHabitual: 'contado', saldo: 0 },
+];
+
+export const mockClientes: Cliente[] = [
+    { id: 'cli1', razonSocial: 'Granos del Sur S.A.E.C.A.', ruc: '80098765-3', direccion: 'Puerto de Villeta', telefono: '0971987654', email: 'compras@granosdelsur.com' },
+    { id: 'cli2', razonSocial: 'Aceitera Central S.A.', ruc: '80011223-4', direccion: 'Mariano R. Alonso', telefono: '021789456', email: 'acopio@aceiteracentral.com.py' },
 ];

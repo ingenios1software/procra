@@ -32,7 +32,9 @@ import {
     History,
     Briefcase,
     DollarSign,
-    Fuel
+    Fuel,
+    ShoppingCart,
+    ShoppingBag
 } from "lucide-react"
 import {
   Accordion,
@@ -72,6 +74,16 @@ const navItems = [
             { href: "/maquinaria", icon: Wrench, label: "Maquinaria" },
             { href: "#", icon: Bug, label: "Plagas", isComingSoon: true },
             { href: "#", icon: ListTree, label: "Etapas del Cultivo", isComingSoon: true },
+        ]
+    },
+    {
+        title: "Comercial",
+        icon: ShoppingCart,
+        links: [
+            { href: "/comercial/compras", icon: ShoppingBag, label: "Compras" },
+            { href: "/comercial/ventas", icon: DollarSign, label: "Ventas" },
+            { href: "#", icon: Users, label: "Proveedores", isComingSoon: true },
+            { href: "#", icon: Users, label: "Clientes", isComingSoon: true },
         ]
     },
     {

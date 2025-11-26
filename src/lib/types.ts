@@ -129,6 +129,27 @@ export type Venta = {
     fecha: Date;
 };
 
+export type Proveedor = {
+  id: string;
+  razonSocial: string;
+  ruc: string;
+  direccion: string;
+  telefono: string;
+  email: string;
+  tipo: 'proveedor' | 'cliente' | 'mixto';
+  formaPagoHabitual: 'contado' | 'credito-30' | 'credito-60';
+  saldo: number;
+};
+
+export type Cliente = {
+  id: string;
+  razonSocial: string;
+  ruc: string;
+  direccion: string;
+  telefono: string;
+  email: string;
+};
+
 // --- CONTABILIDAD ---
 export type PlanDeCuenta = {
   id: string;
