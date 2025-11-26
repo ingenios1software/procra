@@ -16,8 +16,8 @@ export const mockCultivos: Cultivo[] = [
 
 export const mockZafras: Zafra[] = [
   { id: 'z1', nombre: 'Zafra 2023/2024', fechaInicio: new Date('2023-09-01'), fechaFin: new Date('2024-05-30'), estado: 'finalizada' },
-  { id: 'z2', nombre: 'Zafra 2024/2025', fechaInicio: new Date('2024-09-01'), fechaFin: new Date('2025-08-31'), estado: 'en curso' },
-  { id: 'z3', nombre: 'Zafra Invierno 2024', fechaInicio: new Date('2024-06-01'), fechaFin: new Date('2024-11-30'), estado: 'en curso' },
+  { id: 'z2', nombre: 'Zafra Soja 2024/2025', cultivoId: 'c1', fechaSiembra: new Date(new Date().setDate(new Date().getDate() - 60)), fechaInicio: new Date('2024-09-01'), fechaFin: new Date('2025-08-31'), estado: 'en curso' },
+  { id: 'z3', nombre: 'Zafra Maíz 2024/2025', cultivoId: 'c2', fechaSiembra: new Date(new Date().setDate(new Date().getDate() - 45)), fechaInicio: new Date('2024-06-01'), fechaFin: new Date('2024-11-30'), estado: 'en curso' },
   { id: 'z4', nombre: 'Zafra 2025/2026', fechaInicio: new Date('2025-09-01'), fechaFin: new Date('2026-08-31'), estado: 'planificada' },
 ];
 
@@ -29,14 +29,15 @@ const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId
 
 export const mockEventos: Evento[] = [
   generateEvent('e1', 'p1', 'c1', 'z2', 'siembra', 60, 'Siembra de Soja en Lote Norte 1.'),
-  generateEvent('e2', 'p3', 'c2', 'z2', 'fertilización', 45, 'Aplicación de urea.'),
-  generateEvent('e3', 'p1', 'c1', 'z2', 'riego', 35, 'Riego por aspersión.'),
-  generateEvent('e4', 'p2', 'c3', 'z3', 'cosecha', 120, 'Cosecha de Trigo.'),
-  generateEvent('e5', 'p3', 'c2', 'z2', 'plagas', 5, 'Monitoreo de isoca.'),
+  generateEvent('e2', 'p3', 'c2', 'z3', 'fertilización', 45, 'Aplicación de urea.'),
+  generateEvent('e3', 'p1', 'c1', 'z2', 'aplicacion', 35, 'Aplicación de fungicida preventivo.'),
+  generateEvent('e4', 'p2', 'c3', 'z1', 'cosecha', 120, 'Cosecha de Trigo.'),
+  generateEvent('e5', 'p3', 'c2', 'z3', 'plagas', 5, 'Monitoreo de isoca.'),
   generateEvent('e6', 'p1', 'c1', 'z2', 'mantenimiento', 15, 'Limpieza de cabeceras.'),
-  generateEvent('e7', 'p2', 'c3', 'z3', 'siembra', 180, 'Siembra de Trigo de invierno'),
-  generateEvent('e8', 'p3', 'c2', 'z2', 'cosecha', 2, 'Cosecha de Maíz finalizada.'),
+  generateEvent('e7', 'p2', 'c3', 'z1', 'siembra', 180, 'Siembra de Trigo de invierno'),
+  generateEvent('e8', 'p3', 'c2', 'z3', 'cosecha', 2, 'Cosecha de Maíz finalizada.'),
   generateEvent('e9', 'p4', 'c4', 'z2', 'siembra', 40, 'Siembra de Girasol'),
+  generateEvent('e10', 'p1', 'c1', 'z2', 'aplicacion', 10, 'Aplicación de herbicida post-emergente.'),
 ];
 
 export const mockRoles: Rol[] = [
@@ -149,17 +150,17 @@ export const mockPlagas: Plaga[] = [
 ];
 
 export const mockEtapasCultivo: EtapaCultivo[] = [
-    { id: 'ec1', cultivoId: 'c1', orden: 1, nombre: 'VE', descripcion: 'Emergencia' },
-    { id: 'ec2', cultivoId: 'c1', orden: 2, nombre: 'VC', descripcion: 'Cotiledones Desplegados' },
-    { id: 'ec3', cultivoId: 'c1', orden: 3, nombre: 'V1-Vn', descripcion: 'Desarrollo Vegetativo' },
-    { id: 'ec4', cultivoId: 'c1', orden: 4, nombre: 'R1-R2', descripcion: 'Inicio de Floración' },
-    { id: 'ec5', cultivoId: 'c1', orden: 5, nombre: 'R3-R4', descripcion: 'Formación de Vainas' },
-    { id: 'ec6', cultivoId: 'c1', orden: 6, nombre: 'R5-R6', descripcion: 'Llenado de Granos' },
-    { id: 'ec7', cultivoId: 'c1', orden: 7, nombre: 'R7-R8', descripcion: 'Madurez Fisiológica y de Cosecha' },
-    { id: 'ec8', cultivoId: 'c2', orden: 1, nombre: 'VE-V3', descripcion: 'Implantación' },
-    { id: 'ec9', cultivoId: 'c2', orden: 2, nombre: 'V4-V8', descripcion: 'Definición de Potencial de Rinde' },
-    { id: 'ec10', cultivoId: 'c2', orden: 3, nombre: 'VT-R1', descripcion: 'Panojamiento y Floración' },
-    { id: 'ec11', cultivoId: 'c2', orden: 4, nombre: 'R2-R6', descripcion: 'Llenado de Granos' },
+    { id: 'ec1', cultivoId: 'c1', orden: 1, nombre: 'VE', descripcion: 'Emergencia', diasDesdeSiembraInicio: 0, diasDesdeSiembraFin: 7 },
+    { id: 'ec2', cultivoId: 'c1', orden: 2, nombre: 'VC', descripcion: 'Cotiledones Desplegados', diasDesdeSiembraInicio: 8, diasDesdeSiembraFin: 14 },
+    { id: 'ec3', cultivoId: 'c1', orden: 3, nombre: 'V1-Vn', descripcion: 'Desarrollo Vegetativo', diasDesdeSiembraInicio: 15, diasDesdeSiembraFin: 45 },
+    { id: 'ec4', cultivoId: 'c1', orden: 4, nombre: 'R1-R2', descripcion: 'Inicio de Floración', diasDesdeSiembraInicio: 46, diasDesdeSiembraFin: 60 },
+    { id: 'ec5', cultivoId: 'c1', orden: 5, nombre: 'R3-R4', descripcion: 'Formación de Vainas', diasDesdeSiembraInicio: 61, diasDesdeSiembraFin: 80 },
+    { id: 'ec6', cultivoId: 'c1', orden: 6, nombre: 'R5-R6', descripcion: 'Llenado de Granos', diasDesdeSiembraInicio: 81, diasDesdeSiembraFin: 110 },
+    { id: 'ec7', cultivoId: 'c1', orden: 7, nombre: 'R7-R8', descripcion: 'Madurez Fisiológica y de Cosecha', diasDesdeSiembraInicio: 111, diasDesdeSiembraFin: 130 },
+    { id: 'ec8', cultivoId: 'c2', orden: 1, nombre: 'VE-V3', descripcion: 'Implantación', diasDesdeSiembraInicio: 0, diasDesdeSiembraFin: 15 },
+    { id: 'ec9', cultivoId: 'c2', orden: 2, nombre: 'V4-V8', descripcion: 'Definición de Potencial de Rinde', diasDesdeSiembraInicio: 16, diasDesdeSiembraFin: 40 },
+    { id: 'ec10', cultivoId: 'c2', orden: 3, nombre: 'VT-R1', descripcion: 'Panojamiento y Floración', diasDesdeSiembraInicio: 41, diasDesdeSiembraFin: 60 },
+    { id: 'ec11', cultivoId: 'c2', orden: 4, nombre: 'R2-R6', descripcion: 'Llenado de Granos', diasDesdeSiembraInicio: 61, diasDesdeSiembraFin: 120 },
 ];
 
 export const mockEmpleados: Empleado[] = [

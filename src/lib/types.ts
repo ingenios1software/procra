@@ -19,6 +19,8 @@ export type Zafra = {
   fechaInicio: Date;
   fechaFin?: Date;
   estado: 'planificada' | 'en curso' | 'finalizada';
+  cultivoId?: string;
+  fechaSiembra?: Date;
 };
 
 export type Evento = {
@@ -187,6 +189,8 @@ export type EtapaCultivo = {
   cultivoId: string;
   orden: number;
   descripcion: string;
+  diasDesdeSiembraInicio: number;
+  diasDesdeSiembraFin: number;
 };
 
 // --- RRHH ---
