@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Download } from "lucide-react";
@@ -22,6 +23,7 @@ import { MoreHorizontal } from "lucide-react";
 
 export default function ComprasPage() {
   const [compras, setCompras] = useState(mockCompras);
+  const router = useRouter();
 
   const getProveedorNombre = (id: string) => {
     return mockProveedores.find(p => p.id === id)?.nombre || 'N/A';
@@ -42,7 +44,7 @@ export default function ComprasPage() {
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
             </Button>
-            <Button>
+            <Button onClick={() => router.push('/comercial/compras/crear')}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Nueva Compra
             </Button>
