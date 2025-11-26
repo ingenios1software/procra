@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { MoreHorizontal, PlusCircle, TrendingUp, Download, Package } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { VentaForm } from "./venta-form";
-import type { Venta, Parcela, Zafra, Cultivo } from "@/lib/types";
+import type { Venta, Parcela, Zafra, Cultivo, Cliente } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -18,9 +18,10 @@ interface VentasListProps {
   parcelas: Parcela[];
   zafras: Zafra[];
   cultivos: Cultivo[];
+  clientes: Cliente[];
 }
 
-export function VentasList({ initialVentas, parcelas, zafras, cultivos }: VentasListProps) {
+export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes }: VentasListProps) {
   const [ventas, setVentas] = useState(initialVentas);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
@@ -62,6 +63,11 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos }: Ventas
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
+
+  const getClienteNombre = (id?: string) => {
+    if (!id) return 'N/A';
+    return clientes.find(c => c.id === id)?.nombre || 'N/A';
+  }
 
   return (
     <>
@@ -121,6 +127,7 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos }: Ventas
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
+                <TableHead>Cliente</TableHead>
                 <TableHead>Cultivo</TableHead>
                 <TableHead>Toneladas</TableHead>
                 <TableHead>Precio/Ton</TableHead>
@@ -135,6 +142,7 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos }: Ventas
                 return (
                   <TableRow key={venta.id}>
                     <TableCell>{format(new Date(venta.fecha), "dd/MM/yyyy")}</TableCell>
+                    <TableCell className="font-medium">{getClienteNombre(venta.clienteId)}</TableCell>
                     <TableCell className="font-medium">{cultivo?.nombre || 'N/A'}</TableCell>
                     <TableCell>{venta.toneladas} tn</TableCell>
                     <TableCell>${venta.precioTonelada.toLocaleString('es-AR')}</TableCell>
@@ -166,6 +174,7 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos }: Ventas
             parcelas={parcelas}
             cultivos={cultivos}
             zafras={zafras}
+            clientes={clientes}
           />
         </DialogContent>
       </Dialog>

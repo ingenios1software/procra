@@ -9,12 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Venta, Parcela, Cultivo, Zafra } from "@/lib/types";
+import type { Venta, Parcela, Cultivo, Zafra, Cliente } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 
 const formSchema = z.object({
+  clienteId: z.string().optional(),
   cultivoId: z.string().nonempty("Debe seleccionar un cultivo."),
   parcelaId: z.string().nonempty("Debe seleccionar una parcela."),
   zafraId: z.string().nonempty("Debe seleccionar una zafra."),
@@ -32,9 +33,10 @@ interface VentaFormProps {
   parcelas: Parcela[];
   cultivos: Cultivo[];
   zafras: Zafra[];
+  clientes: Cliente[];
 }
 
-export function VentaForm({ venta, onSubmit, onCancel, parcelas, cultivos, zafras }: VentaFormProps) {
+export function VentaForm({ venta, onSubmit, onCancel, parcelas, cultivos, zafras, clientes }: VentaFormProps) {
   const form = useForm<VentaFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: venta ? {
@@ -55,10 +57,13 @@ export function VentaForm({ venta, onSubmit, onCancel, parcelas, cultivos, zafra
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <FormField control={form.control} name="cultivoId" render={({ field }) => ( <FormItem> <FormLabel>Cultivo</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl> <SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-          <FormField control={form.control} name="parcelaId" render={({ field }) => ( <FormItem> <FormLabel>Parcela</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl> <SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-          <FormField control={form.control} name="zafraId" render={({ field }) => ( <FormItem> <FormLabel>Zafra</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl> <SelectContent>{zafras.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <FormField control={form.control} name="clienteId" render={({ field }) => ( <FormItem> <FormLabel>Cliente</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl> <SelectContent>{clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+           <FormField control={form.control} name="cultivoId" render={({ field }) => ( <FormItem> <FormLabel>Cultivo</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cultivo" /></SelectTrigger></FormControl> <SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField control={form.control} name="parcelaId" render={({ field }) => ( <FormItem> <FormLabel>Parcela de Origen</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una parcela" /></SelectTrigger></FormControl> <SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+          <FormField control={form.control} name="zafraId" render={({ field }) => ( <FormItem> <FormLabel>Zafra</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl> <SelectContent>{zafras.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <FormField

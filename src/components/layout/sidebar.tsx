@@ -92,7 +92,6 @@ const navItems = [
         links: [
             { href: "/finanzas/dashboard", icon: PieChart, label: "Dashboard" },
             { href: "/finanzas/costos", icon: TrendingDown, label: "Costos" },
-            { href: "/finanzas/ventas", icon: TrendingUp, label: "Ventas" },
             { href: "/finanzas/rentabilidad", icon: LineChart, label: "Rentabilidad" },
         ]
     },
@@ -100,10 +99,10 @@ const navItems = [
         title: "Contabilidad",
         icon: Book,
         links: [
-            { href: "/contabilidad/plan-de-cuentas", icon: ListTree, label: "Plan de Cuentas" },
-            { href: "/contabilidad/centros-de-costo", icon: DollarSign, label: "Centros de Costo" },
-            { href: "/contabilidad/diario", icon: FileText, label: "Diario" },
-            { href: "/contabilidad/mayor", icon: FileText, label: "Mayor" },
+            { href: "#", icon: ListTree, label: "Plan de Cuentas", isComingSoon: true },
+            { href: "#", icon: DollarSign, label: "Centros de Costo", isComingSoon: true },
+            { href: "#", icon: FileText, label: "Diario", isComingSoon: true },
+            { href: "#", icon: FileText, label: "Mayor", isComingSoon: true },
         ]
     },
     {

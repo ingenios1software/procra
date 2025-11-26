@@ -127,28 +127,45 @@ export type Venta = {
     toneladas: number;
     precioTonelada: number;
     fecha: Date;
+    clienteId?: string;
 };
 
 export type Proveedor = {
   id: string;
-  razonSocial: string;
+  nombre: string;
   ruc: string;
-  direccion: string;
-  telefono: string;
-  email: string;
-  tipo: 'proveedor' | 'cliente' | 'mixto';
-  formaPagoHabitual: 'contado' | 'credito-30' | 'credito-60';
-  saldo: number;
+  direccion?: string;
+  telefono?: string;
+  email?: string;
+  activo: boolean;
 };
 
 export type Cliente = {
   id: string;
-  razonSocial: string;
+  nombre: string;
   ruc: string;
-  direccion: string;
-  telefono: string;
-  email: string;
+  direccion?: string;
+  telefono?: string;
+  email?: string;
+  activo: boolean;
 };
+
+export type Compra = {
+  id: string;
+  proveedorId: string;
+  fecha: Date;
+  numeroDocumento: string;
+  tipoDocumento: 'Factura' | 'Nota de Crédito' | 'Remisión';
+  condicion: 'Contado' | 'Crédito';
+  total: number;
+  estado: 'Registrado' | 'Aprobado' | 'Pagado';
+  items: {
+    insumoId: string;
+    cantidad: number;
+    precioUnitario: number;
+  }[];
+}
+
 
 // --- CONTABILIDAD ---
 export type PlanDeCuenta = {

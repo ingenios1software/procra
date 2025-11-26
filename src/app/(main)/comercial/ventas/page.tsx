@@ -1,6 +1,7 @@
-import { PageHeader } from "@/components/shared/page-header";
+"use client";
+
 import { VentasList } from "@/components/finanzas/ventas-list";
-import { mockVentas, mockParcelas, mockCultivos, mockZafras } from "@/lib/mock-data";
+import { mockVentas, mockParcelas, mockCultivos, mockZafras, mockClientes } from "@/lib/mock-data";
 
 export default function VentasComercialPage() {
   return (
@@ -9,6 +10,7 @@ export default function VentasComercialPage() {
       parcelas={mockParcelas}
       cultivos={mockCultivos}
       zafras={mockZafras}
+      clientes={mockClientes}
     />
   );
 }

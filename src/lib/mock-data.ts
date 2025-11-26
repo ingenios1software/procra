@@ -1,4 +1,4 @@
-import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente } from './types';
+import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente, Compra } from './types';
 
 export const mockParcelas: Parcela[] = [
   { id: 'p1', nombre: 'Lote Norte 1', codigo: 'LN-001', superficie: 50, ubicacion: 'GPS: -34.5, -58.4', estado: 'activa' },
@@ -85,9 +85,9 @@ export const mockCostos: Costo[] = [
 ];
 
 export const mockVentas: Venta[] = [
-    { id: 'venta1', cultivoId: 'c3', parcelaId: 'p2', zafraId: 'z3', toneladas: 150, precioTonelada: 280, fecha: new Date('2024-08-01') },
-    { id: 'venta2', cultivoId: 'c2', parcelaId: 'p3', zafraId: 'z2', toneladas: 840, precioTonelada: 310, fecha: new Date('2024-10-05') },
-    { id: 'venta3', cultivoId: 'c1', parcelaId: 'p1', zafraId: 'z2', toneladas: 200, precioTonelada: 450, fecha: new Date('2024-11-15') },
+    { id: 'venta1', cultivoId: 'c3', parcelaId: 'p2', zafraId: 'z3', toneladas: 150, precioTonelada: 280, fecha: new Date('2024-08-01'), clienteId: 'cli1' },
+    { id: 'venta2', cultivoId: 'c2', parcelaId: 'p3', zafraId: 'z2', toneladas: 840, precioTonelada: 310, fecha: new Date('2024-10-05'), clienteId: 'cli2' },
+    { id: 'venta3', cultivoId: 'c1', parcelaId: 'p1', zafraId: 'z2', toneladas: 200, precioTonelada: 450, fecha: new Date('2024-11-15'), clienteId: 'cli1' },
 ];
 
 export const mockPlanDeCuentas: PlanDeCuenta[] = [
@@ -127,11 +127,17 @@ export const mockAsientosDiario: AsientoDiario[] = [
 ];
 
 export const mockProveedores: Proveedor[] = [
-    { id: 'prov1', razonSocial: 'AgroPro S.A.', ruc: '80012345-1', direccion: 'Ruta 1 Km 50', telefono: '0981123456', email: 'ventas@agropro.com', tipo: 'proveedor', formaPagoHabitual: 'credito-30', saldo: 15000 },
-    { id: 'prov2', razonSocial: 'ChemCo Paraguay', ruc: '80054321-2', direccion: 'Av. Aviadores 1234', telefono: '021654321', email: 'info@chemco.com.py', tipo: 'proveedor', formaPagoHabitual: 'contado', saldo: 0 },
+    { id: 'prov1', nombre: 'AgroPro S.A.', ruc: '80012345-1', direccion: 'Ruta 1 Km 50', telefono: '0981123456', email: 'ventas@agropro.com', activo: true },
+    { id: 'prov2', nombre: 'ChemCo Paraguay', ruc: '80054321-2', direccion: 'Av. Aviadores 1234', telefono: '021654321', email: 'info@chemco.com.py', activo: true },
+    { id: 'prov3', nombre: 'Maquinarias S.R.L.', ruc: '80099887-3', activo: false },
 ];
 
 export const mockClientes: Cliente[] = [
-    { id: 'cli1', razonSocial: 'Granos del Sur S.A.E.C.A.', ruc: '80098765-3', direccion: 'Puerto de Villeta', telefono: '0971987654', email: 'compras@granosdelsur.com' },
-    { id: 'cli2', razonSocial: 'Aceitera Central S.A.', ruc: '80011223-4', direccion: 'Mariano R. Alonso', telefono: '021789456', email: 'acopio@aceiteracentral.com.py' },
+    { id: 'cli1', nombre: 'Granos del Sur S.A.E.C.A.', ruc: '80098765-3', direccion: 'Puerto de Villeta', telefono: '0971987654', email: 'compras@granosdelsur.com', activo: true },
+    { id: 'cli2', nombre: 'Aceitera Central S.A.', ruc: '80011223-4', direccion: 'Mariano R. Alonso', telefono: '021789456', email: 'acopio@aceiteracentral.com.py', activo: true },
+];
+
+export const mockCompras: Compra[] = [
+    { id: 'comp1', proveedorId: 'prov1', fecha: new Date('2024-10-01'), numeroDocumento: '001-001-001234', tipoDocumento: 'Factura', condicion: 'Crédito', total: 1500, estado: 'Aprobado', items: [{ insumoId: 'i1', cantidad: 1000, precioUnitario: 1.5 }] },
+    { id: 'comp2', proveedorId: 'prov2', fecha: new Date('2024-10-05'), numeroDocumento: '001-002-005678', tipoDocumento: 'Factura', condicion: 'Contado', total: 2500, estado: 'Pagado', items: [{ insumoId: 'i2', cantidad: 200, precioUnitario: 12.5 }] },
 ];
