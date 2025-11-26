@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
@@ -56,7 +55,7 @@ export function UsuariosList({ initialUsuarios, roles }: UsuariosListProps) {
         )}
       </PageHeader>
       
-      {role !== 'admin' && (
+      {!canModify && (
         <Card className="mb-4 bg-amber-50 border-amber-200">
             <CardContent className="p-4">
                 <p className="text-amber-800 font-medium">Solo los administradores pueden gestionar usuarios.</p>

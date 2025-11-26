@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
@@ -42,8 +42,8 @@ export function RolesList({ initialRoles }: RolesListProps) {
   return (
     <>
       <PageHeader
-        title="Roles"
-        description="Gestione los roles y permisos de los usuarios."
+        title="Roles y Permisos"
+        description="Gestione los roles y permisos de los usuarios del sistema."
       >
         {canModify && (
           <Button onClick={() => openDialog()}>
@@ -53,7 +53,7 @@ export function RolesList({ initialRoles }: RolesListProps) {
         )}
       </PageHeader>
       
-      {role !== 'admin' && (
+      {!canModify && (
         <Card className="mb-4 bg-yellow-50 border-yellow-200">
             <CardContent className="p-4">
                 <p className="text-yellow-800">Solo los administradores pueden gestionar roles.</p>
@@ -62,6 +62,9 @@ export function RolesList({ initialRoles }: RolesListProps) {
       )}
 
       <Card>
+        <CardHeader>
+            <CardTitle>Listado de Roles</CardTitle>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>

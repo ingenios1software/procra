@@ -1,3 +1,5 @@
+"use client";
+
 import { UsuariosList } from "@/components/usuarios/usuarios-list";
 import { mockUsuarios, mockRoles } from "@/lib/mock-data";
 

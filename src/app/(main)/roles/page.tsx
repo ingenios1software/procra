@@ -1,3 +1,5 @@
+"use client";
+
 import { RolesList } from "@/components/roles/roles-list";
 import { mockRoles } from "@/lib/mock-data";
 
