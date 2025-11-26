@@ -1,4 +1,4 @@
-import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta } from './types';
+import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario } from './types';
 
 export const mockParcelas: Parcela[] = [
   { id: 'p1', nombre: 'Lote Norte 1', codigo: 'LN-001', superficie: 50, ubicacion: 'GPS: -34.5, -58.4', estado: 'activa' },
@@ -88,4 +88,40 @@ export const mockVentas: Venta[] = [
     { id: 'venta1', cultivoId: 'c3', parcelaId: 'p2', zafraId: 'z3', toneladas: 150, precioTonelada: 280, fecha: new Date('2024-08-01') },
     { id: 'venta2', cultivoId: 'c2', parcelaId: 'p3', zafraId: 'z2', toneladas: 840, precioTonelada: 310, fecha: new Date('2024-10-05') },
     { id: 'venta3', cultivoId: 'c1', parcelaId: 'p1', zafraId: 'z2', toneladas: 200, precioTonelada: 450, fecha: new Date('2024-11-15') },
+];
+
+export const mockPlanDeCuentas: PlanDeCuenta[] = [
+  { id: '1', codigo: '1.01.01', nombre: 'Caja', tipo: 'activo', naturaleza: 'deudora' },
+  { id: '2', codigo: '2.01.01', nombre: 'Proveedores', tipo: 'pasivo', naturaleza: 'acreedora' },
+  { id: '3', codigo: '4.01.01', nombre: 'Venta de Granos', tipo: 'ingreso', naturaleza: 'acreedora' },
+  { id: '4', codigo: '5.01.01', nombre: 'Costo de Insumos', tipo: 'costo', naturaleza: 'deudora' },
+  { id: '5', codigo: '5.01.02', nombre: 'Costo de Combustible', tipo: 'costo', naturaleza: 'deudora' },
+];
+
+export const mockCentrosDeCosto: CentroDeCosto[] = [
+  { id: 'cc1', nombre: 'Campo General', descripcion: 'Costos generales del establecimiento', categoria: 'campo' },
+  { id: 'cc2', nombre: 'Lote Norte 1', descripcion: 'Costos asociados a la parcela LN-001', categoria: 'parcela' },
+  { id: 'cc3', nombre: 'Cultivo Soja 24/25', descripcion: 'Costos del cultivo de Soja', categoria: 'cultivo' },
+  { id: 'cc4', nombre: 'Tractor John Deere', descripcion: 'Costos de maquinaria', categoria: 'maquinaria' },
+];
+
+export const mockAsientosDiario: AsientoDiario[] = [
+  {
+    id: 'as1',
+    fecha: new Date('2024-09-05'),
+    descripcion: 'Compra de semillas de Soja',
+    movimientos: [
+      { cuentaId: '4', tipo: 'debe', monto: 2400, centroCostoId: 'cc3' },
+      { cuentaId: '1', tipo: 'haber', monto: 2400 },
+    ],
+  },
+  {
+    id: 'as2',
+    fecha: new Date('2024-08-01'),
+    descripcion: 'Venta de cosecha de Trigo',
+    movimientos: [
+      { cuentaId: '1', tipo: 'debe', monto: 42000 },
+      { cuentaId: '3', tipo: 'haber', monto: 42000, centroCostoId: 'cc2' },
+    ],
+  },
 ];

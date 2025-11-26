@@ -70,8 +70,8 @@ const navItems = [
             { href: "/eventos", icon: ClipboardList, label: "Eventos" },
             { href: "/stock", icon: Boxes, label: "Stock" },
             { href: "/maquinaria", icon: Wrench, label: "Maquinaria" },
-            { href: "#", icon: Bug, label: "Plagas" },
-            { href: "#", icon: ListTree, label: "Etapas del Cultivo" },
+            { href: "#", icon: Bug, label: "Plagas", isComingSoon: true },
+            { href: "#", icon: ListTree, label: "Etapas del Cultivo", isComingSoon: true },
         ]
     },
     {
@@ -88,18 +88,18 @@ const navItems = [
         title: "Contabilidad",
         icon: Book,
         links: [
-            { href: "#", icon: ListTree, label: "Plan de Cuentas" },
-            { href: "#", icon: DollarSign, label: "Centros de Costo" },
-            { href: "#", icon: FileText, label: "Diario" },
-            { href: "#", icon: FileText, label: "Mayor" },
+            { href: "/contabilidad/plan-de-cuentas", icon: ListTree, label: "Plan de Cuentas" },
+            { href: "/contabilidad/centros-de-costo", icon: DollarSign, label: "Centros de Costo" },
+            { href: "/contabilidad/diario", icon: FileText, label: "Diario" },
+            { href: "/contabilidad/mayor", icon: FileText, label: "Mayor" },
         ]
     },
     {
         title: "RRHH",
         icon: Users,
         links: [
-            { href: "#", icon: Briefcase, label: "Empleados" },
-            { href: "#", icon: UserCheck, label: "Asistencias" },
+            { href: "#", icon: Briefcase, label: "Empleados", isComingSoon: true },
+            { href: "#", icon: UserCheck, label: "Asistencias", isComingSoon: true },
         ]
     },
     {
@@ -108,16 +108,16 @@ const navItems = [
         links: [
             { href: "/usuarios", icon: Users, label: "Usuarios" },
             { href: "/roles", icon: Shield, label: "Roles" },
-            { href: "#", icon: History, label: "Auditoría" },
+            { href: "#", icon: History, label: "Auditoría", isComingSoon: true },
             { href: "/configuracion", icon: Settings, label: "Configuración" },
             { href: "/acerca-de", icon: Info, label: "Acerca de" },
         ]
     }
 ];
 
-const NavLink = ({ link, isCollapsed, pathname }: { link: { href: string, icon: React.ElementType, label: string }, isCollapsed: boolean, pathname: string }) => {
-  const isActive = pathname.startsWith(link.href) && link.href !== "#";
-  const isComingSoon = link.href === "#";
+const NavLink = ({ link, isCollapsed, pathname }: { link: { href: string, icon: React.ElementType, label: string, isComingSoon?: boolean }, isCollapsed: boolean, pathname: string }) => {
+  const isActive = pathname.startsWith(link.href) && !link.isComingSoon;
+  const isComingSoon = link.isComingSoon;
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -133,7 +133,7 @@ const NavLink = ({ link, isCollapsed, pathname }: { link: { href: string, icon: 
               )}
               disabled={isComingSoon}
             >
-              <Link href={link.href}>
+              <Link href={isComingSoon ? "#" : link.href}>
                 <link.icon className="h-5 w-5" />
                 {!isCollapsed && <span className="ml-4">{link.label}</span>}
                 {isComingSoon && !isCollapsed && <Badge variant="outline" className="ml-auto text-xs">Próximamente</Badge>}
@@ -155,7 +155,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [openSections, setOpenSections] = React.useState<string[]>(
-    navItems.filter(section => section.links.some(link => pathname.startsWith(link.href) && link.href !== "#")).map(s => s.title)
+    navItems.filter(section => section.links.some(link => pathname.startsWith(link.href) && !link.isComingSoon)).map(s => s.title)
   );
 
   return (

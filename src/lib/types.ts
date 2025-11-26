@@ -128,3 +128,31 @@ export type Venta = {
     precioTonelada: number;
     fecha: Date;
 };
+
+// --- CONTABILIDAD ---
+export type PlanDeCuenta = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  tipo: 'activo' | 'pasivo' | 'patrimonio' | 'ingreso' | 'costo' | 'gasto';
+  naturaleza: 'deudora' | 'acreedora';
+};
+
+export type CentroDeCosto = {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  categoria: 'campo' | 'parcela' | 'cultivo' | 'maquinaria' | 'general';
+};
+
+export type AsientoDiario = {
+  id: string;
+  fecha: Date;
+  descripcion: string;
+  movimientos: {
+    cuentaId: string;
+    tipo: 'debe' | 'haber';
+    monto: number;
+    centroCostoId?: string;
+  }[];
+};
