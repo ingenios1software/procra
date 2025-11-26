@@ -29,13 +29,12 @@ export type Evento = {
   tipo: 'siembra' | 'fertilización' | 'riego' | 'cosecha' | 'mantenimiento' | 'plagas' | 'aplicacion';
   fecha: Date;
   descripcion: string;
-  
-  // Para tipo 'aplicacion'
-  insumos?: { insumoId: string; cantidad: number }[];
-  maquinarias?: { maquinariaId: string, horas: number }[];
-  costoReal?: number;
-  
-  // Campos climáticos
+  insumos?: string;
+  cantidad?: number;
+  unidad?: string;
+  resultado?: string;
+  dosis?: number;
+  insumoId?: string;
   temperatura?: number;
   humedad?: number;
   viento?: number;
@@ -69,10 +68,10 @@ export type Insumo = {
   id: string;
   nombre: string;
   categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'otros';
-  unidad: string;
+  unidad: 'kg' | 'lt' | 'unidad';
   stockActual: number;
   stockMinimo: number;
-  proveedorId?: string;
+  proveedor?: string;
   costoUnitario?: number;
 };
 
@@ -175,6 +174,12 @@ export type Compra = {
   }[];
 }
 
+export type Plaga = {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  cultivosAfectados: string[];
+};
 
 // --- CONTABILIDAD ---
 export type PlanDeCuenta = {

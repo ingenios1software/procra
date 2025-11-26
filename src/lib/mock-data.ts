@@ -1,4 +1,4 @@
-import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente, Compra } from './types';
+import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente, Compra, Plaga } from './types';
 
 export const mockParcelas: Parcela[] = [
   { id: 'p1', nombre: 'Lote Norte 1', codigo: 'LN-001', superficie: 50, ubicacion: 'GPS: -34.5, -58.4', estado: 'activa' },
@@ -21,22 +21,22 @@ export const mockZafras: Zafra[] = [
   { id: 'z4', nombre: 'Zafra 2025/2026', fechaInicio: new Date('2025-09-01'), fechaFin: new Date('2026-08-31'), estado: 'planificada' },
 ];
 
-const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], daysAgo: number, desc: string, insumos?: {insumoId: string, cantidad: number}[], costoReal?: number, maquinarias?: {maquinariaId: string, horas: number}[]) => {
+const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], daysAgo: number, desc: string) => {
     const fecha = new Date();
     fecha.setDate(fecha.getDate() - daysAgo);
-    return { id, parcelaId, cultivoId, zafraId, tipo, fecha, descripcion: desc, costoReal, insumos, maquinarias };
+    return { id, parcelaId, cultivoId, zafraId, tipo, fecha, descripcion: desc, insumos: 'Varios', cantidad: 50, unidad: 'kg', resultado: 'Exitoso' };
 };
 
 export const mockEventos: Evento[] = [
-  generateEvent('e1', 'p1', 'c1', 'z2', 'siembra', 60, 'Siembra de Soja en Lote Norte 1.', [{insumoId: 'i3', cantidad: 200}], 3500),
-  generateEvent('e2', 'p3', 'c2', 'z2', 'fertilización', 45, 'Aplicación de urea.', [{insumoId: 'i1', cantidad: 500}], 400),
-  generateEvent('e3', 'p1', 'c1', 'z2', 'riego', 35, 'Riego por aspersión.', [], 200),
-  generateEvent('e4', 'p2', 'c3', 'z3', 'cosecha', 120, 'Cosecha de Trigo.', [], 5000),
-  generateEvent('e5', 'p3', 'c2', 'z2', 'plagas', 5, 'Monitoreo de isoca.', [{insumoId: 'i2', cantidad: 10}], 600),
-  generateEvent('e6', 'p1', 'c1', 'z2', 'mantenimiento', 15, 'Limpieza de cabeceras.', [], 150),
-  generateEvent('e7', 'p2', 'c3', 'z3', 'siembra', 180, 'Siembra de Trigo de invierno', [{insumoId: 'i3', cantidad: 180}], 3200),
-  generateEvent('e8', 'p3', 'c2', 'z2', 'cosecha', 2, 'Cosecha de Maíz finalizada.', [], 8000),
-  generateEvent('e9', 'p4', 'c4', 'z2', 'siembra', 40, 'Siembra de Girasol', [{insumoId: 'i3', cantidad: 80}], 1800),
+  generateEvent('e1', 'p1', 'c1', 'z2', 'siembra', 60, 'Siembra de Soja en Lote Norte 1.'),
+  generateEvent('e2', 'p3', 'c2', 'z2', 'fertilización', 45, 'Aplicación de urea.'),
+  generateEvent('e3', 'p1', 'c1', 'z2', 'riego', 35, 'Riego por aspersión.'),
+  generateEvent('e4', 'p2', 'c3', 'z3', 'cosecha', 120, 'Cosecha de Trigo.'),
+  generateEvent('e5', 'p3', 'c2', 'z2', 'plagas', 5, 'Monitoreo de isoca.'),
+  generateEvent('e6', 'p1', 'c1', 'z2', 'mantenimiento', 15, 'Limpieza de cabeceras.'),
+  generateEvent('e7', 'p2', 'c3', 'z3', 'siembra', 180, 'Siembra de Trigo de invierno'),
+  generateEvent('e8', 'p3', 'c2', 'z2', 'cosecha', 2, 'Cosecha de Maíz finalizada.'),
+  generateEvent('e9', 'p4', 'c4', 'z2', 'siembra', 40, 'Siembra de Girasol'),
 ];
 
 export const mockRoles: Rol[] = [
@@ -58,10 +58,10 @@ export const mockUsuarios: Usuario[] = [
 ];
 
 export const mockInsumos: Insumo[] = [
-    { id: 'i1', nombre: 'Urea', categoria: 'fertilizante', unidad: 'kg', stockActual: 1500, stockMinimo: 500, proveedorId: 'prov1', costoUnitario: 0.8 },
-    { id: 'i2', nombre: 'Glifosato', categoria: 'herbicida', unidad: 'lt', stockActual: 200, stockMinimo: 50, proveedorId: 'prov2', costoUnitario: 12.5 },
-    { id: 'i3', nombre: 'Semillas de Soja DM 4800', categoria: 'semilla', unidad: 'kg', stockActual: 800, stockMinimo: 200, proveedorId: 'prov1', costoUnitario: 1.2 },
-    { id: 'i4', nombre: 'Fungicida Triple', categoria: 'fungicida', unidad: 'lt', stockActual: 80, stockMinimo: 20, proveedorId: 'prov2', costoUnitario: 25 },
+    { id: 'i1', nombre: 'Urea', categoria: 'fertilizante', unidad: 'kg', stockActual: 1500, stockMinimo: 500, proveedor: 'AgroPro S.A.', costoUnitario: 0.8 },
+    { id: 'i2', nombre: 'Glifosato', categoria: 'herbicida', unidad: 'lt', stockActual: 200, stockMinimo: 50, proveedor: 'ChemCo Paraguay', costoUnitario: 12.5 },
+    { id: 'i3', nombre: 'Semillas de Soja DM 4800', categoria: 'semilla', unidad: 'kg', stockActual: 800, stockMinimo: 200, proveedor: 'AgroPro S.A.', costoUnitario: 1.2 },
+    { id: 'i4', nombre: 'Fungicida Triple', categoria: 'fungicida', unidad: 'lt', stockActual: 80, stockMinimo: 20, proveedor: 'ChemCo Paraguay', costoUnitario: 25 },
 ];
 
 export const mockMaquinarias: Maquinaria[] = [
@@ -140,4 +140,10 @@ export const mockClientes: Cliente[] = [
 export const mockCompras: Compra[] = [
     { id: 'comp1', proveedorId: 'prov1', fecha: new Date('2024-10-01'), numeroDocumento: '001-001-001234', tipoDocumento: 'Factura', condicion: 'Crédito', total: 1500, estado: 'Aprobado', items: [{ insumoId: 'i1', cantidad: 1000, precioUnitario: 1.5 }] },
     { id: 'comp2', proveedorId: 'prov2', fecha: new Date('2024-10-05'), numeroDocumento: '001-002-005678', tipoDocumento: 'Factura', condicion: 'Contado', total: 2500, estado: 'Pagado', items: [{ insumoId: 'i2', cantidad: 200, precioUnitario: 12.5 }] },
+];
+
+export const mockPlagas: Plaga[] = [
+    { id: 'plaga1', nombre: 'Roya de la Soja', descripcion: 'Enfermedad fúngica causada por Phakopsora pachyrhizi.', cultivosAfectados: ['c1'] },
+    { id: 'plaga2', nombre: 'Isoca de la Espiga', descripcion: 'Larva de la polilla Helicoverpa zea que ataca el maíz.', cultivosAfectados: ['c2'] },
+    { id: 'plaga3', nombre: 'Pulgón del Trigo', descripcion: 'Insecto que se alimenta de la savia del trigo.', cultivosAfectados: ['c3'] },
 ];
