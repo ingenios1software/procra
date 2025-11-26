@@ -1,16 +1,179 @@
+"use client";
+
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  mockAsientosDiario,
+  mockPlanDeCuentas,
+  mockCentrosDeCosto,
+} from "@/lib/mock-data";
+import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export default function DiarioPage() {
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const toggleRow = (id: string) => {
+    const newSet = new Set(expandedRows);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setExpandedRows(newSet);
+  };
+
+  const getCuentaNombre = (id: string) =>
+    mockPlanDeCuentas.find((c) => c.id === id)?.nombre || "N/A";
+  const getCentroCostoNombre = (id: string) =>
+    mockCentrosDeCosto.find((cc) => cc.id === id)?.nombre || "N/A";
+
   return (
     <>
       <PageHeader
         title="Libro Diario"
-        description="Consulte los asientos contables registrados."
+        description="Consulte los asientos contables registrados en el sistema."
       />
       <Card>
-        <CardContent className="p-6">
-          <p>Módulo de Libro Diario en construcción.</p>
+        <CardHeader>
+          <CardTitle>Asientos Contables</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]"></TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Descripción del Asiento</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {mockAsientosDiario
+                .sort((a, b) => b.fecha.getTime() - a.fecha.getTime())
+                .map((asiento) => {
+                  const isExpanded = expandedRows.has(asiento.id);
+                  const total = asiento.movimientos
+                    .filter((m) => m.tipo === "debe")
+                    .reduce((sum, m) => sum + m.monto, 0);
+
+                  return (
+                    <>
+                      <TableRow
+                        key={asiento.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => toggleRow(asiento.id)}
+                      >
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(asiento.fecha), "dd/MM/yyyy")}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {asiento.descripcion}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          ${total.toLocaleString("es-AR")}
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow className="bg-muted/30 hover:bg-muted/40">
+                          <TableCell colSpan={4} className="p-0">
+                            <div className="p-4">
+                              <h4 className="font-semibold mb-2 ml-2">
+                                Detalle del Asiento:
+                              </h4>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Cuenta Contable</TableHead>
+                                    <TableHead>Centro de Costo</TableHead>
+                                    <TableHead className="text-right">
+                                      Debe
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                      Haber
+                                    </TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {asiento.movimientos.map((mov, index) => (
+                                    <TableRow key={index} className="border-b-0">
+                                      <TableCell>
+                                        {getCuentaNombre(mov.cuentaId)}
+                                      </TableCell>
+                                      <TableCell>
+                                        {mov.centroCostoId ? (
+                                          <Badge variant="secondary">
+                                            {getCentroCostoNombre(
+                                              mov.centroCostoId
+                                            )}
+                                          </Badge>
+                                        ) : (
+                                          "N/A"
+                                        )}
+                                      </TableCell>
+                                      <TableCell
+                                        className={cn(
+                                          "text-right font-mono",
+                                          mov.tipo === "debe" && "text-green-600"
+                                        )}
+                                      >
+                                        {mov.tipo === "debe"
+                                          ? `$${mov.monto.toLocaleString(
+                                              "es-AR"
+                                            )}`
+                                          : "-"}
+                                      </TableCell>
+                                      <TableCell
+                                        className={cn(
+                                          "text-right font-mono",
+                                          mov.tipo === "haber" && "text-red-600"
+                                        )}
+                                      >
+                                        {mov.tipo === "haber"
+                                          ? `$${mov.monto.toLocaleString(
+                                              "es-AR"
+                                            )}`
+                                          : "-"}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
+                  );
+                })}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </>
