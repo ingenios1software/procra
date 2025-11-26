@@ -1,3 +1,5 @@
+"use client";
+
 import { ParcelasList } from "@/components/parcelas/parcelas-list";
 import { mockParcelas } from "@/lib/mock-data";
 

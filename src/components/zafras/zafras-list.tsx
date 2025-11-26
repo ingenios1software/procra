@@ -122,8 +122,8 @@ export function ZafrasList({ initialZafras }: ZafrasListProps) {
               {zafras.map((zafra) => (
                 <TableRow key={zafra.id}>
                   <TableCell className="font-medium">{zafra.nombre}</TableCell>
-                  <TableCell>{format(zafra.fechaInicio, "dd/MM/yyyy")}</TableCell>
-                  <TableCell>{zafra.fechaFin ? format(zafra.fechaFin, "dd/MM/yyyy") : 'N/A'}</TableCell>
+                  <TableCell>{format(new Date(zafra.fechaInicio), "dd/MM/yyyy")}</TableCell>
+                  <TableCell>{zafra.fechaFin ? format(new Date(zafra.fechaFin), "dd/MM/yyyy") : 'N/A'}</TableCell>
                   <TableCell>
                     <Badge 
                       className={cn('capitalize', {
