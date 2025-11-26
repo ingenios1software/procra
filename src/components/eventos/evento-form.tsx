@@ -4,7 +4,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -20,6 +19,7 @@ import { format } from "date-fns";
 import { mockInsumos, mockEventos, mockZafras, mockEtapasCultivo } from "@/lib/mock-data";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
 import { useMemo } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   parcelaId: z.string().nonempty("Debe seleccionar una parcela."),
@@ -52,10 +52,11 @@ interface EventoFormProps {
   parcelas: Parcela[];
   cultivos: Cultivo[];
   zafras: Zafra[];
+  onCancel: () => void;
 }
 
-export function EventoForm({ evento, parcelas, cultivos, zafras }: EventoFormProps) {
-  const router = useRouter();
+export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: EventoFormProps) {
+  const { toast } = useToast();
   const form = useForm<EventoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: evento ? {
@@ -84,21 +85,11 @@ export function EventoForm({ evento, parcelas, cultivos, zafras }: EventoFormPro
 
   const handleSubmit = (data: EventoFormValues) => {
     console.log("Evento guardado:", data);
-    // Lógica para descontar stock y crear costo si es aplicación
-    if (data.tipo === 'aplicacion' && data.insumoId && data.dosis) {
-      const insumo = mockInsumos.find(i => i.id === data.insumoId);
-      if (insumo) {
-        console.log(`Descontando ${data.dosis} de ${insumo.nombre}`);
-        // Aquí iría la lógica de API
-        const costo = data.dosis * (insumo.costoUnitario || 0);
-        console.log(`Registrando costo de $${costo}`);
-      }
-    }
-    // Lógica para cambiar estado de parcela a 'en barbecho' si es cosecha
-    if (data.tipo === 'cosecha') {
-        console.log(`Cambiando estado de parcela ${data.parcelaId} a 'en barbecho'`);
-    }
-    router.push("/eventos");
+    toast({
+        title: `Evento ${evento ? 'actualizado' : 'creado'}`,
+        description: `El evento "${data.descripcion}" ha sido guardado.`,
+    });
+    onCancel(); // Close the dialog
   };
 
   return (
@@ -366,7 +357,7 @@ export function EventoForm({ evento, parcelas, cultivos, zafras }: EventoFormPro
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
+                <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
                 <Button type="submit">{evento ? "Guardar Cambios" : "Registrar Evento"}</Button>
               </div>
             </form>
@@ -376,5 +367,3 @@ export function EventoForm({ evento, parcelas, cultivos, zafras }: EventoFormPro
     </>
   );
 }
-
-    

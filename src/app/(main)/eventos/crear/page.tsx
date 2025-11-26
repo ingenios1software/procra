@@ -1,11 +1,13 @@
-
 "use client";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { EventoForm } from "@/components/eventos/evento-form";
 import { mockParcelas, mockCultivos, mockZafras } from "@/lib/mock-data";
+import { useRouter } from "next/navigation";
 
 export default function CrearEventoPage() {
+  const router = useRouter();
+
   return (
     <>
       <PageHeader
@@ -16,6 +18,7 @@ export default function CrearEventoPage() {
         parcelas={mockParcelas}
         cultivos={mockCultivos}
         zafras={mockZafras}
+        onCancel={() => router.push('/eventos')}
       />
     </>
   );
