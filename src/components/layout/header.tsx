@@ -41,14 +41,23 @@ export function Header() {
                 <Button asChild variant="ghost" className="justify-start">
                     <a href="/eventos">Eventos</a>
                 </Button>
-                <Button asChild variant="ghost" className="justify-start">
-                    <a href="/configuracion">Configuración</a>
+                 <Button asChild variant="ghost" className="justify-start">
+                    <a href="/stock">Stock</a>
+                </Button>
+                 <Button asChild variant="ghost" className="justify-start">
+                    <a href="/maquinaria">Maquinaria</a>
                 </Button>
                 <Button asChild variant="ghost" className="justify-start">
                     <a href="/usuarios">Usuarios</a>
                 </Button>
                  <Button asChild variant="ghost" className="justify-start">
                     <a href="/roles">Roles</a>
+                </Button>
+                <Button asChild variant="ghost" className="justify-start">
+                    <a href="/configuracion">Configuración</a>
+                </Button>
+                 <Button asChild variant="ghost" className="justify-start">
+                    <a href="/acerca-de">Acerca de</a>
                 </Button>
             </nav>
           </SheetContent>

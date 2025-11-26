@@ -18,6 +18,7 @@ import {
   Warehouse,
   Wrench,
   Boxes,
+  Info,
 } from "lucide-react"
 import {
   Accordion,
@@ -63,6 +64,7 @@ const navItems = [
             { href: "/usuarios", icon: Users, label: "Usuarios" },
             { href: "/roles", icon: Shield, label: "Roles" },
             { href: "/configuracion", icon: Settings, label: "Configuración" },
+            { href: "/acerca-de", icon: Info, label: "Acerca de" },
         ]
     }
 ];
