@@ -21,22 +21,22 @@ export const mockZafras: Zafra[] = [
   { id: 'z4', nombre: 'Zafra 2025/2026', fechaInicio: new Date('2025-09-01'), fechaFin: new Date('2026-08-31'), estado: 'planificada' },
 ];
 
-const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], daysAgo: number, desc: string, insumos?: string, cantidad?: number, unidad?: string) => {
+const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], daysAgo: number, desc: string, insumos?: {insumoId: string, cantidad: number}[], costoReal?: number, maquinarias?: {maquinariaId: string, horas: number}[]) => {
     const fecha = new Date();
     fecha.setDate(fecha.getDate() - daysAgo);
-    return { id, parcelaId, cultivoId, zafraId, tipo, fecha, descripcion: desc, insumos, cantidad, unidad };
+    return { id, parcelaId, cultivoId, zafraId, tipo, fecha, descripcion: desc, costoReal, insumos, maquinarias };
 };
 
 export const mockEventos: Evento[] = [
-  generateEvent('e1', 'p1', 'c1', 'z2', 'siembra', 60, 'Siembra de Soja en Lote Norte 1.', 'Semillas Gen_V', 200, 'kg'),
-  generateEvent('e2', 'p3', 'c2', 'z2', 'fertilización', 45, 'Aplicación de urea.', 'Urea', 500, 'kg'),
-  generateEvent('e3', 'p1', 'c1', 'z2', 'riego', 35, 'Riego por aspersión.', undefined, 20, 'mm'),
-  generateEvent('e4', 'p2', 'c3', 'z3', 'cosecha', 120, 'Cosecha de Trigo.', undefined, undefined, undefined),
-  generateEvent('e5', 'p3', 'c2', 'z2', 'plagas', 5, 'Monitoreo de isoca.', 'Insecticida X', undefined, 'lt'),
-  generateEvent('e6', 'p1', 'c1', 'z2', 'mantenimiento', 15, 'Limpieza de cabeceras.', undefined, undefined, undefined),
-  generateEvent('e7', 'p2', 'c3', 'z3', 'siembra', 180, 'Siembra de Trigo de invierno', 'Semillas InviernoMax', 180, 'kg'),
-  generateEvent('e8', 'p3', 'c2', 'z2', 'cosecha', 2, 'Cosecha de Maíz finalizada.', undefined, 7, 'ton/ha'),
-  generateEvent('e9', 'p4', 'c4', 'z2', 'siembra', 40, 'Siembra de Girasol', 'Semillas SolAR', 80, 'kg'),
+  generateEvent('e1', 'p1', 'c1', 'z2', 'siembra', 60, 'Siembra de Soja en Lote Norte 1.', [{insumoId: 'i3', cantidad: 200}], 3500),
+  generateEvent('e2', 'p3', 'c2', 'z2', 'fertilización', 45, 'Aplicación de urea.', [{insumoId: 'i1', cantidad: 500}], 400),
+  generateEvent('e3', 'p1', 'c1', 'z2', 'riego', 35, 'Riego por aspersión.', [], 200),
+  generateEvent('e4', 'p2', 'c3', 'z3', 'cosecha', 120, 'Cosecha de Trigo.', [], 5000),
+  generateEvent('e5', 'p3', 'c2', 'z2', 'plagas', 5, 'Monitoreo de isoca.', [{insumoId: 'i2', cantidad: 10}], 600),
+  generateEvent('e6', 'p1', 'c1', 'z2', 'mantenimiento', 15, 'Limpieza de cabeceras.', [], 150),
+  generateEvent('e7', 'p2', 'c3', 'z3', 'siembra', 180, 'Siembra de Trigo de invierno', [{insumoId: 'i3', cantidad: 180}], 3200),
+  generateEvent('e8', 'p3', 'c2', 'z2', 'cosecha', 2, 'Cosecha de Maíz finalizada.', [], 8000),
+  generateEvent('e9', 'p4', 'c4', 'z2', 'siembra', 40, 'Siembra de Girasol', [{insumoId: 'i3', cantidad: 80}], 1800),
 ];
 
 export const mockRoles: Rol[] = [
@@ -58,10 +58,10 @@ export const mockUsuarios: Usuario[] = [
 ];
 
 export const mockInsumos: Insumo[] = [
-    { id: 'i1', nombre: 'Urea', categoria: 'fertilizante', unidad: 'kg', stockActual: 1500, stockMinimo: 500, proveedor: 'AgroPro', costoUnitario: 0.8 },
-    { id: 'i2', nombre: 'Glifosato', categoria: 'herbicida', unidad: 'lt', stockActual: 200, stockMinimo: 50, proveedor: 'ChemCo', costoUnitario: 12.5 },
-    { id: 'i3', nombre: 'Semillas de Soja DM 4800', categoria: 'semilla', unidad: 'kg', stockActual: 800, stockMinimo: 200, proveedor: 'SemillasSur', costoUnitario: 1.2 },
-    { id: 'i4', nombre: 'Fungicida Triple', categoria: 'fungicida', unidad: 'lt', stockActual: 80, stockMinimo: 20, proveedor: 'ChemCo', costoUnitario: 25 },
+    { id: 'i1', nombre: 'Urea', categoria: 'fertilizante', unidad: 'kg', stockActual: 1500, stockMinimo: 500, proveedorId: 'prov1', costoUnitario: 0.8 },
+    { id: 'i2', nombre: 'Glifosato', categoria: 'herbicida', unidad: 'lt', stockActual: 200, stockMinimo: 50, proveedorId: 'prov2', costoUnitario: 12.5 },
+    { id: 'i3', nombre: 'Semillas de Soja DM 4800', categoria: 'semilla', unidad: 'kg', stockActual: 800, stockMinimo: 200, proveedorId: 'prov1', costoUnitario: 1.2 },
+    { id: 'i4', nombre: 'Fungicida Triple', categoria: 'fungicida', unidad: 'lt', stockActual: 80, stockMinimo: 20, proveedorId: 'prov2', costoUnitario: 25 },
 ];
 
 export const mockMaquinarias: Maquinaria[] = [
@@ -127,14 +127,14 @@ export const mockAsientosDiario: AsientoDiario[] = [
 ];
 
 export const mockProveedores: Proveedor[] = [
-    { id: 'prov1', nombre: 'AgroPro S.A.', ruc: '80012345-1', direccion: 'Ruta 1 Km 50', telefono: '0981123456', email: 'ventas@agropro.com', activo: true },
-    { id: 'prov2', nombre: 'ChemCo Paraguay', ruc: '80054321-2', direccion: 'Av. Aviadores 1234', telefono: '021654321', email: 'info@chemco.com.py', activo: true },
-    { id: 'prov3', nombre: 'Maquinarias S.R.L.', ruc: '80099887-3', activo: false },
+    { id: 'prov1', nombre: 'AgroPro S.A.', ruc: '80012345-1', direccion: 'Ruta 1 Km 50', telefono: '0981123456', email: 'ventas@agropro.com', activo: true, ciudad: 'Ypacaraí', pais: 'Paraguay', contacto: 'Juan Pérez' },
+    { id: 'prov2', nombre: 'ChemCo Paraguay', ruc: '80054321-2', direccion: 'Av. Aviadores 1234', telefono: '021654321', email: 'info@chemco.com.py', activo: true, ciudad: 'Asunción', pais: 'Paraguay', contacto: 'María Gómez' },
+    { id: 'prov3', nombre: 'Maquinarias S.R.L.', ruc: '80099887-3', activo: false, ciudad: 'CDE', pais: 'Paraguay' },
 ];
 
 export const mockClientes: Cliente[] = [
-    { id: 'cli1', nombre: 'Granos del Sur S.A.E.C.A.', ruc: '80098765-3', direccion: 'Puerto de Villeta', telefono: '0971987654', email: 'compras@granosdelsur.com', activo: true },
-    { id: 'cli2', nombre: 'Aceitera Central S.A.', ruc: '80011223-4', direccion: 'Mariano R. Alonso', telefono: '021789456', email: 'acopio@aceiteracentral.com.py', activo: true },
+    { id: 'cli1', nombre: 'Granos del Sur S.A.E.C.A.', ruc: '80098765-3', direccion: 'Puerto de Villeta', telefono: '0971987654', email: 'compras@granosdelsur.com', activo: true, ciudad: 'Villeta', pais: 'Paraguay', tipoCliente: 'acopiador' },
+    { id: 'cli2', nombre: 'Aceitera Central S.A.', ruc: '80011223-4', direccion: 'Mariano R. Alonso', telefono: '021789456', email: 'acopio@aceiteracentral.com.py', activo: true, ciudad: 'Mariano R. Alonso', pais: 'Paraguay', tipoCliente: 'industria' },
 ];
 
 export const mockCompras: Compra[] = [

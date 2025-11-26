@@ -1,0 +1,113 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, PlusCircle, Download } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
+import type { Cliente } from "@/lib/types";
+import { useAuth } from "@/hooks/use-auth";
+import { Badge } from "@/components/ui/badge";
+
+interface ClientesListProps {
+  initialClientes: Cliente[];
+}
+
+export function ClientesList({ initialClientes }: ClientesListProps) {
+  const [clientes, setClientes] = useState(initialClientes);
+  const { role } = useAuth();
+  const canModify = role === 'admin' || role === 'gerente';
+
+  const handleToggleActive = (id: string) => {
+    setClientes(prev =>
+      prev.map(c => (c.id === id ? { ...c, activo: !c.activo } : c))
+    );
+  };
+  
+  const handleExportPDF = () => {
+    alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
+  };
+
+  return (
+    <>
+      <PageHeader
+        title="Clientes"
+        description="Gestione la cartera de clientes de la empresa."
+      >
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportPDF}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar PDF
+          </Button>
+          {canModify && (
+            <Button asChild>
+              <Link href="/comercial/clientes/crear">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nuevo Cliente
+              </Link>
+            </Button>
+          )}
+        </div>
+      </PageHeader>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Listado de Clientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>RUC</TableHead>
+                <TableHead>Teléfono</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Estado</TableHead>
+                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {clientes.map((cliente) => (
+                <TableRow key={cliente.id}>
+                  <TableCell className="font-medium">{cliente.nombre}</TableCell>
+                  <TableCell>{cliente.ruc}</TableCell>
+                  <TableCell>{cliente.telefono || 'N/A'}</TableCell>
+                  <TableCell>{cliente.email || 'N/A'}</TableCell>
+                  <TableCell>
+                    <Badge variant={cliente.activo ? 'default' : "destructive"}>
+                      {cliente.activo ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                  </TableCell>
+                  {canModify && (
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Abrir menú</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/comercial/clientes/${cliente.id}/editar`}>Editar</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleToggleActive(cliente.id)}>
+                            {cliente.activo ? 'Desactivar' : 'Activar'}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </>
+  );
+}

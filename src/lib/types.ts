@@ -31,17 +31,14 @@ export type Evento = {
   descripcion: string;
   
   // Para tipo 'aplicacion'
-  insumoId?: string;
-  dosis?: number;
+  insumos?: { insumoId: string; cantidad: number }[];
+  maquinarias?: { maquinariaId: string, horas: number }[];
+  costoReal?: number;
+  
+  // Campos climáticos
   temperatura?: number;
   humedad?: number;
   viento?: number;
-  
-  // Campos genéricos (para otros tipos de evento)
-  insumos?: string;
-  cantidad?: number;
-  unidad?: string;
-  resultado?: string;
 };
 
 
@@ -75,7 +72,7 @@ export type Insumo = {
   unidad: string;
   stockActual: number;
   stockMinimo: number;
-  proveedor?: string;
+  proveedorId?: string;
   costoUnitario?: number;
 };
 
@@ -137,7 +134,13 @@ export type Proveedor = {
   direccion?: string;
   telefono?: string;
   email?: string;
+  ciudad?: string;
+  pais?: string;
+  contacto?: string;
   activo: boolean;
+  observaciones?: string;
+  fechaRegistro?: Date;
+  creadoPor?: string;
 };
 
 export type Cliente = {
@@ -147,7 +150,13 @@ export type Cliente = {
   direccion?: string;
   telefono?: string;
   email?: string;
+  ciudad?: string;
+  pais?: string;
+  tipoCliente?: 'productor' | 'acopiador' | 'industria' | 'exportadora' | 'interno';
   activo: boolean;
+  observaciones?: string;
+  fechaRegistro?: Date;
+  creadoPor?: string;
 };
 
 export type Compra = {

@@ -82,8 +82,8 @@ const navItems = [
         links: [
             { href: "/comercial/compras", icon: ShoppingBag, label: "Compras" },
             { href: "/comercial/ventas", icon: DollarSign, label: "Ventas" },
-            { href: "#", icon: Users, label: "Proveedores", isComingSoon: true },
-            { href: "#", icon: Users, label: "Clientes", isComingSoon: true },
+            { href: "/comercial/proveedores", icon: Users, label: "Proveedores" },
+            { href: "/comercial/clientes", icon: Users, label: "Clientes" },
         ]
     },
     {
