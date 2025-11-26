@@ -60,7 +60,7 @@ export function DiarioList({ initialData, planDeCuentas, centrosDeCosto }: Diari
               <AccordionItem value={asiento.id} key={asiento.id}>
                 <AccordionTrigger>
                   <div className="flex justify-between w-full pr-4">
-                    <span className="font-medium">{format(asiento.fecha, "dd/MM/yyyy")} - {asiento.descripcion}</span>
+                    <span className="font-medium">{format(new Date(asiento.fecha), "dd/MM/yyyy")} - {asiento.descripcion}</span>
                     <Badge>Asiento #{asiento.id}</Badge>
                   </div>
                 </AccordionTrigger>

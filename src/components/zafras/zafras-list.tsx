@@ -54,10 +54,11 @@ export function ZafrasList({ initialZafras }: ZafrasListProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleCreate = (zafraData: Omit<Zafra, 'id'>) => {
+  const handleCreate = (zafraData: Omit<Zafra, 'id' | 'fechaFin'>) => {
     const newZafra: Zafra = {
       ...zafraData,
       id: `z${zafras.length + 1}`,
+      fechaInicio: new Date(zafraData.fechaInicio),
       fechaFin: zafraData.fechaFin ? new Date(zafraData.fechaFin) : undefined
     };
     setZafras(prev => [...prev, newZafra]);
@@ -65,7 +66,12 @@ export function ZafrasList({ initialZafras }: ZafrasListProps) {
   };
 
   const handleUpdate = (updatedZafra: Zafra) => {
-    setZafras(prev => prev.map(z => z.id === updatedZafra.id ? updatedZafra : z));
+     const dataToSave = { 
+      ...updatedZafra,
+      fechaInicio: new Date(updatedZafra.fechaInicio),
+      fechaFin: updatedZafra.fechaFin ? new Date(updatedZafra.fechaFin) : undefined
+    };
+    setZafras(prev => prev.map(z => z.id === dataToSave.id ? dataToSave : z));
     setEditDialogOpen(false);
     setSelectedZafra(null);
   };
@@ -193,7 +199,7 @@ export function ZafrasList({ initialZafras }: ZafrasListProps) {
       <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Editar Zafra</DialogTitle></DialogHeader>
-          {selectedZafra && <ZafraForm zafra={selectedZafra} onSubmit={(data) => handleUpdate({ ...data, id: selectedZafra.id, fechaFin: selectedZafra.fechaFin })} onCancel={() => setEditDialogOpen(false)} />}
+          {selectedZafra && <ZafraForm zafra={selectedZafra} onSubmit={(data) => handleUpdate({ ...selectedZafra, ...data })} onCancel={() => setEditDialogOpen(false)} />}
         </DialogContent>
       </Dialog>
     </>

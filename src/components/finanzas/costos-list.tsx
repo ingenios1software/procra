@@ -48,10 +48,11 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
   }, [costos, parcelas]);
 
   const handleSave = (costoData: Costo) => {
+    const dataToSave = { ...costoData, fecha: new Date(costoData.fecha) };
     if (selectedCosto) {
-      setCostos(prev => prev.map(c => c.id === costoData.id ? costoData : c));
+      setCostos(prev => prev.map(c => c.id === dataToSave.id ? dataToSave : c));
     } else {
-      setCostos(prev => [...prev, { ...costoData, id: `cost${prev.length + 1}` }]);
+      setCostos(prev => [...prev, { ...dataToSave, id: `cost${prev.length + 1}` }]);
     }
     setDialogOpen(false);
     setSelectedCosto(null);
@@ -169,7 +170,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
                 const parcela = parcelas.find(p => p.id === costo.parcelaId);
                 return (
                   <TableRow key={costo.id}>
-                    <TableCell>{format(costo.fecha, "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(costo.fecha), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{costo.descripcion}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize">{costo.tipo}</Badge></TableCell>
                     <TableCell>{parcela?.nombre || 'N/A'}</TableCell>

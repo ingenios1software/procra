@@ -24,7 +24,7 @@ type ZafraFormValues = z.infer<typeof formSchema>;
 
 interface ZafraFormProps {
   zafra?: Zafra;
-  onSubmit: (data: Omit<Zafra, 'id' | 'fechaFin'>) => void;
+  onSubmit: (data: Zafra) => void;
   onCancel: () => void;
 }
 
@@ -33,13 +33,17 @@ export function ZafraForm({ zafra, onSubmit, onCancel }: ZafraFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       nombre: zafra?.nombre || "",
-      fechaInicio: zafra?.fechaInicio || new Date(),
+      fechaInicio: zafra?.fechaInicio ? new Date(zafra.fechaInicio) : new Date(),
       estado: zafra?.estado || "planificada",
     },
   });
 
   const handleSubmit = (data: ZafraFormValues) => {
-    onSubmit(data);
+    onSubmit({
+      id: zafra?.id || "",
+      fechaFin: zafra?.fechaFin,
+      ...data,
+    });
   };
 
   return (

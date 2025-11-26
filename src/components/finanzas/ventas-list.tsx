@@ -44,10 +44,11 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos }: Ventas
   }, [ventas, parcelas]);
 
   const handleSave = (ventaData: Venta) => {
+    const dataToSave = { ...ventaData, fecha: new Date(ventaData.fecha) };
     if (selectedVenta) {
-      setVentas(prev => prev.map(v => v.id === ventaData.id ? ventaData : v));
+      setVentas(prev => prev.map(v => v.id === dataToSave.id ? dataToSave : v));
     } else {
-      setVentas(prev => [...prev, { ...ventaData, id: `venta${prev.length + 1}` }]);
+      setVentas(prev => [...prev, { ...dataToSave, id: `venta${prev.length + 1}` }]);
     }
     setDialogOpen(false);
     setSelectedVenta(null);
@@ -133,7 +134,7 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos }: Ventas
                 const total = venta.toneladas * venta.precioTonelada;
                 return (
                   <TableRow key={venta.id}>
-                    <TableCell>{format(venta.fecha, "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(venta.fecha), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{cultivo?.nombre || 'N/A'}</TableCell>
                     <TableCell>{venta.toneladas} tn</TableCell>
                     <TableCell>${venta.precioTonelada.toLocaleString('es-AR')}</TableCell>

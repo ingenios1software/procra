@@ -73,7 +73,7 @@ export const mockMaquinarias: Maquinaria[] = [
 
 export const mockMantenimientos: Mantenimiento[] = [
     { id: 'mt1', maquinariaId: 'm1', fecha: new Date('2024-05-15'), tipo: 'cambio aceite', costo: 350, notas: 'Cambio de aceite y filtro de motor.' },
-    { id: 'mt2', maquinariaId: 'm3', fecha: new Date(), tipo: 'reparación', costo: 1200, notas: 'Reparación de sistema hidráulico de plataforma.' },
+    { id: 'mt2', maquinariaId: 'm3', fecha: new Date('2024-07-20'), tipo: 'reparación', costo: 1200, notas: 'Reparación de sistema hidráulico de plataforma.' },
 ];
 
 export const mockCostos: Costo[] = [

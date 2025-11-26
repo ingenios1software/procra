@@ -30,7 +30,7 @@ export function MayorView({ asientos, cuentas }: MayorViewProps) {
       .flatMap(asiento => 
         asiento.movimientos
           .filter(m => m.cuentaId === selectedCuentaId)
-          .map(m => ({ ...m, fecha: asiento.fecha, descripcion: asiento.descripcion }))
+          .map(m => ({ ...m, fecha: new Date(asiento.fecha), descripcion: asiento.descripcion }))
       )
       .sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
       .map(mov => {

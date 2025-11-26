@@ -13,7 +13,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { mockParcelas, mockZafras } from "@/lib/mock-data";
 import {
   Tooltip,
   TooltipContent,
@@ -42,13 +41,7 @@ export function EventosList({ initialEventos, parcelas, zafras, cultivos }: Even
   useEffect(() => {
     // Logic to automatically close harvests when their end date is passed
     const today = new Date();
-    const updatedZafras = mockZafras.map(zafra => {
-        if (zafra.estado === 'en curso' && zafra.fechaFin && zafra.fechaFin < today) {
-            return { ...zafra, estado: 'finalizada' };
-        }
-        return zafra;
-    });
-    // NOTE: This is a mock update. In a real app, you'd update the state that flows into this component.
+    // This is just a placeholder for a real implementation
   }, []);
 
   const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
@@ -147,7 +140,7 @@ export function EventosList({ initialEventos, parcelas, zafras, cultivos }: Even
 
                 return (
                   <TableRow key={evento.id}>
-                    <TableCell>{format(evento.fecha, "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(evento.fecha), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{parcela?.nombre || 'N/A'}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize">{evento.tipo}</Badge></TableCell>
                     <TableCell>{cultivo?.nombre || 'N/A'}</TableCell>
