@@ -74,7 +74,7 @@ export function RolesList({ initialRoles }: RolesListProps) {
             <TableBody>
               {roles.map((rol) => (
                 <TableRow key={rol.id}>
-                  <TableCell className="font-medium capitalize">{rol.nombre}</TableCell>
+                  <TableCell className="font-medium capitalize">{rol.nombre.replace(/([A-Z])/g, ' $1')}</TableCell>
                   <TableCell>{rol.descripcion}</TableCell>
                   {canModify && (
                     <TableCell className="text-right">

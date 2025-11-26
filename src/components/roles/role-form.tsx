@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Rol, UserRole } from "@/lib/types";
 
 const formSchema = z.object({
-  nombre: z.enum(["admin", "operador", "consulta"], {
+  nombre: z.enum(["admin", "operador", "consulta", "gerente", "tecnicoCampo", "auditor"], {
     errorMap: () => ({ message: "Debe seleccionar un nombre de rol válido." }),
   }),
   descripcion: z.string().min(10, "La descripción debe tener al menos 10 caracteres."),

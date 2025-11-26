@@ -84,7 +84,7 @@ export function UsuariosList({ initialUsuarios, roles }: UsuariosListProps) {
                 <TableRow key={usuario.id}>
                   <TableCell className="font-medium">{usuario.nombre}</TableCell>
                   <TableCell>{usuario.email}</TableCell>
-                  <TableCell className="capitalize">{usuario.rol}</TableCell>
+                  <TableCell className="capitalize">{usuario.rol.replace(/([A-Z])/g, ' $1')}</TableCell>
                   <TableCell>
                     <Badge variant={usuario.activo ? 'default' : "destructive"}>{usuario.activo ? 'Activo' : 'Inactivo'}</Badge>
                   </TableCell>

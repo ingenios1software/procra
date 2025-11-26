@@ -16,6 +16,8 @@ import {
   Cog,
   ChevronDown,
   Warehouse,
+  Wrench,
+  Boxes,
 } from "lucide-react"
 import {
   Accordion,
@@ -50,6 +52,8 @@ const navItems = [
         icon: Tractor,
         links: [
             { href: "/eventos", icon: ClipboardList, label: "Eventos" },
+            { href: "/stock", icon: Boxes, label: "Stock" },
+            { href: "/maquinaria", icon: Wrench, label: "Maquinaria" },
         ]
     },
     {

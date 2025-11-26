@@ -13,7 +13,7 @@ import type { Usuario, Rol, UserRole } from "@/lib/types";
 const formSchema = z.object({
   nombre: z.string().min(2, "El nombre es muy corto."),
   email: z.string().email("Email inválido."),
-  rol: z.enum(["admin", "operador", "consulta"]),
+  rol: z.enum(["admin", "operador", "consulta", "gerente", "tecnicoCampo", "auditor"]),
   activo: z.boolean(),
 });
 
@@ -80,7 +80,7 @@ export function UsuarioForm({ usuario, roles, onSubmit, onCancel }: UsuarioFormP
                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un rol" /></SelectTrigger></FormControl>
                 <SelectContent>
                   {roles.map(rol => (
-                    <SelectItem key={rol.id} value={rol.nombre}>{rol.nombre}</SelectItem>
+                    <SelectItem key={rol.id} value={rol.nombre} className="capitalize">{rol.nombre.replace(/([A-Z])/g, ' $1')}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

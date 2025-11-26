@@ -52,8 +52,17 @@ export function UserNav() {
           <DropdownMenuItem onClick={() => handleRoleChange('admin')} disabled={role === 'admin'}>
             Administrador
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleRoleChange('gerente')} disabled={role === 'gerente'}>
+            Gerente
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleRoleChange('operador')} disabled={role === 'operador'}>
             Operador
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleRoleChange('tecnicoCampo')} disabled={role === 'tecnicoCampo'}>
+            Técnico de Campo
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleRoleChange('auditor')} disabled={role === 'auditor'}>
+            Auditor
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleRoleChange('consulta')} disabled={role === 'consulta'}>
             Consulta
