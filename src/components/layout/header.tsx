@@ -47,6 +47,9 @@ export function Header() {
                  <Button asChild variant="ghost" className="justify-start">
                     <a href="/maquinaria">Maquinaria</a>
                 </Button>
+                 <Button asChild variant="ghost" className="justify-start">
+                    <a href="/finanzas/dashboard">Finanzas</a>
+                </Button>
                 <Button asChild variant="ghost" className="justify-start">
                     <a href="/usuarios">Usuarios</a>
                 </Button>

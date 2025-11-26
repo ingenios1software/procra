@@ -97,3 +97,24 @@ export type Mantenimiento = {
   costo?: number;
   notas?: string;
 };
+
+export type Costo = {
+    id: string;
+    parcelaId: string;
+    cultivoId?: string;
+    zafraId: string;
+    tipo: 'insumo' | 'maquinaria' | 'combustible' | 'mano de obra' | 'otros';
+    descripcion: string;
+    monto: number;
+    fecha: Date;
+};
+
+export type Venta = {
+    id: string;
+    cultivoId: string;
+    parcelaId: string;
+    zafraId: string;
+    toneladas: number;
+    precioTonelada: number;
+    fecha: Date;
+};

@@ -19,6 +19,11 @@ import {
   Wrench,
   Boxes,
   Info,
+  Landmark,
+  TrendingDown,
+  TrendingUp,
+  LineChart,
+  PieChart,
 } from "lucide-react"
 import {
   Accordion,
@@ -55,6 +60,16 @@ const navItems = [
             { href: "/eventos", icon: ClipboardList, label: "Eventos" },
             { href: "/stock", icon: Boxes, label: "Stock" },
             { href: "/maquinaria", icon: Wrench, label: "Maquinaria" },
+        ]
+    },
+    {
+        title: "Finanzas",
+        icon: Landmark,
+        links: [
+            { href: "/finanzas/dashboard", icon: PieChart, label: "Dashboard" },
+            { href: "/finanzas/costos", icon: TrendingDown, label: "Costos" },
+            { href: "/finanzas/ventas", icon: TrendingUp, label: "Ventas" },
+            { href: "/finanzas/rentabilidad", icon: LineChart, label: "Rentabilidad" },
         ]
     },
     {

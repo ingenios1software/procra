@@ -1,4 +1,4 @@
-import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento } from './types';
+import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta } from './types';
 
 export const mockParcelas: Parcela[] = [
   { id: 'p1', nombre: 'Lote Norte 1', codigo: 'LN-001', superficie: 50, ubicacion: 'GPS: -34.5, -58.4', estado: 'activa' },
@@ -74,4 +74,18 @@ export const mockMaquinarias: Maquinaria[] = [
 export const mockMantenimientos: Mantenimiento[] = [
     { id: 'mt1', maquinariaId: 'm1', fecha: new Date('2024-05-15'), tipo: 'cambio aceite', costo: 350, notas: 'Cambio de aceite y filtro de motor.' },
     { id: 'mt2', maquinariaId: 'm3', fecha: new Date(), tipo: 'reparación', costo: 1200, notas: 'Reparación de sistema hidráulico de plataforma.' },
+];
+
+export const mockCostos: Costo[] = [
+    { id: 'cost1', parcelaId: 'p1', cultivoId: 'c1', zafraId: 'z2', tipo: 'insumo', descripcion: 'Compra de semillas de Soja', monto: 2400, fecha: new Date('2024-09-05') },
+    { id: 'cost2', parcelaId: 'p3', cultivoId: 'c2', zafraId: 'z2', tipo: 'insumo', descripcion: 'Compra de Urea', monto: 4000, fecha: new Date('2024-09-10') },
+    { id: 'cost3', parcelaId: 'p1', cultivoId: 'c1', zafraId: 'z2', tipo: 'combustible', descripcion: 'Combustible para siembra', monto: 1500, fecha: new Date('2024-09-06') },
+    { id: 'cost4', parcelaId: 'p2', cultivoId: 'c3', zafraId: 'z3', tipo: 'mano de obra', descripcion: 'Mano de obra cosecha de trigo', monto: 3000, fecha: new Date('2024-07-20') },
+    { id: 'cost5', parcelaId: 'p3', cultivoId: 'c2', zafraId: 'z2', tipo: 'maquinaria', descripcion: 'Alquiler de cosechadora', monto: 7500, fecha: new Date('2024-10-01') },
+];
+
+export const mockVentas: Venta[] = [
+    { id: 'venta1', cultivoId: 'c3', parcelaId: 'p2', zafraId: 'z3', toneladas: 150, precioTonelada: 280, fecha: new Date('2024-08-01') },
+    { id: 'venta2', cultivoId: 'c2', parcelaId: 'p3', zafraId: 'z2', toneladas: 840, precioTonelada: 310, fecha: new Date('2024-10-05') },
+    { id: 'venta3', cultivoId: 'c1', parcelaId: 'p1', zafraId: 'z2', toneladas: 200, precioTonelada: 450, fecha: new Date('2024-11-15') },
 ];
