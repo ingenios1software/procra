@@ -6,12 +6,9 @@ import { Button } from "../ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet"
 import { Sidebar } from "./sidebar"
 import { UserNav } from "./user-nav"
-import { useSidebar } from "@/hooks/use-mobile-sidebar"
 import { Logo } from "../icons"
 
 export function Header() {
-  const { isCollapsed, toggleSidebar } = useSidebar();
-
   return (
     <header className="flex h-16 items-center border-b bg-background px-4 md:px-6">
       <div className="md:hidden">
@@ -30,7 +27,7 @@ export function Header() {
                 </Link>
             </div>
             <div className="overflow-y-auto">
-              <Sidebar />
+              <Sidebar isMobile={true} />
             </div>
           </SheetContent>
         </Sheet>

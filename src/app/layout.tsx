@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/context/auth-context';
 import { ThemeProvider } from '@/context/theme-provider';
+import { SidebarProvider } from '@/context/sidebar-context';
 
 export const metadata: Metadata = {
   title: 'CRApro95 - Gestión Agrícola Integral',
@@ -24,7 +25,9 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <SidebarProvider>
+              {children}
+            </SidebarProvider>
             <Toaster />
           </AuthProvider>
         </ThemeProvider>

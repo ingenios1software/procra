@@ -14,6 +14,12 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mockParcelas, mockZafras } from "@/lib/mock-data";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface EventosListProps {
   initialEventos: Evento[];
@@ -200,10 +206,3 @@ export function EventosList({ initialEventos, parcelas, zafras, cultivos }: Even
     </>
   );
 }
-
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
