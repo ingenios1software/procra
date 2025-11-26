@@ -151,28 +151,65 @@ const NavLink = ({ link, isCollapsed, pathname }: { link: { href: string, icon: 
   )
 }
 
-export function Sidebar() {
+export function Sidebar({ isMobile }: { isMobile?: boolean }) {
   const pathname = usePathname();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [openSections, setOpenSections] = React.useState<string[]>(
     navItems.filter(section => section.links.some(link => pathname.startsWith(link.href) && !link.isComingSoon)).map(s => s.title)
   );
 
+  const finalIsCollapsed = isMobile ? false : isCollapsed;
+
+  if (isMobile) {
+    return (
+        <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
+             <Button
+                asChild
+                variant={pathname === "/dashboard" ? "secondary" : "ghost"}
+                className={cn("w-full justify-start")}
+              >
+                <Link href="/dashboard">
+                  <LayoutDashboard className="h-5 w-5" />
+                  <span className="ml-4">Dashboard</span>
+                </Link>
+              </Button>
+
+            <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="w-full">
+                {navItems.map(section => (
+                    <AccordionItem value={section.title} key={section.title} className="border-b-0">
+                        <AccordionTrigger className="py-2 px-3 text-sm font-medium hover:bg-sidebar-accent rounded-md [&[data-state=open]>svg]:rotate-180">
+                           <div className="flex items-center gap-4">
+                             <section.icon className="h-5 w-5" />
+                             {section.title}
+                           </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-1 pb-0 pl-2">
+                            {section.links.map(link => (
+                                <NavLink key={link.href + link.label} link={link} isCollapsed={false} pathname={pathname} />
+                            ))}
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+            </Accordion>
+      </nav>
+    )
+  }
+
   return (
     <aside
       className={cn(
         "hidden md:flex flex-col border-r bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-20" : "w-64"
+        finalIsCollapsed ? "w-20" : "w-64"
       )}
     >
       <div className="flex h-16 items-center border-b px-4 shrink-0">
         <Link href="/dashboard" className="flex items-center gap-2 font-headline text-lg font-bold text-primary">
           <Logo className="h-8 w-8" />
-          {!isCollapsed && <span className="text-sidebar-foreground font-bold">CRApro95</span>}
+          {!finalIsCollapsed && <span className="text-sidebar-foreground font-bold">CRApro95</span>}
         </Link>
-        {!isCollapsed && (
+        {!finalIsCollapsed && (
             <Button variant="ghost" size="icon" className="ml-auto" onClick={toggleSidebar}>
-              <ChevronLeft className={cn("h-6 w-6 transition-transform", isCollapsed && "rotate-180")} />
+              <ChevronLeft className={cn("h-6 w-6 transition-transform", finalIsCollapsed && "rotate-180")} />
             </Button>
         )}
       </div>
@@ -184,16 +221,16 @@ export function Sidebar() {
                 <Button
                   asChild
                   variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-                  className={cn("w-full justify-start", isCollapsed && "justify-center")}
+                  className={cn("w-full justify-start", finalIsCollapsed && "justify-center")}
                 >
                   <Link href="/dashboard">
                     <LayoutDashboard className="h-5 w-5" />
-                    {!isCollapsed && <span className="ml-4">Dashboard</span>}
+                    {!finalIsCollapsed && <span className="ml-4">Dashboard</span>}
                     <span className="sr-only">Dashboard</span>
                   </Link>
                 </Button>
               </TooltipTrigger>
-              {isCollapsed && (
+              {finalIsCollapsed && (
                 <TooltipContent side="right">
                   Dashboard
                 </TooltipContent>
@@ -201,9 +238,9 @@ export function Sidebar() {
             </Tooltip>
           </TooltipProvider>
 
-        {isCollapsed ? (
+        {finalIsCollapsed ? (
             navItems.map(section => section.links.map(link => (
-                <NavLink key={link.href + link.label} link={link} isCollapsed={isCollapsed} pathname={pathname} />
+                <NavLink key={link.href + link.label} link={link} isCollapsed={finalIsCollapsed} pathname={pathname} />
             )))
         ) : (
             <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="w-full">
@@ -217,7 +254,7 @@ export function Sidebar() {
                         </AccordionTrigger>
                         <AccordionContent className="pt-1 pb-0 pl-2">
                             {section.links.map(link => (
-                                <NavLink key={link.href + link.label} link={link} isCollapsed={isCollapsed} pathname={pathname} />
+                                <NavLink key={link.href + link.label} link={link} isCollapsed={finalIsCollapsed} pathname={pathname} />
                             ))}
                         </AccordionContent>
                     </AccordionItem>
@@ -230,12 +267,12 @@ export function Sidebar() {
          <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
-                 <Button variant="ghost" className={cn("w-full", isCollapsed ? "justify-center" : "justify-start")} onClick={toggleSidebar}>
-                    <ChevronLeft className={cn("h-6 w-6 transition-transform", !isCollapsed && "rotate-180")} />
-                    {!isCollapsed && <span className="ml-4">Colapsar</span>}
+                 <Button variant="ghost" className={cn("w-full", finalIsCollapsed ? "justify-center" : "justify-start")} onClick={toggleSidebar}>
+                    <ChevronLeft className={cn("h-6 w-6 transition-transform", !finalIsCollapsed && "rotate-180")} />
+                    {!finalIsCollapsed && <span className="ml-4">Colapsar</span>}
                  </Button>
               </TooltipTrigger>
-               {isCollapsed && (
+               {finalIsCollapsed && (
                 <TooltipContent side="right">
                   Expandir
                 </TooltipContent>
