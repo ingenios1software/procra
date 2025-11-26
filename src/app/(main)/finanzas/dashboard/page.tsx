@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart,
   Bar,
@@ -13,61 +13,56 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend,
 } from "recharts";
-import { DollarSign, TrendingDown, TrendingUp, Landmark } from "lucide-react";
-import { mockCostos, mockVentas, mockParcelas, mockCultivos } from "@/lib/mock-data";
+import { DollarSign, TrendingDown, TrendingUp, Landmark, Star, ChevronsDown } from "lucide-react";
+import { mockCostos, mockVentas, mockParcelas, mockCultivos, mockZafras } from "@/lib/mock-data";
 import { format } from "date-fns";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function DashboardFinancieroPage() {
-  const { totalCostos, totalIngresos, margenNeto } = useMemo(() => {
+  const { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria, costosMensuales } = useMemo(() => {
     const totalCostos = mockCostos.reduce((acc, costo) => acc + costo.monto, 0);
     const totalIngresos = mockVentas.reduce((acc, venta) => acc + venta.toneladas * venta.precioTonelada, 0);
     const margenNeto = totalIngresos - totalCostos;
-    return { totalCostos, totalIngresos, margenNeto };
-  }, []);
 
-  const costosPorCategoria = useMemo(() => {
-    const data = mockCostos.reduce((acc, costo) => {
+    const rentabilidadPorParcela = mockParcelas.map(parcela => {
+      const costosParcela = mockCostos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + c.monto, 0);
+      const ingresosParcela = mockVentas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+      return {
+        nombre: parcela.nombre,
+        rentabilidad: ingresosParcela - costosParcela,
+      };
+    }).sort((a, b) => b.rentabilidad - a.rentabilidad);
+
+    const rentabilidadPorCultivo = mockCultivos.map(cultivo => {
+      const costosCultivo = mockCostos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + c.monto, 0);
+      const ingresosCultivo = mockVentas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+      return {
+        name: cultivo.nombre,
+        rentabilidad: ingresosCultivo - costosCultivo,
+      };
+    }).sort((a,b) => b.rentabilidad - a.rentabilidad);
+
+    const costosPorCategoria = mockCostos.reduce((acc, costo) => {
       acc[costo.tipo] = (acc[costo.tipo] || 0) + costo.monto;
       return acc;
     }, {} as Record<string, number>);
-    return Object.entries(data).map(([name, value]) => ({ name, value }));
-  }, []);
+    const costosCategoriaData = Object.entries(costosPorCategoria).map(([name, value]) => ({ name, value }));
 
-  const ingresosPorCultivo = useMemo(() => {
-     const data = mockVentas.reduce((acc, venta) => {
-        const cultivo = mockCultivos.find(c => c.id === venta.cultivoId);
-        if (cultivo) {
-            acc[cultivo.nombre] = (acc[cultivo.nombre] || 0) + (venta.toneladas * venta.precioTonelada);
-        }
-        return acc;
-     }, {} as Record<string, number>);
-     return Object.entries(data).map(([name, value]) => ({name, value}));
-  }, []);
-  
-  const costosMensuales = useMemo(() => {
-    const data = mockCostos.reduce((acc, costo) => {
-        const month = format(costo.fecha, 'MMM yyyy');
-        acc[month] = (acc[month] || 0) + costo.monto;
-        return acc;
+    const costosMensuales = mockCostos.reduce((acc, costo) => {
+      const month = format(costo.fecha, 'MMM yyyy');
+      acc[month] = (acc[month] || 0) + costo.monto;
+      return acc;
     }, {} as Record<string, number>);
-    return Object.entries(data).map(([name, total]) => ({name, total})).slice(-6);
+    const costosMensualesData = Object.entries(costosMensuales).map(([name, total]) => ({ name, total })).slice(-6);
+
+    return { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria: costosCategoriaData, costosMensuales: costosMensualesData };
   }, []);
 
-  const topParcelaRentable = useMemo(() => {
-    const rentabilidadPorParcela = mockParcelas.map(parcela => {
-        const costosParcela = mockCostos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + c.monto, 0);
-        const ingresosParcela = mockVentas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
-        return {
-            nombre: parcela.nombre,
-            rentabilidad: ingresosParcela - costosParcela,
-        };
-    });
-    return rentabilidadPorParcela.sort((a,b) => b.rentabilidad - a.rentabilidad)[0];
-  }, []);
+  const topParcela = rentabilidadPorParcela[0];
+  const peorParcela = rentabilidadPorParcela[rentabilidadPorParcela.length - 1];
+  const topCultivo = rentabilidadPorCultivo[0];
 
   return (
     <>
@@ -76,46 +71,32 @@ export default function DashboardFinancieroPage() {
         description="Análisis de costos, ingresos y rentabilidad del negocio agrícola."
       />
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${totalIngresos.toLocaleString('es-AR')}</div>
-            <p className="text-xs text-muted-foreground">Suma de todas las ventas</p>
-          </CardContent>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle><TrendingUp className="h-4 w-4 text-muted-foreground" /></CardHeader>
+          <CardContent><div className="text-2xl font-bold">${totalIngresos.toLocaleString('es-AR')}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Costos Totales</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${totalCostos.toLocaleString('es-AR')}</div>
-             <p className="text-xs text-muted-foreground">Suma de todos los costos</p>
-          </CardContent>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costos Totales</CardTitle><TrendingDown className="h-4 w-4 text-muted-foreground" /></CardHeader>
+          <CardContent><div className="text-2xl font-bold">${totalCostos.toLocaleString('es-AR')}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Margen Neto</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${margenNeto.toLocaleString('es-AR')}</div>
-            <p className="text-xs text-muted-foreground">Ingresos menos costos</p>
-          </CardContent>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Margen Neto Consolidado</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader>
+          <CardContent><div className="text-2xl font-bold">${margenNeto.toLocaleString('es-AR')}</div></CardContent>
         </Card>
+      </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
         <Card className="bg-primary/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-primary">Parcela más Rentable</CardTitle>
-            <Landmark className="h-4 w-4 text-primary/70" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{topParcelaRentable?.nombre}</div>
-            <p className="text-xs text-primary/80">Con un margen de ${topParcelaRentable?.rentabilidad.toLocaleString('es-AR')}</p>
-          </CardContent>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-primary">Mejor Parcela</CardTitle><Landmark className="h-4 w-4 text-primary/70" /></CardHeader>
+          <CardContent><div className="text-xl font-bold text-primary">{topParcela?.nombre}</div><p className="text-xs text-primary/80">Margen: ${topParcela?.rentabilidad.toLocaleString('es-AR')}</p></CardContent>
+        </Card>
+        <Card className="bg-destructive/10">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-destructive">Peor Parcela</CardTitle><ChevronsDown className="h-4 w-4 text-destructive/70" /></CardHeader>
+          <CardContent><div className="text-xl font-bold text-destructive">{peorParcela?.nombre}</div><p className="text-xs text-destructive/80">Margen: ${peorParcela?.rentabilidad.toLocaleString('es-AR')}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Cultivo Más Rentable</CardTitle><Star className="h-4 w-4 text-muted-foreground" /></CardHeader>
+          <CardContent><div className="text-xl font-bold">{topCultivo?.name}</div><p className="text-xs text-muted-foreground">Margen: ${topCultivo?.rentabilidad.toLocaleString('es-AR')}</p></CardContent>
         </Card>
       </div>
 

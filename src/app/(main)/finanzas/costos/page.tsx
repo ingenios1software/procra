@@ -1,4 +1,3 @@
-import { PageHeader } from "@/components/shared/page-header";
 import { CostosList } from "@/components/finanzas/costos-list";
 import { mockCostos, mockParcelas, mockCultivos, mockZafras } from "@/lib/mock-data";
 

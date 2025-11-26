@@ -2,16 +2,16 @@
 
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { MoreHorizontal, PlusCircle, TrendingUp } from "lucide-react";
+import { MoreHorizontal, PlusCircle, TrendingUp, Download, Package } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { VentaForm } from "./venta-form";
 import type { Venta, Parcela, Zafra, Cultivo } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 interface VentasListProps {
   initialVentas: Venta[];
@@ -27,9 +27,21 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos }: Ventas
   const { role } = useAuth();
   const canModify = role === 'admin' || role === 'gerente';
 
-  const totalIngresos = useMemo(() => {
-    return ventas.reduce((acc, venta) => acc + (venta.toneladas * venta.precioTonelada), 0);
-  }, [ventas]);
+  const { totalIngresos, rendimientoPorParcela } = useMemo(() => {
+    const totalIngresos = ventas.reduce((acc, venta) => acc + (venta.toneladas * venta.precioTonelada), 0);
+
+    const rendimientoPorParcela = parcelas.map(parcela => {
+        const ventasParcela = ventas.filter(v => v.parcelaId === parcela.id);
+        const totalToneladas = ventasParcela.reduce((sum, v) => sum + v.toneladas, 0);
+        const rendimientoKgHa = parcela.superficie > 0 ? (totalToneladas * 1000) / parcela.superficie : 0;
+        return {
+            nombre: parcela.nombre,
+            rendimiento: rendimientoKgHa
+        }
+    }).filter(p => p.rendimiento > 0);
+
+    return { totalIngresos, rendimientoPorParcela };
+  }, [ventas, parcelas]);
 
   const handleSave = (ventaData: Venta) => {
     if (selectedVenta) {
@@ -46,22 +58,32 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos }: Ventas
     setDialogOpen(true);
   };
 
+  const handleExportPDF = () => {
+    alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
+  };
+
   return (
     <>
       <PageHeader
         title="Gestión de Ventas"
         description="Registre y supervise todas las ventas de producción."
       >
-        {canModify && (
-          <Button onClick={() => openDialog()}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Registrar Venta
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleExportPDF}>
+                <Download className="mr-2 h-4 w-4" />
+                Exportar PDF
+            </Button>
+            {canModify && (
+              <Button onClick={() => openDialog()}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Registrar Venta
+              </Button>
+            )}
+        </div>
       </PageHeader>
 
       <div className="grid gap-6 md:grid-cols-4 mb-6">
-        <Card className="col-span-1">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -72,6 +94,24 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos }: Ventas
           </CardContent>
         </Card>
       </div>
+
+       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Package /> Producción por Parcela (Rendimiento)</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={rendimientoPorParcela}>
+                        <XAxis dataKey="nombre" fontSize={12} />
+                        <YAxis tickFormatter={(value) => `${value} kg/ha`} />
+                        <Tooltip formatter={(value) => `${Number(value).toFixed(0)} kg/ha`} />
+                        <Bar dataKey="rendimiento" fill="hsl(var(--primary))" radius={[4,4,0,0]} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </CardContent>
+        </Card>
+       </div>
       
       <Card>
         <CardHeader><CardTitle>Listado de Ventas</CardTitle></CardHeader>
