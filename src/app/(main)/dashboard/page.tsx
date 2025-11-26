@@ -1,94 +1,186 @@
+"use client";
+
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { mockEventos, mockParcelas } from "@/lib/mock-data";
-import { Activity, Map, Calendar } from "lucide-react";
-import { format } from "date-fns";
+import { mockEventos, mockParcelas, mockCultivos, mockZafras } from "@/lib/mock-data";
+import { Activity, Map, Calendar, TriangleAlert, AreaChart } from "lucide-react";
+import { format, subDays } from "date-fns";
+import { useMemo } from "react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
+
+const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function DashboardPage() {
   const totalParcelas = mockParcelas.length;
-  const totalEventos = mockEventos.length;
-  const recentEvents = mockEventos.slice(0, 5);
+  const totalHectareas = useMemo(() => mockParcelas.reduce((acc, p) => acc + p.superficie, 0), []);
+  const zafraActiva = mockZafras.find(z => z.estado === 'en curso');
+
+  const eventosPorTipo = useMemo(() => {
+    return mockEventos.reduce((acc, evento) => {
+      acc[evento.tipo] = (acc[evento.tipo] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, []);
+
+  const zafraProgress = useMemo(() => {
+    if (!zafraActiva || !zafraActiva.fechaFin) return 0;
+    const totalDuration = zafraActiva.fechaFin.getTime() - zafraActiva.fechaInicio.getTime();
+    if (totalDuration <= 0) return 0;
+    const elapsed = new Date().getTime() - zafraActiva.fechaInicio.getTime();
+    const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+    return Math.round(progress);
+  }, [zafraActiva]);
+
+  const eventosPorMes = useMemo(() => {
+    const data = mockEventos.reduce((acc, evento) => {
+      const month = format(evento.fecha, "MMM yyyy");
+      acc[month] = (acc[month] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(data).map(([name, total]) => ({ name, total })).slice(-6); // Last 6 months
+  }, []);
+
+  const distribucionCultivos = useMemo(() => {
+    const data = mockEventos.reduce((acc, evento) => {
+      const cultivo = mockCultivos.find(c => c.id === evento.cultivoId);
+      if (cultivo) {
+        acc[cultivo.nombre] = (acc[cultivo.nombre] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(data).map(([name, value]) => ({ name, value }));
+  }, []);
+
+  const alertasParcelas = useMemo(() => {
+    const thirtyDaysAgo = subDays(new Date(), 30);
+    return mockParcelas.filter(parcela => {
+      const lastEvent = mockEventos
+        .filter(e => e.parcelaId === parcela.id)
+        .sort((a, b) => b.fecha.getTime() - a.fecha.getTime())[0];
+      return !lastEvent || lastEvent.fecha < thirtyDaysAgo;
+    });
+  }, []);
 
   return (
     <>
-      <PageHeader title="Dashboard" description="Bienvenido a CRApro95. Aquí tienes un resumen de tu actividad." />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <PageHeader
+        title="Bienvenido a CRApro95"
+        description="Sistema Integral de Gestión Agrícola. Administra tus parcelas, cultivos, eventos y zafras desde un solo lugar."
+      />
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total de Parcelas
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total de Parcelas</CardTitle>
             <Map className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalParcelas}</div>
-            <p className="text-xs text-muted-foreground">
-              Parcelas gestionadas en el sistema
-            </p>
+            <p className="text-xs text-muted-foreground">Parcelas gestionadas en el sistema</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Eventos Registrados
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Superficie Total</CardTitle>
+            <AreaChart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalHectareas} ha</div>
+            <p className="text-xs text-muted-foreground">Suma de todas las parcelas</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Eventos Registrados</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalEventos}</div>
-            <p className="text-xs text-muted-foreground">
-              Eventos agrícolas registrados
-            </p>
+            <div className="text-2xl font-bold">{mockEventos.length}</div>
+            <p className="text-xs text-muted-foreground">Eventos agrícolas registrados</p>
           </CardContent>
         </Card>
         <Card>
-           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Próximo Evento
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avance de Zafra Activa</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">15 Días</div>
-             <p className="text-xs text-muted-foreground">
-              Para la próxima fertilización programada
-            </p>
+            <div className="text-2xl font-bold">{zafraProgress}%</div>
+            <p className="text-xs text-muted-foreground">{zafraActiva?.nombre || 'Sin zafra activa'}</p>
           </CardContent>
         </Card>
       </div>
-      <div className="mt-6">
+
+      <div className="grid gap-6 mt-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader><CardTitle>Eventos por Mes (Últimos 6 meses)</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={eventosPorMes}>
+                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+                <Tooltip cursor={{ fill: 'hsla(var(--muted))' }} contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}/>
+                <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Últimos Eventos</CardTitle>
+          <CardHeader><CardTitle>Distribución de Cultivos</CardTitle></CardHeader>
+          <CardContent>
+             <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie data={distribucionCultivos} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                  {distribucionCultivos.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                 <Tooltip cursor={{ fill: 'hsla(var(--muted))' }} contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}/>
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="grid gap-6 mt-6 md:grid-cols-1 lg:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle>Eventos por Tipo</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {Object.entries(eventosPorTipo).map(([tipo, count]) => (
+              <div key={tipo} className="p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm font-medium capitalize text-muted-foreground">{tipo}</p>
+                <p className="text-2xl font-bold">{count}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-2">
+            <TriangleAlert className="text-destructive"/>
+            <CardTitle>Alertas</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Parcela</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Descripción</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentEvents.map((evento) => {
-                  const parcela = mockParcelas.find(p => p.id === evento.parcelaId);
-                  return (
-                    <TableRow key={evento.id}>
-                      <TableCell>{format(evento.fecha, "dd/MM/yyyy")}</TableCell>
-                      <TableCell>{parcela?.nombre || 'N/A'}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{evento.tipo}</Badge>
-                      </TableCell>
-                      <TableCell>{evento.descripcion}</TableCell>
+            {alertasParcelas.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Parcela</TableHead>
+                    <TableHead>Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {alertasParcelas.map((parcela) => (
+                    <TableRow key={parcela.id} className="text-destructive">
+                      <TableCell>{parcela.nombre}</TableCell>
+                      <TableCell>Sin eventos en los últimos 30 días</TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-sm text-muted-foreground">No hay alertas que mostrar. ¡Buen trabajo!</p>
+            )}
           </CardContent>
         </Card>
       </div>

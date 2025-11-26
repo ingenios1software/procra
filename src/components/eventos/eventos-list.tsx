@@ -1,105 +1,134 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, TriangleAlert, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import type { Evento, Parcela, Zafra } from "@/lib/types";
+import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { mockParcelas, mockZafras } from "@/lib/mock-data";
 
 interface EventosListProps {
   initialEventos: Evento[];
   parcelas: Parcela[];
   zafras: Zafra[];
+  cultivos: Cultivo[];
 }
 
-export function EventosList({ initialEventos, parcelas, zafras }: EventosListProps) {
+export function EventosList({ initialEventos, parcelas, zafras, cultivos }: EventosListProps) {
   const { role } = useAuth();
   const canModify = role === 'admin' || role === 'operador';
 
+  const [eventos, setEventos] = useState(initialEventos);
   const [filters, setFilters] = useState({
     tipo: '',
     parcelaId: '',
     zafraId: ''
   });
 
+  useEffect(() => {
+    // Logic to automatically close harvests when their end date is passed
+    const today = new Date();
+    const updatedZafras = mockZafras.map(zafra => {
+        if (zafra.estado === 'en curso' && zafra.fechaFin && zafra.fechaFin < today) {
+            return { ...zafra, estado: 'finalizada' };
+        }
+        return zafra;
+    });
+    // NOTE: This is a mock update. In a real app, you'd update the state that flows into this component.
+  }, []);
+
   const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
     setFilters(prev => ({ ...prev, [filterName]: value }));
   };
 
   const filteredEventos = useMemo(() => {
-    return initialEventos.filter(evento => {
+    return eventos.filter(evento => {
       return (
         (filters.tipo ? evento.tipo === filters.tipo : true) &&
         (filters.parcelaId ? evento.parcelaId === filters.parcelaId : true) &&
         (filters.zafraId ? evento.zafraId === filters.zafraId : true)
       );
     });
-  }, [initialEventos, filters]);
+  }, [eventos, filters]);
 
   const eventTypes = [...new Set(initialEventos.map(e => e.tipo))];
+  
+  const handleExportPDF = () => {
+    alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
+  };
 
   return (
     <>
       <PageHeader
-        title="Eventos"
-        description="Registre y consulte todas las actividades agrícolas."
+        title="Registro de Actividades"
+        description="Consulte y gestione todas las actividades operativas realizadas en campo."
       >
-        {canModify && (
-          <Button asChild>
-            <Link href="/eventos/crear">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Registrar Evento
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleExportPDF}>
+                <Download className="mr-2 h-4 w-4" />
+                Exportar PDF
+            </Button>
+            {canModify && (
+              <Button asChild>
+                <Link href="/eventos/crear">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Registrar Evento
+                </Link>
+              </Button>
+            )}
+        </div>
       </PageHeader>
       
       <Card>
+         <CardHeader>
+            <CardTitle>Filtros de Búsqueda</CardTitle>
+        </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4 py-4">
-            <Select value={filters.tipo} onValueChange={(value) => handleFilterChange('tipo', value)}>
-              <SelectTrigger className="w-[180px]">
+          <div className="flex flex-col md:flex-row items-center gap-4 py-4">
+            <Select value={filters.tipo} onValueChange={(value) => handleFilterChange('tipo', value === 'all' ? '' : value)}>
+              <SelectTrigger className="w-full md:w-[180px]">
                 <SelectValue placeholder="Filtrar por tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los tipos</SelectItem>
-                {eventTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                <SelectItem value="all">Todos los tipos</SelectItem>
+                {eventTypes.map(type => <SelectItem key={type} value={type} className="capitalize">{type}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={filters.parcelaId} onValueChange={(value) => handleFilterChange('parcelaId', value)}>
-              <SelectTrigger className="w-[180px]">
+            <Select value={filters.parcelaId} onValueChange={(value) => handleFilterChange('parcelaId', value === 'all' ? '' : value)}>
+              <SelectTrigger className="w-full md:w-[180px]">
                 <SelectValue placeholder="Filtrar por parcela" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas las parcelas</SelectItem>
+                <SelectItem value="all">Todas las parcelas</SelectItem>
                 {parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={filters.zafraId} onValueChange={(value) => handleFilterChange('zafraId', value)}>
-              <SelectTrigger className="w-[180px]">
+            <Select value={filters.zafraId} onValueChange={(value) => handleFilterChange('zafraId', value === 'all' ? '' : value)}>
+              <SelectTrigger className="w-full md:w-[180px]">
                 <SelectValue placeholder="Filtrar por zafra" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas las zafras</SelectItem>
+                <SelectItem value="all">Todas las zafras</SelectItem>
                 {zafras.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
+          <div className="border-t pt-4">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Parcela</TableHead>
                 <TableHead>Tipo</TableHead>
+                <TableHead>Cultivo</TableHead>
                 <TableHead>Descripción</TableHead>
                 {canModify && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
@@ -107,12 +136,42 @@ export function EventosList({ initialEventos, parcelas, zafras }: EventosListPro
             <TableBody>
               {filteredEventos.map((evento) => {
                 const parcela = parcelas.find(p => p.id === evento.parcelaId);
+                const cultivo = cultivos.find(c => c.id === evento.cultivoId);
+                const showAlert = evento.insumos && (!evento.cantidad || !evento.unidad);
+
                 return (
                   <TableRow key={evento.id}>
                     <TableCell>{format(evento.fecha, "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{parcela?.nombre || 'N/A'}</TableCell>
-                    <TableCell><Badge variant="outline">{evento.tipo}</Badge></TableCell>
-                    <TableCell>{evento.descripcion}</TableCell>
+                    <TableCell><Badge variant="outline" className="capitalize">{evento.tipo}</Badge></TableCell>
+                    <TableCell>{cultivo?.nombre || 'N/A'}</TableCell>
+                    <TableCell className="flex items-center gap-2">
+                        {evento.descripcion}
+                        {showAlert && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <TriangleAlert className="h-4 w-4 text-amber-500" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Falta información de cantidad o unidad para los insumos.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                        {evento.tipo === 'plagas' && (
+                             <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <Badge variant="destructive">Alerta</Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Este evento de plagas genera una alerta en el dashboard.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                    </TableCell>
                     {canModify && (
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -125,7 +184,7 @@ export function EventosList({ initialEventos, parcelas, zafras }: EventosListPro
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                             <DropdownMenuItem>Editar</DropdownMenuItem>
-                            <DropdownMenuItem>Eliminar</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">Eliminar</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -135,8 +194,16 @@ export function EventosList({ initialEventos, parcelas, zafras }: EventosListPro
               })}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </>
   );
 }
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"

@@ -16,38 +16,33 @@ export const mockCultivos: Cultivo[] = [
 
 export const mockZafras: Zafra[] = [
   { id: 'z1', nombre: 'Zafra 2023/2024', fechaInicio: new Date('2023-09-01'), fechaFin: new Date('2024-05-30'), estado: 'finalizada' },
-  { id: 'z2', nombre: 'Zafra 2024/2025', fechaInicio: new Date('2024-09-01'), estado: 'en curso' },
-  { id: 'z3', nombre: 'Zafra Invierno 2024', fechaInicio: new Date('2024-06-01'), estado: 'en curso' },
-  { id: 'z4', nombre: 'Zafra 2025/2026', fechaInicio: new Date('2025-09-01'), estado: 'planificada' },
+  { id: 'z2', nombre: 'Zafra 2024/2025', fechaInicio: new Date('2024-09-01'), fechaFin: new Date('2025-08-31'), estado: 'en curso' },
+  { id: 'z3', nombre: 'Zafra Invierno 2024', fechaInicio: new Date('2024-06-01'), fechaFin: new Date('2024-11-30'), estado: 'en curso' },
+  { id: 'z4', nombre: 'Zafra 2025/2026', fechaInicio: new Date('2025-09-01'), fechaFin: new Date('2026-08-31'), estado: 'planificada' },
 ];
 
+const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], daysAgo: number, desc: string, insumos?: string, cantidad?: number, unidad?: string) => {
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() - daysAgo);
+    return { id, parcelaId, cultivoId, zafraId, tipo, fecha, descripcion: desc, insumos, cantidad, unidad };
+};
+
 export const mockEventos: Evento[] = [
-  {
-    id: 'e1', parcelaId: 'p1', cultivoId: 'c1', zafraId: 'z2', tipo: 'siembra', fecha: new Date('2024-10-15'),
-    descripcion: 'Siembra de Soja en Lote Norte 1.', insumos: 'Semillas Gen_V', cantidad: 200, unidad: 'kg', resultado: 'Buena germinación'
-  },
-  {
-    id: 'e2', parcelaId: 'p3', cultivoId: 'c2', zafraId: 'z2', tipo: 'fertilización', fecha: new Date('2024-11-01'),
-    descripcion: 'Aplicación de urea.', insumos: 'Urea', cantidad: 500, unidad: 'kg', resultado: 'Niveles de N óptimos'
-  },
-  {
-    id: 'e3', parcelaId: 'p1', cultivoId: 'c1', zafraId: 'z2', tipo: 'riego', fecha: new Date('2024-11-20'),
-    descripcion: 'Riego por aspersión.', cantidad: 20, unidad: 'mm', resultado: 'Humedad de suelo recuperada'
-  },
-  {
-    id: 'e4', parcelaId: 'p2', cultivoId: 'c3', zafraId: 'z3', tipo: 'cosecha', fecha: new Date('2024-07-05'),
-    descripcion: 'Cosecha de Trigo.', resultado: 'Rinde de 4.5 ton/ha'
-  },
-  {
-    id: 'e5', parcelaId: 'p3', cultivoId: 'c2', zafraId: 'z2', tipo: 'plagas', fecha: new Date(),
-    descripcion: 'Monitoreo de isoca.', resultado: 'Baja incidencia'
-  },
+  generateEvent('e1', 'p1', 'c1', 'z2', 'siembra', 60, 'Siembra de Soja en Lote Norte 1.', 'Semillas Gen_V', 200, 'kg'),
+  generateEvent('e2', 'p3', 'c2', 'z2', 'fertilización', 45, 'Aplicación de urea.', 'Urea', 500, 'kg'),
+  generateEvent('e3', 'p1', 'c1', 'z2', 'riego', 35, 'Riego por aspersión.', undefined, 20, 'mm'),
+  generateEvent('e4', 'p2', 'c3', 'z3', 'cosecha', 120, 'Cosecha de Trigo.', undefined, undefined, undefined),
+  generateEvent('e5', 'p3', 'c2', 'z2', 'plagas', 5, 'Monitoreo de isoca.', 'Insecticida X', undefined, 'lt'),
+  generateEvent('e6', 'p1', 'c1', 'z2', 'mantenimiento', 15, 'Limpieza de cabeceras.', undefined, undefined, undefined),
+  generateEvent('e7', 'p2', 'c3', 'z3', 'siembra', 180, 'Siembra de Trigo de invierno', 'Semillas InviernoMax', 180, 'kg'),
+  generateEvent('e8', 'p3', 'c2', 'z2', 'cosecha', 2, 'Cosecha de Maíz finalizada.', undefined, 7, 'ton/ha'),
+  generateEvent('e9', 'p4', 'c4', 'z2', 'siembra', 40, 'Siembra de Girasol', 'Semillas SolAR', 80, 'kg'),
 ];
 
 export const mockRoles: Rol[] = [
-  { id: 'r1', nombre: 'admin', descripcion: 'Acceso completo a todas las funcionalidades de la aplicación.' },
-  { id: 'r2', nombre: 'operador', descripcion: 'Puede crear y editar datos de la finca, pero no gestionar usuarios.' },
-  { id: 'r3', nombre: 'consulta', descripcion: 'Solo tiene acceso de lectura a los datos de la aplicación.' },
+  { id: 'r1', nombre: 'admin', descripcion: 'Acceso completo a todas las funcionalidades del sistema.' },
+  { id: 'r2', nombre: 'operador', descripcion: 'Puede crear y editar datos operativos, pero no gestionar usuarios o configuración.' },
+  { id: 'r3', nombre: 'consulta', descripcion: 'Acceso de solo lectura a los datos del sistema.' },
 ];
 
 export const mockUsuarios: Usuario[] = [

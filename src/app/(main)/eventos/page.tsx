@@ -7,6 +7,7 @@ export default function EventosPage() {
       initialEventos={mockEventos}
       parcelas={mockParcelas}
       zafras={mockZafras}
+      cultivos={mockCultivos}
     />
   );
 }

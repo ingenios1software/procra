@@ -3,15 +3,26 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, PlusCircle, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Parcela } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ParcelasListProps {
   initialParcelas: Parcela[];
@@ -22,23 +33,40 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
   const { role } = useAuth();
   const canModify = role === 'admin' || role === 'operador';
 
+  const handleDelete = (id: string) => {
+    setParcelas(prev => prev.filter(p => p.id !== id));
+  };
+  
+  const handleExportPDF = () => {
+    alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
+  };
+
   return (
     <>
       <PageHeader
         title="Parcelas"
         description="Gestione las parcelas de su establecimiento."
       >
-        {canModify && (
-          <Button asChild>
-            <Link href="/parcelas/crear">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Crear Parcela
-            </Link>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportPDF}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar PDF
           </Button>
-        )}
+          {canModify && (
+            <Button asChild>
+              <Link href="/parcelas/crear">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Crear Parcela
+              </Link>
+            </Button>
+          )}
+        </div>
       </PageHeader>
       
       <Card>
+        <CardHeader>
+          <CardTitle>Listado de Parcelas</CardTitle>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -54,14 +82,24 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
               {parcelas.map((parcela) => (
                 <TableRow key={parcela.id}>
                   <TableCell className="font-medium">
-                     <Link href={`/parcelas/${parcela.id}`} className="hover:underline">
+                     <Link href={`/parcelas/${parcela.id}`} className="hover:underline text-primary">
                       {parcela.nombre}
                     </Link>
                   </TableCell>
                   <TableCell>{parcela.codigo}</TableCell>
                   <TableCell>{parcela.superficie}</TableCell>
                   <TableCell>
-                    <Badge variant={parcela.estado === 'activa' ? 'default' : 'secondary'} className={cn(parcela.estado === 'activa' && 'bg-green-600')}>{parcela.estado}</Badge>
+                    <Badge 
+                      variant={parcela.estado === 'activa' ? 'default' : parcela.estado === 'en barbecho' ? 'secondary' : 'outline'}
+                      className={cn(
+                        'capitalize',
+                        parcela.estado === 'activa' && 'bg-green-600 text-white',
+                        parcela.estado === 'en barbecho' && 'bg-yellow-500 text-black',
+                        parcela.estado === 'inactiva' && 'bg-gray-400 text-white'
+                      )}
+                    >
+                        {parcela.estado === 'en barbecho' ? 'En Barbecho' : parcela.estado}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -81,7 +119,24 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
                             <DropdownMenuItem asChild>
                               <Link href={`/parcelas/editar/${parcela.id}`}>Editar</Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">Eliminar</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onSelect={e => e.preventDefault()}>Eliminar</DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta acción es permanente y eliminará la parcela. No se puede deshacer.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(parcela.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </>
                         )}
                       </DropdownMenuContent>

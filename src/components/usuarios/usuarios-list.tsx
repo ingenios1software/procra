@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -45,8 +45,8 @@ export function UsuariosList({ initialUsuarios, roles }: UsuariosListProps) {
   return (
     <>
       <PageHeader
-        title="Usuarios"
-        description="Gestione los usuarios y sus roles en el sistema."
+        title="Gestión de Usuarios"
+        description="Administración de cuentas y roles del sistema."
       >
         {canModify && (
           <Button onClick={() => openDialog()}>
@@ -57,14 +57,17 @@ export function UsuariosList({ initialUsuarios, roles }: UsuariosListProps) {
       </PageHeader>
       
       {role !== 'admin' && (
-        <Card className="mb-4 bg-yellow-50 border-yellow-200">
+        <Card className="mb-4 bg-amber-50 border-amber-200">
             <CardContent className="p-4">
-                <p className="text-yellow-800">Solo los administradores pueden gestionar usuarios.</p>
+                <p className="text-amber-800 font-medium">Solo los administradores pueden gestionar usuarios.</p>
             </CardContent>
         </Card>
       )}
 
       <Card>
+        <CardHeader>
+          <CardTitle>Listado de Usuarios</CardTitle>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -83,11 +86,11 @@ export function UsuariosList({ initialUsuarios, roles }: UsuariosListProps) {
                   <TableCell>{usuario.email}</TableCell>
                   <TableCell className="capitalize">{usuario.rol}</TableCell>
                   <TableCell>
-                    <Badge variant={usuario.activo ? "default" : "destructive"}>{usuario.activo ? 'Activo' : 'Inactivo'}</Badge>
+                    <Badge variant={usuario.activo ? 'default' : "destructive"}>{usuario.activo ? 'Activo' : 'Inactivo'}</Badge>
                   </TableCell>
                   {canModify && (
                     <TableCell className="text-right">
-                      <Button variant="ghost" className="h-8 w-8 p-0" onClick={() => openDialog(usuario)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(usuario)}>
                         <span className="sr-only">Editar</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>

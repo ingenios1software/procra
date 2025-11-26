@@ -5,8 +5,8 @@ import { AuthProvider } from '@/context/auth-context';
 import { ThemeProvider } from '@/context/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'CRApro95',
-  description: 'Aplicación agrícola completa by Firebase Studio',
+  title: 'CRApro95 - Gestión Agrícola Integral',
+  description: 'Sistema Integral de Gestión Agrícola by Firebase Studio',
 };
 
 export default function RootLayout({
@@ -15,13 +15,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased">
+      <body>
         <ThemeProvider>
           <AuthProvider>
             {children}
