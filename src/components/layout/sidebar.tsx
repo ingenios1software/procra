@@ -25,16 +25,13 @@ import {
     LineChart,
     PieChart,
     Bug,
-    ListTree,
-    Book,
-    FileText,
-    UserCheck,
+    BookText,
     History,
     Briefcase,
-    DollarSign,
-    Fuel,
     ShoppingCart,
-    ShoppingBag
+    ShoppingBag,
+    UserCheck,
+    ListTree
 } from "lucide-react"
 import {
   Accordion,
@@ -72,8 +69,14 @@ const navItems = [
             { href: "/eventos", icon: ClipboardList, label: "Eventos" },
             { href: "/stock", icon: Boxes, label: "Stock" },
             { href: "/maquinaria", icon: Wrench, label: "Maquinaria" },
-            { href: "#", icon: Bug, label: "Plagas", isComingSoon: true },
-            { href: "#", icon: ListTree, label: "Etapas del Cultivo", isComingSoon: true },
+        ]
+    },
+    {
+        title: "Agronomía",
+        icon: Leaf,
+        links: [
+            { href: "/agronomia/plagas", icon: Bug, label: "Plagas" },
+            { href: "/agronomia/etapas-cultivo", icon: ListTree, label: "Etapas del Cultivo" },
         ]
     },
     {
@@ -81,7 +84,7 @@ const navItems = [
         icon: ShoppingCart,
         links: [
             { href: "/comercial/compras", icon: ShoppingBag, label: "Compras" },
-            { href: "/comercial/ventas", icon: DollarSign, label: "Ventas" },
+            { href: "/comercial/ventas", icon: TrendingUp, label: "Ventas" },
             { href: "/comercial/proveedores", icon: Users, label: "Proveedores" },
             { href: "/comercial/clientes", icon: Users, label: "Clientes" },
         ]
@@ -97,20 +100,20 @@ const navItems = [
     },
     {
         title: "Contabilidad",
-        icon: Book,
+        icon: BookText,
         links: [
-            { href: "#", icon: ListTree, label: "Plan de Cuentas", isComingSoon: true },
-            { href: "#", icon: DollarSign, label: "Centros de Costo", isComingSoon: true },
-            { href: "#", icon: FileText, label: "Diario", isComingSoon: true },
-            { href: "#", icon: FileText, label: "Mayor", isComingSoon: true },
+            { href: "/contabilidad/plan-de-cuentas", icon: ListTree, label: "Plan de Cuentas" },
+            { href: "/contabilidad/centros-de-costo", icon: Landmark, label: "Centros de Costo" },
+            { href: "/contabilidad/diario", icon: BookText, label: "Diario" },
+            { href: "/contabilidad/mayor", icon: BookText, label: "Mayor" },
         ]
     },
     {
         title: "RRHH",
         icon: Users,
         links: [
-            { href: "#", icon: Briefcase, label: "Empleados", isComingSoon: true },
-            { href: "#", icon: UserCheck, label: "Asistencias", isComingSoon: true },
+            { href: "/rrhh/empleados", icon: Briefcase, label: "Empleados" },
+            { href: "/rrhh/asistencias", icon: UserCheck, label: "Asistencias" },
         ]
     },
     {
@@ -119,7 +122,7 @@ const navItems = [
         links: [
             { href: "/usuarios", icon: Users, label: "Usuarios" },
             { href: "/roles", icon: Shield, label: "Roles" },
-            { href: "#", icon: History, label: "Auditoría", isComingSoon: true },
+            { href: "/auditoria", icon: History, label: "Auditoría" },
             { href: "/configuracion", icon: Settings, label: "Configuración" },
             { href: "/acerca-de", icon: Info, label: "Acerca de" },
         ]
