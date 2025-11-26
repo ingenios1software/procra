@@ -9,12 +9,14 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-      <div className="flex min-h-screen w-full">
+      <div className="flex min-h-screen w-full bg-muted/40">
         <Sidebar />
         <div className="flex flex-1 flex-col">
           <Header />
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-background/80">
-            {children}
+          <main className="flex-1 p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto max-w-screen-2xl">
+              {children}
+            </div>
           </main>
         </div>
       </div>

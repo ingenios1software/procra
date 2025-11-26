@@ -1,11 +1,13 @@
 "use client"
 
+import Link from "next/link"
 import { Menu } from "lucide-react"
 import { Button } from "../ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet"
 import { Sidebar } from "./sidebar"
 import { UserNav } from "./user-nav"
 import { useSidebar } from "@/hooks/use-mobile-sidebar"
+import { Logo } from "../icons"
 
 export function Header() {
   const { isCollapsed, toggleSidebar } = useSidebar();
@@ -22,47 +24,14 @@ export function Header() {
           </SheetTrigger>
           <SheetContent side="left" className="w-[300px] p-0">
              <div className="flex h-16 items-center border-b px-4 shrink-0 bg-sidebar text-sidebar-foreground">
-                CRApro95
+                <Link href="/dashboard" className="flex items-center gap-2 font-headline text-lg font-bold text-primary">
+                    <Logo className="h-8 w-8" />
+                    <span className="text-sidebar-foreground font-bold">CRApro95</span>
+                </Link>
             </div>
-            {/* This is a simplified nav for mobile. A better implementation would reuse the sidebar component logic */}
-            <nav className="flex flex-col gap-2 p-4">
-                <Button asChild variant="ghost" className="justify-start">
-                    <a href="/dashboard">Dashboard</a>
-                </Button>
-                <Button asChild variant="ghost" className="justify-start">
-                    <a href="/parcelas">Parcelas</a>
-                </Button>
-                <Button asChild variant="ghost" className="justify-start">
-                    <a href="/cultivos">Cultivos</a>
-                </Button>
-                <Button asChild variant="ghost" className="justify-start">
-                    <a href="/zafras">Zafras</a>
-                </Button>
-                <Button asChild variant="ghost" className="justify-start">
-                    <a href="/eventos">Eventos</a>
-                </Button>
-                 <Button asChild variant="ghost" className="justify-start">
-                    <a href="/stock">Stock</a>
-                </Button>
-                 <Button asChild variant="ghost" className="justify-start">
-                    <a href="/maquinaria">Maquinaria</a>
-                </Button>
-                 <Button asChild variant="ghost" className="justify-start">
-                    <a href="/finanzas/dashboard">Finanzas</a>
-                </Button>
-                <Button asChild variant="ghost" className="justify-start">
-                    <a href="/usuarios">Usuarios</a>
-                </Button>
-                 <Button asChild variant="ghost" className="justify-start">
-                    <a href="/roles">Roles</a>
-                </Button>
-                <Button asChild variant="ghost" className="justify-start">
-                    <a href="/configuracion">Configuración</a>
-                </Button>
-                 <Button asChild variant="ghost" className="justify-start">
-                    <a href="/acerca-de">Acerca de</a>
-                </Button>
-            </nav>
+            <div className="overflow-y-auto">
+              <Sidebar />
+            </div>
           </SheetContent>
         </Sheet>
       </div>

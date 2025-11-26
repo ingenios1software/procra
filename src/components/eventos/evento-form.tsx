@@ -57,7 +57,7 @@ export function EventoForm({ evento, parcelas, cultivos, zafras }: EventoFormPro
     resolver: zodResolver(formSchema),
     defaultValues: evento ? {
       ...evento,
-      tipo: evento.tipo === 'aplicacion' ? 'aplicacion' : evento.tipo
+      tipo: evento.tipo as any // Fix para enum
     } : {
       fecha: new Date(),
       tipo: 'siembra',

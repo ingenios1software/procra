@@ -26,14 +26,24 @@ export type Evento = {
   parcelaId: string;
   cultivoId: string;
   zafraId: string;
-  tipo: 'siembra' | 'fertilización' | 'riego' | 'cosecha' | 'mantenimiento' | 'plagas';
+  tipo: 'siembra' | 'fertilización' | 'riego' | 'cosecha' | 'mantenimiento' | 'plagas' | 'aplicacion';
   fecha: Date;
   descripcion: string;
+  
+  // Para tipo 'aplicacion'
+  insumoId?: string;
+  dosis?: number;
+  temperatura?: number;
+  humedad?: number;
+  viento?: number;
+  
+  // Campos genéricos (para otros tipos de evento)
   insumos?: string;
   cantidad?: number;
   unidad?: string;
   resultado?: string;
 };
+
 
 export type Usuario = {
   id: string;
