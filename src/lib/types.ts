@@ -181,6 +181,14 @@ export type Plaga = {
   cultivosAfectados: string[];
 };
 
+export type EtapaCultivo = {
+  id: string;
+  nombre: string;
+  cultivoId: string;
+  orden: number;
+  descripcion: string;
+};
+
 // --- CONTABILIDAD ---
 export type PlanDeCuenta = {
   id: string;

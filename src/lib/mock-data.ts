@@ -1,4 +1,4 @@
-import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente, Compra, Plaga } from './types';
+import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente, Compra, Plaga, EtapaCultivo } from './types';
 
 export const mockParcelas: Parcela[] = [
   { id: 'p1', nombre: 'Lote Norte 1', codigo: 'LN-001', superficie: 50, ubicacion: 'GPS: -34.5, -58.4', estado: 'activa' },
@@ -146,4 +146,18 @@ export const mockPlagas: Plaga[] = [
     { id: 'plaga1', nombre: 'Roya de la Soja', descripcion: 'Enfermedad fúngica causada por Phakopsora pachyrhizi.', cultivosAfectados: ['c1'] },
     { id: 'plaga2', nombre: 'Isoca de la Espiga', descripcion: 'Larva de la polilla Helicoverpa zea que ataca el maíz.', cultivosAfectados: ['c2'] },
     { id: 'plaga3', nombre: 'Pulgón del Trigo', descripcion: 'Insecto que se alimenta de la savia del trigo.', cultivosAfectados: ['c3'] },
+];
+
+export const mockEtapasCultivo: EtapaCultivo[] = [
+    { id: 'ec1', cultivoId: 'c1', orden: 1, nombre: 'VE', descripcion: 'Emergencia' },
+    { id: 'ec2', cultivoId: 'c1', orden: 2, nombre: 'VC', descripcion: 'Cotiledones Desplegados' },
+    { id: 'ec3', cultivoId: 'c1', orden: 3, nombre: 'V1-Vn', descripcion: 'Desarrollo Vegetativo' },
+    { id: 'ec4', cultivoId: 'c1', orden: 4, nombre: 'R1-R2', descripcion: 'Inicio de Floración' },
+    { id: 'ec5', cultivoId: 'c1', orden: 5, nombre: 'R3-R4', descripcion: 'Formación de Vainas' },
+    { id: 'ec6', cultivoId: 'c1', orden: 6, nombre: 'R5-R6', descripcion: 'Llenado de Granos' },
+    { id: 'ec7', cultivoId: 'c1', orden: 7, nombre: 'R7-R8', descripcion: 'Madurez Fisiológica y de Cosecha' },
+    { id: 'ec8', cultivoId: 'c2', orden: 1, nombre: 'VE-V3', descripcion: 'Implantación' },
+    { id: 'ec9', cultivoId: 'c2', orden: 2, nombre: 'V4-V8', descripcion: 'Definición de Potencial de Rinde' },
+    { id: 'ec10', cultivoId: 'c2', orden: 3, nombre: 'VT-R1', descripcion: 'Panojamiento y Floración' },
+    { id: 'ec11', cultivoId: 'c2', orden: 4, nombre: 'R2-R6', descripcion: 'Llenado de Granos' },
 ];
