@@ -40,6 +40,14 @@ export type Evento = {
   temperatura?: number;
   humedad?: number;
   viento?: number;
+  // Campos para el panel agronómico
+  categoria?: 'Desecación' | 'Siembra' | 'Fertilizante' | 'Herbicida' | 'Fungicida' | 'Insecticida' | 'Cosecha' | 'Otros';
+  productos?: {
+    insumoId: string;
+    cantidad: number;
+    dosis: number;
+  }[];
+  costoTotal?: number;
 };
 
 
@@ -69,7 +77,7 @@ export type StatCard = {
 export type Insumo = {
   id: string;
   nombre: string;
-  categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'otros';
+  categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'otros';
   unidad: 'kg' | 'lt' | 'unidad';
   stockActual: number;
   stockMinimo: number;

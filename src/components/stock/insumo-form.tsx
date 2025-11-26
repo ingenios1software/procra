@@ -25,7 +25,7 @@ import type { Insumo } from "@/lib/types";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
-  categoria: z.enum(['fertilizante', 'herbicida', 'fungicida', 'semilla', 'otros']),
+  categoria: z.enum(['fertilizante', 'herbicida', 'fungicida', 'semilla', 'insecticida', 'otros']),
   unidad: z.enum(['kg', 'lt', 'unidad']),
   costoUnitario: z.coerce.number().positive("El costo debe ser un número positivo."),
   stockActual: z.coerce.number().min(0, "El stock no puede ser negativo."),
@@ -97,6 +97,7 @@ export function InsumoForm({ insumo, onSubmit, onCancel }: InsumoFormProps) {
                     <SelectItem value="fertilizante">Fertilizante</SelectItem>
                     <SelectItem value="herbicida">Herbicida</SelectItem>
                     <SelectItem value="fungicida">Fungicida</SelectItem>
+                    <SelectItem value="insecticida">Insecticida</SelectItem>
                     <SelectItem value="otros">Otros</SelectItem>
                   </SelectContent>
                 </Select>

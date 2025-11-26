@@ -26,16 +26,16 @@ export default function DashboardPage() {
 
   const zafraProgress = useMemo(() => {
     if (!zafraActiva || !zafraActiva.fechaFin) return 0;
-    const totalDuration = zafraActiva.fechaFin.getTime() - zafraActiva.fechaInicio.getTime();
+    const totalDuration = new Date(zafraActiva.fechaFin).getTime() - new Date(zafraActiva.fechaInicio).getTime();
     if (totalDuration <= 0) return 0;
-    const elapsed = new Date().getTime() - zafraActiva.fechaInicio.getTime();
+    const elapsed = new Date().getTime() - new Date(zafraActiva.fechaInicio).getTime();
     const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
     return Math.round(progress);
   }, [zafraActiva]);
 
   const eventosPorMes = useMemo(() => {
     const data = mockEventos.reduce((acc, evento) => {
-      const month = format(evento.fecha, "MMM yyyy");
+      const month = format(new Date(evento.fecha), "MMM yyyy");
       acc[month] = (acc[month] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -58,8 +58,8 @@ export default function DashboardPage() {
     return mockParcelas.filter(parcela => {
       const lastEvent = mockEventos
         .filter(e => e.parcelaId === parcela.id)
-        .sort((a, b) => b.fecha.getTime() - a.fecha.getTime())[0];
-      return !lastEvent || lastEvent.fecha < thirtyDaysAgo;
+        .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+      return !lastEvent || new Date(lastEvent.fecha) < thirtyDaysAgo;
     });
   }, []);
 

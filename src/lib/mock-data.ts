@@ -16,29 +16,41 @@ export const mockCultivos: Cultivo[] = [
 
 export const mockZafras: Zafra[] = [
   { id: 'z1', nombre: 'Zafra 2023/2024', fechaInicio: new Date('2023-09-01'), fechaFin: new Date('2024-05-30'), estado: 'finalizada' },
-  { id: 'z2', nombre: 'Zafra Soja 2024/2025', cultivoId: 'c1', fechaSiembra: new Date(new Date().setDate(new Date().getDate() - 60)), fechaInicio: new Date('2024-09-01'), fechaFin: new Date('2025-08-31'), estado: 'en curso' },
+  { id: 'z2', nombre: 'Zafra Soja 2024/2025', cultivoId: 'c1', fechaSiembra: new Date(new Date().setDate(new Date().getDate() - 85)), fechaInicio: new Date('2024-09-01'), fechaFin: new Date('2025-08-31'), estado: 'en curso' },
   { id: 'z3', nombre: 'Zafra Maíz 2024/2025', cultivoId: 'c2', fechaSiembra: new Date(new Date().setDate(new Date().getDate() - 45)), fechaInicio: new Date('2024-06-01'), fechaFin: new Date('2024-11-30'), estado: 'en curso' },
   { id: 'z4', nombre: 'Zafra 2025/2026', fechaInicio: new Date('2025-09-01'), fechaFin: new Date('2026-08-31'), estado: 'planificada' },
 ];
 
-const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], daysAgo: number, desc: string) => {
+export const mockInsumos: Insumo[] = [
+    { id: 'i1', nombre: 'Urea', categoria: 'fertilizante', unidad: 'kg', stockActual: 1500, stockMinimo: 500, proveedor: 'AgroPro S.A.', costoUnitario: 0.8 },
+    { id: 'i2', nombre: 'Glifosato', categoria: 'herbicida', unidad: 'lt', stockActual: 200, stockMinimo: 50, proveedor: 'ChemCo Paraguay', costoUnitario: 12.5 },
+    { id: 'i3', nombre: 'Semillas de Soja DM 4800', categoria: 'semilla', unidad: 'kg', stockActual: 800, stockMinimo: 200, proveedor: 'AgroPro S.A.', costoUnitario: 1.2 },
+    { id: 'i4', nombre: 'Fungicida Triple', categoria: 'fungicida', unidad: 'lt', stockActual: 80, stockMinimo: 20, proveedor: 'ChemCo Paraguay', costoUnitario: 25 },
+    { id: 'i5', nombre: 'Insecticida Cipermetrina', categoria: 'insecticida', unidad: 'lt', stockActual: 120, stockMinimo: 30, proveedor: 'ChemCo Paraguay', costoUnitario: 18 },
+    { id: 'i6', nombre: 'Fosfato Diamónico (DAP)', categoria: 'fertilizante', unidad: 'kg', stockActual: 2500, stockMinimo: 1000, proveedor: 'AgroPro S.A.', costoUnitario: 0.95 },
+];
+
+const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], categoria: Evento['categoria'], daysAgo: number, desc: string, productos: Evento['productos']) => {
     const fecha = new Date();
     fecha.setDate(fecha.getDate() - daysAgo);
-    return { id, parcelaId, cultivoId, zafraId, tipo, fecha, descripcion: desc, insumos: 'Varios', cantidad: 50, unidad: 'kg', resultado: 'Exitoso' };
+
+    const costoTotal = productos?.reduce((sum, prod) => {
+        const insumo = mockInsumos.find(i => i.id === prod.insumoId);
+        return sum + (prod.cantidad * (insumo?.costoUnitario || 0));
+    }, 0);
+
+    return { id, parcelaId, cultivoId, zafraId, tipo, categoria, fecha, descripcion: desc, productos, costoTotal };
 };
 
 export const mockEventos: Evento[] = [
-  generateEvent('e1', 'p1', 'c1', 'z2', 'siembra', 60, 'Siembra de Soja en Lote Norte 1.'),
-  generateEvent('e2', 'p3', 'c2', 'z3', 'fertilización', 45, 'Aplicación de urea.'),
-  generateEvent('e3', 'p1', 'c1', 'z2', 'aplicacion', 35, 'Aplicación de fungicida preventivo.'),
-  generateEvent('e4', 'p2', 'c3', 'z1', 'cosecha', 120, 'Cosecha de Trigo.'),
-  generateEvent('e5', 'p3', 'c2', 'z3', 'plagas', 5, 'Monitoreo de isoca.'),
-  generateEvent('e6', 'p1', 'c1', 'z2', 'mantenimiento', 15, 'Limpieza de cabeceras.'),
-  generateEvent('e7', 'p2', 'c3', 'z1', 'siembra', 180, 'Siembra de Trigo de invierno'),
-  generateEvent('e8', 'p3', 'c2', 'z3', 'cosecha', 2, 'Cosecha de Maíz finalizada.'),
-  generateEvent('e9', 'p4', 'c4', 'z2', 'siembra', 40, 'Siembra de Girasol'),
-  generateEvent('e10', 'p1', 'c1', 'z2', 'aplicacion', 10, 'Aplicación de herbicida post-emergente.'),
+  generateEvent('ev1', 'p1', 'c1', 'z2', 'aplicacion', 'Desecación', 85, 'Desecación pre-siembra', [{ insumoId: 'i2', cantidad: 100, dosis: 2 }]),
+  generateEvent('ev2', 'p1', 'c1', 'z2', 'siembra', 'Siembra', 82, 'Siembra de Soja', [{ insumoId: 'i3', cantidad: 4000, dosis: 80 }]),
+  generateEvent('ev3', 'p1', 'c1', 'z2', 'aplicacion', 'Herbicida', 60, 'Herbicida pre-emergente', [{ insumoId: 'i2', cantidad: 50, dosis: 1 }]),
+  generateEvent('ev4', 'p1', 'c1', 'z2', 'fertilización', 'Fertilizante', 55, 'Fertilización base con DAP', [{ insumoId: 'i6', cantidad: 7500, dosis: 150 }]),
+  generateEvent('ev5', 'p1', 'c1', 'z2', 'aplicacion', 'Insecticida', 30, 'Control de insectos', [{ insumoId: 'i5', cantidad: 25, dosis: 0.5 }]),
+  generateEvent('ev6', 'p1', 'c1', 'z2', 'aplicacion', 'Fungicida', 15, 'Aplicación de fungicida preventivo', [{ insumoId: 'i4', cantidad: 50, dosis: 1 }]),
 ];
+
 
 export const mockRoles: Rol[] = [
   { id: 'r1', nombre: 'admin', descripcion: 'Acceso completo a todas las funcionalidades del sistema.' },
@@ -56,13 +68,6 @@ export const mockUsuarios: Usuario[] = [
   { id: 'u4', nombre: 'Carlos Inactivo', email: 'carlos.i@crapro95.com', rol: 'operador', activo: false },
   { id: 'u5', nombre: 'Gerente General', email: 'gerente@crapro95.com', rol: 'gerente', activo: true },
   { id: 'u6', nombre: 'Técnico de Campo', email: 'tecnico@crapro95.com', rol: 'tecnicoCampo', activo: true },
-];
-
-export const mockInsumos: Insumo[] = [
-    { id: 'i1', nombre: 'Urea', categoria: 'fertilizante', unidad: 'kg', stockActual: 1500, stockMinimo: 500, proveedor: 'AgroPro S.A.', costoUnitario: 0.8 },
-    { id: 'i2', nombre: 'Glifosato', categoria: 'herbicida', unidad: 'lt', stockActual: 200, stockMinimo: 50, proveedor: 'ChemCo Paraguay', costoUnitario: 12.5 },
-    { id: 'i3', nombre: 'Semillas de Soja DM 4800', categoria: 'semilla', unidad: 'kg', stockActual: 800, stockMinimo: 200, proveedor: 'AgroPro S.A.', costoUnitario: 1.2 },
-    { id: 'i4', nombre: 'Fungicida Triple', categoria: 'fungicida', unidad: 'lt', stockActual: 80, stockMinimo: 20, proveedor: 'ChemCo Paraguay', costoUnitario: 25 },
 ];
 
 export const mockMaquinarias: Maquinaria[] = [

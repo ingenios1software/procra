@@ -298,9 +298,9 @@ export function EventosList({
           <div className="overflow-y-auto max-h-[80vh] p-1">
             <EventoForm 
                 evento={selectedEvento || undefined}
-                parcelas={parcelas}
-                cultivos={cultivos}
-                zafras={zafras}
+                parcelas={mockParcelas}
+                cultivos={mockCultivos}
+                zafras={mockZafras}
                 onCancel={closeForm}
             />
           </div>
