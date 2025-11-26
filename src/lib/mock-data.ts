@@ -91,11 +91,11 @@ export const mockVentas: Venta[] = [
 ];
 
 export const mockPlanDeCuentas: PlanDeCuenta[] = [
-  { id: '1', codigo: '1.01.01', nombre: 'Caja', tipo: 'activo', naturaleza: 'deudora' },
-  { id: '2', codigo: '2.01.01', nombre: 'Proveedores', tipo: 'pasivo', naturaleza: 'acreedora' },
-  { id: '3', codigo: '4.01.01', nombre: 'Venta de Granos', tipo: 'ingreso', naturaleza: 'acreedora' },
-  { id: '4', codigo: '5.01.01', nombre: 'Costo de Insumos', tipo: 'costo', naturaleza: 'deudora' },
-  { id: '5', codigo: '5.01.02', nombre: 'Costo de Combustible', tipo: 'costo', naturaleza: 'deudora' },
+  { id: '1', codigo: '1.01.01.001', nombre: 'Caja', tipo: 'activo', naturaleza: 'deudora' },
+  { id: '2', codigo: '2.01.01.001', nombre: 'Proveedores Locales', tipo: 'pasivo', naturaleza: 'acreedora' },
+  { id: '3', codigo: '4.01.01.001', nombre: 'Venta de Granos', tipo: 'ingreso', naturaleza: 'acreedora' },
+  { id: '4', codigo: '5.01.01.001', nombre: 'Costo de Insumos Agrícolas', tipo: 'costo', naturaleza: 'deudora' },
+  { id: '5', codigo: '5.01.02.001', nombre: 'Costo de Combustible', tipo: 'gasto', naturaleza: 'deudora' },
 ];
 
 export const mockCentrosDeCosto: CentroDeCosto[] = [
