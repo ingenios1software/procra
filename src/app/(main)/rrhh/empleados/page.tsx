@@ -1,18 +1,13 @@
-import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+"use client";
+
+import { EmpleadosList } from "@/components/rrhh/empleados/empleados-list";
+import { mockEmpleados, mockRoles } from "@/lib/mock-data";
 
 export default function EmpleadosPage() {
   return (
-    <>
-      <PageHeader
-        title="Gestión de Empleados"
-        description="Administre la información del personal de la empresa."
-      />
-      <Card>
-        <CardContent className="p-6">
-          <p>Módulo de Empleados en construcción.</p>
-        </CardContent>
-      </Card>
-    </>
+    <EmpleadosList 
+      initialEmpleados={mockEmpleados}
+      roles={mockRoles}
+    />
   );
 }

@@ -189,6 +189,22 @@ export type EtapaCultivo = {
   descripcion: string;
 };
 
+// --- RRHH ---
+export type Empleado = {
+  id: string;
+  nombre: string;
+  apellido: string;
+  documento: string;
+  fechaNacimiento: Date;
+  fechaContratacion: Date;
+  puesto: string;
+  salario: number;
+  estado: 'activo' | 'inactivo' | 'de vacaciones';
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+};
+
 // --- CONTABILIDAD ---
 export type PlanDeCuenta = {
   id: string;

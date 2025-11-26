@@ -1,4 +1,4 @@
-import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente, Compra, Plaga, EtapaCultivo } from './types';
+import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente, Compra, Plaga, EtapaCultivo, Empleado } from './types';
 
 export const mockParcelas: Parcela[] = [
   { id: 'p1', nombre: 'Lote Norte 1', codigo: 'LN-001', superficie: 50, ubicacion: 'GPS: -34.5, -58.4', estado: 'activa' },
@@ -160,4 +160,11 @@ export const mockEtapasCultivo: EtapaCultivo[] = [
     { id: 'ec9', cultivoId: 'c2', orden: 2, nombre: 'V4-V8', descripcion: 'Definición de Potencial de Rinde' },
     { id: 'ec10', cultivoId: 'c2', orden: 3, nombre: 'VT-R1', descripcion: 'Panojamiento y Floración' },
     { id: 'ec11', cultivoId: 'c2', orden: 4, nombre: 'R2-R6', descripcion: 'Llenado de Granos' },
+];
+
+export const mockEmpleados: Empleado[] = [
+    { id: 'emp1', nombre: 'Carlos', apellido: 'Gomez', documento: '4.587.985', fechaNacimiento: new Date('1990-05-15'), fechaContratacion: new Date('2020-03-01'), puesto: 'Operador de Maquinaria', salario: 3500000, estado: 'activo' },
+    { id: 'emp2', nombre: 'Lucía', apellido: 'Fernandez', documento: '5.123.456', fechaNacimiento: new Date('1995-11-22'), fechaContratacion: new Date('2021-07-15'), puesto: 'Técnico de Campo', salario: 4500000, estado: 'activo' },
+    { id: 'emp3', nombre: 'Miguel', apellido: 'Benitez', documento: '3.987.654', fechaNacimiento: new Date('1985-01-30'), fechaContratacion: new Date('2018-01-10'), puesto: 'Jefe de Campo', salario: 7000000, estado: 'de vacaciones' },
+    { id: 'emp4', nombre: 'Elena', apellido: 'Ramirez', documento: '6.321.987', fechaNacimiento: new Date('2000-08-10'), fechaContratacion: new Date('2023-02-20'), puesto: 'Asistente Administrativo', salario: 2800000, estado: 'inactivo' },
 ];
