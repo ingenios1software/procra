@@ -288,7 +288,7 @@ export function EventosList({
       </Card>
       
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="sm:max-w-[1024px]">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{selectedEvento ? 'Editar Evento' : 'Registrar Nuevo Evento'}</DialogTitle>
             <DialogDescription>
