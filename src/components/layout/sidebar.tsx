@@ -48,6 +48,7 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip"
+import { Badge } from "@/components/ui/badge"
 import { useSidebar } from "@/hooks/use-mobile-sidebar"
 import { Logo } from "../icons"
 import React from "react"
