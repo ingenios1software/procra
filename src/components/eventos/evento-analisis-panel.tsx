@@ -8,7 +8,7 @@ import { Sprout, AlertCircle, CheckCircle, Clock, CalendarDays, SprayCan, BarCha
 import { differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Evento, Zafra, EtapaCultivo } from '@/lib/types';
-import { Bar, BarChart, ResponsiveContainer } from "recharts"
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
 
 
 interface EventoAnalisisPanelProps {
@@ -44,9 +44,9 @@ export function EventoAnalisisPanel({
     if (!zafra || !zafra.fechaSiembra) return { progresoZafra: 0 };
 
     const hoy = new Date();
-    const diasDesdeSiembra = differenceInDays(hoy, zafra.fechaSiembra);
+    const diasDesdeSiembra = differenceInDays(hoy, new Date(zafra.fechaSiembra));
     
-    const progreso = zafra.fechaFin ? Math.round((diasDesdeSiembra / differenceInDays(zafra.fechaFin, zafra.fechaSiembra)) * 100) : 0;
+    const progreso = zafra.fechaFin ? Math.round((diasDesdeSiembra / differenceInDays(new Date(zafra.fechaFin), new Date(zafra.fechaSiembra))) * 100) : 0;
     
     const etapasDelCultivo = etapasCultivo
       .filter(e => e.cultivoId === zafra.cultivoId)
