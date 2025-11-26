@@ -1,4 +1,4 @@
-import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente, Compra, Plaga, EtapaCultivo, Empleado } from './types';
+import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquinaria, Mantenimiento, Costo, Venta, PlanDeCuenta, CentroDeCosto, AsientoDiario, Proveedor, Cliente, Compra, Plaga, EtapaCultivo, Empleado, Asistencia } from './types';
 
 export const mockParcelas: Parcela[] = [
   { id: 'p1', nombre: 'Lote Norte 1', codigo: 'LN-001', superficie: 50, ubicacion: 'GPS: -34.5, -58.4', estado: 'activa' },
@@ -167,4 +167,11 @@ export const mockEmpleados: Empleado[] = [
     { id: 'emp2', nombre: 'Lucía', apellido: 'Fernandez', documento: '5.123.456', fechaNacimiento: new Date('1995-11-22'), fechaContratacion: new Date('2021-07-15'), puesto: 'Técnico de Campo', salario: 4500000, estado: 'activo' },
     { id: 'emp3', nombre: 'Miguel', apellido: 'Benitez', documento: '3.987.654', fechaNacimiento: new Date('1985-01-30'), fechaContratacion: new Date('2018-01-10'), puesto: 'Jefe de Campo', salario: 7000000, estado: 'de vacaciones' },
     { id: 'emp4', nombre: 'Elena', apellido: 'Ramirez', documento: '6.321.987', fechaNacimiento: new Date('2000-08-10'), fechaContratacion: new Date('2023-02-20'), puesto: 'Asistente Administrativo', salario: 2800000, estado: 'inactivo' },
+];
+
+export const mockAsistencias: Asistencia[] = [
+    { id: 'asist1', empleadoId: 'emp1', fecha: new Date(new Date().setDate(new Date().getDate() - 1)), horaEntrada: '07:00', horaSalida: '17:00' },
+    { id: 'asist2', empleadoId: 'emp2', fecha: new Date(new Date().setDate(new Date().getDate() - 1)), horaEntrada: '07:30', horaSalida: '17:30' },
+    { id: 'asist3', empleadoId: 'emp1', fecha: new Date(new Date().setDate(new Date().getDate() - 2)), horaEntrada: '07:05', horaSalida: '17:03' },
+    { id: 'asist4', empleadoId: 'emp4', fecha: new Date(new Date().setDate(new Date().getDate() - 2)), horaEntrada: '08:00', horaSalida: '12:00', observaciones: 'Media jornada' },
 ];

@@ -205,6 +205,16 @@ export type Empleado = {
   direccion?: string;
 };
 
+export type Asistencia = {
+  id: string;
+  empleadoId: string;
+  fecha: Date;
+  horaEntrada: string; // "HH:mm"
+  horaSalida: string; // "HH:mm"
+  observaciones?: string;
+};
+
+
 // --- CONTABILIDAD ---
 export type PlanDeCuenta = {
   id: string;
