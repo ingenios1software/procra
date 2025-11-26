@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "plots-icon",
+      "description": "Icon representing farm plots",
+      "imageUrl": "https://images.unsplash.com/photo-1599138900450-3d06e89ad309?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxmYXJtJTIwZmllbGR8ZW58MHx8fHwxNzY0MDQzOTU1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "farm field"
+    },
+    {
+      "id": "events-icon",
+      "description": "Icon representing farm events",
+      "imageUrl": "https://images.unsplash.com/photo-1686563520343-4827d8ad3ede?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxjYWxlbmRhciUyMGNoZWNrbGlzdHxlbnwwfHx8fDE3NjQxNTcxNzZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "calendar checklist"
+    },
+    {
+      "id": "seasons-icon",
+      "description": "Icon representing growing seasons",
+      "imageUrl": "https://images.unsplash.com/photo-1515497957908-4d6377430754?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzdW5yaXNlJTIwc3Vuc2V0fGVufDB8fHx8MTc2NDE1NzE3Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sunrise sunset"
+    }
+  ]
 }
