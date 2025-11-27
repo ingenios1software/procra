@@ -12,10 +12,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { FunnelIcon, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// =======================================================
-// 4) MODO OSCURO (DARK MODE) COMPATIBLE
-// El componente DataBar ahora es compatible con el modo oscuro.
-// =======================================================
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
     const showValueInside = percentage > 35;
@@ -63,6 +59,13 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
         ordenarPor: 'costoPromedioHa',
         orden: 'desc',
     });
+     const [columnFilters, setColumnFilters] = useState({
+        nombreParcela: "",
+        costoProducto: "",
+        hectareas: "",
+        cicloHoy: "",
+        costoPromedioHa: "",
+      });
 
     const handleFilterChange = (key: string, value: string) => {
         setFilters(prev => ({ ...prev, [key]: value }));
@@ -95,7 +98,6 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
             };
         });
 
-        // Sorting logic
         data.sort((a, b) => {
             const valA = a[filters.ordenarPor as keyof typeof a];
             const valB = b[filters.ordenarPor as keyof typeof b];
@@ -113,9 +115,21 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
 
     }, [filters, parcelas, eventos, zafraSeleccionada]);
 
+    const filteredRows = useMemo(() => {
+        return reporteData.filter(row => {
+          return (
+            row.nombreParcela.toLowerCase().includes(columnFilters.nombreParcela.toLowerCase()) &&
+            row.costoProducto.toString().includes(columnFilters.costoProducto) &&
+            row.hectareas.toString().includes(columnFilters.hectareas) &&
+            row.cicloHoy.toString().includes(columnFilters.cicloHoy) &&
+            row.costoPromedioHa.toString().includes(columnFilters.costoPromedioHa)
+          );
+        });
+    }, [reporteData, columnFilters]);
+
     const { totales, maxCosto } = useMemo(() => {
-        const totalHectareas = reporteData.reduce((sum, d) => sum + d.hectareas, 0);
-        const totalCostos = reporteData.reduce((sum, d) => sum + d.costoProducto, 0);
+        const totalHectareas = filteredRows.reduce((sum, d) => sum + d.hectareas, 0);
+        const totalCostos = filteredRows.reduce((sum, d) => sum + d.costoProducto, 0);
         const costoPromedioGeneral = totalHectareas > 0 ? totalCostos / totalHectareas : 0;
         const maxCosto = Math.max(...reporteData.map(d => d.costoProducto), 0);
         
@@ -127,13 +141,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
             },
             maxCosto
         }
-    }, [reporteData]);
+    }, [filteredRows, reporteData]);
 
-    // =======================================================
-    // 3) LÓGICA DE EXPORTACIÓN A EXCEL (SIN FORMATO)
-    // La librería `xlsx` estándar no soporta la exportación de estilos complejos.
-    // Para aplicar formatos (colores, negritas) se necesitaría una librería como `xlsx-style`.
-    // =======================================================
     const exportToExcel = () => {
         alert("La exportación a Excel con formato de estilos no está implementada.");
     }
@@ -200,19 +209,10 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-x-auto relative max-h-[600px]">
+                    <div className="relative max-h-[480px] overflow-y-auto border border-gray-200 rounded-lg">
                         <Table className="min-w-max whitespace-nowrap">
-                            {/* =======================================================
-                                2) ENCABEZADO CONGELADO (STICKY HEADER)
-                                Se agregan clases 'sticky top-0 z-10' y fondos para light/dark mode.
-                                ======================================================= */}
-                            <TableHeader className="sticky top-0 z-10 bg-muted/80 dark:bg-muted/90 backdrop-blur-sm">
+                            <TableHeader className="sticky top-0 z-20 bg-muted dark:bg-muted/95">
                                 <TableRow>
-                                    {/* =======================================================
-                                        1) FILTROS POR COLUMNA (UI Y PLACEHOLDER)
-                                        Se agrega el ícono y el menú desplegable. La lógica de filtrado real es compleja
-                                        y no está implementada, solo se muestra la UI.
-                                        ======================================================= */}
                                     <TableHead className="font-bold text-left">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger className="flex items-center gap-1">
@@ -227,16 +227,28 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                     <TableHead className="font-bold text-right w-[250px]">Costo en Producto por Parcela (Gs)</TableHead>
                                     <TableHead className="text-right font-bold">Hectárea Plantada</TableHead>
                                     <TableHead className="text-right font-bold">Ciclo a Hoy</TableHead>
-                                    <TableHead className="text-right font-bold">Valor Costo por Parcela (Gs)</TableHead>
                                     <TableHead className="text-right font-bold">Costo Promedio por Hectárea (Gs/ha)</TableHead>
+                                </TableRow>
+                                 <TableRow className="bg-muted/50 dark:bg-muted/80">
+                                    <TableHead className="px-4 py-2">
+                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8" placeholder="Filtrar..." value={columnFilters.nombreParcela} onChange={(e) => setColumnFilters(f => ({ ...f, nombreParcela: e.target.value }))} />
+                                    </TableHead>
+                                     <TableHead className="px-4 py-2">
+                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoProducto} onChange={(e) => setColumnFilters(f => ({ ...f, costoProducto: e.target.value }))} />
+                                    </TableHead>
+                                    <TableHead className="px-4 py-2">
+                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right" placeholder="Filtrar..." value={columnFilters.hectareas} onChange={(e) => setColumnFilters(f => ({ ...f, hectareas: e.target.value }))} />
+                                    </TableHead>
+                                    <TableHead className="px-4 py-2">
+                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right" placeholder="Filtrar..." value={columnFilters.cicloHoy} onChange={(e) => setColumnFilters(f => ({ ...f, cicloHoy: e.target.value }))} />
+                                    </TableHead>
+                                    <TableHead className="px-4 py-2">
+                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoPromedioHa} onChange={(e) => setColumnFilters(f => ({ ...f, costoPromedioHa: e.target.value }))} />
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {reporteData.map((data, index) => (
-                                     // =======================================================
-                                    // 4) MODO OSCURO (DARK MODE) COMPATIBLE
-                                    // Se agrega 'dark:hover:bg-muted/60' para el hover en modo oscuro.
-                                    // =======================================================
+                                {filteredRows.map((data, index) => (
                                     <TableRow key={index} className="hover:bg-muted/50 dark:hover:bg-muted/60">
                                         <TableCell className="font-medium py-3 text-left">{data.nombreParcela}</TableCell>
                                         <TableCell className="py-1 text-right">
@@ -244,23 +256,16 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                         </TableCell>
                                         <TableCell className="text-right py-3 font-mono">{data.hectareas} ha</TableCell>
                                         <TableCell className="text-right py-3 font-mono">{data.cicloHoy} días</TableCell>
-                                        <TableCell className="text-right font-semibold font-mono py-3">{data.costoProducto.toLocaleString('es-AR')} Gs</TableCell>
                                         <TableCell className="text-right font-bold font-mono py-3">{data.costoPromedioHa.toLocaleString('es-AR', { maximumFractionDigits: 0 })} Gs</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
-                             {/* =======================================================
-                                4) MODO OSCURO (DARK MODE) COMPATIBLE
-                                Se agregan clases dark:* para la fila de totales, asegurando
-                                que se vea bien en modo oscuro.
-                                ======================================================= */}
                             <TableFooter>
                                 <TableRow className="bg-amber-100 dark:bg-amber-900/50 border-t-2 border-amber-300 dark:border-amber-800 hover:bg-amber-100/90 dark:hover:bg-amber-900/60">
                                     <TableCell className="font-bold text-lg text-left">Total General</TableCell>
-                                    <TableCell></TableCell>
+                                    <TableCell className="font-bold text-lg font-mono text-right">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
                                     <TableCell className="font-bold text-lg font-mono text-right">{totales.totalHectareas} ha</TableCell>
                                     <TableCell></TableCell>
-                                    <TableCell className="font-bold text-lg font-mono text-right">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
                                     <TableCell className="font-bold text-lg font-mono text-right">{totales.costoPromedioGeneral.toLocaleString('es-AR', { maximumFractionDigits: 0 })} Gs</TableCell>
                                 </TableRow>
                             </TableFooter>
