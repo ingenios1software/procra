@@ -1,16 +1,14 @@
 
-import { ProyeccionRendimientoPanel } from "@/components/agronomia/proyeccion-rendimiento/proyeccion-rendimiento-panel";
-import { mockParcelas, mockCultivos, mockZafras, mockEventos, mockEtapasCultivo, mockVentas } from "@/lib/mock-data";
+import { InformeCostosParcela } from "@/components/agronomia/informe-costos/informe-costos-parcela";
+import { mockParcelas, mockCultivos, mockZafras, mockEventos } from "@/lib/mock-data";
 
-export default function ProyeccionRendimientoPage() {
+export default function InformeCostosPage() {
     return (
-        <ProyeccionRendimientoPanel 
+        <InformeCostosParcela 
             parcelas={mockParcelas}
             cultivos={mockCultivos}
             zafras={mockZafras}
             eventos={mockEventos}
-            etapas={mockEtapasCultivo}
-            ventasHistoricas={mockVentas}
         />
     )
 }
