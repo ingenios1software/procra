@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from "react";
@@ -48,14 +49,14 @@ export function PanelAnalisisEconomico({ eventos, insumos }: PanelAnalisisEconom
                     <DollarSign />
                     <div className="flex-1 space-y-1">
                         <p className="text-sm font-medium leading-none">Total Acumulado</p>
-                        <p className="text-sm text-muted-foreground">${costoTotal.toLocaleString('es-AR')}</p>
+                        <p className="text-sm text-muted-foreground">${costoTotal.toLocaleString('en-US')}</p>
                     </div>
                 </div>
                 <div className="flex items-center space-x-4 rounded-md border p-4">
                     <Zap />
                     <div className="flex-1 space-y-1">
                         <p className="text-sm font-medium leading-none">Evento más Costoso</p>
-                        <p className="text-sm text-muted-foreground">{eventoMasCostoso.nombre} (${eventoMasCostoso.costo.toLocaleString('es-AR')})</p>
+                        <p className="text-sm text-muted-foreground">{eventoMasCostoso.nombre} (${eventoMasCostoso.costo.toLocaleString('en-US')})</p>
                     </div>
                 </div>
                 <div className="flex items-center space-x-4 rounded-md border p-4">
@@ -76,3 +77,5 @@ export function PanelAnalisisEconomico({ eventos, insumos }: PanelAnalisisEconom
         </Card>
     );
 }
+
+    

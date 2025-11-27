@@ -21,7 +21,7 @@ const DataBar = ({ value, max }: { value: number; max: number }) => {
     if (value === 0) {
         return (
             <div className="flex items-center justify-end pr-2 text-muted-foreground font-mono">
-                0 Gs
+                $0
             </div>
         )
     }
@@ -34,13 +34,13 @@ const DataBar = ({ value, max }: { value: number; max: number }) => {
             >
                {showValueInside && (
                     <span className="text-xs font-mono font-semibold text-accent-foreground pl-2">
-                        {value.toLocaleString('es-AR')} Gs
+                        ${value.toLocaleString('en-US')}
                     </span>
                )}
             </div>
              {!showValueInside && (
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-mono font-semibold text-foreground">
-                    {value.toLocaleString('es-AR')} Gs
+                    ${value.toLocaleString('en-US')}
                 </span>
             )}
         </div>
@@ -255,12 +255,12 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2 w-[250px]">Costo en Producto por Parcela (Gs)</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2 w-[250px]">Costo en Producto por Parcela ($)</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Hectárea Plantada</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Ciclo a Hoy</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Rendimiento (kg/ha)</TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2">Costo Promedio por Hectárea (Gs/ha)</TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2">Costo/kg Producido (Gs)</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Costo Promedio por Hectárea ($/ha)</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Costo/kg Producido ($)</TableHead>
                                     </TableRow>
                                     <TableRow className="bg-muted/50 dark:bg-muted/80">
                                         <TableHead className="px-2 py-1">
@@ -293,23 +293,23 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                             <TableCell className="px-4 py-3 text-right">
                                                 <DataBar value={d.costoProducto} max={maxCosto} />
                                             </TableCell>
-                                            <TableCell className="px-4 py-3 text-right font-mono">{d.hectareas.toLocaleString('es-AR')} ha</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono">{d.hectareas.toLocaleString('en-US')} ha</TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono">{d.cicloHoy} días</TableCell>
-                                            <TableCell className="px-4 py-3 text-right font-mono font-bold">{d.rendimientoHa.toLocaleString('es-AR', { maximumFractionDigits: 0 })} kg/ha</TableCell>
-                                            <TableCell className="px-4 py-3 text-right font-mono font-bold">{d.costoPromedioHa.toLocaleString('es-AR', { maximumFractionDigits: 2 })} Gs</TableCell>
-                                            <TableCell className="px-4 py-3 text-right font-mono text-accent-foreground dark:text-accent font-semibold">{d.costoKg.toLocaleString('es-AR', { maximumFractionDigits: 2 })} Gs</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono font-bold">{d.rendimientoHa.toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono font-bold">${d.costoPromedioHa.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono text-accent-foreground dark:text-accent font-semibold">${d.costoKg.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                                 <TableFooter>
                                     <TableRow className="bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-100 dark:hover:bg-amber-900/50 border-t-2 border-gray-400 dark:border-gray-500">
                                         <TableCell className="px-4 py-3 font-bold text-left">Total General</TableCell>
-                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
-                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.totalHectareas.toLocaleString('es-AR')} ha</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.totalCostos.toLocaleString('en-US')}</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.totalHectareas.toLocaleString('en-US')} ha</TableCell>
                                         <TableCell className="px-4 py-3 text-right"></TableCell>
-                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.rendimientoPromedioGeneral.toLocaleString('es-AR', { maximumFractionDigits: 0 })} kg/ha</TableCell>
-                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.costoPromedioGeneral.toLocaleString('es-AR', { maximumFractionDigits: 2 })} Gs</TableCell>
-                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.costoKgPromedioGeneral.toLocaleString('es-AR', { maximumFractionDigits: 2 })} Gs</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.rendimientoPromedioGeneral.toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.costoPromedioGeneral.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.costoKgPromedioGeneral.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
                                     </TableRow>
                                 </TableFooter>
                             </Table>
@@ -320,15 +320,14 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                             <ComposedChart data={filteredRows}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} />
-                              <YAxis yAxisId="left" label={{ value: 'Costo (Gs)', angle: -90, position: 'insideLeft' }} />
+                              <YAxis yAxisId="left" label={{ value: 'Costo ($)', angle: -90, position: 'insideLeft' }} />
                               <YAxis yAxisId="right" orientation="right" label={{ value: 'Rendimiento (kg/ha) / Hectáreas', angle: 90, position: 'insideRight' }}/>
                               <Tooltip />
                               <Legend />
-                              <Line yAxisId="left" type="monotone" dataKey="costoProducto" name="Costo por Parcela (Gs)" stroke="#3b82f6" strokeWidth={2} />
+                              <Line yAxisId="left" type="monotone" dataKey="costoProducto" name="Costo por Parcela ($)" stroke="#3b82f6" strokeWidth={2} />
                               <Bar yAxisId="right" dataKey="hectareas" name="Hectáreas Plantadas" fill="#dc2626" />
                               <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
-                              <Line yAxisId="left" type="monotone" dataKey="valorCostoParcela" name="Valor Costo Parcela" stroke="#8b5cf6" strokeWidth={3} dot={false} />
-                              <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha (Gs)" fill="#f97316" />
+                              <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" />
                             </ComposedChart>
                           </ResponsiveContainer>
                         </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
@@ -101,7 +102,7 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalIngresos.toLocaleString('es-AR')}</div>
+            <div className="text-2xl font-bold">${totalIngresos.toLocaleString('en-US')}</div>
             <p className="text-xs text-muted-foreground">Suma de todas las ventas registradas</p>
           </CardContent>
         </Card>
@@ -150,8 +151,8 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes
                     <TableCell className="font-medium">{getClienteNombre(venta.clienteId)}</TableCell>
                     <TableCell className="font-medium">{cultivo?.nombre || 'N/A'}</TableCell>
                     <TableCell>{venta.toneladas} tn</TableCell>
-                    <TableCell>${venta.precioTonelada.toLocaleString('es-AR')}</TableCell>
-                    <TableCell className="text-right font-semibold">${total.toLocaleString('es-AR')}</TableCell>
+                    <TableCell>${venta.precioTonelada.toLocaleString('en-US')}</TableCell>
+                    <TableCell className="text-right font-semibold">${total.toLocaleString('en-US')}</TableCell>
                     {canModify && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(venta)}>
@@ -186,3 +187,5 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes
     </>
   );
 }
+
+    

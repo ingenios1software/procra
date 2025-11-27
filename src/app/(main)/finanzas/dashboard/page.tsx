@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from "react";
@@ -74,29 +75,29 @@ export default function DashboardFinancieroPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle><TrendingUp className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent><div className="text-2xl font-bold">${totalIngresos.toLocaleString('es-AR')}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold">${totalIngresos.toLocaleString('en-US')}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costos Totales</CardTitle><TrendingDown className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent><div className="text-2xl font-bold">${totalCostos.toLocaleString('es-AR')}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold">${totalCostos.toLocaleString('en-US')}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Margen Neto Consolidado</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent><div className="text-2xl font-bold">${margenNeto.toLocaleString('es-AR')}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold">${margenNeto.toLocaleString('en-US')}</div></CardContent>
         </Card>
       </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
         <Card className="bg-primary/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-primary">Mejor Parcela</CardTitle><Landmark className="h-4 w-4 text-primary/70" /></CardHeader>
-          <CardContent><div className="text-xl font-bold text-primary">{topParcela?.nombre}</div><p className="text-xs text-primary/80">Margen: ${topParcela?.rentabilidad.toLocaleString('es-AR')}</p></CardContent>
+          <CardContent><div className="text-xl font-bold text-primary">{topParcela?.nombre}</div><p className="text-xs text-primary/80">Margen: ${topParcela?.rentabilidad.toLocaleString('en-US')}</p></CardContent>
         </Card>
         <Card className="bg-destructive/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-destructive">Peor Parcela</CardTitle><ChevronsDown className="h-4 w-4 text-destructive/70" /></CardHeader>
-          <CardContent><div className="text-xl font-bold text-destructive">{peorParcela?.nombre}</div><p className="text-xs text-destructive/80">Margen: ${peorParcela?.rentabilidad.toLocaleString('es-AR')}</p></CardContent>
+          <CardContent><div className="text-xl font-bold text-destructive">{peorParcela?.nombre}</div><p className="text-xs text-destructive/80">Margen: ${peorParcela?.rentabilidad.toLocaleString('en-US')}</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Cultivo Más Rentable</CardTitle><Star className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent><div className="text-xl font-bold">{topCultivo?.name}</div><p className="text-xs text-muted-foreground">Margen: ${topCultivo?.rentabilidad.toLocaleString('es-AR')}</p></CardContent>
+          <CardContent><div className="text-xl font-bold">{topCultivo?.name}</div><p className="text-xs text-muted-foreground">Margen: ${topCultivo?.rentabilidad.toLocaleString('en-US')}</p></CardContent>
         </Card>
       </div>
 
@@ -108,7 +109,7 @@ export default function DashboardFinancieroPage() {
               <BarChart data={costosMensuales}>
                 <XAxis dataKey="name" stroke="#888888" fontSize={12} />
                 <YAxis stroke="#888888" fontSize={12} tickFormatter={(value) => `$${Number(value)/1000}k`} />
-                <Tooltip cursor={{ fill: 'hsla(var(--muted))' }} contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={(value) => `$${Number(value).toLocaleString('es-AR')}`} />
+                <Tooltip cursor={{ fill: 'hsla(var(--muted))' }} contentStyle={{ backgroundColor: 'hsl(var(--background))' }} formatter={(value) => `$${Number(value).toLocaleString('en-US')}`} />
                 <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -124,7 +125,7 @@ export default function DashboardFinancieroPage() {
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                     </Pie>
-                    <Tooltip formatter={(value) => `$${Number(value).toLocaleString('es-AR')}`} contentStyle={{ backgroundColor: 'hsl(var(--background))' }} />
+                    <Tooltip formatter={(value) => `$${Number(value).toLocaleString('en-US')}`} contentStyle={{ backgroundColor: 'hsl(var(--background))' }} />
                 </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -133,3 +134,5 @@ export default function DashboardFinancieroPage() {
     </>
   );
 }
+
+    

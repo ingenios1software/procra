@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
@@ -99,7 +100,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalCostos.toLocaleString('es-AR')}</div>
+            <div className="text-2xl font-bold">${totalCostos.toLocaleString('en-US')}</div>
             <p className="text-xs text-muted-foreground">Suma de todos los costos registrados</p>
           </CardContent>
         </Card>
@@ -126,7 +127,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
                             <TableRow key={p.id}>
                                 <TableCell className="font-medium">{p.nombre}</TableCell>
                                 <TableCell>{p.superficie}</TableCell>
-                                <TableCell className="text-right">${p.costoTotal.toLocaleString('es-AR')}</TableCell>
+                                <TableCell className="text-right">${p.costoTotal.toLocaleString('en-US')}</TableCell>
                                 <TableCell className="text-right font-semibold">${p.costoPorHa.toFixed(2)}</TableCell>
                             </TableRow>
                         ))}
@@ -179,7 +180,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
                     <TableCell className="font-medium">{costo.descripcion}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize">{costo.tipo}</Badge></TableCell>
                     <TableCell>{parcela?.nombre || 'N/A'}</TableCell>
-                    <TableCell className="text-right">${costo.monto.toLocaleString('es-AR')}</TableCell>
+                    <TableCell className="text-right">${costo.monto.toLocaleString('en-US')}</TableCell>
                     {canModify && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(costo)}>
@@ -213,3 +214,5 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
     </>
   );
 }
+
+    

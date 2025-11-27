@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -97,7 +98,7 @@ export default function DiarioPage() {
                           {asiento.descripcion}
                         </TableCell>
                         <TableCell className="text-right font-mono">
-                          ${total.toLocaleString("es-AR")}
+                          ${total.toLocaleString("en-US")}
                         </TableCell>
                       </TableRow>
                       {isExpanded && (
@@ -145,7 +146,7 @@ export default function DiarioPage() {
                                       >
                                         {mov.tipo === "debe"
                                           ? `$${mov.monto.toLocaleString(
-                                              "es-AR"
+                                              "en-US"
                                             )}`
                                           : "-"}
                                       </TableCell>
@@ -157,7 +158,7 @@ export default function DiarioPage() {
                                       >
                                         {mov.tipo === "haber"
                                           ? `$${mov.monto.toLocaleString(
-                                              "es-AR"
+                                              "en-US"
                                             )}`
                                           : "-"}
                                       </TableCell>
@@ -179,3 +180,5 @@ export default function DiarioPage() {
     </>
   );
 }
+
+    

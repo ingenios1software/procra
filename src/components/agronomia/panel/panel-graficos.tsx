@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from "react";
@@ -81,7 +82,7 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas }: PanelGraficos
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                         </Pie>
-                        <Tooltip formatter={(value) => `$${Number(value).toLocaleString('es-AR')}`} />
+                        <Tooltip formatter={(value) => `$${Number(value).toLocaleString('en-US')}`} />
                         <Legend />
                       </PieChart>
                     </ResponsiveContainer>
@@ -90,3 +91,5 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas }: PanelGraficos
         </div>
     )
 }
+
+    

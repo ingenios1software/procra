@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -201,3 +202,5 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
 });
 
 InsumoForm.displayName = 'InsumoForm';
+
+    

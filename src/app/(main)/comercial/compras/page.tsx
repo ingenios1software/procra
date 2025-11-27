@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -94,7 +95,7 @@ export default function ComprasPage() {
                       {compra.estado}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right font-mono">${compra.total.toLocaleString('es-AR')}</TableCell>
+                  <TableCell className="text-right font-mono">${compra.total.toLocaleString('en-US')}</TableCell>
                    <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -120,3 +121,5 @@ export default function ComprasPage() {
     </>
   );
 }
+
+    

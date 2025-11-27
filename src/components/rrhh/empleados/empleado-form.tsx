@@ -187,9 +187,9 @@ export function EmpleadoForm({
               name="salario"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Salario Mensual (Gs.)</FormLabel>
+                  <FormLabel>Salario Mensual ($)</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="3500000" {...field} />
+                    <Input type="number" placeholder="1500" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -238,3 +238,5 @@ export function EmpleadoForm({
     </Form>
   );
 }
+
+    

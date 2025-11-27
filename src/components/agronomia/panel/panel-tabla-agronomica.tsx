@@ -103,7 +103,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                                             <TableCell className="text-right">{diasEntreEventos}</TableCell>
                                             <TableCell className="text-right">{cicloEvento}</TableCell>
                                             <TableCell className="text-right">${costoPorHa.toFixed(2)}</TableCell>
-                                            <TableCell className="text-right font-bold">${(evento.costoTotal || 0).toLocaleString('es-AR')}</TableCell>
+                                            <TableCell className="text-right font-bold">${(evento.costoTotal || 0).toLocaleString('en-US')}</TableCell>
                                         </TableRow>
                                         {isExpanded && showProducts && productosDelEvento.map((prod, prodIndex) => {
                                             const insumo = insumos.find(i => i.id === prod.insumoId);
@@ -118,7 +118,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                                                     <TableCell className="text-right text-sm">{prod.dosis?.toFixed(2)} {insumo?.unidad}/ha</TableCell>
                                                     <TableCell className="text-right text-sm">{prod.cantidad?.toFixed(2)} {insumo?.unidad}</TableCell>
                                                     <TableCell className="text-right text-sm">${(insumo?.costoUnitario || 0).toFixed(2)}</TableCell>
-                                                    <TableCell className="text-right text-sm">${costoProducto.toLocaleString('es-AR')}</TableCell>
+                                                    <TableCell className="text-right text-sm">${costoProducto.toLocaleString('en-US')}</TableCell>
                                                     <TableCell></TableCell>
                                                     <TableCell></TableCell>
                                                     <TableCell></TableCell>
@@ -133,7 +133,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                         <TableFooter>
                             <TableRow className="font-bold text-lg bg-primary/10">
                                 <TableCell colSpan={11}>Costo Total Acumulado</TableCell>
-                                <TableCell className="text-right">${costoTotalGeneral.toLocaleString('es-AR')}</TableCell>
+                                <TableCell className="text-right">${costoTotalGeneral.toLocaleString('en-US')}</TableCell>
                             </TableRow>
                         </TableFooter>
                     </Table>
@@ -142,3 +142,5 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
         </Card>
     )
 }
+
+    

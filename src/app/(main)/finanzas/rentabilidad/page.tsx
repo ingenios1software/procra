@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from "react";
@@ -87,9 +88,9 @@ export default function RentabilidadPage() {
       </PageHeader>
 
       <div className="grid gap-6 md:grid-cols-3 mb-6">
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle><TrendingUp className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">${totalIngresos.toLocaleString('es-AR')}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costos Totales</CardTitle><TrendingDown className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">${totalCostos.toLocaleString('es-AR')}</div></CardContent></Card>
-        <Card className="bg-primary/10"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-primary">Rentabilidad Total</CardTitle><DollarSign className="h-4 w-4 text-primary/70" /></CardHeader><CardContent><div className="text-2xl font-bold text-primary">${rentabilidadTotal.toLocaleString('es-AR')}</div></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle><TrendingUp className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">${totalIngresos.toLocaleString('en-US')}</div></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costos Totales</CardTitle><TrendingDown className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">${totalCostos.toLocaleString('en-US')}</div></CardContent></Card>
+        <Card className="bg-primary/10"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-primary">Rentabilidad Total</CardTitle><DollarSign className="h-4 w-4 text-primary/70" /></CardHeader><CardContent><div className="text-2xl font-bold text-primary">${rentabilidadTotal.toLocaleString('en-US')}</div></CardContent></Card>
       </div>
 
       <Card className="mb-6">
@@ -104,9 +105,9 @@ export default function RentabilidadPage() {
                     {rentabilidadPorCultivo.map(c => (
                         <TableRow key={c.name}>
                             <TableCell className="font-medium">{c.name}</TableCell>
-                            <TableCell className="text-right">${c.ingresos.toLocaleString('es-AR')}</TableCell>
-                            <TableCell className="text-right">${c.costos.toLocaleString('es-AR')}</TableCell>
-                            <TableCell className={cn("text-right font-semibold", c.rentabilidad > 0 ? "text-green-600" : "text-red-600")}>${c.rentabilidad.toLocaleString('es-AR')}</TableCell>
+                            <TableCell className="text-right">${c.ingresos.toLocaleString('en-US')}</TableCell>
+                            <TableCell className="text-right">${c.costos.toLocaleString('en-US')}</TableCell>
+                            <TableCell className={cn("text-right font-semibold", c.rentabilidad > 0 ? "text-green-600" : "text-red-600")}>${c.rentabilidad.toLocaleString('en-US')}</TableCell>
                             <TableCell className={cn("text-right font-semibold", c.margen > 10 ? "text-green-600" : c.margen > 0 ? "text-yellow-600" : "text-red-600")}>{c.margen.toFixed(2)}%</TableCell>
                         </TableRow>
                     ))}
@@ -127,7 +128,7 @@ export default function RentabilidadPage() {
                     {rentabilidadPorParcela.map(p => (
                         <TableRow key={p.name}>
                             <TableCell className="font-medium">{p.name}</TableCell>
-                            <TableCell className={cn("text-right font-semibold", p.colorClass)}>${p.margenNeto.toLocaleString('es-AR')}</TableCell>
+                            <TableCell className={cn("text-right font-semibold", p.colorClass)}>${p.margenNeto.toLocaleString('en-US')}</TableCell>
                             <TableCell className={cn("text-right font-semibold", p.colorClass)}>${p.margenPorHa.toFixed(2)}</TableCell>
                         </TableRow>
                     ))}
@@ -145,7 +146,7 @@ export default function RentabilidadPage() {
                 <XAxis dataKey="name" />
                 <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} />
                 <Tooltip 
-                  formatter={(value) => `$${Number(value).toLocaleString('es-AR')}`}
+                  formatter={(value) => `$${Number(value).toLocaleString('en-US')}`}
                   cursor={{ fill: 'hsla(var(--muted))' }} 
                   contentStyle={{ backgroundColor: 'hsl(var(--background))' }} />
                 <Bar dataKey="rentabilidad" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
@@ -163,7 +164,7 @@ export default function RentabilidadPage() {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                 </Pie>
-                <Tooltip formatter={(value) => `$${Number(value).toLocaleString('es-AR')}`} contentStyle={{ backgroundColor: 'hsl(var(--background))' }} />
+                <Tooltip formatter={(value) => `$${Number(value).toLocaleString('en-US')}`} contentStyle={{ backgroundColor: 'hsl(var(--background))' }} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
@@ -173,3 +174,5 @@ export default function RentabilidadPage() {
     </>
   );
 }
+
+    
