@@ -10,28 +10,35 @@ import type { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
 import { differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
-interface InformeCostosParcelaProps {
-    parcelas: Parcela[];
-    cultivos: Cultivo[];
-    zafras: Zafra[];
-    eventos: Evento[];
-}
-
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
+    const showValueInside = percentage > 25;
+
+    if (value === 0) {
+        return (
+            <div className="flex items-center justify-end pr-2 text-muted-foreground font-mono">
+                0 Gs
+            </div>
+        )
+    }
+
     return (
-        <div className="flex items-center gap-2">
-            <div className="w-2/5 text-right font-mono">
-                {value.toLocaleString('es-AR')} Gs
+        <div className="w-full bg-muted/50 rounded-sm h-6 relative my-1">
+            <div 
+                className="bg-accent h-6 rounded-sm flex items-center" 
+                style={{ width: `${percentage}%` }}
+            >
+               {showValueInside && (
+                    <span className="text-xs font-mono font-semibold text-accent-foreground pl-2">
+                        {value.toLocaleString('es-AR')} Gs
+                    </span>
+               )}
             </div>
-            <div className="w-3/5">
-                 <div className="w-full bg-muted rounded-full h-4 relative">
-                    <div 
-                        className="bg-accent h-4 rounded-full" 
-                        style={{ width: `${percentage}%` }}
-                    ></div>
-                </div>
-            </div>
+             {!showValueInside && (
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-mono font-semibold text-foreground">
+                    {value.toLocaleString('es-AR')} Gs
+                </span>
+            )}
         </div>
     );
 };
@@ -42,6 +49,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: In
         cultivoId: cultivos[0]?.id || '',
         zafraId: zafras.find(z => z.estado === 'en curso')?.id || '',
         parcelaId: 'all',
+        ordenarPor: 'costoPromedioHa',
+        orden: 'desc',
     });
 
     const handleFilterChange = (key: string, value: string) => {
@@ -51,11 +60,11 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: In
     const zafraSeleccionada = useMemo(() => zafras.find(z => z.id === filters.zafraId), [filters.zafraId, zafras]);
 
     const reporteData = useMemo(() => {
-        const parcelasFiltradas = filters.parcelaId === 'all' 
+        let parcelasFiltradas = filters.parcelaId === 'all' 
             ? parcelas 
             : parcelas.filter(p => p.id === filters.parcelaId);
 
-        return parcelasFiltradas.map(parcela => {
+        let data = parcelasFiltradas.map(parcela => {
             const eventosParcela = eventos.filter(e => 
                 e.parcelaId === parcela.id && 
                 e.zafraId === filters.zafraId &&
@@ -74,6 +83,23 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: In
                 costoPromedioHa: costoPorHa,
             };
         });
+
+        // Sorting logic
+        data.sort((a, b) => {
+            const valA = a[filters.ordenarPor as keyof typeof a];
+            const valB = b[filters.ordenarPor as keyof typeof b];
+
+            if (typeof valA === 'number' && typeof valB === 'number') {
+                return filters.orden === 'asc' ? valA - valB : valB - valA;
+            }
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                 return filters.orden === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            return 0;
+        });
+
+        return data;
+
     }, [filters, parcelas, eventos, zafraSeleccionada]);
 
     const { totales, maxCosto } = useMemo(() => {
@@ -104,7 +130,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: In
                     <CardTitle>Filtros del Informe</CardTitle>
                     <CardDescription>Seleccione los parámetros para generar el reporte.</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <Select value={filters.cultivoId} onValueChange={(v) => handleFilterChange('cultivoId', v)}>
                         <SelectTrigger><SelectValue placeholder="Seleccione Cultivo" /></SelectTrigger>
                         <SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent>
@@ -125,50 +151,74 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: In
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Resultados del Informe</CardTitle>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+                        <div>
+                            <CardTitle>Resultados del Informe</CardTitle>
+                        </div>
+                        <div className="flex items-center gap-2 mt-4 md:mt-0">
+                            <span className="text-sm text-muted-foreground">Ordenar por:</span>
+                             <Select value={filters.ordenarPor} onValueChange={(v) => handleFilterChange('ordenarPor', v)}>
+                                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="costoPromedioHa">Costo/ha</SelectItem>
+                                    <SelectItem value="costoProducto">Costo Total</SelectItem>
+                                    <SelectItem value="hectareas">Hectárea</SelectItem>
+                                    <SelectItem value="cicloHoy">Ciclo</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select value={filters.orden} onValueChange={(v) => handleFilterChange('orden', v)}>
+                                <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="desc">Descendente</SelectItem>
+                                    <SelectItem value="asc">Ascendente</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableHead className="font-bold">Nombre de Parcela</TableHead>
-                                <TableHead className="font-bold w-[30%]">Costo en Producto por Parcela (Gs)</TableHead>
-                                <TableHead className="text-center font-bold">Hectárea Plantada</TableHead>
-                                <TableHead className="text-center font-bold">Ciclo a Hoy</TableHead>
-                                <TableHead className="text-center font-bold">Valor Costo por Parcela (Gs)</TableHead>
-                                <TableHead className="text-center font-bold">Costo Promedio por Hectárea (Gs/ha)</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {reporteData.map((data, index) => (
-                                <TableRow key={index} className="hover:bg-muted/30">
-                                    <TableCell className="font-medium py-2">{data.nombreParcela}</TableCell>
-                                    <TableCell className="py-2">
-                                        <DataBar value={data.costoProducto} max={maxCosto} />
-                                    </TableCell>
-                                    <TableCell className="text-center py-2">{data.hectareas} ha</TableCell>
-                                    <TableCell className="text-center py-2">{data.cicloHoy} días</TableCell>
-                                    <TableCell className="text-center font-semibold font-mono py-2">{data.costoProducto.toLocaleString('es-AR')} Gs</TableCell>
-                                    <TableCell className="text-center font-bold font-mono py-2">{data.costoPromedioHa.toLocaleString('es-AR', { maximumFractionDigits: 0 })} Gs</TableCell>
+                    <div className="overflow-x-auto">
+                        <Table className="min-w-max whitespace-nowrap">
+                            <TableHeader>
+                                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                    <TableHead className="font-bold text-left">Nombre de Parcela</TableHead>
+                                    <TableHead className="font-bold text-right w-[250px]">Costo en Producto por Parcela (Gs)</TableHead>
+                                    <TableHead className="text-right font-bold">Hectárea Plantada</TableHead>
+                                    <TableHead className="text-right font-bold">Ciclo a Hoy</TableHead>
+                                    <TableHead className="text-right font-bold">Valor Costo por Parcela (Gs)</TableHead>
+                                    <TableHead className="text-right font-bold">Costo Promedio por Hectárea (Gs/ha)</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                        <TableFooter>
-                            <TableRow className="bg-amber-100 dark:bg-amber-900/30 border-t-2 border-amber-300 dark:border-amber-700 hover:bg-amber-100/90 dark:hover:bg-amber-900/40">
-                                <TableCell className="font-bold text-lg">Total General</TableCell>
-                                <TableCell className="font-bold text-lg font-mono text-right">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
-                                <TableCell className="font-bold text-lg font-mono text-center">{totales.totalHectareas} ha</TableCell>
-                                <TableCell></TableCell>
-                                <TableCell className="font-bold text-lg font-mono text-center">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
-                                <TableCell className="font-bold text-lg font-mono text-center">{totales.costoPromedioGeneral.toLocaleString('es-AR', { maximumFractionDigits: 0 })} Gs</TableCell>
-                            </TableRow>
-                        </TableFooter>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {reporteData.map((data, index) => (
+                                    <TableRow key={index} className="hover:bg-muted/30">
+                                        <TableCell className="font-medium py-3 text-left">{data.nombreParcela}</TableCell>
+                                        <TableCell className="py-1 text-right">
+                                            <DataBar value={data.costoProducto} max={maxCosto} />
+                                        </TableCell>
+                                        <TableCell className="text-right py-3 font-mono">{data.hectareas} ha</TableCell>
+                                        <TableCell className="text-right py-3 font-mono">{data.cicloHoy} días</TableCell>
+                                        <TableCell className="text-right font-semibold font-mono py-3">{data.costoProducto.toLocaleString('es-AR')} Gs</TableCell>
+                                        <TableCell className="text-right font-bold font-mono py-3">{data.costoPromedioHa.toLocaleString('es-AR', { maximumFractionDigits: 0 })} Gs</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                            <TableFooter>
+                                <TableRow className="bg-amber-100 dark:bg-amber-900/30 border-t-2 border-amber-300 dark:border-amber-700 hover:bg-amber-100/90 dark:hover:bg-amber-900/40">
+                                    <TableCell className="font-bold text-lg text-left">Total General</TableCell>
+                                    <TableCell className="font-bold text-lg font-mono text-right">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
+                                    <TableCell className="font-bold text-lg font-mono text-right">{totales.totalHectareas} ha</TableCell>
+                                    <TableCell></TableCell>
+                                    <TableCell className="font-bold text-lg font-mono text-right">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
+                                    <TableCell className="font-bold text-lg font-mono text-right">{totales.costoPromedioGeneral.toLocaleString('es-AR', { maximumFractionDigits: 0 })} Gs</TableCell>
+                                </TableRow>
+                            </TableFooter>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </>
     );
 }
-
 
     
