@@ -13,7 +13,6 @@ import { PanelTablaAgronomica } from "./panel-tabla-agronomica";
 import { PanelAnalisisEconomico } from "./panel-analisis-economico";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { usePrint } from "@/hooks/use-print";
 import * as XLSX from 'xlsx';
 import { differenceInDays, format } from "date-fns";
 
@@ -29,7 +28,6 @@ interface PanelAgronomicoProps {
 export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, etapas }: PanelAgronomicoProps) {
     const [selectedParcelaId, setSelectedParcelaId] = useState<string | null>(null);
     const [selectedZafraId, setSelectedZafraId] = useState<string | null>(null);
-    const { handlePrint } = usePrint();
 
     const parcela = useMemo(() => parcelas.find(p => p.id === selectedParcelaId), [selectedParcelaId, parcelas]);
     const zafra = useMemo(() => zafras.find(z => z.id === selectedZafraId), [selectedZafraId, zafras]);
