@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -8,6 +9,7 @@ import { Parcela, Zafra, Evento, Insumo } from "@/lib/types";
 import { format, differenceInDays } from "date-fns";
 import { ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import React from "react";
 
 interface PanelTablaAgronomicaProps {
     parcela: Parcela;
@@ -88,8 +90,8 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                                 const productosDelEvento = evento.productos || (evento.insumoId ? [{ insumoId: evento.insumoId, cantidad: evento.cantidad, dosis: evento.dosis }] : []);
                                 
                                 return (
-                                    <>
-                                        <TableRow key={evento.id} className={cn("font-semibold cursor-pointer", getRowColor(evento.categoria))} onClick={() => toggleRow(evento.id)}>
+                                    <React.Fragment key={evento.id}>
+                                        <TableRow className={cn("font-semibold cursor-pointer", getRowColor(evento.categoria))} onClick={() => toggleRow(evento.id)}>
                                             <TableCell><Button variant="ghost" size="icon" className="h-6 w-6">{isExpanded ? <ChevronDown /> : <ChevronRight />}</Button></TableCell>
                                             <TableCell>{format(new Date(evento.fecha), 'dd/MM/yy')}</TableCell>
                                             <TableCell>{evento.categoria || evento.tipo}</TableCell>
@@ -124,7 +126,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                                                 </TableRow>
                                             )
                                         })}
-                                    </>
+                                    </React.Fragment>
                                 )
                             })}
                         </TableBody>
