@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { ConnectionStatusIndicator } from "@/components/shared/connection-status";
 
 export default function MainLayout({
   children,
@@ -19,6 +20,7 @@ export default function MainLayout({
             </div>
           </main>
         </div>
+        <ConnectionStatusIndicator />
       </div>
   );
 }

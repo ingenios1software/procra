@@ -4,10 +4,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/context/auth-context';
 import { ThemeProvider } from '@/context/theme-provider';
 import { SidebarProvider } from '@/context/sidebar-context';
+import { PWALifecycle } from '@/components/pwa-lifecycle';
 
 export const metadata: Metadata = {
   title: 'CRApro95 - Gestión Agrícola Integral',
   description: 'Sistema Integral de Gestión Agrícola by Firebase Studio',
+  manifest: '/manifest.json',
+  themeColor: '#f7f5f1',
 };
 
 export default function RootLayout({
@@ -21,6 +24,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body>
         <ThemeProvider>
@@ -31,6 +35,7 @@ export default function RootLayout({
             <Toaster />
           </AuthProvider>
         </ThemeProvider>
+        <PWALifecycle />
       </body>
     </html>
   );
