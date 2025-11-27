@@ -325,7 +325,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                               <Tooltip />
                               <Legend />
                               <Line yAxisId="left" type="monotone" dataKey="costoProducto" name="Costo por Parcela ($)" stroke="#3b82f6" strokeWidth={2} />
-                              <Bar yAxisId="right" dataKey="hectareas" name="Hectáreas Plantadas" fill="#dc2626" />
+                              <Line yAxisId="right" type="monotone" dataKey="hectareas" name="Hectáreas Plantadas" stroke="#dc2626" />
                               <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (tn/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
                               <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" />
                             </ComposedChart>
