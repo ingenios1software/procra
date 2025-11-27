@@ -230,9 +230,9 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                 )}
               />
 
-              {tipoEvento === 'aplicacion' && (
+              {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEvento) && (
                 <Card className="bg-muted/30 p-4">
-                  <CardHeader className="p-2"><CardTitle className="text-lg">Detalles de Aplicación</CardTitle></CardHeader>
+                  <CardHeader className="p-2"><CardTitle className="text-lg">Detalles de Insumos</CardTitle></CardHeader>
                   <CardContent className="p-2 space-y-4">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField
@@ -260,81 +260,83 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                           control={form.control}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Dosis/Cantidad Total</FormLabel>
+                              <FormLabel>Dosis o Cantidad</FormLabel>
                               <FormControl>
-                                <Input type="number" placeholder="Ej: 200" {...field} />
+                                <Input type="number" placeholder="Ej: 2" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
                      </div>
-                     <div>
-                       <FormLabel>Condiciones Climáticas</FormLabel>
-                       <div className="grid grid-cols-3 gap-4 mt-2">
-                          <FormField
-                            name="temperatura"
-                            control={form.control}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-xs text-muted-foreground">Temp (°C)</FormLabel>
-                                <div className="relative">
-                                  <Thermometer className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                  <FormControl>
-                                    <Input type="number" className="pl-8" {...field} />
-                                  </FormControl>
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            name="humedad"
-                            control={form.control}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-xs text-muted-foreground">Humedad (%)</FormLabel>
-                                <div className="relative">
-                                  <Cloud className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                  <FormControl>
-                                    <Input type="number" className="pl-8" {...field} />
-                                  </FormControl>
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            name="viento"
-                            control={form.control}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-xs text-muted-foreground">Viento (km/h)</FormLabel>
-                                <div className="relative">
-                                  <Wind className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                  <FormControl>
-                                    <Input type="number" className="pl-8" {...field} />
-                                  </FormControl>
-                                </div>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                       </div>
-                     </div>
                   </CardContent>
                 </Card>
               )}
 
-              {tipoEvento !== 'aplicacion' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField control={form.control} name="insumos" render={({ field }) => (<FormItem><FormLabel>Insumos</FormLabel><FormControl><Input placeholder="Ej: Semillas, Fertilizante" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <FormField control={form.control} name="cantidad" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" placeholder="Ej: 100" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <FormField control={form.control} name="unidad" render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><FormControl><Input placeholder="Ej: kg, l, ton" {...field} /></FormControl><FormMessage /></FormItem>)} />
+               {['aplicacion', 'fertilización', 'plagas'].includes(tipoEvento) && (
+                 <div>
+                   <FormLabel>Condiciones Climáticas</FormLabel>
+                   <div className="grid grid-cols-3 gap-4 mt-2 border p-4 rounded-md">
+                      <FormField
+                        name="temperatura"
+                        control={form.control}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs text-muted-foreground">Temp (°C)</FormLabel>
+                            <div className="relative">
+                              <Thermometer className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <FormControl>
+                                <Input type="number" className="pl-8" {...field} />
+                              </FormControl>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        name="humedad"
+                        control={form.control}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs text-muted-foreground">Humedad (%)</FormLabel>
+                            <div className="relative">
+                              <Cloud className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <FormControl>
+                                <Input type="number" className="pl-8" {...field} />
+                              </FormControl>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        name="viento"
+                        control={form.control}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs text-muted-foreground">Viento (km/h)</FormLabel>
+                            <div className="relative">
+                              <Wind className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <FormControl>
+                                <Input type="number" className="pl-8" {...field} />
+                              </FormControl>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                   </div>
+                 </div>
+              )}
+
+              {['cosecha', 'riego', 'mantenimiento'].includes(tipoEvento) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField control={form.control} name="cantidad" render={({ field }) => (<FormItem><FormLabel>Cantidad/Volumen</FormLabel><FormControl><Input type="number" placeholder="Ej: 100" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="unidad" render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><FormControl><Input placeholder="Ej: ton, mm, hs" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
               )}
               
-              <FormField control={form.control} name="resultado" render={({ field }) => (<FormItem><FormLabel>Resultado/Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones sobre el resultado..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="resultado" render={({ field }) => (<FormItem><FormLabel>Resultado/Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones sobre el resultado de la labor..." {...field} /></FormControl><FormMessage /></FormItem>)} />
               
                <div>
                 <FormLabel>Adjuntos</FormLabel>
