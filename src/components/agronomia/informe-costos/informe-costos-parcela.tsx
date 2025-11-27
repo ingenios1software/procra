@@ -211,7 +211,12 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                 <CardContent>
                     <div className="relative max-h-[480px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                         <Table className="min-w-max whitespace-nowrap">
-                            <TableHeader className="sticky top-0 z-20 bg-gray-100 dark:bg-neutral-800">
+                            <TableHeader className="sticky top-0 z-40 
+           bg-muted/90 dark:bg-muted/95 
+           backdrop-blur-md 
+           supports-[backdrop-filter]:bg-muted/60 
+           shadow-md 
+           border-b border-muted-foreground/20">
                                 <TableRow>
                                     <TableHead className="font-bold text-left px-4 py-2">
                                         <DropdownMenu>
