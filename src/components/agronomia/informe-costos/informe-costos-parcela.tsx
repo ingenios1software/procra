@@ -8,11 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
 import { differenceInDays } from "date-fns";
-import { cn } from "@/lib/utils";
 
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
-    const showValueInside = percentage > 25;
+    const showValueInside = percentage > 35;
 
     if (value === 0) {
         return (
@@ -25,7 +24,7 @@ const DataBar = ({ value, max }: { value: number; max: number }) => {
     return (
         <div className="w-full bg-muted/50 rounded-sm h-6 relative my-1">
             <div 
-                className="bg-accent h-6 rounded-sm flex items-center" 
+                className="bg-accent h-6 rounded-sm flex items-center justify-start" 
                 style={{ width: `${percentage}%` }}
             >
                {showValueInside && (
@@ -44,7 +43,12 @@ const DataBar = ({ value, max }: { value: number; max: number }) => {
 };
 
 
-export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: InformeCostosParcelaProps) {
+export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
+    parcelas: Parcela[];
+    cultivos: Cultivo[];
+    zafras: Zafra[];
+    eventos: Evento[];
+}) {
     const [filters, setFilters] = useState({
         cultivoId: cultivos[0]?.id || '',
         zafraId: zafras.find(z => z.estado === 'en curso')?.id || '',
@@ -177,10 +181,10 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: In
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto relative max-h-[600px]">
                         <Table className="min-w-max whitespace-nowrap">
-                            <TableHeader>
-                                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                            <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+                                <TableRow>
                                     <TableHead className="font-bold text-left">Nombre de Parcela</TableHead>
                                     <TableHead className="font-bold text-right w-[250px]">Costo en Producto por Parcela (Gs)</TableHead>
                                     <TableHead className="text-right font-bold">Hectárea Plantada</TableHead>
@@ -191,7 +195,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: In
                             </TableHeader>
                             <TableBody>
                                 {reporteData.map((data, index) => (
-                                    <TableRow key={index} className="hover:bg-muted/30">
+                                    <TableRow key={index} className="hover:bg-muted/50">
                                         <TableCell className="font-medium py-3 text-left">{data.nombreParcela}</TableCell>
                                         <TableCell className="py-1 text-right">
                                             <DataBar value={data.costoProducto} max={maxCosto} />
@@ -204,9 +208,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: In
                                 ))}
                             </TableBody>
                             <TableFooter>
-                                <TableRow className="bg-amber-100 dark:bg-amber-900/30 border-t-2 border-amber-300 dark:border-amber-700 hover:bg-amber-100/90 dark:hover:bg-amber-900/40">
+                                <TableRow className="bg-amber-100 dark:bg-amber-900/50 border-t-2 border-amber-300 dark:border-amber-800 hover:bg-amber-100/90 dark:hover:bg-amber-900/60">
                                     <TableCell className="font-bold text-lg text-left">Total General</TableCell>
-                                    <TableCell className="font-bold text-lg font-mono text-right">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
+                                    <TableCell></TableCell>
                                     <TableCell className="font-bold text-lg font-mono text-right">{totales.totalHectareas} ha</TableCell>
                                     <TableCell></TableCell>
                                     <TableCell className="font-bold text-lg font-mono text-right">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
@@ -220,5 +224,3 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: In
         </>
     );
 }
-
-    
