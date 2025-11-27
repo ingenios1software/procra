@@ -183,7 +183,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                 <CardContent>
                     <div className="overflow-x-auto relative max-h-[600px]">
                         <Table className="min-w-max whitespace-nowrap">
-                            <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+                            <TableHeader className="sticky top-0 z-10 bg-muted/80 dark:bg-muted/90 backdrop-blur-sm">
                                 <TableRow>
                                     <TableHead className="font-bold text-left">Nombre de Parcela</TableHead>
                                     <TableHead className="font-bold text-right w-[250px]">Costo en Producto por Parcela (Gs)</TableHead>
@@ -195,7 +195,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                             </TableHeader>
                             <TableBody>
                                 {reporteData.map((data, index) => (
-                                    <TableRow key={index} className="hover:bg-muted/50">
+                                    <TableRow key={index} className="hover:bg-muted/50 dark:hover:bg-muted/60">
                                         <TableCell className="font-medium py-3 text-left">{data.nombreParcela}</TableCell>
                                         <TableCell className="py-1 text-right">
                                             <DataBar value={data.costoProducto} max={maxCosto} />
