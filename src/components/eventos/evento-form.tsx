@@ -14,11 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Evento, Parcela, Cultivo, Zafra, Insumo } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Cloud, Thermometer, Wind, Upload, File, Image as ImageIcon, PlusCircle, Trash2 } from "lucide-react";
+import { CalendarIcon, Cloud, Thermometer, Wind, Upload, File, Image as ImageIcon, PlusCircle, Trash2, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { mockInsumos, mockEventos, mockZafras, mockEtapasCultivo } from "@/lib/mock-data";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 const productoSchema = z.object({
@@ -35,6 +35,10 @@ const formSchema = z.object({
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
   descripcion: z.string().min(5, "La descripción es muy corta."),
   
+  // Nuevos campos para cálculo
+  hectareasAplicadas: z.coerce.number().optional(),
+  costoServicioPorHa: z.coerce.number().optional(),
+
   // Array de productos
   productos: z.array(productoSchema).optional(),
 
@@ -43,8 +47,9 @@ const formSchema = z.object({
   humedad: z.coerce.number().optional(),
   viento: z.coerce.number().optional(),
 
-  // Campos de evento genéricos (mantener por compatibilidad)
+  // Campos de evento genéricos
   resultado: z.string().optional(),
+  
   // Campos de rendimiento
   toneladas: z.coerce.number().optional(),
   precioTonelada: z.coerce.number().optional(),
@@ -85,6 +90,36 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
   const watchedCultivoId = form.watch('cultivoId');
   const watchedZafraId = form.watch('zafraId');
   const watchedFecha = form.watch('fecha');
+  const watchedHectareas = form.watch('hectareasAplicadas');
+  const watchedProductos = form.watch('productos');
+  const watchedCostoServicio = form.watch('costoServicioPorHa');
+
+  // Lógica de cálculo automático
+  useEffect(() => {
+    if (watchedHectareas && watchedHectareas > 0) {
+      watchedProductos?.forEach((producto, index) => {
+        if (producto.dosis > 0) {
+          const nuevaCantidad = producto.dosis * watchedHectareas;
+          // Usamos `get` para evitar un bucle infinito de re-renderizado
+          if (form.getValues(`productos.${index}.cantidad`) !== nuevaCantidad) {
+            form.setValue(`productos.${index}.cantidad`, nuevaCantidad, { shouldValidate: true });
+          }
+        }
+      });
+    }
+  }, [watchedHectareas, watchedProductos, form]);
+  
+  const totalCostoEvento = useMemo(() => {
+    const costoProductos = watchedProductos?.reduce((acc, prod) => {
+        const insumo = mockInsumos.find(i => i.id === prod.insumoId);
+        const costoUnitario = insumo?.costoUnitario || 0;
+        return acc + (prod.cantidad * costoUnitario);
+    }, 0) || 0;
+
+    const costoServicio = (watchedHectareas || 0) * (watchedCostoServicio || 0);
+    
+    return costoProductos + costoServicio;
+  }, [watchedProductos, watchedHectareas, watchedCostoServicio]);
 
   const analisisProps = useMemo(() => ({
     eventoActual: { ...form.getValues(), fecha: watchedFecha } as Evento,
@@ -95,10 +130,14 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
 
 
   const handleSubmit = (data: EventoFormValues) => {
-    console.log("Evento guardado:", data);
+    const dataConCostoTotal = {
+      ...data,
+      costoTotal: totalCostoEvento
+    };
+    console.log("Evento guardado:", dataConCostoTotal);
     toast({
         title: `Evento ${evento ? 'actualizado' : 'creado'}`,
-        description: `El evento "${data.descripcion}" ha sido guardado.`,
+        description: `El evento "${data.descripcion}" ha sido guardado con un costo de $${totalCostoEvento.toLocaleString('en-US')}.`,
     });
     onCancel(); // Close the dialog
   };
@@ -111,198 +150,55 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FormField
-                  name="parcelaId"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Parcela</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccione una parcela" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  name="cultivoId"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cultivo</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccione un cultivo" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  name="zafraId"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Zafra</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccione una zafra" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {zafras.filter(z => z.estado === 'en curso').map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField name="parcelaId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Parcela</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una parcela" /></SelectTrigger></FormControl><SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="cultivoId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cultivo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cultivo" /></SelectTrigger></FormControl><SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="zafraId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Zafra</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl><SelectContent>{zafras.filter(z => z.estado === 'en curso').map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  name="tipo"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tipo de Evento</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccione un tipo" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="siembra">Siembra</SelectItem>
-                          <SelectItem value="aplicacion">Aplicación</SelectItem>
-                          <SelectItem value="fertilización">Fertilización</SelectItem>
-                          <SelectItem value="riego">Riego</SelectItem>
-                          <SelectItem value="cosecha">Cosecha</SelectItem>
-                          <SelectItem value="rendimiento">Rendimiento</SelectItem>
-                          <SelectItem value="mantenimiento">Mantenimiento</SelectItem>
-                          <SelectItem value="plagas">Control de Plagas</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  name="fecha"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col pt-2">
-                      <FormLabel>Fecha del Evento</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                            >
-                              {field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField name="tipo" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tipo de Evento</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl><SelectContent><SelectItem value="siembra">Siembra</SelectItem><SelectItem value="aplicacion">Aplicación</SelectItem><SelectItem value="fertilización">Fertilización</SelectItem><SelectItem value="riego">Riego</SelectItem><SelectItem value="cosecha">Cosecha</SelectItem><SelectItem value="rendimiento">Rendimiento</SelectItem><SelectItem value="mantenimiento">Mantenimiento</SelectItem><SelectItem value="plagas">Control de Plagas</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha del Evento</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
               </div>
-              
-              <FormField
-                name="descripcion"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descripción</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Describa el evento..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField name="descripcion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea placeholder="Describa el evento..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+
+              {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEvento) && (
+                <Card className="border-border/60">
+                   <CardHeader className="p-4"><CardTitle className="text-lg">Detalles de Aplicación y Costos</CardTitle></CardHeader>
+                   <CardContent className="p-4 pt-0 space-y-4">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <FormField name="hectareasAplicadas" control={form.control} render={({ field }) => (<FormItem><FormLabel>Hectáreas Aplicadas</FormLabel><FormControl><Input type="number" placeholder="Ej: 50" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                       <FormField name="costoServicioPorHa" control={form.control} render={({ field }) => (<FormItem><FormLabel>Costo de Servicio por Ha ($)</FormLabel><FormControl><Input type="number" placeholder="Ej: 15" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                     </div>
+                   </CardContent>
+                </Card>
+              )}
 
               {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEvento) && (
                 <Card className="bg-muted/30 p-4">
                   <CardHeader className="p-2 flex flex-row items-center justify-between">
                     <CardTitle className="text-lg">Productos/Insumos</CardTitle>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => append({ insumoId: '', dosis: 0, cantidad: 0 })}
-                    >
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Agregar Producto
+                    <Button type="button" variant="outline" size="sm" onClick={() => append({ insumoId: '', dosis: 0, cantidad: 0 })}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Agregar Producto
                     </Button>
                   </CardHeader>
                   <CardContent className="p-2 space-y-4">
                      {fields.map((field, index) => (
                         <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
-                            <FormField
-                                name={`productos.${index}.insumoId`}
-                                control={form.control}
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Insumo</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl>
-                                            <SelectContent>{mockInsumos.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}</SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                             <FormField
-                                name={`productos.${index}.dosis`}
-                                control={form.control}
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Dosis/ha</FormLabel>
-                                        <FormControl><Input className="w-24" type="number" placeholder="0" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                             <FormField
-                                name={`productos.${index}.cantidad`}
-                                control={form.control}
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Cant. Total</FormLabel>
-                                        <FormControl><Input className="w-24" type="number" placeholder="0" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <FormField name={`productos.${index}.insumoId`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Insumo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl><SelectContent>{mockInsumos.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )}/>
+                            <FormField name={`productos.${index}.dosis`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Dosis/ha</FormLabel><FormControl><Input className="w-28" type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                            <FormField name={`productos.${index}.cantidad`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cant. Total</FormLabel><FormControl><Input className="w-28 bg-muted/70" type="number" placeholder="0" {...field} readOnly /></FormControl><FormMessage /></FormItem> )}/>
+                            <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                      ))}
-                     {fields.length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-4">No se han agregado productos.</p>
-                     )}
+                     {fields.length === 0 && ( <p className="text-sm text-muted-foreground text-center py-4">No se han agregado productos.</p> )}
+                     <div className="flex justify-end pt-4">
+                        <div className="flex items-center gap-4 p-3 rounded-lg bg-background border border-primary/20">
+                            <DollarSign className="h-6 w-6 text-primary" />
+                            <div className="text-right">
+                                <p className="text-sm text-muted-foreground">Costo Total del Evento</p>
+                                <p className="text-xl font-bold text-primary">${totalCostoEvento.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            </div>
+                        </div>
+                     </div>
                   </CardContent>
                 </Card>
               )}
@@ -311,54 +207,9 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                  <div>
                    <FormLabel>Condiciones Climáticas</FormLabel>
                    <div className="grid grid-cols-3 gap-4 mt-2 border p-4 rounded-md">
-                      <FormField
-                        name="temperatura"
-                        control={form.control}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs text-muted-foreground">Temp (°C)</FormLabel>
-                            <div className="relative">
-                              <Thermometer className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <FormControl>
-                                <Input type="number" className="pl-8" {...field} />
-                              </FormControl>
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        name="humedad"
-                        control={form.control}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs text-muted-foreground">Humedad (%)</FormLabel>
-                            <div className="relative">
-                              <Cloud className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <FormControl>
-                                <Input type="number" className="pl-8" {...field} />
-                              </FormControl>
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        name="viento"
-                        control={form.control}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs text-muted-foreground">Viento (km/h)</FormLabel>
-                            <div className="relative">
-                              <Wind className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <FormControl>
-                                <Input type="number" className="pl-8" {...field} />
-                              </FormControl>
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <FormField name="temperatura" control={form.control} render={({ field }) => ( <FormItem><FormLabel className="text-xs text-muted-foreground">Temp (°C)</FormLabel><div className="relative"><Thermometer className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><FormControl><Input type="number" className="pl-8" {...field} /></FormControl></div><FormMessage /></FormItem> )}/>
+                      <FormField name="humedad" control={form.control} render={({ field }) => ( <FormItem><FormLabel className="text-xs text-muted-foreground">Humedad (%)</FormLabel><div className="relative"><Cloud className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><FormControl><Input type="number" className="pl-8" {...field} /></FormControl></div><FormMessage /></FormItem> )}/>
+                      <FormField name="viento" control={form.control} render={({ field }) => ( <FormItem><FormLabel className="text-xs text-muted-foreground">Viento (km/h)</FormLabel><div className="relative"><Wind className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><FormControl><Input type="number" className="pl-8" {...field} /></FormControl></div><FormMessage /></FormItem> )}/>
                    </div>
                  </div>
               )}
@@ -375,32 +226,8 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                   <CardHeader className="p-2"><CardTitle className="text-lg">Detalles de Rendimiento</CardTitle></CardHeader>
                   <CardContent className="p-2 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <FormField
-                        name="toneladas"
-                        control={form.control}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Toneladas Cosechadas</FormLabel>
-                            <FormControl>
-                              <Input type="number" placeholder="Ej: 150" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        name="precioTonelada"
-                        control={form.control}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Precio por Tonelada (USD)</FormLabel>
-                            <FormControl>
-                              <Input type="number" placeholder="Ej: 450" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <FormField name="toneladas" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Toneladas Cosechadas</FormLabel><FormControl><Input type="number" placeholder="Ej: 150" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                      <FormField name="precioTonelada" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Precio por Tonelada (USD)</FormLabel><FormControl><Input type="number" placeholder="Ej: 450" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                     </div>
                   </CardContent>
                 </Card>
@@ -414,10 +241,7 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                   <div className="text-center">
                     <ImageIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
                     <div className="mt-4 flex text-sm leading-6 text-gray-600">
-                      <label
-                        htmlFor="file-upload"
-                        className="relative cursor-pointer rounded-md bg-white font-semibold text-primary focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 hover:text-primary/80"
-                      >
+                      <label htmlFor="file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-primary focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 hover:text-primary/80">
                         <span>Subir un archivo</span>
                         <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple />
                       </label>

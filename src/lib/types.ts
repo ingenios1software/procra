@@ -46,6 +46,9 @@ export type Evento = {
     dosis: number;
   }[];
   costoTotal?: number;
+  hectareasAplicadas?: number;
+  costoServicioPorHa?: number;
+
 
   // Campos de rendimiento y cosecha
   toneladas?: number;
