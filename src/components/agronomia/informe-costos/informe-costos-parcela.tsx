@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -323,7 +324,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                               <YAxis yAxisId="right" orientation="right" label={{ value: 'Rendimiento (kg/ha) / Hectáreas', angle: 90, position: 'insideRight' }}/>
                               <Tooltip />
                               <Legend />
-                              <Bar yAxisId="left" dataKey="costoProducto" name="Costo por Parcela (Gs)" fill="#3b82f6" />
+                              <Line yAxisId="left" type="monotone" dataKey="costoProducto" name="Costo por Parcela (Gs)" stroke="#3b82f6" strokeWidth={2} />
                               <Bar yAxisId="right" dataKey="hectareas" name="Hectáreas Plantadas" fill="#dc2626" />
                               <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
                               <Line yAxisId="left" type="monotone" dataKey="valorCostoParcela" name="Valor Costo Parcela" stroke="#8b5cf6" strokeWidth={3} dot={false} />
