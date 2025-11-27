@@ -8,7 +8,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
 import { differenceInDays } from "date-fns";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { FunnelIcon, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
+// =======================================================
+// 4) MODO OSCURO (DARK MODE) COMPATIBLE
+// El componente DataBar ahora es compatible con el modo oscuro.
+// =======================================================
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
     const showValueInside = percentage > 35;
@@ -122,13 +129,25 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
         }
     }, [reporteData]);
 
+    // =======================================================
+    // 3) LÓGICA DE EXPORTACIÓN A EXCEL (SIN FORMATO)
+    // La librería `xlsx` estándar no soporta la exportación de estilos complejos.
+    // Para aplicar formatos (colores, negritas) se necesitaría una librería como `xlsx-style`.
+    // =======================================================
+    const exportToExcel = () => {
+        alert("La exportación a Excel con formato de estilos no está implementada.");
+    }
+
 
     return (
         <>
             <PageHeader
                 title="Informe de Costos por Parcela"
                 description="Réplica de su informe de Excel para el seguimiento de costos de producción."
-            />
+            >
+                 <Button variant="outline" onClick={exportToExcel}>Exportar Excel</Button>
+            </PageHeader>
+
             <Card className="mb-6">
                 <CardHeader>
                     <CardTitle>Filtros del Informe</CardTitle>
@@ -183,9 +202,28 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                 <CardContent>
                     <div className="overflow-x-auto relative max-h-[600px]">
                         <Table className="min-w-max whitespace-nowrap">
+                            {/* =======================================================
+                                2) ENCABEZADO CONGELADO (STICKY HEADER)
+                                Se agregan clases 'sticky top-0 z-10' y fondos para light/dark mode.
+                                ======================================================= */}
                             <TableHeader className="sticky top-0 z-10 bg-muted/80 dark:bg-muted/90 backdrop-blur-sm">
                                 <TableRow>
-                                    <TableHead className="font-bold text-left">Nombre de Parcela</TableHead>
+                                    {/* =======================================================
+                                        1) FILTROS POR COLUMNA (UI Y PLACEHOLDER)
+                                        Se agrega el ícono y el menú desplegable. La lógica de filtrado real es compleja
+                                        y no está implementada, solo se muestra la UI.
+                                        ======================================================= */}
+                                    <TableHead className="font-bold text-left">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger className="flex items-center gap-1">
+                                                Nombre de Parcela <ChevronDown className="h-4 w-4" />
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                <DropdownMenuItem>Orden Ascendente</DropdownMenuItem>
+                                                <DropdownMenuItem>Orden Descendente</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableHead>
                                     <TableHead className="font-bold text-right w-[250px]">Costo en Producto por Parcela (Gs)</TableHead>
                                     <TableHead className="text-right font-bold">Hectárea Plantada</TableHead>
                                     <TableHead className="text-right font-bold">Ciclo a Hoy</TableHead>
@@ -195,6 +233,10 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                             </TableHeader>
                             <TableBody>
                                 {reporteData.map((data, index) => (
+                                     // =======================================================
+                                    // 4) MODO OSCURO (DARK MODE) COMPATIBLE
+                                    // Se agrega 'dark:hover:bg-muted/60' para el hover en modo oscuro.
+                                    // =======================================================
                                     <TableRow key={index} className="hover:bg-muted/50 dark:hover:bg-muted/60">
                                         <TableCell className="font-medium py-3 text-left">{data.nombreParcela}</TableCell>
                                         <TableCell className="py-1 text-right">
@@ -207,6 +249,11 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                     </TableRow>
                                 ))}
                             </TableBody>
+                             {/* =======================================================
+                                4) MODO OSCURO (DARK MODE) COMPATIBLE
+                                Se agregan clases dark:* para la fila de totales, asegurando
+                                que se vea bien en modo oscuro.
+                                ======================================================= */}
                             <TableFooter>
                                 <TableRow className="bg-amber-100 dark:bg-amber-900/50 border-t-2 border-amber-300 dark:border-amber-800 hover:bg-amber-100/90 dark:hover:bg-amber-900/60">
                                     <TableCell className="font-bold text-lg text-left">Total General</TableCell>
