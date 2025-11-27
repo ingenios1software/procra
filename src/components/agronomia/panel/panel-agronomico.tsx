@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +11,6 @@ import { PanelKpiCards } from "./panel-kpi-cards";
 import { PanelGraficos } from "./panel-graficos";
 import { PanelTablaAgronomica } from "./panel-tabla-agronomica";
 import { PanelAnalisisEconomico } from "./panel-analisis-economico";
-import { usePrint } from "@/hooks/use-print";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -27,7 +26,6 @@ interface PanelAgronomicoProps {
 export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, etapas }: PanelAgronomicoProps) {
     const [selectedParcelaId, setSelectedParcelaId] = useState<string | null>(null);
     const [selectedZafraId, setSelectedZafraId] = useState<string | null>(null);
-    const { handlePrint } = usePrint();
 
     const parcela = useMemo(() => parcelas.find(p => p.id === selectedParcelaId), [selectedParcelaId, parcelas]);
     const zafra = useMemo(() => zafras.find(z => z.id === selectedZafraId), [selectedZafraId, zafras]);
@@ -75,6 +73,9 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
        pdf.save("panel-agronomico.pdf");
      };
 
+    const handlePrint = () => {
+        window.print();
+    };
 
     return (
         <>
