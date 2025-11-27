@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
 import { differenceInDays } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { FunnelIcon, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
@@ -276,3 +277,5 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
         </>
     );
 }
+
+    
