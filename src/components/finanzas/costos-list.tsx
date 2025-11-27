@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -47,7 +47,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
     return { totalCostos, costosPorParcela };
   }, [costos, parcelas]);
 
-  const handleSave = (costoData: Costo) => {
+  const handleSave = useCallback((costoData: Costo) => {
     const dataToSave = { ...costoData, fecha: new Date(costoData.fecha) };
     if (selectedCosto) {
       setCostos(prev => prev.map(c => c.id === dataToSave.id ? dataToSave : c));
@@ -56,12 +56,17 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
     }
     setDialogOpen(false);
     setSelectedCosto(null);
-  };
+  }, [selectedCosto]);
   
-  const openDialog = (costo?: Costo) => {
+  const openDialog = useCallback((costo?: Costo) => {
     setSelectedCosto(costo || null);
     setDialogOpen(true);
-  };
+  }, []);
+
+  const closeDialog = useCallback(() => {
+    setDialogOpen(false);
+    setSelectedCosto(null);
+  }, []);
   
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
@@ -198,7 +203,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
           <CostoForm
             costo={selectedCosto}
             onSubmit={handleSave}
-            onCancel={() => setDialogOpen(false)}
+            onCancel={closeDialog}
             parcelas={parcelas}
             cultivos={cultivos}
             zafras={zafras}

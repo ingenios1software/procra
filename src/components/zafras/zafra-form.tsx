@@ -13,6 +13,7 @@ import type { Zafra } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import React from "react";
 
 const formSchema = z.object({
   nombre: z.string().min(5, "El nombre debe tener al menos 5 caracteres."),
@@ -28,7 +29,7 @@ interface ZafraFormProps {
   onCancel: () => void;
 }
 
-export function ZafraForm({ zafra, onSubmit, onCancel }: ZafraFormProps) {
+export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormProps) => {
   const form = useForm<ZafraFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -129,4 +130,6 @@ export function ZafraForm({ zafra, onSubmit, onCancel }: ZafraFormProps) {
       </form>
     </Form>
   );
-}
+});
+
+ZafraForm.displayName = 'ZafraForm';

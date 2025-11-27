@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,7 +29,7 @@ export function StockList({ initialInsumos }: StockListProps) {
   const { role } = useAuth();
   const canModify = role === 'admin' || role === 'operador' || role === 'gerente';
 
-  const handleSaveInsumo = (insumoData: Insumo) => {
+  const handleSaveInsumo = useCallback((insumoData: Insumo) => {
     if (selectedInsumo) {
       setInsumos(prev => prev.map(i => i.id === insumoData.id ? insumoData : i));
     } else {
@@ -37,12 +37,17 @@ export function StockList({ initialInsumos }: StockListProps) {
     }
     setDialogOpen(false);
     setSelectedInsumo(null);
-  };
+  }, [selectedInsumo]);
 
-  const openDialog = (insumo?: Insumo) => {
+  const openDialog = useCallback((insumo?: Insumo) => {
     setSelectedInsumo(insumo || null);
     setDialogOpen(true);
-  };
+  }, []);
+
+  const closeDialog = useCallback(() => {
+    setDialogOpen(false);
+    setSelectedInsumo(null);
+  }, []);
 
   return (
     <>
@@ -127,7 +132,7 @@ export function StockList({ initialInsumos }: StockListProps) {
           <InsumoForm 
             insumo={selectedInsumo}
             onSubmit={handleSaveInsumo}
-            onCancel={() => setDialogOpen(false)}
+            onCancel={closeDialog}
           />
         </DialogContent>
       </Dialog>

@@ -8,6 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Cultivo } from "@/lib/types";
+import React from "react";
 
 const formSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres."),
@@ -22,7 +23,7 @@ interface CultivoFormProps {
   onCancel: () => void;
 }
 
-export function CultivoForm({ cultivo, onSubmit, onCancel }: CultivoFormProps) {
+export const CultivoForm = React.memo(({ cultivo, onSubmit, onCancel }: CultivoFormProps) => {
   const form = useForm<CultivoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -76,4 +77,6 @@ export function CultivoForm({ cultivo, onSubmit, onCancel }: CultivoFormProps) {
       </form>
     </Form>
   );
-}
+});
+
+CultivoForm.displayName = 'CultivoForm';

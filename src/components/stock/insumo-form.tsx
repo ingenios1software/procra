@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Insumo } from "@/lib/types";
+import React from "react";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
@@ -41,7 +42,7 @@ interface InsumoFormProps {
   onCancel: () => void;
 }
 
-export function InsumoForm({ insumo, onSubmit, onCancel }: InsumoFormProps) {
+export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoFormProps) => {
   const form = useForm<InsumoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: insumo || {
@@ -197,4 +198,6 @@ export function InsumoForm({ insumo, onSubmit, onCancel }: InsumoFormProps) {
       </form>
     </Form>
   );
-}
+});
+
+InsumoForm.displayName = 'InsumoForm';

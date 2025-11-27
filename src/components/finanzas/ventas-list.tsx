@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -44,7 +44,7 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes
     return { totalIngresos, rendimientoPorParcela };
   }, [ventas, parcelas]);
 
-  const handleSave = (ventaData: Venta) => {
+  const handleSave = useCallback((ventaData: Venta) => {
     const dataToSave = { ...ventaData, fecha: new Date(ventaData.fecha) };
     if (selectedVenta) {
       setVentas(prev => prev.map(v => v.id === dataToSave.id ? dataToSave : v));
@@ -53,12 +53,17 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes
     }
     setDialogOpen(false);
     setSelectedVenta(null);
-  };
+  }, [selectedVenta]);
   
-  const openDialog = (venta?: Venta) => {
+  const openDialog = useCallback((venta?: Venta) => {
     setSelectedVenta(venta || null);
     setDialogOpen(true);
-  };
+  }, []);
+
+  const closeDialog = useCallback(() => {
+    setDialogOpen(false);
+    setSelectedVenta(null);
+  }, []);
 
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
@@ -170,7 +175,7 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes
           <VentaForm
             venta={selectedVenta}
             onSubmit={handleSave}
-            onCancel={() => setDialogOpen(false)}
+            onCancel={closeDialog}
             parcelas={parcelas}
             cultivos={cultivos}
             zafras={zafras}

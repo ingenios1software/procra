@@ -14,6 +14,7 @@ import type { Costo, Parcela, Cultivo, Zafra } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import React from "react";
 
 const formSchema = z.object({
   descripcion: z.string().min(3, "La descripción es muy corta."),
@@ -36,7 +37,7 @@ interface CostoFormProps {
   zafras: Zafra[];
 }
 
-export function CostoForm({ costo, onSubmit, onCancel, parcelas, cultivos, zafras }: CostoFormProps) {
+export const CostoForm = React.memo(({ costo, onSubmit, onCancel, parcelas, cultivos, zafras }: CostoFormProps) => {
   const form = useForm<CostoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -139,4 +140,6 @@ export function CostoForm({ costo, onSubmit, onCancel, parcelas, cultivos, zafra
       </form>
     </Form>
   );
-}
+});
+
+CostoForm.displayName = 'CostoForm';

@@ -13,6 +13,7 @@ import type { Venta, Parcela, Cultivo, Zafra, Cliente } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import React from "react";
 
 const formSchema = z.object({
   clienteId: z.string().optional(),
@@ -36,7 +37,7 @@ interface VentaFormProps {
   clientes: Cliente[];
 }
 
-export function VentaForm({ venta, onSubmit, onCancel, parcelas, cultivos, zafras, clientes }: VentaFormProps) {
+export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cultivos, zafras, clientes }: VentaFormProps) => {
   const form = useForm<VentaFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: venta ? {
@@ -120,4 +121,6 @@ export function VentaForm({ venta, onSubmit, onCancel, parcelas, cultivos, zafra
       </form>
     </Form>
   );
-}
+});
+
+VentaForm.displayName = 'VentaForm';

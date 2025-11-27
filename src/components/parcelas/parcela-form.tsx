@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Parcela } from "@/lib/types";
+import React from "react";
 
 const formSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres."),
@@ -25,7 +26,7 @@ interface ParcelaFormProps {
   parcela?: Parcela;
 }
 
-export function ParcelaForm({ parcela }: ParcelaFormProps) {
+export const ParcelaForm = React.memo(({ parcela }: ParcelaFormProps) => {
   const router = useRouter();
   const form = useForm<ParcelaFormValues>({
     resolver: zodResolver(formSchema),
@@ -134,4 +135,6 @@ export function ParcelaForm({ parcela }: ParcelaFormProps) {
       </CardContent>
     </Card>
   );
-}
+});
+
+ParcelaForm.displayName = 'ParcelaForm';
