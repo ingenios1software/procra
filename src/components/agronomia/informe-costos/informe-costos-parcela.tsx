@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -210,64 +209,64 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="relative max-h-[480px] overflow-y-auto border border-gray-200 rounded-lg">
+                    <div className="relative max-h-[480px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                         <Table className="min-w-max whitespace-nowrap">
-                            <TableHeader className="sticky top-0 z-20 bg-muted dark:bg-muted/95">
+                            <TableHeader className="sticky top-0 z-20 bg-gray-100 dark:bg-neutral-800">
                                 <TableRow>
-                                    <TableHead className="font-bold text-left">
+                                    <TableHead className="font-bold text-left px-4 py-2">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger className="flex items-center gap-1">
                                                 Nombre de Parcela <ChevronDown className="h-4 w-4" />
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent>
-                                                <DropdownMenuItem>Orden Ascendente</DropdownMenuItem>
-                                                <DropdownMenuItem>Orden Descendente</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => { handleFilterChange('ordenarPor', 'nombreParcela'); handleFilterChange('orden', 'asc'); }}>Orden Ascendente</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => { handleFilterChange('ordenarPor', 'nombreParcela'); handleFilterChange('orden', 'desc'); }}>Orden Descendente</DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableHead>
-                                    <TableHead className="font-bold text-right w-[250px]">Costo en Producto por Parcela (Gs)</TableHead>
-                                    <TableHead className="text-right font-bold">Hectárea Plantada</TableHead>
-                                    <TableHead className="text-right font-bold">Ciclo a Hoy</TableHead>
-                                    <TableHead className="text-right font-bold">Costo Promedio por Hectárea (Gs/ha)</TableHead>
+                                    <TableHead className="font-bold text-right px-4 py-2 w-[250px]">Costo en Producto por Parcela (Gs)</TableHead>
+                                    <TableHead className="font-bold text-right px-4 py-2">Hectárea Plantada</TableHead>
+                                    <TableHead className="font-bold text-right px-4 py-2">Ciclo a Hoy</TableHead>
+                                    <TableHead className="font-bold text-right px-4 py-2">Costo Promedio por Hectárea (Gs/ha)</TableHead>
                                 </TableRow>
                                  <TableRow className="bg-muted/50 dark:bg-muted/80">
-                                    <TableHead className="px-4 py-2">
-                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8" placeholder="Filtrar..." value={columnFilters.nombreParcela} onChange={(e) => setColumnFilters(f => ({ ...f, nombreParcela: e.target.value }))} />
+                                    <TableHead className="px-2 py-1">
+                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.nombreParcela} onChange={(e) => setColumnFilters(f => ({ ...f, nombreParcela: e.target.value }))} />
                                     </TableHead>
-                                     <TableHead className="px-4 py-2">
-                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoProducto} onChange={(e) => setColumnFilters(f => ({ ...f, costoProducto: e.target.value }))} />
+                                     <TableHead className="px-2 py-1">
+                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.costoProducto} onChange={(e) => setColumnFilters(f => ({ ...f, costoProducto: e.target.value }))} />
                                     </TableHead>
-                                    <TableHead className="px-4 py-2">
-                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right" placeholder="Filtrar..." value={columnFilters.hectareas} onChange={(e) => setColumnFilters(f => ({ ...f, hectareas: e.target.value }))} />
+                                     <TableHead className="px-2 py-1">
+                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.hectareas} onChange={(e) => setColumnFilters(f => ({ ...f, hectareas: e.target.value }))} />
                                     </TableHead>
-                                    <TableHead className="px-4 py-2">
-                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right" placeholder="Filtrar..." value={columnFilters.cicloHoy} onChange={(e) => setColumnFilters(f => ({ ...f, cicloHoy: e.target.value }))} />
+                                     <TableHead className="px-2 py-1">
+                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.cicloHoy} onChange={(e) => setColumnFilters(f => ({ ...f, cicloHoy: e.target.value }))} />
                                     </TableHead>
-                                    <TableHead className="px-4 py-2">
-                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoPromedioHa} onChange={(e) => setColumnFilters(f => ({ ...f, costoPromedioHa: e.target.value }))} />
+                                     <TableHead className="px-2 py-1">
+                                        <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.costoPromedioHa} onChange={(e) => setColumnFilters(f => ({ ...f, costoPromedioHa: e.target.value }))} />
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
-                            <TableBody>
-                                {filteredRows.map((data, index) => (
-                                    <TableRow key={index} className="hover:bg-muted/50 dark:hover:bg-muted/60">
-                                        <TableCell className="font-medium py-3 text-left">{data.nombreParcela}</TableCell>
-                                        <TableCell className="py-1 text-right">
-                                            <DataBar value={data.costoProducto} max={maxCosto} />
+                            <TableBody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                {filteredRows.map((d, index) => (
+                                    <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                        <TableCell className="px-4 py-3 text-left">{d.nombreParcela}</TableCell>
+                                        <TableCell className="px-4 py-3 text-right">
+                                            <DataBar value={d.costoProducto} max={maxCosto} />
                                         </TableCell>
-                                        <TableCell className="text-right py-3 font-mono">{data.hectareas} ha</TableCell>
-                                        <TableCell className="text-right py-3 font-mono">{data.cicloHoy} días</TableCell>
-                                        <TableCell className="text-right font-bold font-mono py-3">{data.costoPromedioHa.toLocaleString('es-AR', { maximumFractionDigits: 0 })} Gs</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono">{d.hectareas.toLocaleString('es-AR')} ha</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono">{d.cicloHoy} días</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{d.costoPromedioHa.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Gs</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                             <TableFooter>
-                                <TableRow className="bg-amber-100 dark:bg-amber-900/50 border-t-2 border-amber-300 dark:border-amber-800 hover:bg-amber-100/90 dark:hover:bg-amber-900/60">
-                                    <TableCell className="font-bold text-lg text-left">Total General</TableCell>
-                                    <TableCell className="font-bold text-lg font-mono text-right">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
-                                    <TableCell className="font-bold text-lg font-mono text-right">{totales.totalHectareas} ha</TableCell>
-                                    <TableCell></TableCell>
-                                    <TableCell className="font-bold text-lg font-mono text-right">{totales.costoPromedioGeneral.toLocaleString('es-AR', { maximumFractionDigits: 0 })} Gs</TableCell>
+                                <TableRow className="bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-100 dark:hover:bg-amber-900/50 border-t-2 border-gray-400 dark:border-gray-500">
+                                    <TableCell className="px-4 py-3 font-bold text-left">Total General</TableCell>
+                                    <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
+                                    <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.totalHectareas.toLocaleString('es-AR')} ha</TableCell>
+                                    <TableCell className="px-4 py-3 text-right"></TableCell>
+                                    <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.costoPromedioGeneral.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Gs</TableCell>
                                 </TableRow>
                             </TableFooter>
                         </Table>
@@ -277,5 +276,3 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
         </>
     );
 }
-
-    
