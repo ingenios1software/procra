@@ -22,7 +22,7 @@ const DataBar = ({ value, max }: { value: number; max: number }) => {
     }
 
     return (
-        <div className="w-full bg-muted/50 rounded-sm h-6 relative my-1">
+        <div className="w-full bg-muted/50 dark:bg-muted/30 rounded-sm h-6 relative my-1">
             <div 
                 className="bg-accent h-6 rounded-sm flex items-center justify-start" 
                 style={{ width: `${percentage}%` }}
