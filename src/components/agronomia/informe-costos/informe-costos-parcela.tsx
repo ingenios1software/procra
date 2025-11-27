@@ -66,6 +66,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
         hectareas: "",
         cicloHoy: "",
         costoPromedioHa: "",
+        rendimientoHa: "",
+        costoKg: "",
       });
 
     const handleFilterChange = (key: string, value: string) => {
@@ -89,6 +91,12 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
             const costoTotal = eventosParcela.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
             const cicloHoy = zafraSeleccionada?.fechaSiembra ? differenceInDays(new Date(), new Date(zafraSeleccionada.fechaSiembra)) : 0;
             const costoPorHa = parcela.superficie > 0 ? costoTotal / parcela.superficie : 0;
+            const totalCosechadoKg = eventosParcela
+                .filter(e => e.tipo === 'rendimiento')
+                .reduce((sum, ev) => sum + ((ev.toneladas || 0) * 1000), 0);
+            
+            const rendimientoHa = parcela.superficie > 0 ? totalCosechadoKg / parcela.superficie : 0;
+            const costoKg = totalCosechadoKg > 0 ? costoTotal / totalCosechadoKg : 0;
 
             return {
                 nombreParcela: parcela.nombre,
@@ -96,7 +104,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                 hectareas: parcela.superficie,
                 cicloHoy: cicloHoy,
                 costoPromedioHa: costoPorHa,
-                valorCostoParcela: costoTotal, // Valor duplicado para la línea del gráfico
+                rendimientoHa: rendimientoHa,
+                costoKg: costoKg,
+                valorCostoParcela: costoTotal,
             };
         });
 
@@ -124,7 +134,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
             row.costoProducto.toString().includes(columnFilters.costoProducto) &&
             row.hectareas.toString().includes(columnFilters.hectareas) &&
             row.cicloHoy.toString().includes(columnFilters.cicloHoy) &&
-            row.costoPromedioHa.toString().includes(columnFilters.costoPromedioHa)
+            row.costoPromedioHa.toString().includes(columnFilters.costoPromedioHa) &&
+            row.rendimientoHa.toString().includes(columnFilters.rendimientoHa) &&
+            row.costoKg.toString().includes(columnFilters.costoKg)
           );
         });
     }, [reporteData, columnFilters]);
@@ -134,12 +146,17 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
         const totalCostos = filteredRows.reduce((sum, d) => sum + d.costoProducto, 0);
         const costoPromedioGeneral = totalHectareas > 0 ? totalCostos / totalHectareas : 0;
         const maxCosto = Math.max(...reporteData.map(d => d.costoProducto), 0);
-        
+        const totalCosechadoKgGeneral = filteredRows.reduce((sum, d) => sum + (d.rendimientoHa * d.hectareas), 0);
+        const rendimientoPromedioGeneral = totalHectareas > 0 ? totalCosechadoKgGeneral / totalHectareas : 0;
+        const costoKgPromedioGeneral = totalCosechadoKgGeneral > 0 ? totalCostos / totalCosechadoKgGeneral : 0;
+
         return {
             totales: {
                 totalHectareas,
                 totalCostos,
-                costoPromedioGeneral
+                costoPromedioGeneral,
+                rendimientoPromedioGeneral,
+                costoKgPromedioGeneral,
             },
             maxCosto
         }
@@ -202,6 +219,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                         <SelectItem value="costoProducto">Costo Total</SelectItem>
                                         <SelectItem value="hectareas">Hectárea</SelectItem>
                                         <SelectItem value="cicloHoy">Ciclo</SelectItem>
+                                        <SelectItem value="rendimientoHa">Rendimiento/ha</SelectItem>
+                                        <SelectItem value="costoKg">Costo/kg</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <Select value={filters.orden} onValueChange={(v) => handleFilterChange('orden', v)}>
@@ -238,7 +257,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                         <TableHead className="font-bold text-right px-4 py-2 w-[250px]">Costo en Producto por Parcela (Gs)</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Hectárea Plantada</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Ciclo a Hoy</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Rendimiento (kg/ha)</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Costo Promedio por Hectárea (Gs/ha)</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Costo/kg Producido (Gs)</TableHead>
                                     </TableRow>
                                     <TableRow className="bg-muted/50 dark:bg-muted/80">
                                         <TableHead className="px-2 py-1">
@@ -254,7 +275,13 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                             <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.cicloHoy} onChange={(e) => setColumnFilters(f => ({ ...f, cicloHoy: e.target.value }))} />
                                         </TableHead>
                                         <TableHead className="px-2 py-1">
+                                            <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.rendimientoHa} onChange={(e) => setColumnFilters(f => ({ ...f, rendimientoHa: e.target.value }))} />
+                                        </TableHead>
+                                        <TableHead className="px-2 py-1">
                                             <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.costoPromedioHa} onChange={(e) => setColumnFilters(f => ({ ...f, costoPromedioHa: e.target.value }))} />
+                                        </TableHead>
+                                        <TableHead className="px-2 py-1">
+                                            <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.costoKg} onChange={(e) => setColumnFilters(f => ({ ...f, costoKg: e.target.value }))} />
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -267,7 +294,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                             </TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono">{d.hectareas.toLocaleString('es-AR')} ha</TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono">{d.cicloHoy} días</TableCell>
-                                            <TableCell className="px-4 py-3 text-right font-mono font-bold">{d.costoPromedioHa.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Gs</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono font-bold">{d.rendimientoHa.toLocaleString('es-AR', { maximumFractionDigits: 0 })} kg/ha</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono font-bold">{d.costoPromedioHa.toLocaleString('es-AR', { maximumFractionDigits: 2 })} Gs</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono text-accent-foreground dark:text-accent font-semibold">{d.costoKg.toLocaleString('es-AR', { maximumFractionDigits: 2 })} Gs</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -277,7 +306,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.totalCostos.toLocaleString('es-AR')} Gs</TableCell>
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.totalHectareas.toLocaleString('es-AR')} ha</TableCell>
                                         <TableCell className="px-4 py-3 text-right"></TableCell>
-                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.costoPromedioGeneral.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Gs</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.rendimientoPromedioGeneral.toLocaleString('es-AR', { maximumFractionDigits: 0 })} kg/ha</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.costoPromedioGeneral.toLocaleString('es-AR', { maximumFractionDigits: 2 })} Gs</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.costoKgPromedioGeneral.toLocaleString('es-AR', { maximumFractionDigits: 2 })} Gs</TableCell>
                                     </TableRow>
                                 </TableFooter>
                             </Table>

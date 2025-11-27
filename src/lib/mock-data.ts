@@ -30,7 +30,7 @@ export const mockInsumos: Insumo[] = [
     { id: 'i6', nombre: 'Fosfato Diamónico (DAP)', categoria: 'fertilizante', unidad: 'kg', stockActual: 2500, stockMinimo: 1000, proveedor: 'AgroPro S.A.', costoUnitario: 0.95 },
 ];
 
-const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], categoria: Evento['categoria'], daysAgo: number, desc: string, productos: Evento['productos']) => {
+const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], categoria: Evento['categoria'], daysAgo: number, desc: string, productos: Evento['productos'], extras: Partial<Evento> = {}) => {
     const fecha = new Date();
     fecha.setDate(fecha.getDate() - daysAgo);
 
@@ -39,7 +39,7 @@ const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId
         return sum + (prod.cantidad * (insumo?.costoUnitario || 0));
     }, 0);
 
-    return { id, parcelaId, cultivoId, zafraId, tipo, categoria, fecha, descripcion: desc, productos, costoTotal };
+    return { id, parcelaId, cultivoId, zafraId, tipo, categoria, fecha, descripcion: desc, productos, costoTotal, ...extras };
 };
 
 export const mockEventos: Evento[] = [
@@ -49,6 +49,8 @@ export const mockEventos: Evento[] = [
   generateEvent('ev4', 'p1', 'c1', 'z2', 'fertilización', 'Fertilizante', 55, 'Fertilización base con DAP', [{ insumoId: 'i6', cantidad: 7500, dosis: 150 }]),
   generateEvent('ev5', 'p1', 'c1', 'z2', 'aplicacion', 'Insecticida', 30, 'Control de insectos', [{ insumoId: 'i5', cantidad: 25, dosis: 0.5 }]),
   generateEvent('ev6', 'p1', 'c1', 'z2', 'aplicacion', 'Fungicida', 15, 'Aplicación de fungicida preventivo', [{ insumoId: 'i4', cantidad: 50, dosis: 1 }]),
+  generateEvent('ev7', 'p1', 'c1', 'z2', 'rendimiento', 'Cosecha', 2, 'Cosecha del Lote Norte 1', [], { toneladas: 180 }), // 180 ton / 50 ha = 3600 kg/ha
+  generateEvent('ev8', 'p3', 'c2', 'z3', 'rendimiento', 'Cosecha', 5, 'Cosecha del Lote Central', [], { toneladas: 900 }), // 900 ton / 120 ha = 7500 kg/ha
 ];
 
 
