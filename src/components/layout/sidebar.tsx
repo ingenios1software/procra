@@ -221,7 +221,7 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
       <div className="flex h-16 items-center border-b px-4 shrink-0">
         <Link href="/dashboard" className="flex items-center gap-2 font-headline text-lg font-bold text-primary">
           <Logo className="h-8 w-8" />
-          {!finalIsCollapsed && <span className="text-sidebar-foreground font-bold">CRApro95</span>}
+          {!finalIsCollapsed && <span className="text-sidebar-foreground font-bold transition-opacity duration-300">{!finalIsCollapsed && "CRApro95"}</span>}
         </Link>
         {!finalIsCollapsed && (
             <Button variant="ghost" size="icon" className="ml-auto" onClick={toggleSidebar}>
