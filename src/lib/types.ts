@@ -28,7 +28,7 @@ export type Evento = {
   parcelaId: string;
   cultivoId: string;
   zafraId: string;
-  tipo: 'siembra' | 'fertilización' | 'riego' | 'cosecha' | 'mantenimiento' | 'plagas' | 'aplicacion';
+  tipo: 'siembra' | 'fertilización' | 'riego' | 'cosecha' | 'mantenimiento' | 'plagas' | 'aplicacion' | 'rendimiento';
   fecha: Date;
   descripcion: string;
   insumos?: string;
@@ -48,6 +48,9 @@ export type Evento = {
     dosis: number;
   }[];
   costoTotal?: number;
+  // Campos para rendimiento
+  toneladas?: number;
+  precioTonelada?: number;
 };
 
 

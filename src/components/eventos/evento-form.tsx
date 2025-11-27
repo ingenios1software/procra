@@ -25,7 +25,7 @@ const formSchema = z.object({
   parcelaId: z.string().nonempty("Debe seleccionar una parcela."),
   cultivoId: z.string().nonempty("Debe seleccionar un cultivo."),
   zafraId: z.string().nonempty("Debe seleccionar una zafra."),
-  tipo: z.enum(['siembra', 'fertilización', 'riego', 'cosecha', 'mantenimiento', 'plagas', 'aplicacion']),
+  tipo: z.enum(['siembra', 'fertilización', 'riego', 'cosecha', 'mantenimiento', 'plagas', 'aplicacion', 'rendimiento']),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
   descripcion: z.string().min(5, "La descripción es muy corta."),
   
@@ -43,6 +43,9 @@ const formSchema = z.object({
   cantidad: z.coerce.number().optional(),
   unidad: z.string().optional(),
   resultado: z.string().optional(),
+  // Campos de rendimiento
+  toneladas: z.coerce.number().optional(),
+  precioTonelada: z.coerce.number().optional(),
 });
 
 type EventoFormValues = z.infer<typeof formSchema>;
@@ -180,6 +183,7 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                           <SelectItem value="fertilización">Fertilización</SelectItem>
                           <SelectItem value="riego">Riego</SelectItem>
                           <SelectItem value="cosecha">Cosecha</SelectItem>
+                          <SelectItem value="rendimiento">Rendimiento</SelectItem>
                           <SelectItem value="mantenimiento">Mantenimiento</SelectItem>
                           <SelectItem value="plagas">Control de Plagas</SelectItem>
                         </SelectContent>
@@ -334,6 +338,42 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                   <FormField control={form.control} name="cantidad" render={({ field }) => (<FormItem><FormLabel>Cantidad/Volumen</FormLabel><FormControl><Input type="number" placeholder="Ej: 100" {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={form.control} name="unidad" render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><FormControl><Input placeholder="Ej: ton, mm, hs" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
+              )}
+
+              {tipoEvento === 'rendimiento' && (
+                <Card className="bg-muted/30 p-4">
+                  <CardHeader className="p-2"><CardTitle className="text-lg">Detalles de Rendimiento</CardTitle></CardHeader>
+                  <CardContent className="p-2 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        name="toneladas"
+                        control={form.control}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Toneladas Cosechadas</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="Ej: 150" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        name="precioTonelada"
+                        control={form.control}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Precio por Tonelada (USD)</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="Ej: 450" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
               )}
               
               <FormField control={form.control} name="resultado" render={({ field }) => (<FormItem><FormLabel>Resultado/Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones sobre el resultado de la labor..." {...field} /></FormControl><FormMessage /></FormItem>)} />
