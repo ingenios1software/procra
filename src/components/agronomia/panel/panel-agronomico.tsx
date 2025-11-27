@@ -12,6 +12,8 @@ import { PanelGraficos } from "./panel-graficos";
 import { PanelTablaAgronomica } from "./panel-tabla-agronomica";
 import { PanelAnalisisEconomico } from "./panel-analisis-economico";
 import { usePrint } from "@/hooks/use-print";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface PanelAgronomicoProps {
     parcelas: Parcela[];
@@ -37,23 +39,53 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
                       .sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
     }, [parcela, zafra, eventos]);
 
-    const handleExport = (format: 'pdf' | 'excel') => {
-        alert(`Funcionalidad 'Exportar a ${format.toUpperCase()}' pendiente de implementación.`);
+    const handleExportExcel = () => {
+        alert("Funcionalidad 'Exportar a Excel' pendiente de implementación.");
     }
 
-    const onPrint = useCallback(() => {
-        window.print();
-    }, []);
+    const exportToPDF = async () => {
+       const element = document.getElementById("pdf-area");
+       if (!element) return;
+
+       const canvas = await html2canvas(element, {
+         scale: 2,
+         useCORS: true,
+         backgroundColor: '#ffffff'
+       });
+       const imgData = canvas.toDataURL("image/png");
+       const pdf = new jsPDF("p", "mm", "a4");
+
+       const imgWidth = 190; 
+       const pageHeight = 290;
+       const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+       let heightLeft = imgHeight;
+       let position = 10;
+
+       pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+       heightLeft -= pageHeight;
+
+       while (heightLeft > 0) {
+         position = heightLeft - imgHeight + 10;
+         pdf.addPage();
+         pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+         heightLeft -= pageHeight;
+       }
+
+       pdf.save("panel-agronomico.pdf");
+     };
+
 
     return (
         <>
             <PageHeader title="Panel Agronómico Inteligente" description="Análisis detallado de la campaña agrícola, desde la siembra hasta la cosecha.">
                 <div className="flex items-center gap-2 no-print">
-                    <Button variant="outline" onClick={() => handleExport('excel')}><Download className="mr-2"/>Exportar Excel</Button>
-                    <Button variant="outline" onClick={onPrint} type="button"><Printer className="mr-2"/>Imprimir</Button>
+                    <Button variant="outline" onClick={exportToPDF}><Download className="mr-2"/>Exportar PDF</Button>
+                    <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2"/>Exportar Excel</Button>
+                    <Button variant="outline" onClick={handlePrint} type="button"><Printer className="mr-2"/>Imprimir</Button>
                 </div>
             </PageHeader>
-            <div className="print-area">
+            <div id="pdf-area" className="print-area">
                 <Card className="mb-6 no-print">
                     <CardHeader>
                         <CardTitle>Selección de Campaña</CardTitle>
