@@ -107,7 +107,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                 costoPromedioHa: costoPorHa,
                 rendimientoHa: rendimientoHa,
                 costoKg: costoKg,
-                valorCostoParcela: costoTotal,
+                valorCostoParcela: costoTotal, // Usado para el gráfico
             };
         });
 
@@ -328,7 +328,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                               <Bar yAxisId="right" dataKey="hectareas" name="Hectáreas Plantadas" fill="#dc2626" />
                               <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
                               <Line yAxisId="left" type="monotone" dataKey="valorCostoParcela" name="Valor Costo Parcela" stroke="#8b5cf6" strokeWidth={3} dot={false} />
-                              <Line yAxisId="left" type="monotone" dataKey="costoPromedioHa" name="Costo Promedio/ha (Gs)" stroke="#f97316" strokeWidth={2} dot={{ r: 4 }} />
+                              <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha (Gs)" fill="#f97316" />
                             </ComposedChart>
                           </ResponsiveContainer>
                         </div>
