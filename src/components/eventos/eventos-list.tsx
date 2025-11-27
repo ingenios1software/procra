@@ -209,7 +209,7 @@ export function EventosList({
                   const parcela = parcelas.find((p) => p.id === evento.parcelaId);
                   const cultivo = cultivos.find((c) => c.id === evento.cultivoId);
                   const showAlert =
-                    evento.insumos && (!evento.cantidad || !evento.unidad);
+                    evento.productos && evento.productos.length > 0 && !evento.costoTotal;
 
                   return (
                     <TableRow key={evento.id}>

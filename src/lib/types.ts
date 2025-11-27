@@ -31,16 +31,14 @@ export type Evento = {
   tipo: 'siembra' | 'fertilización' | 'riego' | 'cosecha' | 'mantenimiento' | 'plagas' | 'aplicacion' | 'rendimiento';
   fecha: Date;
   descripcion: string;
-  insumos?: string;
-  cantidad?: number;
-  unidad?: string;
   resultado?: string;
-  dosis?: number;
-  insumoId?: string;
+  
+  // Campos climáticos
   temperatura?: number;
   humedad?: number;
   viento?: number;
-  // Campos para el panel agronómico
+
+  // Campos para el panel agronómico y registro de insumos
   categoria?: 'Desecación' | 'Siembra' | 'Fertilizante' | 'Herbicida' | 'Fungicida' | 'Insecticida' | 'Cosecha' | 'Otros';
   productos?: {
     insumoId: string;
@@ -48,9 +46,17 @@ export type Evento = {
     dosis: number;
   }[];
   costoTotal?: number;
-  // Campos para rendimiento
+
+  // Campos de rendimiento y cosecha
   toneladas?: number;
   precioTonelada?: number;
+
+  // --- Campos depreciados / a revisar ---
+  insumos?: string; // Deprecado, usar 'productos'
+  cantidad?: number; // Deprecado, usar 'productos.cantidad'
+  unidad?: string; // Deprecado, la unidad viene del insumo
+  dosis?: number; // Deprecado, usar 'productos.dosis'
+  insumoId?: string; // Deprecado, usar 'productos.insumoId'
 };
 
 

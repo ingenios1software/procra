@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -14,12 +14,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Evento, Parcela, Cultivo, Zafra, Insumo } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Cloud, Thermometer, Wind, Upload, File, Image as ImageIcon } from "lucide-react";
+import { CalendarIcon, Cloud, Thermometer, Wind, Upload, File, Image as ImageIcon, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { mockInsumos, mockEventos, mockZafras, mockEtapasCultivo } from "@/lib/mock-data";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
 import { useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
+
+const productoSchema = z.object({
+  insumoId: z.string().nonempty("Debe seleccionar un insumo."),
+  dosis: z.coerce.number().positive("La dosis debe ser mayor a 0."),
+  cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
+});
 
 const formSchema = z.object({
   parcelaId: z.string().nonempty("Debe seleccionar una parcela."),
@@ -29,19 +35,15 @@ const formSchema = z.object({
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
   descripcion: z.string().min(5, "La descripción es muy corta."),
   
-  // Campos de aplicación
-  insumoId: z.string().optional(),
-  dosis: z.coerce.number().optional(),
-  
+  // Array de productos
+  productos: z.array(productoSchema).optional(),
+
   // Campos climáticos
   temperatura: z.coerce.number().optional(),
   humedad: z.coerce.number().optional(),
   viento: z.coerce.number().optional(),
 
   // Campos de evento genéricos (mantener por compatibilidad)
-  insumos: z.string().optional(),
-  cantidad: z.coerce.number().optional(),
-  unidad: z.string().optional(),
   resultado: z.string().optional(),
   // Campos de rendimiento
   toneladas: z.coerce.number().optional(),
@@ -69,7 +71,13 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
     } : {
       fecha: new Date(),
       tipo: 'siembra',
+      productos: [],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "productos",
   });
 
   const tipoEvento = form.watch('tipo');
@@ -236,43 +244,65 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
 
               {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEvento) && (
                 <Card className="bg-muted/30 p-4">
-                  <CardHeader className="p-2"><CardTitle className="text-lg">Detalles de Insumos</CardTitle></CardHeader>
+                  <CardHeader className="p-2 flex flex-row items-center justify-between">
+                    <CardTitle className="text-lg">Productos/Insumos</CardTitle>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => append({ insumoId: '', dosis: 0, cantidad: 0 })}
+                    >
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Agregar Producto
+                    </Button>
+                  </CardHeader>
                   <CardContent className="p-2 space-y-4">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField
-                          name="insumoId"
-                          control={form.control}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Producto/Insumo</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Seleccione un insumo" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {mockInsumos.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          name="dosis"
-                          control={form.control}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Dosis o Cantidad</FormLabel>
-                              <FormControl>
-                                <Input type="number" placeholder="Ej: 2" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                     </div>
+                     {fields.map((field, index) => (
+                        <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
+                            <FormField
+                                name={`productos.${index}.insumoId`}
+                                control={form.control}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Insumo</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl>
+                                            <SelectContent>{mockInsumos.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}</SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                name={`productos.${index}.dosis`}
+                                control={form.control}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Dosis/ha</FormLabel>
+                                        <FormControl><Input className="w-24" type="number" placeholder="0" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                name={`productos.${index}.cantidad`}
+                                control={form.control}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Cant. Total</FormLabel>
+                                        <FormControl><Input className="w-24" type="number" placeholder="0" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                     ))}
+                     {fields.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">No se han agregado productos.</p>
+                     )}
                   </CardContent>
                 </Card>
               )}
@@ -333,10 +363,10 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                  </div>
               )}
 
-              {['cosecha', 'riego', 'mantenimiento'].includes(tipoEvento) && (
+              {['cosecha', 'riego'].includes(tipoEvento) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField control={form.control} name="cantidad" render={({ field }) => (<FormItem><FormLabel>Cantidad/Volumen</FormLabel><FormControl><Input type="number" placeholder="Ej: 100" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <FormField control={form.control} name="unidad" render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><FormControl><Input placeholder="Ej: ton, mm, hs" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="toneladas" render={({ field }) => (<FormItem><FormLabel>Cantidad/Volumen</FormLabel><FormControl><Input type="number" placeholder="Ej: 100" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="precioTonelada" render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><FormControl><Input placeholder="Ej: ton, mm, hs" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
               )}
 
