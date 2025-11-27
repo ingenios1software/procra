@@ -87,3 +87,30 @@
     @apply font-headline text-foreground;
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area, .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 10mm;
+    background: white;
+    color: black;
+  }
+  .print-area .recharts-wrapper {
+    width: 100% !important;
+  }
+  .print-area .card, .print-area .table {
+    page-break-inside: avoid;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
