@@ -11,6 +11,7 @@ import { PanelKpiCards } from "./panel-kpi-cards";
 import { PanelGraficos } from "./panel-graficos";
 import { PanelTablaAgronomica } from "./panel-tabla-agronomica";
 import { PanelAnalisisEconomico } from "./panel-analisis-economico";
+import { usePrint } from "@/hooks/use-print";
 
 interface PanelAgronomicoProps {
     parcelas: Parcela[];
@@ -24,6 +25,7 @@ interface PanelAgronomicoProps {
 export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, etapas }: PanelAgronomicoProps) {
     const [selectedParcelaId, setSelectedParcelaId] = useState<string | null>(null);
     const [selectedZafraId, setSelectedZafraId] = useState<string | null>(null);
+    const { handlePrint } = usePrint();
 
     const parcela = useMemo(() => parcelas.find(p => p.id === selectedParcelaId), [selectedParcelaId, parcelas]);
     const zafra = useMemo(() => zafras.find(z => z.id === selectedZafraId), [selectedZafraId, zafras]);
@@ -44,7 +46,7 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
             <PageHeader title="Panel Agronómico Inteligente" description="Análisis detallado de la campaña agrícola, desde la siembra hasta la cosecha.">
                 <div className="flex items-center gap-2">
                     <Button variant="outline" onClick={() => handleExport('excel')}><Download className="mr-2"/>Exportar Excel</Button>
-                    <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2"/>Imprimir</Button>
+                    <Button variant="outline" onClick={handlePrint}><Printer className="mr-2"/>Imprimir</Button>
                 </div>
             </PageHeader>
 
