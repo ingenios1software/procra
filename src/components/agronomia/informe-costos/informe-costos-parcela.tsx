@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line } from "recharts";
 
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
@@ -95,6 +96,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                 hectareas: parcela.superficie,
                 cicloHoy: cicloHoy,
                 costoPromedioHa: costoPorHa,
+                valorCostoParcela: costoTotal, // Valor duplicado para la línea del gráfico
             };
         });
 
@@ -279,6 +281,22 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                     </TableRow>
                                 </TableFooter>
                             </Table>
+                        </div>
+                        <div className="mt-10 p-4 border rounded-lg bg-background dark:bg-muted">
+                          <h3 className="text-lg font-bold mb-4">Gráfico de Comparación</h3>
+                          <ResponsiveContainer width="100%" height={400}>
+                            <ComposedChart data={filteredRows}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} />
+                              <YAxis yAxisId="left" />
+                              <YAxis yAxisId="right" orientation="right" />
+                              <Tooltip />
+                              <Legend />
+                              <Bar yAxisId="left" dataKey="costoProducto" name="Costo por Parcela (Gs)" fill="#3b82f6" />
+                              <Bar yAxisId="right" dataKey="hectareas" name="Hectáreas Plantadas" fill="#dc2626" />
+                              <Line yAxisId="left" type="monotone" dataKey="valorCostoParcela" name="Valor Costo Parcela" stroke="#8b5cf6" strokeWidth={3} dot={false} />
+                            </ComposedChart>
+                          </ResponsiveContainer>
                         </div>
                     </CardContent>
                 </Card>
