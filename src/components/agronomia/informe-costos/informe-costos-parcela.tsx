@@ -113,7 +113,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
 
         data.sort((a, b) => {
             const valA = a[filters.ordenarPor as keyof typeof a];
-            const valB = b[filters.ordenarPor as keyof typeof a];
+            const valB = b[filters.ordenarPor as keyof typeof b];
 
             if (typeof valA === 'number' && typeof valB === 'number') {
                 return filters.orden === 'asc' ? valA - valB : valB - valA;
@@ -320,11 +320,11 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                             <ComposedChart data={filteredRows}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} />
-                              <YAxis yAxisId="left" label={{ value: 'Costo ($)', angle: -90, position: 'insideLeft' }} />
-                              <YAxis yAxisId="right" orientation="right" label={{ value: 'Rendimiento (tn/ha) / Hectáreas', angle: 90, position: 'insideRight' }}/>
+                              <YAxis yAxisId="left" label={{ value: 'Costo Promedio ($/ha)', angle: -90, position: 'insideLeft' }} />
+                              <YAxis yAxisId="right" orientation="right" label={{ value: 'Otras Unidades', angle: 90, position: 'insideRight' }}/>
                               <Tooltip />
                               <Legend />
-                              <Line yAxisId="left" type="monotone" dataKey="costoProducto" name="Costo por Parcela ($)" stroke="#3b82f6" strokeWidth={2} />
+                              <Line yAxisId="right" type="monotone" dataKey="costoProducto" name="Costo por Parcela ($)" stroke="#3b82f6" strokeWidth={2} />
                               <Line yAxisId="right" type="monotone" dataKey="hectareas" name="Hectáreas Plantadas" stroke="#dc2626" />
                               <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (tn/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
                               <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" />
