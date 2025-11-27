@@ -2,9 +2,9 @@ import { Parcela, Cultivo, Zafra, Evento, Usuario, Rol, UserRole, Insumo, Maquin
 
 export const mockParcelas: Parcela[] = [
   { id: 'p1', nombre: 'Lote Norte 1', codigo: 'LN-001', superficie: 50, ubicacion: 'GPS: -34.5, -58.4', estado: 'activa' },
-  { id: 'p2', nombre: 'Lote Sur 2', codigo: 'LS-002', superficie: 75, ubicacion: 'GPS: -34.6, -58.5', estado: 'en barbecho' },
+  { id: 'p2', nombre: 'Lote Sur 2', codigo: 'LS-002', superficie: 75, ubicacion: 'GPS: -34.6, -58.5', estado: 'activa' },
   { id: 'p3', nombre: 'Lote Central', codigo: 'LC-001', superficie: 120, ubicacion: 'GPS: -34.55, -58.45', estado: 'activa' },
-  { id: 'p4', nombre: 'Lote Este', codigo: 'LE-001', superficie: 30, ubicacion: 'GPS: -34.5, -58.4', estado: 'inactiva' },
+  { id: 'p4', nombre: 'Lote Este', codigo: 'LE-001', superficie: 30, ubicacion: 'inactiva', estado: 'inactiva' },
 ];
 
 export const mockCultivos: Cultivo[] = [
@@ -28,6 +28,7 @@ export const mockInsumos: Insumo[] = [
     { id: 'i4', nombre: 'Fungicida Triple', categoria: 'fungicida', unidad: 'lt', stockActual: 80, stockMinimo: 20, proveedor: 'ChemCo Paraguay', costoUnitario: 25 },
     { id: 'i5', nombre: 'Insecticida Cipermetrina', categoria: 'insecticida', unidad: 'lt', stockActual: 120, stockMinimo: 30, proveedor: 'ChemCo Paraguay', costoUnitario: 18 },
     { id: 'i6', nombre: 'Fosfato Diamónico (DAP)', categoria: 'fertilizante', unidad: 'kg', stockActual: 2500, stockMinimo: 1000, proveedor: 'AgroPro S.A.', costoUnitario: 0.95 },
+    { id: 'i7', nombre: 'Semillas de Maíz DK 72-10', categoria: 'semilla', unidad: 'kg', stockActual: 5000, stockMinimo: 1000, proveedor: 'AgroPro S.A.', costoUnitario: 2.5 },
 ];
 
 const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], categoria: Evento['categoria'], daysAgo: number, desc: string, productos: Evento['productos'], extras: Partial<Evento> = {}) => {
@@ -39,18 +40,35 @@ const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId
         return sum + (prod.cantidad * (insumo?.costoUnitario || 0));
     }, 0);
 
-    return { id, parcelaId, cultivoId, zafraId, tipo, categoria, fecha, descripcion: desc, productos, costoTotal, ...extras };
+    return { id, parcelaId, cultivoId, zafraId, tipo, categoria, fecha, descripcion: desc, productos, costoTotal: costoTotal || extras.costoTotal || 0, ...extras };
 };
 
 export const mockEventos: Evento[] = [
+  // --- Parcela 1 (Soja) ---
   generateEvent('ev1', 'p1', 'c1', 'z2', 'aplicacion', 'Desecación', 85, 'Desecación pre-siembra', [{ insumoId: 'i2', cantidad: 100, dosis: 2 }]),
   generateEvent('ev2', 'p1', 'c1', 'z2', 'siembra', 'Siembra', 82, 'Siembra de Soja', [{ insumoId: 'i3', cantidad: 4000, dosis: 80 }]),
   generateEvent('ev3', 'p1', 'c1', 'z2', 'aplicacion', 'Herbicida', 60, 'Herbicida pre-emergente', [{ insumoId: 'i2', cantidad: 50, dosis: 1 }]),
   generateEvent('ev4', 'p1', 'c1', 'z2', 'fertilización', 'Fertilizante', 55, 'Fertilización base con DAP', [{ insumoId: 'i6', cantidad: 7500, dosis: 150 }]),
   generateEvent('ev5', 'p1', 'c1', 'z2', 'aplicacion', 'Insecticida', 30, 'Control de insectos', [{ insumoId: 'i5', cantidad: 25, dosis: 0.5 }]),
   generateEvent('ev6', 'p1', 'c1', 'z2', 'aplicacion', 'Fungicida', 15, 'Aplicación de fungicida preventivo', [{ insumoId: 'i4', cantidad: 50, dosis: 1 }]),
-  generateEvent('ev7', 'p1', 'c1', 'z2', 'rendimiento', 'Cosecha', 2, 'Cosecha del Lote Norte 1', [], { toneladas: 180 }), // 180 ton / 50 ha = 3600 kg/ha
-  generateEvent('ev8', 'p3', 'c2', 'z3', 'rendimiento', 'Cosecha', 5, 'Cosecha del Lote Central', [], { toneladas: 900 }), // 900 ton / 120 ha = 7500 kg/ha
+  generateEvent('ev7', 'p1', 'c1', 'z2', 'rendimiento', 'Cosecha', 2, 'Cosecha Lote Norte 1', [], { toneladas: 180 }), // 3600 kg/ha
+
+  // --- Parcela 2 (Soja) ---
+  generateEvent('ev8', 'p2', 'c1', 'z2', 'aplicacion', 'Desecación', 90, 'Desecación pre-siembra', [{ insumoId: 'i2', cantidad: 150, dosis: 2 }]),
+  generateEvent('ev9', 'p2', 'c1', 'z2', 'siembra', 'Siembra', 88, 'Siembra de Soja', [{ insumoId: 'i3', cantidad: 6000, dosis: 80 }]),
+  generateEvent('ev10', 'p2', 'c1', 'z2', 'fertilización', 'Fertilizante', 70, 'Fertilización base con DAP', [{ insumoId: 'i6', cantidad: 12000, dosis: 160 }]),
+  generateEvent('ev11', 'p2', 'c1', 'z2', 'aplicacion', 'Fungicida', 20, 'Aplicación de fungicida preventivo', [{ insumoId: 'i4', cantidad: 75, dosis: 1 }]),
+  generateEvent('ev12', 'p2', 'c1', 'z2', 'rendimiento', 'Cosecha', 3, 'Cosecha Lote Sur 2', [], { toneladas: 315 }), // 4200 kg/ha
+
+  // --- Parcela 3 (Maíz) ---
+  generateEvent('ev13', 'p3', 'c2', 'z3', 'siembra', 'Siembra', 45, 'Siembra de Maíz', [{ insumoId: 'i7', cantidad: 2400, dosis: 20 }]),
+  generateEvent('ev14', 'p3', 'c2', 'z3', 'fertilización', 'Fertilizante', 30, 'Fertilización Nitrogenada', [{ insumoId: 'i1', cantidad: 24000, dosis: 200 }]),
+  generateEvent('ev15', 'p3', 'c2', 'z3', 'aplicacion', 'Herbicida', 25, 'Control de malezas', [{ insumoId: 'i2', cantidad: 120, dosis: 1 }]),
+  generateEvent('ev16', 'p3', 'c2', 'z3', 'rendimiento', 'Cosecha', 5, 'Cosecha Lote Central', [], { toneladas: 900 }), // 7500 kg/ha
+  
+  // --- Eventos Generales / Otros ---
+  generateEvent('ev17', 'p2', 'c1', 'z2', 'mantenimiento', 'Otros', 40, 'Reparación de alambrado perimetral', [], { costoTotal: 500 }),
+  generateEvent('ev18', 'p1', 'c1', 'z2', 'plagas', 'Insecticida', 10, 'Monitoreo y control de chinches', [{ insumoId: 'i5', cantidad: 30, dosis: 0.6 }]),
 ];
 
 
