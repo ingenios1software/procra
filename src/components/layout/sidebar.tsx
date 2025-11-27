@@ -33,6 +33,7 @@ import {
     UserCheck,
     ListTree,
     TestTube,
+    Target,
 } from "lucide-react"
 import {
   Accordion,
@@ -77,6 +78,7 @@ const navItems = [
         icon: Leaf,
         links: [
             { href: "/agronomia/panel", icon: TestTube, label: "Panel Agronómico" },
+            { href: "/agronomia/proyeccion-rendimiento", icon: Target, label: "Proyección Rendimiento" },
             { href: "/agronomia/plagas", icon: Bug, label: "Plagas" },
             { href: "/agronomia/etapas-cultivo", icon: ListTree, label: "Etapas del Cultivo" },
         ]
