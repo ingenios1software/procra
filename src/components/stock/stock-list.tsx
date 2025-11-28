@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
@@ -55,14 +56,14 @@ export function StockList({ initialInsumos }: StockListProps) {
     // Añadir compras
     mockCompras.forEach(compra => {
         compra.items.forEach(item => {
-            allEvents.push({ type: 'entrada', fecha: compra.fecha, insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
+            allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
         });
     });
 
     // Añadir salidas de eventos
     mockEventos.forEach(evento => {
         evento.productos?.forEach(prod => {
-            allEvents.push({ type: 'salida', fecha: evento.fecha, insumoId: prod.insumoId, cantidad: prod.cantidad });
+            allEvents.push({ type: 'salida', fecha: new Date(evento.fecha), insumoId: prod.insumoId, cantidad: prod.cantidad });
         });
     });
     
@@ -165,7 +166,7 @@ export function StockList({ initialInsumos }: StockListProps) {
         const json: any[] = XLSX.utils.sheet_to_json(worksheet);
 
         const nuevosInsumos: Insumo[] = json.map((row, index) => ({
-          id: `import-${Date.now()}-${index}`,
+          id: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           nombre: row.nombre || 'Sin Nombre',
           categoria: row.categoria || 'otros',
           unidad: row.unidad || 'unidad',
