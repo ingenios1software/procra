@@ -180,11 +180,11 @@ export function StockList({ initialInsumos }: StockListProps) {
           nombre: getColumnValue(row, 'NOMBRE') || 'Sin Nombre',
           categoria: getColumnValue(row, 'CATEGORIA') || 'otros',
           unidad: getColumnValue(row, 'Unid') || 'unidad',
-          costoUnitario: Number(getColumnValue(row, 'Precio Promedio', 'costoUnitario')) || 0,
+          costoUnitario: Number(getColumnValue(row, 'Precio Promedio')) || 0,
           stockActual: Number(getColumnValue(row, 'stockActual')) || 0,
           stockMinimo: Number(getColumnValue(row, 'stockMinimo')) || 0,
-          principioActivo: getColumnValue(row, 'Principio Activo', 'principioActivo'),
-          dosisRecomendada: Number(getColumnValue(row, 'Dosis Rec.', 'Dosis Recomendada', 'dosisRecomendada')) || undefined,
+          principioActivo: getColumnValue(row, 'Principio Activo'),
+          dosisRecomendada: Number(getColumnValue(row, 'Dosis Rec.')) || undefined,
           proveedor: getColumnValue(row, 'proveedor'),
         }));
 
@@ -366,5 +366,3 @@ export function StockList({ initialInsumos }: StockListProps) {
     </>
   );
 }
-
-    
