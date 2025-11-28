@@ -17,7 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { mockEventos } from "@/lib/mock-data";
+import { mockEventos, mockCompras } from "@/lib/mock-data";
 import { PageHeader } from "../shared/page-header";
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
@@ -36,21 +36,48 @@ export function StockList({ initialInsumos }: StockListProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stockData = useMemo(() => {
+    // 1. Calcular Salidas Totales por Insumo a partir de los eventos
     const salidas = mockEventos.flatMap(evento => evento.productos || [])
       .reduce((acc, prod) => {
         acc[prod.insumoId] = (acc[prod.insumoId] || 0) + prod.cantidad;
         return acc;
       }, {} as Record<string, number>);
 
-    return insumos.map(insumo => {
-      const entradaTotal = insumo.stockActual;
+    // 2. Calcular Entradas y Costo Promedio Ponderado
+    const insumosConEntradas = insumos.map(insumo => {
+        const stockInicial = { cantidad: insumo.stockActual, costo: insumo.costoUnitario };
+        
+        const comprasDelInsumo = mockCompras.flatMap(compra => 
+            compra.items
+                .filter(item => item.insumoId === insumo.id)
+                .map(item => ({ cantidad: item.cantidad, costo: item.precioUnitario }))
+        );
+
+        const todasLasEntradas = [stockInicial, ...comprasDelInsumo];
+
+        const { totalCantidad, valorTotal } = todasLasEntradas.reduce((acc, entrada) => {
+            acc.totalCantidad += entrada.cantidad;
+            acc.valorTotal += entrada.cantidad * entrada.costo;
+            return acc;
+        }, { totalCantidad: 0, valorTotal: 0 });
+
+        const precioPromedioPonderado = totalCantidad > 0 ? valorTotal / totalCantidad : stockInicial.costo;
+
+        return {
+            ...insumo,
+            entradaTotal: totalCantidad,
+            precioPromedioPonderado,
+        };
+    });
+
+    // 3. Calcular Stock Final y Valoración
+    return insumosConEntradas.map(insumo => {
       const salidaTotal = salidas[insumo.id] || 0;
-      const stockFinal = entradaTotal - salidaTotal;
-      const valorStock = stockFinal * insumo.costoUnitario;
+      const stockFinal = insumo.entradaTotal - salidaTotal;
+      const valorStock = stockFinal * insumo.precioPromedioPonderado;
 
       return {
         ...insumo,
-        entradaTotal,
         salidaTotal,
         stockFinal,
         valorStock
@@ -103,11 +130,11 @@ export function StockList({ initialInsumos }: StockListProps) {
           nombre: row.nombre || 'Sin Nombre',
           categoria: row.categoria || 'otros',
           unidad: row.unidad || 'unidad',
-          costoUnitario: Number(row.costoUnitario) || 0,
+          costoUnitario: Number(row['Precio Promedio']) || Number(row.costoUnitario) || 0,
           stockActual: Number(row.stockActual) || 0,
           stockMinimo: Number(row.stockMinimo) || 0,
-          principioActivo: row.principioActivo,
-          dosisRecomendada: Number(row.dosisRecomendada) || undefined,
+          principioActivo: row['Principio Activo'] || row.principioActivo,
+          dosisRecomendada: Number(row['Dosis Recomendada']) || Number(row.dosisRecomendada) || undefined,
           proveedor: row.proveedor,
         }));
 
@@ -208,7 +235,7 @@ export function StockList({ initialInsumos }: StockListProps) {
                 <TableHead>Nombre</TableHead>
                 <TableHead>Principio Activo</TableHead>
                 <TableHead>Dosis Rec.</TableHead>
-                <TableHead className="text-right">Precio Promedio</TableHead>
+                <TableHead className="text-right">Precio Promedio Ponderado</TableHead>
                 <TableHead className="text-right">Entrada Total</TableHead>
                 <TableHead className="text-right">Salida Total</TableHead>
                 <TableHead className="text-right">Stock Actual</TableHead>
@@ -240,7 +267,7 @@ export function StockList({ initialInsumos }: StockListProps) {
                   </TableCell>
                   <TableCell>{insumo.principioActivo || 'N/A'}</TableCell>
                   <TableCell>{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
-                  <TableCell className="text-right font-mono">${insumo.costoUnitario.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono">${insumo.precioPromedioPonderado.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-mono text-green-600 flex items-center justify-end gap-1"><ArrowUp size={14}/> {insumo.entradaTotal.toLocaleString()} {insumo.unidad}</TableCell>
                   <TableCell className="text-right font-mono text-red-600 flex items-center justify-end gap-1"><ArrowDown size={14}/> {insumo.salidaTotal.toLocaleString()} {insumo.unidad}</TableCell>
                   <TableCell className="text-right font-mono font-bold">{insumo.stockFinal.toLocaleString()} {insumo.unidad}</TableCell>

@@ -93,7 +93,7 @@ export type Insumo = {
   principioActivo?: string;
   unidad: 'kg' | 'lt' | 'unidad';
   dosisRecomendada?: number;
-  costoUnitario: number; // Reemplaza a precioPromedio
+  costoUnitario: number;
   stockMinimo: number;
   stockActual: number; // Este será el valor inicial de "entrada total"
   proveedor?: string;

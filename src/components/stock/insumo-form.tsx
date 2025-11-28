@@ -200,7 +200,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
               name="costoUnitario"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Costo Unitario / Precio Promedio ($)</FormLabel>
+                  <FormLabel>Costo Unitario Inicial ($)</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" placeholder="0.8" {...field} />
                   </FormControl>
