@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp } from "lucide-react";
+import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Insumo } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/tooltip";
 import { mockEventos } from "@/lib/mock-data";
 import { PageHeader } from "../shared/page-header";
+import * as XLSX from 'xlsx';
+import { useToast } from "@/hooks/use-toast";
 
 interface StockListProps {
   initialInsumos: Insumo[];
@@ -29,7 +31,9 @@ export function StockList({ initialInsumos }: StockListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedInsumo, setSelectedInsumo] = useState<Insumo | null>(null);
   const { role } = useAuth();
+  const { toast } = useToast();
   const canModify = role === 'admin' || role === 'operador' || role === 'gerente';
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stockData = useMemo(() => {
     const salidas = mockEventos.flatMap(evento => evento.productos || [])
@@ -76,13 +80,86 @@ export function StockList({ initialInsumos }: StockListProps) {
     setDialogOpen(false);
     setSelectedInsumo(null);
   }, []);
+  
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        const nuevosInsumos: Insumo[] = json.map((row, index) => ({
+          id: `import-${Date.now()}-${index}`,
+          nombre: row.nombre || 'Sin Nombre',
+          categoria: row.categoria || 'otros',
+          unidad: row.unidad || 'unidad',
+          costoUnitario: Number(row.costoUnitario) || 0,
+          stockActual: Number(row.stockActual) || 0,
+          stockMinimo: Number(row.stockMinimo) || 0,
+          principioActivo: row.principioActivo,
+          dosisRecomendada: Number(row.dosisRecomendada) || undefined,
+          proveedor: row.proveedor,
+        }));
+
+        setInsumos(prev => [...prev, ...nuevosInsumos]);
+        toast({
+          title: "Importación exitosa",
+          description: `${nuevosInsumos.length} insumos han sido agregados.`,
+        });
+
+      } catch (error) {
+        console.error("Error al importar el archivo:", error);
+        toast({
+          variant: "destructive",
+          title: "Error de importación",
+          description: "No se pudo leer el archivo. Asegúrese de que sea un formato válido.",
+        });
+      } finally {
+        // Reset file input
+        if(fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
   return (
     <>
       <PageHeader
         title="Control de Insumos y Stock"
         description="Gestione el inventario de fertilizantes, semillas y otros insumos agrícolas."
-      />
+      >
+        {canModify && (
+            <div className="flex items-center gap-2">
+                 <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept=".xlsx, .xls, .csv"
+                />
+                <Button variant="outline" onClick={handleImportClick}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Importar Excel
+                </Button>
+                <Button onClick={() => openDialog()}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Nuevo Insumo
+                </Button>
+            </div>
+        )}
+      </PageHeader>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card>
@@ -123,12 +200,6 @@ export function StockList({ initialInsumos }: StockListProps) {
             <CardTitle>Inventario Detallado</CardTitle>
             <CardDescription>Análisis completo del movimiento de cada insumo.</CardDescription>
           </div>
-          {canModify && (
-            <Button onClick={() => openDialog()}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Nuevo Insumo
-            </Button>
-          )}
         </CardHeader>
         <CardContent>
           <Table>
