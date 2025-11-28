@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Insumo } from "@/lib/types";
+import type { Insumo, Compra, Evento } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { InsumoForm } from "./insumo-form";
 import {
@@ -21,6 +21,8 @@ import { mockEventos, mockCompras } from "@/lib/mock-data";
 import { PageHeader } from "../shared/page-header";
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
+import { format } from 'date-fns';
+
 
 interface StockListProps {
   initialInsumos: Insumo[];
@@ -36,53 +38,90 @@ export function StockList({ initialInsumos }: StockListProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stockData = useMemo(() => {
-    // 1. Calcular Salidas Totales por Insumo a partir de los eventos
-    const salidas = mockEventos.flatMap(evento => evento.productos || [])
-      .reduce((acc, prod) => {
-        acc[prod.insumoId] = (acc[prod.insumoId] || 0) + prod.cantidad;
-        return acc;
-      }, {} as Record<string, number>);
+    // 1. Unificar y ordenar cronológicamente todos los movimientos (entradas y salidas)
+    const allEvents: (
+      { type: 'entrada'; fecha: Date; insumoId: string; cantidad: number; costo: number; } |
+      { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
+    )[] = [];
 
-    // 2. Calcular Entradas y Costo Promedio Ponderado
-    const insumosConEntradas = insumos.map(insumo => {
-        const stockInicial = { cantidad: insumo.stockActual, costo: insumo.costoUnitario };
+    // Añadir stock inicial como la primera entrada para cada insumo
+    insumos.forEach(insumo => {
+        if (insumo.stockActual > 0) {
+            // Usamos una fecha muy antigua para asegurar que sea el primer evento
+            allEvents.push({ type: 'entrada', fecha: new Date('2000-01-01'), insumoId: insumo.id, cantidad: insumo.stockActual, costo: insumo.costoUnitario });
+        }
+    });
+
+    // Añadir compras
+    mockCompras.forEach(compra => {
+        compra.items.forEach(item => {
+            allEvents.push({ type: 'entrada', fecha: compra.fecha, insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
+        });
+    });
+
+    // Añadir salidas de eventos
+    mockEventos.forEach(evento => {
+        evento.productos?.forEach(prod => {
+            allEvents.push({ type: 'salida', fecha: evento.fecha, insumoId: prod.insumoId, cantidad: prod.cantidad });
+        });
+    });
+    
+    // Ordenar todos los movimientos por fecha
+    allEvents.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+
+    // 2. Procesar movimientos para cada insumo
+    const calculatedInsumos = insumos.map(insumo => {
+        let currentStock = 0;
+        let totalValue = 0;
+        let entradaTotal = 0;
+        let salidaTotal = 0;
+
+        // Filtrar movimientos para el insumo actual
+        const insumoMovements = allEvents.filter(e => e.insumoId === insumo.id);
         
-        const comprasDelInsumo = mockCompras.flatMap(compra => 
-            compra.items
-                .filter(item => item.insumoId === insumo.id)
-                .map(item => ({ cantidad: item.cantidad, costo: item.precioUnitario }))
-        );
+        insumoMovements.forEach(mov => {
+            if (mov.type === 'entrada') {
+                // Si el stock es cero, el nuevo promedio es simplemente el costo de esta entrada
+                if (currentStock === 0) {
+                    totalValue = mov.cantidad * mov.costo;
+                } else {
+                    totalValue += mov.cantidad * mov.costo;
+                }
+                currentStock += mov.cantidad;
+                entradaTotal += mov.cantidad;
+            } else if (mov.type === 'salida') {
+                const stockAntesSalida = currentStock;
+                currentStock -= mov.cantidad;
+                salidaTotal += mov.cantidad;
 
-        const todasLasEntradas = [stockInicial, ...comprasDelInsumo];
+                // El valor del inventario disminuye en proporción al costo promedio
+                if (stockAntesSalida > 0) {
+                    const avgCost = totalValue / stockAntesSalida;
+                    totalValue -= mov.cantidad * avgCost;
+                }
 
-        const { totalCantidad, valorTotal } = todasLasEntradas.reduce((acc, entrada) => {
-            acc.totalCantidad += entrada.cantidad;
-            acc.valorTotal += entrada.cantidad * entrada.costo;
-            return acc;
-        }, { totalCantidad: 0, valorTotal: 0 });
-
-        const precioPromedioPonderado = totalCantidad > 0 ? valorTotal / totalCantidad : stockInicial.costo;
+                // Congelar y reiniciar si el stock llega a cero
+                if (currentStock <= 0) {
+                    totalValue = 0;
+                    currentStock = 0; // Asegurarse de que no sea negativo
+                }
+            }
+        });
+        
+        const precioPromedioPonderado = currentStock > 0 ? totalValue / currentStock : 0;
+        const valorStock = totalValue;
 
         return {
             ...insumo,
-            entradaTotal: totalCantidad,
-            precioPromedioPonderado,
+            entradaTotal,
+            salidaTotal,
+            stockFinal: currentStock,
+            precioPromedioPonderado: precioPromedioPonderado,
+            valorStock,
         };
     });
 
-    // 3. Calcular Stock Final y Valoración
-    return insumosConEntradas.map(insumo => {
-      const salidaTotal = salidas[insumo.id] || 0;
-      const stockFinal = insumo.entradaTotal - salidaTotal;
-      const valorStock = stockFinal * insumo.precioPromedioPonderado;
-
-      return {
-        ...insumo,
-        salidaTotal,
-        stockFinal,
-        valorStock
-      };
-    });
+    return calculatedInsumos;
   }, [insumos]);
 
   const totalStockValue = useMemo(() => stockData.reduce((sum, item) => sum + item.valorStock, 0), [stockData]);
@@ -316,3 +355,5 @@ export function StockList({ initialInsumos }: StockListProps) {
     </>
   );
 }
+
+    
