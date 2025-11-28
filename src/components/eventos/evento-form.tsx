@@ -16,7 +16,7 @@ import type { Evento, Parcela, Cultivo, Zafra, Insumo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Cloud, Thermometer, Wind, Upload, File, Image as ImageIcon, PlusCircle, Trash2, DollarSign } from "lucide-react";
 import { format } from "date-fns";
-import { mockInsumos, mockEventos, mockZafras, mockEtapasCultivo } from "@/lib/mock-data";
+import { mockInsumos, mockEventos, mockZafras, mockEtapasCultivo, mockCompras } from "@/lib/mock-data";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
 import { useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -94,13 +94,61 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
   const watchedProductos = form.watch('productos');
   const watchedCostoServicio = form.watch('costoServicioPorHa');
 
+  const stockCalculado = useMemo(() => {
+    const allEvents: (
+      { type: 'entrada'; fecha: Date; insumoId: string; cantidad: number; costo: number; } |
+      { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
+    )[] = [];
+
+    mockInsumos.forEach(insumo => {
+        if (insumo.stockActual > 0) {
+            allEvents.push({ type: 'entrada', fecha: new Date('2000-01-01'), insumoId: insumo.id, cantidad: insumo.stockActual, costo: insumo.costoUnitario });
+        }
+    });
+
+    mockCompras.forEach(compra => {
+        compra.items.forEach(item => {
+            allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
+        });
+    });
+
+    mockEventos.forEach(evento => {
+        evento.productos?.forEach(prod => {
+            allEvents.push({ type: 'salida', fecha: new Date(evento.fecha), insumoId: prod.insumoId, cantidad: prod.cantidad });
+        });
+    });
+    
+    allEvents.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+
+    const stockFinal: Record<string, { stock: number; unidad: string; }> = {};
+    mockInsumos.forEach(insumo => {
+        let currentStock = 0;
+        const insumoMovements = allEvents.filter(e => e.insumoId === insumo.id);
+        
+        insumoMovements.forEach(mov => {
+            if (mov.type === 'entrada') {
+                currentStock += mov.cantidad;
+            } else if (mov.type === 'salida') {
+                currentStock -= mov.cantidad;
+            }
+        });
+
+        stockFinal[insumo.id] = { stock: Math.max(0, currentStock), unidad: insumo.unidad };
+    });
+
+    return stockFinal;
+  }, []);
+
+  const insumosConStock = useMemo(() => {
+    return mockInsumos.filter(insumo => stockCalculado[insumo.id]?.stock > 0);
+  }, [stockCalculado]);
+
   // Lógica de cálculo automático
   useEffect(() => {
     if (watchedHectareas && watchedHectareas > 0) {
       watchedProductos?.forEach((producto, index) => {
         if (producto.dosis > 0) {
           const nuevaCantidad = producto.dosis * watchedHectareas;
-          // Usamos `get` para evitar un bucle infinito de re-renderizado
           if (form.getValues(`productos.${index}.cantidad`) !== nuevaCantidad) {
             form.setValue(`productos.${index}.cantidad`, nuevaCantidad, { shouldValidate: true });
           }
@@ -183,7 +231,29 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                   <CardContent className="p-2 space-y-4">
                      {fields.map((field, index) => (
                         <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
-                            <FormField name={`productos.${index}.insumoId`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Insumo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl><SelectContent>{mockInsumos.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )}/>
+                            <FormField name={`productos.${index}.insumoId`} control={form.control} render={({ field }) => ( 
+                                <FormItem>
+                                    <FormLabel>Insumo</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Seleccionar..." />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {insumosConStock.map(i => {
+                                                const stockInfo = stockCalculado[i.id];
+                                                return (
+                                                    <SelectItem key={i.id} value={i.id}>
+                                                        {i.nombre} ({stockInfo.stock.toFixed(2)} {stockInfo.unidad})
+                                                    </SelectItem>
+                                                )
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem> 
+                            )}/>
                             <FormField name={`productos.${index}.dosis`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Dosis/ha</FormLabel><FormControl><Input className="w-28" type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                             <FormField name={`productos.${index}.cantidad`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cant. Total</FormLabel><FormControl><Input className="w-28 bg-muted/70" type="number" placeholder="0" {...field} readOnly /></FormControl><FormMessage /></FormItem> )}/>
                             <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
