@@ -165,17 +165,27 @@ export function StockList({ initialInsumos }: StockListProps) {
         const worksheet = workbook.Sheets[sheetName];
         const json: any[] = XLSX.utils.sheet_to_json(worksheet);
 
+        const getColumnValue = (row: any, ...keys: string[]) => {
+            for (const key of keys) {
+                const rowKey = Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
+                if (rowKey && row[rowKey] !== undefined) {
+                    return row[rowKey];
+                }
+            }
+            return undefined;
+        };
+
         const nuevosInsumos: Insumo[] = json.map((row, index) => ({
           id: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          nombre: row.nombre || 'Sin Nombre',
-          categoria: row.categoria || 'otros',
-          unidad: row.unidad || 'unidad',
-          costoUnitario: Number(row['Precio Promedio']) || Number(row.costoUnitario) || 0,
-          stockActual: Number(row.stockActual) || 0,
-          stockMinimo: Number(row.stockMinimo) || 0,
-          principioActivo: row['Principio Activo'] || row.principioActivo,
-          dosisRecomendada: Number(row['Dosis Recomendada']) || Number(row.dosisRecomendada) || undefined,
-          proveedor: row.proveedor,
+          nombre: getColumnValue(row, 'NOMBRE') || 'Sin Nombre',
+          categoria: getColumnValue(row, 'CATEGORIA') || 'otros',
+          unidad: getColumnValue(row, 'Unid') || 'unidad',
+          costoUnitario: Number(getColumnValue(row, 'Precio Promedio', 'costoUnitario')) || 0,
+          stockActual: Number(getColumnValue(row, 'stockActual')) || 0,
+          stockMinimo: Number(getColumnValue(row, 'stockMinimo')) || 0,
+          principioActivo: getColumnValue(row, 'Principio Activo', 'principioActivo'),
+          dosisRecomendada: Number(getColumnValue(row, 'Dosis Rec.', 'Dosis Recomendada', 'dosisRecomendada')) || undefined,
+          proveedor: getColumnValue(row, 'proveedor'),
         }));
 
         setInsumos(prev => [...prev, ...nuevosInsumos]);
