@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line } from "recharts";
+import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, Scatter } from "recharts";
 
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
@@ -58,7 +58,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
 
     useEffect(() => {
         const checkIsMobile = () => {
-            setIsMobile(window.innerWidth < 640);
+            const mobile = typeof window !== "undefined" && window.innerWidth < 640;
+            setIsMobile(mobile);
         };
         checkIsMobile();
         window.addEventListener('resize', checkIsMobile);
@@ -123,7 +124,6 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                 costoPromedioHa: costoPorHa,
                 rendimientoHa: rendimientoHa,
                 costoKg: costoKg,
-                valorCostoParcela: costoTotal, // Usado para el gráfico
             };
         });
 
@@ -353,8 +353,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                   />
                                   <Legend wrapperStyle={{ fontSize: labelFont }} />
                                   {!isMobile && <Line yAxisId="right" type="monotone" dataKey="costoProducto" name="Costo por Parcela ($)" stroke="#3b82f6" strokeWidth={2} />}
-                                  <Line yAxisId="right" type="monotone" dataKey="hectareas" name="Hectáreas Plantadas" stroke="#dc2626" />
                                   <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
+                                  <Scatter yAxisId="right" dataKey="hectareas" name="Hectáreas Plantadas" fill="#dc2626" shape="diamond" />
                                   <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" barSize={barSize} />
                                 </ComposedChart>
                               </ResponsiveContainer>
@@ -367,3 +367,5 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
     )
 
 }
+
+    
