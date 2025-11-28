@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
@@ -55,6 +54,22 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
     zafras: Zafra[];
     eventos: Evento[];
 }) {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkIsMobile = () => {
+            setIsMobile(window.innerWidth < 640);
+        };
+        checkIsMobile();
+        window.addEventListener('resize', checkIsMobile);
+        return () => window.removeEventListener('resize', checkIsMobile);
+    }, []);
+
+    const chartHeight = isMobile ? 250 : 400;
+    const barSize = isMobile ? 25 : 50;
+    const tickFont = isMobile ? 10 : 13;
+    const labelFont = isMobile ? 10 : 14;
+
     const [filters, setFilters] = useState({
         cultivoId: cultivos[0]?.id || '',
         zafraId: zafras.find(z => z.estado === 'en curso')?.id || '',
@@ -236,7 +251,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="relative max-h-[480px] overflow-y-auto overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div className="relative overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                             <Table className="min-w-max whitespace-nowrap">
                                 <TableHeader className="sticky top-0 z-40 
            bg-muted/90 dark:bg-muted/95 
@@ -317,34 +332,38 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                         </div>
                         <div className="mt-10 p-4 border rounded-lg bg-background dark:bg-muted">
                           <h3 className="text-lg font-bold mb-4">Gráfico de Comparación</h3>
-                          <ResponsiveContainer width="100%" height={400}>
-                            <ComposedChart data={filteredRows}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} />
-                              <YAxis yAxisId="left" label={{ value: 'Costo Promedio ($/ha)', angle: -90, position: 'insideLeft' }} />
-                              <YAxis yAxisId="right" orientation="right" label={{ value: 'Otras Unidades', angle: 90, position: 'insideRight' }}/>
-                              <Tooltip 
-                                formatter={(value, name) => {
-                                  if (name === 'Rendimiento (kg/ha)') {
-                                    return `${Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha`;
-                                  }
-                                  if (name === 'Hectáreas Plantadas') {
-                                    return `${Number(value).toLocaleString('en-US')} ha`;
-                                  }
-                                  return `$${Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-                                }}
-                              />
-                              <Legend />
-                              <Line yAxisId="right" type="monotone" dataKey="costoProducto" name="Costo por Parcela ($)" stroke="#3b82f6" strokeWidth={2} />
-                              <Line yAxisId="right" type="monotone" dataKey="hectareas" name="Hectáreas Plantadas" stroke="#dc2626" />
-                              <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
-                              <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" />
-                            </ComposedChart>
-                          </ResponsiveContainer>
+                          <div className="w-full overflow-x-auto">
+                              <ResponsiveContainer width="100%" height={chartHeight}>
+                                <ComposedChart data={filteredRows}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} tick={{ fontSize: tickFont }} />
+                                  <YAxis yAxisId="left" label={{ value: 'Costo Promedio ($/ha)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
+                                  <YAxis yAxisId="right" orientation="right" label={{ value: 'Otras Unidades', angle: 90, position: 'insideRight', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }}/>
+                                  <Tooltip 
+                                    contentStyle={{ fontSize: tickFont }}
+                                    formatter={(value, name) => {
+                                      if (name === 'Rendimiento (kg/ha)') {
+                                        return `${Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha`;
+                                      }
+                                      if (name === 'Hectáreas Plantadas') {
+                                        return `${Number(value).toLocaleString('en-US')} ha`;
+                                      }
+                                      return `$${Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+                                    }}
+                                  />
+                                  <Legend wrapperStyle={{ fontSize: labelFont }} />
+                                  {!isMobile && <Line yAxisId="right" type="monotone" dataKey="costoProducto" name="Costo por Parcela ($)" stroke="#3b82f6" strokeWidth={2} />}
+                                  <Line yAxisId="right" type="monotone" dataKey="hectareas" name="Hectáreas Plantadas" stroke="#dc2626" />
+                                  <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
+                                  <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" barSize={barSize} />
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                          </div>
                         </div>
                     </CardContent>
                 </Card>
             </div>
         </>
     )
-}
+
+    
