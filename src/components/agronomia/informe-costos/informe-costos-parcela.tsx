@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, BarChart } from "recharts";
+import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, BarChart, Scatter } from "recharts";
 
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
@@ -67,7 +67,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
     }, []);
 
     const chartHeight = isMobile ? 250 : 400;
-    const barSize = isMobile ? 15 : 30;
+    const barSize = isMobile ? 15 : 20;
     const tickFont = isMobile ? 10 : 13;
     const labelFont = isMobile ? 10 : 14;
 
@@ -335,7 +335,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                 <h3 className="text-lg font-bold mb-4">Gráfico de Eficiencia: Costo/ha vs Rendimiento</h3>
                                 <div className="w-full overflow-x-auto">
                                     <ResponsiveContainer width="100%" height={chartHeight}>
-                                        <ComposedChart data={filteredRows}>
+                                        <BarChart data={filteredRows}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} tick={{ fontSize: tickFont }} />
                                         <YAxis yAxisId="left" label={{ value: 'Costo Promedio ($/ha)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
@@ -351,8 +351,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                         />
                                         <Legend wrapperStyle={{ fontSize: labelFont }} />
                                         <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" barSize={barSize} />
-                                        <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
-                                        </ComposedChart>
+                                        <Bar yAxisId="right" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" fill="#16a34a" barSize={barSize} />
+                                        </BarChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
