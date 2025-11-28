@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, Scatter } from "recharts";
+import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, BarChart } from "recharts";
 
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
@@ -67,7 +67,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
     }, []);
 
     const chartHeight = isMobile ? 250 : 400;
-    const barSize = isMobile ? 25 : 50;
+    const barSize = isMobile ? 15 : 30;
     const tickFont = isMobile ? 10 : 13;
     const labelFont = isMobile ? 10 : 14;
 
@@ -330,35 +330,57 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                 </TableFooter>
                             </Table>
                         </div>
-                        <div className="mt-10 p-4 border rounded-lg bg-background dark:bg-muted">
-                          <h3 className="text-lg font-bold mb-4">Gráfico de Comparación</h3>
-                          <div className="w-full overflow-x-auto">
-                              <ResponsiveContainer width="100%" height={chartHeight}>
-                                <ComposedChart data={filteredRows}>
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} tick={{ fontSize: tickFont }} />
-                                  <YAxis yAxisId="left" label={{ value: 'Costo Promedio ($/ha)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
-                                  <YAxis yAxisId="right" orientation="right" label={{ value: 'Otras Unidades', angle: 90, position: 'insideRight', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }}/>
-                                  <Tooltip 
-                                    contentStyle={{ fontSize: tickFont }}
-                                    formatter={(value, name) => {
-                                      if (name === 'Rendimiento (kg/ha)') {
-                                        return `${Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha`;
-                                      }
-                                      if (name === 'Hectáreas Plantadas') {
-                                        return `${Number(value).toLocaleString('en-US')} ha`;
-                                      }
-                                      return `$${Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-                                    }}
-                                  />
-                                  <Legend wrapperStyle={{ fontSize: labelFont }} />
-                                  {!isMobile && <Line yAxisId="right" type="monotone" dataKey="costoProducto" name="Costo por Parcela ($)" stroke="#3b82f6" strokeWidth={2} />}
-                                  <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
-                                  <Scatter yAxisId="right" dataKey="hectareas" name="Hectáreas Plantadas" fill="#dc2626" shape="diamond" />
-                                  <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" barSize={barSize} />
-                                </ComposedChart>
-                              </ResponsiveContainer>
-                          </div>
+                        <div className="mt-10 p-4 border rounded-lg bg-background dark:bg-muted/50 space-y-8">
+                            <div>
+                                <h3 className="text-lg font-bold mb-4">Gráfico de Eficiencia: Costo/ha vs Rendimiento</h3>
+                                <div className="w-full overflow-x-auto">
+                                    <ResponsiveContainer width="100%" height={chartHeight}>
+                                        <ComposedChart data={filteredRows}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} tick={{ fontSize: tickFont }} />
+                                        <YAxis yAxisId="left" label={{ value: 'Costo Promedio ($/ha)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
+                                        <YAxis yAxisId="right" orientation="right" label={{ value: 'Rendimiento (kg/ha)', angle: 90, position: 'insideRight', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }}/>
+                                        <Tooltip 
+                                            contentStyle={{ fontSize: tickFont }}
+                                            formatter={(value, name) => {
+                                                if (name === 'Rendimiento (kg/ha)') {
+                                                    return `${Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha`;
+                                                }
+                                                return `$${Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+                                            }}
+                                        />
+                                        <Legend wrapperStyle={{ fontSize: labelFont }} />
+                                        <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" barSize={barSize} />
+                                        <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={3} dot={false} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                             <div>
+                                <h3 className="text-lg font-bold mb-4">Gráfico de Magnitud: Costo Total vs Hectáreas</h3>
+                                <div className="w-full overflow-x-auto">
+                                    <ResponsiveContainer width="100%" height={chartHeight}>
+                                        <BarChart data={filteredRows}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} tick={{ fontSize: tickFont }} />
+                                            <YAxis yAxisId="left" orientation="left" label={{ value: 'Costo Total ($)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
+                                            <YAxis yAxisId="right" orientation="right" label={{ value: 'Hectáreas', angle: 90, position: 'insideRight', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
+                                            <Tooltip 
+                                                contentStyle={{ fontSize: tickFont }}
+                                                formatter={(value, name) => {
+                                                    if (name === 'Hectáreas') {
+                                                        return `${Number(value).toLocaleString('en-US')} ha`;
+                                                    }
+                                                    return `$${Number(value).toLocaleString('en-US')}`;
+                                                }}
+                                            />
+                                            <Legend wrapperStyle={{ fontSize: labelFont }} />
+                                            <Bar yAxisId="left" dataKey="costoProducto" name="Costo Total" fill="#3b82f6" barSize={barSize} />
+                                            <Bar yAxisId="right" dataKey="hectareas" name="Hectáreas" fill="#ef4444" barSize={barSize} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -367,5 +389,3 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
     )
 
 }
-
-    
