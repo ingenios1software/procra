@@ -21,15 +21,7 @@ export const mockZafras: Zafra[] = [
   { id: 'z4', nombre: 'Zafra 2025/2026', fechaInicio: new Date('2025-09-01'), fechaFin: new Date('2026-08-31'), estado: 'planificada' },
 ];
 
-export const mockInsumos: Insumo[] = [
-    { id: 'i1', nombre: 'Urea', categoria: 'fertilizante', principioActivo: 'Nitrógeno', dosisRecomendada: 150, unidad: 'kg', stockActual: 30000, stockMinimo: 5000, proveedor: 'AgroPro S.A.', costoUnitario: 0.8 },
-    { id: 'i2', nombre: 'Glifosato', categoria: 'herbicida', principioActivo: 'Glifosato', dosisRecomendada: 2, unidad: 'lt', stockActual: 1000, stockMinimo: 100, proveedor: 'ChemCo Paraguay', costoUnitario: 12.5 },
-    { id: 'i3', nombre: 'Semillas de Soja DM 4800', categoria: 'semilla', principioActivo: 'N/A', dosisRecomendada: 80, unidad: 'kg', stockActual: 15000, stockMinimo: 2000, proveedor: 'AgroPro S.A.', costoUnitario: 1.2 },
-    { id: 'i4', nombre: 'Fungicida Triple', categoria: 'fungicida', principioActivo: 'Tebuconazole, Azoxystrobin', dosisRecomendada: 0.5, unidad: 'lt', stockActual: 500, stockMinimo: 50, proveedor: 'ChemCo Paraguay', costoUnitario: 25 },
-    { id: 'i5', nombre: 'Insecticida Cipermetrina', categoria: 'insecticida', principioActivo: 'Cipermetrina', dosisRecomendada: 0.25, unidad: 'lt', stockActual: 400, stockMinimo: 40, proveedor: 'ChemCo Paraguay', costoUnitario: 18 },
-    { id: 'i6', nombre: 'Fosfato Diamónico (DAP)', categoria: 'fertilizante', principioActivo: 'Fósforo, Nitrógeno', dosisRecomendada: 100, unidad: 'kg', stockActual: 20000, stockMinimo: 8000, proveedor: 'AgroPro S.A.', costoUnitario: 0.95 },
-    { id: 'i7', nombre: 'Semillas de Maíz DK 72-10', categoria: 'semilla', principioActivo: 'N/A', dosisRecomendada: 20, unidad: 'kg', stockActual: 8000, stockMinimo: 1000, proveedor: 'AgroPro S.A.', costoUnitario: 2.5 },
-];
+export const mockInsumos: Insumo[] = [];
 
 const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], categoria: Evento['categoria'], daysAgo: number, desc: string, productos: Evento['productos'], extras: Partial<Evento> = {}) => {
     const fecha = new Date();
@@ -43,33 +35,7 @@ const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId
     return { id, parcelaId, cultivoId, zafraId, tipo, categoria, fecha, descripcion: desc, productos, costoTotal: costoTotal || extras.costoTotal || 0, ...extras };
 };
 
-export const mockEventos: Evento[] = [
-  // --- Parcela 1 (Soja) ---
-  generateEvent('ev1', 'p1', 'c1', 'z2', 'aplicacion', 'Desecación', 85, 'Desecación pre-siembra', [{ insumoId: 'i2', cantidad: 100, dosis: 2 }]),
-  generateEvent('ev2', 'p1', 'c1', 'z2', 'siembra', 'Siembra', 82, 'Siembra de Soja', [{ insumoId: 'i3', cantidad: 4000, dosis: 80 }]),
-  generateEvent('ev3', 'p1', 'c1', 'z2', 'aplicacion', 'Herbicida', 60, 'Herbicida pre-emergente', [{ insumoId: 'i2', cantidad: 50, dosis: 1 }]),
-  generateEvent('ev4', 'p1', 'c1', 'z2', 'fertilización', 'Fertilizante', 55, 'Fertilización base con DAP', [{ insumoId: 'i6', cantidad: 7500, dosis: 150 }]),
-  generateEvent('ev5', 'p1', 'c1', 'z2', 'aplicacion', 'Insecticida', 30, 'Control de insectos', [{ insumoId: 'i5', cantidad: 25, dosis: 0.5 }]),
-  generateEvent('ev6', 'p1', 'c1', 'z2', 'aplicacion', 'Fungicida', 15, 'Aplicación de fungicida preventivo', [{ insumoId: 'i4', cantidad: 50, dosis: 1 }]),
-  generateEvent('ev7', 'p1', 'c1', 'z2', 'rendimiento', 'Cosecha', 2, 'Cosecha Lote Norte 1', [], { toneladas: 180 }), // 3600 kg/ha
-
-  // --- Parcela 2 (Soja) ---
-  generateEvent('ev8', 'p2', 'c1', 'z2', 'aplicacion', 'Desecación', 90, 'Desecación pre-siembra', [{ insumoId: 'i2', cantidad: 150, dosis: 2 }]),
-  generateEvent('ev9', 'p2', 'c1', 'z2', 'siembra', 'Siembra', 88, 'Siembra de Soja', [{ insumoId: 'i3', cantidad: 6000, dosis: 80 }]),
-  generateEvent('ev10', 'p2', 'c1', 'z2', 'fertilización', 'Fertilizante', 70, 'Fertilización base con DAP', [{ insumoId: 'i6', cantidad: 12000, dosis: 160 }]),
-  generateEvent('ev11', 'p2', 'c1', 'z2', 'aplicacion', 'Fungicida', 20, 'Aplicación de fungicida preventivo', [{ insumoId: 'i4', cantidad: 75, dosis: 1 }]),
-  generateEvent('ev12', 'p2', 'c1', 'z2', 'rendimiento', 'Cosecha', 3, 'Cosecha Lote Sur 2', [], { toneladas: 315 }), // 4200 kg/ha
-
-  // --- Parcela 3 (Maíz) ---
-  generateEvent('ev13', 'p3', 'c2', 'z3', 'siembra', 'Siembra', 45, 'Siembra de Maíz', [{ insumoId: 'i7', cantidad: 2400, dosis: 20 }]),
-  generateEvent('ev14', 'p3', 'c2', 'z3', 'fertilización', 'Fertilizante', 30, 'Fertilización Nitrogenada', [{ insumoId: 'i1', cantidad: 24000, dosis: 200 }]),
-  generateEvent('ev15', 'p3', 'c2', 'z3', 'aplicacion', 'Herbicida', 25, 'Control de malezas', [{ insumoId: 'i2', cantidad: 120, dosis: 1 }]),
-  generateEvent('ev16', 'p3', 'c2', 'z3', 'rendimiento', 'Cosecha', 5, 'Cosecha Lote Central', [], { toneladas: 900 }), // 7500 kg/ha
-  
-  // --- Eventos Generales / Otros ---
-  generateEvent('ev17', 'p2', 'c1', 'z2', 'mantenimiento', 'Otros', 40, 'Reparación de alambrado perimetral', [], { costoTotal: 500 }),
-  generateEvent('ev18', 'p1', 'c1', 'z2', 'plagas', 'Insecticida', 10, 'Monitoreo y control de chinches', [{ insumoId: 'i5', cantidad: 30, dosis: 0.6 }]),
-];
+export const mockEventos: Evento[] = [];
 
 
 export const mockRoles: Rol[] = [
@@ -102,19 +68,9 @@ export const mockMantenimientos: Mantenimiento[] = [
     { id: 'mt2', maquinariaId: 'm3', fecha: new Date('2024-07-20'), tipo: 'reparación', costo: 1200, notas: 'Reparación de sistema hidráulico de plataforma.' },
 ];
 
-export const mockCostos: Costo[] = [
-    { id: 'cost1', parcelaId: 'p1', cultivoId: 'c1', zafraId: 'z2', tipo: 'insumo', descripcion: 'Compra de semillas de Soja', monto: 2400, fecha: new Date('2024-09-05') },
-    { id: 'cost2', parcelaId: 'p3', cultivoId: 'c2', zafraId: 'z2', tipo: 'insumo', descripcion: 'Compra de Urea', monto: 4000, fecha: new Date('2024-09-10') },
-    { id: 'cost3', parcelaId: 'p1', cultivoId: 'c1', zafraId: 'z2', tipo: 'combustible', descripcion: 'Combustible para siembra', monto: 1500, fecha: new Date('2024-09-06') },
-    { id: 'cost4', parcelaId: 'p2', cultivoId: 'c3', zafraId: 'z3', tipo: 'mano de obra', descripcion: 'Mano de obra cosecha de trigo', monto: 3000, fecha: new Date('2024-07-20') },
-    { id: 'cost5', parcelaId: 'p3', cultivoId: 'c2', zafraId: 'z2', tipo: 'maquinaria', descripcion: 'Alquiler de cosechadora', monto: 7500, fecha: new Date('2024-10-01') },
-];
+export const mockCostos: Costo[] = [];
 
-export const mockVentas: Venta[] = [
-    { id: 'venta1', cultivoId: 'c3', parcelaId: 'p2', zafraId: 'z3', toneladas: 150, precioTonelada: 280, fecha: new Date('2024-08-01'), clienteId: 'cli1' },
-    { id: 'venta2', cultivoId: 'c2', parcelaId: 'p3', zafraId: 'z2', toneladas: 840, precioTonelada: 310, fecha: new Date('2024-10-05'), clienteId: 'cli2' },
-    { id: 'venta3', cultivoId: 'c1', parcelaId: 'p1', zafraId: 'z2', toneladas: 200, precioTonelada: 450, fecha: new Date('2024-11-15'), clienteId: 'cli1' },
-];
+export const mockVentas: Venta[] = [];
 
 export const mockPlanDeCuentas: PlanDeCuenta[] = [
   { id: '1', codigo: '1.01.01.001', nombre: 'Caja', tipo: 'activo', naturaleza: 'deudora' },
@@ -131,26 +87,7 @@ export const mockCentrosDeCosto: CentroDeCosto[] = [
   { id: 'cc4', nombre: 'Tractor John Deere', descripcion: 'Costos de maquinaria', categoria: 'maquinaria' },
 ];
 
-export const mockAsientosDiario: AsientoDiario[] = [
-  {
-    id: 'as1',
-    fecha: new Date('2024-09-05'),
-    descripcion: 'Compra de semillas de Soja',
-    movimientos: [
-      { cuentaId: '4', tipo: 'debe', monto: 2400, centroCostoId: 'cc3' },
-      { cuentaId: '1', tipo: 'haber', monto: 2400 },
-    ],
-  },
-  {
-    id: 'as2',
-    fecha: new Date('2024-08-01'),
-    descripcion: 'Venta de cosecha de Trigo',
-    movimientos: [
-      { cuentaId: '1', tipo: 'debe', monto: 42000 },
-      { cuentaId: '3', tipo: 'haber', monto: 42000, centroCostoId: 'cc2' },
-    ],
-  },
-];
+export const mockAsientosDiario: AsientoDiario[] = [];
 
 export const mockProveedores: Proveedor[] = [
     { id: 'prov1', nombre: 'AgroPro S.A.', ruc: '80012345-1', direccion: 'Ruta 1 Km 50', telefono: '0981123456', email: 'ventas@agropro.com', activo: true, ciudad: 'Ypacaraí', pais: 'Paraguay', contacto: 'Juan Pérez' },
@@ -163,10 +100,7 @@ export const mockClientes: Cliente[] = [
     { id: 'cli2', nombre: 'Aceitera Central S.A.', ruc: '80011223-4', direccion: 'Mariano R. Alonso', telefono: '021789456', email: 'acopio@aceiteracentral.com.py', activo: true, ciudad: 'Mariano R. Alonso', pais: 'Paraguay', tipoCliente: 'industria' },
 ];
 
-export const mockCompras: Compra[] = [
-    { id: 'comp1', proveedorId: 'prov1', fecha: new Date('2024-10-01'), numeroDocumento: '001-001-001234', tipoDocumento: 'Factura', condicion: 'Crédito', total: 1500, estado: 'Aprobado', items: [{ insumoId: 'i1', cantidad: 1000, precioUnitario: 1.5 }] },
-    { id: 'comp2', proveedorId: 'prov2', fecha: new Date('2024-10-05'), numeroDocumento: '001-002-005678', tipoDocumento: 'Factura', condicion: 'Contado', total: 2500, estado: 'Pagado', items: [{ insumoId: 'i2', cantidad: 200, precioUnitario: 12.5 }] },
-];
+export const mockCompras: Compra[] = [];
 
 export const mockPlagas: Plaga[] = [
     { id: 'plaga1', nombre: 'Roya de la Soja', descripcion: 'Enfermedad fúngica causada por Phakopsora pachyrhizi.', cultivosAfectados: ['c1'] },
