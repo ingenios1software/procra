@@ -146,6 +146,12 @@ export function StockList({ initialInsumos }: StockListProps) {
       if (filters.principioActivo && !insumo.principioActivo) return false;
 
       return nombreMatch && categoriaMatch && principioActivoMatch;
+    }).sort((a, b) => {
+        const categoriaComparison = a.categoria.localeCompare(b.categoria);
+        if (categoriaComparison !== 0) {
+            return categoriaComparison;
+        }
+        return a.nombre.localeCompare(b.nombre);
     });
   }, [stockData, filters]);
 
