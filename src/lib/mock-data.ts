@@ -22,13 +22,13 @@ export const mockZafras: Zafra[] = [
 ];
 
 export const mockInsumos: Insumo[] = [
-    { id: 'i1', nombre: 'Urea', categoria: 'fertilizante', unidad: 'kg', stockActual: 1500, stockMinimo: 500, proveedor: 'AgroPro S.A.', costoUnitario: 0.8 },
-    { id: 'i2', nombre: 'Glifosato', categoria: 'herbicida', unidad: 'lt', stockActual: 200, stockMinimo: 50, proveedor: 'ChemCo Paraguay', costoUnitario: 12.5 },
-    { id: 'i3', nombre: 'Semillas de Soja DM 4800', categoria: 'semilla', unidad: 'kg', stockActual: 800, stockMinimo: 200, proveedor: 'AgroPro S.A.', costoUnitario: 1.2 },
-    { id: 'i4', nombre: 'Fungicida Triple', categoria: 'fungicida', unidad: 'lt', stockActual: 80, stockMinimo: 20, proveedor: 'ChemCo Paraguay', costoUnitario: 25 },
-    { id: 'i5', nombre: 'Insecticida Cipermetrina', categoria: 'insecticida', unidad: 'lt', stockActual: 120, stockMinimo: 30, proveedor: 'ChemCo Paraguay', costoUnitario: 18 },
-    { id: 'i6', nombre: 'Fosfato Diamónico (DAP)', categoria: 'fertilizante', unidad: 'kg', stockActual: 2500, stockMinimo: 1000, proveedor: 'AgroPro S.A.', costoUnitario: 0.95 },
-    { id: 'i7', nombre: 'Semillas de Maíz DK 72-10', categoria: 'semilla', unidad: 'kg', stockActual: 5000, stockMinimo: 1000, proveedor: 'AgroPro S.A.', costoUnitario: 2.5 },
+    { id: 'i1', nombre: 'Urea', categoria: 'fertilizante', principioActivo: 'Nitrógeno', dosisRecomendada: 150, unidad: 'kg', stockActual: 30000, stockMinimo: 5000, proveedor: 'AgroPro S.A.', costoUnitario: 0.8 },
+    { id: 'i2', nombre: 'Glifosato', categoria: 'herbicida', principioActivo: 'Glifosato', dosisRecomendada: 2, unidad: 'lt', stockActual: 1000, stockMinimo: 100, proveedor: 'ChemCo Paraguay', costoUnitario: 12.5 },
+    { id: 'i3', nombre: 'Semillas de Soja DM 4800', categoria: 'semilla', principioActivo: 'N/A', dosisRecomendada: 80, unidad: 'kg', stockActual: 15000, stockMinimo: 2000, proveedor: 'AgroPro S.A.', costoUnitario: 1.2 },
+    { id: 'i4', nombre: 'Fungicida Triple', categoria: 'fungicida', principioActivo: 'Tebuconazole, Azoxystrobin', dosisRecomendada: 0.5, unidad: 'lt', stockActual: 500, stockMinimo: 50, proveedor: 'ChemCo Paraguay', costoUnitario: 25 },
+    { id: 'i5', nombre: 'Insecticida Cipermetrina', categoria: 'insecticida', principioActivo: 'Cipermetrina', dosisRecomendada: 0.25, unidad: 'lt', stockActual: 400, stockMinimo: 40, proveedor: 'ChemCo Paraguay', costoUnitario: 18 },
+    { id: 'i6', nombre: 'Fosfato Diamónico (DAP)', categoria: 'fertilizante', principioActivo: 'Fósforo, Nitrógeno', dosisRecomendada: 100, unidad: 'kg', stockActual: 20000, stockMinimo: 8000, proveedor: 'AgroPro S.A.', costoUnitario: 0.95 },
+    { id: 'i7', nombre: 'Semillas de Maíz DK 72-10', categoria: 'semilla', principioActivo: 'N/A', dosisRecomendada: 20, unidad: 'kg', stockActual: 8000, stockMinimo: 1000, proveedor: 'AgroPro S.A.', costoUnitario: 2.5 },
 ];
 
 const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], categoria: Evento['categoria'], daysAgo: number, desc: string, productos: Evento['productos'], extras: Partial<Evento> = {}) => {

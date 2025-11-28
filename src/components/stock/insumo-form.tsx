@@ -24,13 +24,16 @@ import {
 } from "@/components/ui/select";
 import type { Insumo } from "@/lib/types";
 import React from "react";
+import { Textarea } from "../ui/textarea";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
   categoria: z.enum(['fertilizante', 'herbicida', 'fungicida', 'semilla', 'insecticida', 'otros']),
+  principioActivo: z.string().optional(),
   unidad: z.enum(['kg', 'lt', 'unidad']),
+  dosisRecomendada: z.coerce.number().optional(),
   costoUnitario: z.coerce.number().positive("El costo debe ser un número positivo."),
-  stockActual: z.coerce.number().min(0, "El stock no puede ser negativo."),
+  stockActual: z.coerce.number().min(0, "El stock no puede ser negativo.").describe("Este es el stock inicial o de entrada."),
   stockMinimo: z.coerce.number().min(0, "El stock mínimo no puede ser negativo."),
   proveedor: z.string().optional(),
 });
@@ -49,7 +52,9 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
     defaultValues: insumo || {
       nombre: "",
       categoria: "otros",
+      principioActivo: "",
       unidad: "unidad",
+      dosisRecomendada: 0,
       costoUnitario: 0,
       stockActual: 0,
       stockMinimo: 0,
@@ -107,6 +112,22 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
               </FormItem>
             )}
           />
+           <FormField
+            control={form.control}
+            name="principioActivo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Principio Activo</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: Glifosato" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
             name="unidad"
@@ -129,6 +150,19 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
               </FormItem>
             )}
           />
+           <FormField
+            control={form.control}
+            name="dosisRecomendada"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Dosis Recomendada (/ha)</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="Ej: 2.5" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -137,7 +171,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
               name="stockActual"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Stock Actual</FormLabel>
+                  <FormLabel>Stock Inicial / Entrada Total</FormLabel>
                   <FormControl>
                     <Input type="number" placeholder="1500" {...field} />
                   </FormControl>
@@ -166,9 +200,9 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
               name="costoUnitario"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Costo Unitario ($)</FormLabel>
+                  <FormLabel>Costo Unitario / Precio Promedio ($)</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0.8" {...field} />
+                    <Input type="number" step="0.01" placeholder="0.8" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -202,5 +236,3 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
 });
 
 InsumoForm.displayName = 'InsumoForm';
-
-    

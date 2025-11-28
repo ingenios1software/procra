@@ -90,11 +90,13 @@ export type Insumo = {
   id: string;
   nombre: string;
   categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'otros';
+  principioActivo?: string;
   unidad: 'kg' | 'lt' | 'unidad';
-  stockActual: number;
+  dosisRecomendada?: number;
+  costoUnitario: number; // Reemplaza a precioPromedio
   stockMinimo: number;
+  stockActual: number; // Este será el valor inicial de "entrada total"
   proveedor?: string;
-  costoUnitario?: number;
 };
 
 export type MovimientoInsumo = {
