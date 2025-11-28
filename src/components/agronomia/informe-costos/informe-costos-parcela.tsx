@@ -366,4 +366,4 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
         </>
     )
 
-    
+}
