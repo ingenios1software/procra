@@ -23,6 +23,8 @@ import { PageHeader } from "../shared/page-header";
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
+import { Input } from "../ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 
 interface StockListProps {
@@ -37,6 +39,16 @@ export function StockList({ initialInsumos }: StockListProps) {
   const { toast } = useToast();
   const canModify = role === 'admin' || role === 'operador' || role === 'gerente';
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [filters, setFilters] = useState({
+    nombre: '',
+    categoria: '',
+    principioActivo: ''
+  });
+
+  const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
+    setFilters(prev => ({ ...prev, [filterName]: value }));
+  };
 
   const stockData = useMemo(() => {
     // 1. Unificar y ordenar cronológicamente todos los movimientos (entradas y salidas)
@@ -124,15 +136,29 @@ export function StockList({ initialInsumos }: StockListProps) {
 
     return calculatedInsumos;
   }, [insumos]);
+  
+  const filteredStockData = useMemo(() => {
+    return stockData.filter(insumo => {
+      const nombreMatch = insumo.nombre.toLowerCase().includes(filters.nombre.toLowerCase());
+      const categoriaMatch = filters.categoria ? insumo.categoria === filters.categoria : true;
+      const principioActivoMatch = insumo.principioActivo ? insumo.principioActivo.toLowerCase().includes(filters.principioActivo.toLowerCase()) : true;
+      
+      if (filters.principioActivo && !insumo.principioActivo) return false;
 
-  const totalStockValue = useMemo(() => stockData.reduce((sum, item) => sum + item.valorStock, 0), [stockData]);
-  const itemsBajoMinimo = useMemo(() => stockData.filter(item => item.stockFinal < item.stockMinimo).length, [stockData]);
+      return nombreMatch && categoriaMatch && principioActivoMatch;
+    });
+  }, [stockData, filters]);
+
+  const totalStockValue = useMemo(() => filteredStockData.reduce((sum, item) => sum + item.valorStock, 0), [filteredStockData]);
+  const itemsBajoMinimo = useMemo(() => filteredStockData.filter(item => item.stockFinal < item.stockMinimo).length, [filteredStockData]);
+  
+  const categoriasUnicas = [...new Set(insumos.map(i => i.categoria))];
 
   const handleSaveInsumo = useCallback((insumoData: Insumo) => {
     if (selectedInsumo) {
       setInsumos(prev => prev.map(i => i.id === insumoData.id ? insumoData : i));
     } else {
-      setInsumos(prev => [...prev, { ...insumoData, id: `insumo-${Date.now()}` }]);
+      setInsumos(prev => [...prev, { ...insumoData, id: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` }]);
     }
     setDialogOpen(false);
     setSelectedInsumo(null);
@@ -255,7 +281,7 @@ export function StockList({ initialInsumos }: StockListProps) {
                 <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{stockData.length}</div>
+                <div className="text-2xl font-bold">{filteredStockData.length}</div>
                 <p className="text-xs text-muted-foreground">Total de insumos únicos</p>
             </CardContent>
         </Card>
@@ -272,10 +298,33 @@ export function StockList({ initialInsumos }: StockListProps) {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <div>
             <CardTitle>Inventario Detallado</CardTitle>
             <CardDescription>Análisis completo del movimiento de cada insumo.</CardDescription>
+          </div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Input 
+              placeholder="Filtrar por nombre..."
+              value={filters.nombre}
+              onChange={(e) => handleFilterChange('nombre', e.target.value)}
+            />
+            <Input 
+              placeholder="Filtrar por principio activo..."
+              value={filters.principioActivo}
+              onChange={(e) => handleFilterChange('principioActivo', e.target.value)}
+            />
+            <Select value={filters.categoria} onValueChange={(v) => handleFilterChange('categoria', v === 'all' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por categoría..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las categorías</SelectItem>
+                {categoriasUnicas.map(cat => (
+                  <SelectItem key={cat} value={cat} className="capitalize">{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
@@ -295,7 +344,7 @@ export function StockList({ initialInsumos }: StockListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {stockData.map((insumo) => (
+              {filteredStockData.map((insumo) => (
                 <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
                   <TableCell className="font-medium">
                      <div className="flex items-center gap-2">
