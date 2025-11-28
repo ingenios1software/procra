@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -229,7 +229,11 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                     </Button>
                   </CardHeader>
                   <CardContent className="p-2 space-y-4">
-                     {fields.map((field, index) => (
+                     {fields.map((field, index) => {
+                       const selectedInsumoId = form.watch(`productos.${index}.insumoId`);
+                       const stockInfo = selectedInsumoId ? stockCalculado[selectedInsumoId] : null;
+
+                       return (
                         <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
                             <FormField name={`productos.${index}.insumoId`} control={form.control} render={({ field }) => ( 
                                 <FormItem>
@@ -251,6 +255,7 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                                             })}
                                         </SelectContent>
                                     </Select>
+                                     {stockInfo && <FormDescription className="text-xs pt-1">Stock Disponible: {stockInfo.stock.toFixed(2)} {stockInfo.unidad}</FormDescription>}
                                     <FormMessage />
                                 </FormItem> 
                             )}/>
@@ -258,7 +263,8 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
                             <FormField name={`productos.${index}.cantidad`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cant. Total</FormLabel><FormControl><Input className="w-28 bg-muted/70" type="number" placeholder="0" {...field} readOnly /></FormControl><FormMessage /></FormItem> )}/>
                             <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
-                     ))}
+                       )
+                     })}
                      {fields.length === 0 && ( <p className="text-sm text-muted-foreground text-center py-4">No se han agregado productos.</p> )}
                      <div className="flex justify-end pt-4">
                         <div className="flex items-center gap-4 p-3 rounded-lg bg-background border border-primary/20">
