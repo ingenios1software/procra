@@ -1,14 +1,18 @@
 
+"use client";
+
 import { InformeCostosParcela } from "@/components/agronomia/informe-costos/informe-costos-parcela";
-import { mockParcelas, mockCultivos, mockZafras, mockEventos } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 export default function InformeCostosParcelaPage() {
+    const { parcelas, cultivos, zafras, eventos } = useDataStore();
+    
     return (
         <InformeCostosParcela 
-            parcelas={mockParcelas}
-            cultivos={mockCultivos}
-            zafras={mockZafras}
-            eventos={mockEventos}
+            parcelas={parcelas}
+            cultivos={cultivos}
+            zafras={zafras}
+            eventos={eventos}
         />
     )
 }
