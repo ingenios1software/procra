@@ -18,8 +18,8 @@ const formSchema = z.object({
 type CultivoFormValues = z.infer<typeof formSchema>;
 
 interface CultivoFormProps {
-  cultivo?: Cultivo;
-  onSubmit: (data: Cultivo) => void;
+  cultivo?: Partial<Cultivo>;
+  onSubmit: (data: CultivoFormValues) => void;
   onCancel: () => void;
 }
 
@@ -33,10 +33,7 @@ export const CultivoForm = React.memo(({ cultivo, onSubmit, onCancel }: CultivoF
   });
 
   const handleSubmit = (data: CultivoFormValues) => {
-    onSubmit({
-      id: cultivo?.id || "",
-      ...data,
-    });
+    onSubmit(data);
   };
 
   return (

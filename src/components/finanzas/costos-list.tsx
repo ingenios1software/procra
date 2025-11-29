@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
@@ -10,10 +9,11 @@ import { MoreHorizontal, PlusCircle, DollarSign, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { CostoForm } from "./costo-form";
 import type { Costo, Parcela, Zafra, Cultivo } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useFirestore } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { collection, doc } from "firebase/firestore";
 
 interface CostosListProps {
   initialCostos: Costo[];
@@ -23,12 +23,12 @@ interface CostosListProps {
 }
 
 export function CostosList({ initialCostos, parcelas, zafras, cultivos }: CostosListProps) {
+  const firestore = useFirestore();
   const [costos, setCostos] = useState(initialCostos);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedCosto, setSelectedCosto] = useState<Costo | null>(null);
-  const { role } = useAuth();
-  const canModify = role === 'admin' || role === 'gerente';
-
+  const { user } = useUser();
+  
   const { totalCostos, costosPorParcela } = useMemo(() => {
     const totalCostos = costos.reduce((acc, costo) => acc + costo.monto, 0);
 
@@ -48,16 +48,19 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
     return { totalCostos, costosPorParcela };
   }, [costos, parcelas]);
 
-  const handleSave = useCallback((costoData: Costo) => {
-    const dataToSave = { ...costoData, fecha: new Date(costoData.fecha) };
+  const handleSave = useCallback((costoData: Omit<Costo, 'id'>) => {
+    if (!firestore) return;
+    const dataToSave = { ...costoData, fecha: (costoData.fecha as Date).toISOString() };
     if (selectedCosto) {
-      setCostos(prev => prev.map(c => c.id === dataToSave.id ? dataToSave : c));
+      const costoRef = doc(firestore, "costos", selectedCosto.id);
+      updateDocumentNonBlocking(costoRef, dataToSave);
     } else {
-      setCostos(prev => [...prev, { ...dataToSave, id: `cost${prev.length + 1}` }]);
+      const costosCol = collection(firestore, 'costos');
+      addDocumentNonBlocking(costosCol, dataToSave);
     }
     setDialogOpen(false);
     setSelectedCosto(null);
-  }, [selectedCosto]);
+  }, [selectedCosto, firestore]);
   
   const openDialog = useCallback((costo?: Costo) => {
     setSelectedCosto(costo || null);
@@ -84,7 +87,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
             </Button>
-            {canModify && (
+            {user && (
               <Button onClick={() => openDialog()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Registrar Costo
@@ -168,7 +171,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
                 <TableHead>Tipo</TableHead>
                 <TableHead>Parcela</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -181,7 +184,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
                     <TableCell><Badge variant="outline" className="capitalize">{costo.tipo}</Badge></TableCell>
                     <TableCell>{parcela?.nombre || 'N/A'}</TableCell>
                     <TableCell className="text-right">${costo.monto.toLocaleString('en-US')}</TableCell>
-                    {canModify && (
+                    {user && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(costo)}>
                           <MoreHorizontal className="h-4 w-4" />
@@ -214,5 +217,3 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
     </>
   );
 }
-
-    

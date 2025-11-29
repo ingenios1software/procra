@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,23 +8,22 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { MoreHorizontal, PlusCircle, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Cliente } from "@/lib/types";
-import { useAuth, useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, updateDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 
 
-export function ClientesList() {
+interface ClientesListProps {
+  clientes: Cliente[];
+  isLoading: boolean;
+}
+
+export function ClientesList({ clientes, isLoading }: ClientesListProps) {
   const firestore = useFirestore();
-  const clientesQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'clientes'), orderBy('nombre')) : null
-  , [firestore]);
-  const { data: clientes, isLoading } = useCollection<Cliente>(clientesQuery);
-
-  const { role } = useAuth();
-  const canModify = role === 'admin' || role === 'gerente';
+  const { user } = useUser();
 
   const handleToggleActive = (id: string) => {
-    if (!firestore || !clientes) return;
+    if (!firestore) return;
     const cliente = clientes.find(c => c.id === id);
     if (!cliente) return;
     const clienteRef = doc(firestore, 'clientes', id);
@@ -47,7 +45,7 @@ export function ClientesList() {
             <Download className="mr-2 h-4 w-4" />
             Exportar PDF
           </Button>
-          {canModify && (
+          {user && (
             <Button asChild>
               <Link href="/comercial/clientes/crear">
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -71,12 +69,12 @@ export function ClientesList() {
                 <TableHead>Teléfono</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Estado</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
-              {clientes?.map((cliente) => (
+              {clientes.map((cliente) => (
                 <TableRow key={cliente.id}>
                   <TableCell className="font-medium">{cliente.nombre}</TableCell>
                   <TableCell>{cliente.ruc}</TableCell>
@@ -87,7 +85,7 @@ export function ClientesList() {
                       {cliente.activo ? 'Activo' : 'Inactivo'}
                     </Badge>
                   </TableCell>
-                  {canModify && (
+                  {user && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

@@ -9,7 +9,7 @@ import { MoreHorizontal, PlusCircle, TrendingUp, Download, Package } from "lucid
 import { PageHeader } from "@/components/shared/page-header";
 import { VentaForm } from "./venta-form";
 import type { Venta, Parcela, Zafra, Cultivo, Cliente } from "@/lib/types";
-import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { collection, doc, query, orderBy } from 'firebase/firestore';
@@ -19,30 +19,27 @@ export function VentasList() {
   const firestore = useFirestore();
   
   const ventasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas'), orderBy('fecha', 'desc')) : null, [firestore]);
-  const { data: ventas, isLoading: isLoadingVentas } = useCollection<Venta>(ventasQuery);
+  const { data: ventas = [], isLoading: isLoadingVentas } = useCollection<Venta>(ventasQuery);
 
   const parcelasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]);
-  const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(parcelasQuery);
+  const { data: parcelas = [], isLoading: isLoadingParcelas } = useCollection<Parcela>(parcelasQuery);
   
   const zafrasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]);
-  const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(zafrasQuery);
+  const { data: zafras = [], isLoading: isLoadingZafras } = useCollection<Zafra>(zafrasQuery);
 
   const cultivosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]);
-  const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
+  const { data: cultivos = [], isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
   
   const clientesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'clientes')) : null, [firestore]);
-  const { data: clientes, isLoading: isLoadingClientes } = useCollection<Cliente>(clientesQuery);
+  const { data: clientes = [], isLoading: isLoadingClientes } = useCollection<Cliente>(clientesQuery);
 
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
-  const { role } = useAuth();
-  const canModify = role === 'admin' || role === 'gerente';
-
+  const { user } = useUser();
+  
   const isLoading = isLoadingVentas || isLoadingParcelas || isLoadingZafras || isLoadingCultivos || isLoadingClientes;
 
   const { totalIngresos, rendimientoPorParcela } = useMemo(() => {
-    if (!ventas || !parcelas) return { totalIngresos: 0, rendimientoPorParcela: [] };
-
     const totalIngresos = ventas.reduce((acc, venta) => acc + (venta.toneladas * venta.precioTonelada), 0);
 
     const rendimientoPorParcela = parcelas.map(parcela => {
@@ -87,12 +84,11 @@ export function VentasList() {
   };
 
   const getClienteNombre = (id?: string) => {
-    if (!id || !clientes) return 'N/A';
+    if (!id) return 'N/A';
     return clientes.find(c => c.id === id)?.nombre || 'N/A';
   }
   
   const getCultivoNombre = (id: string) => {
-    if (!cultivos) return 'N/A';
     return cultivos.find(c => c.id === id)?.nombre || 'N/A';
   }
 
@@ -107,7 +103,7 @@ export function VentasList() {
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
             </Button>
-            {canModify && (
+            {user && (
               <Button onClick={() => openDialog()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Registrar Venta
@@ -159,22 +155,22 @@ export function VentasList() {
                 <TableHead>Toneladas</TableHead>
                 <TableHead>Precio/Ton</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
-              {ventas?.map((venta) => {
+              {ventas.map((venta) => {
                 const total = venta.toneladas * venta.precioTonelada;
                 return (
                   <TableRow key={venta.id}>
-                    <TableCell>{format(new Date(venta.fecha), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(venta.fecha as string), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{getClienteNombre(venta.clienteId)}</TableCell>
                     <TableCell className="font-medium">{getCultivoNombre(venta.cultivoId)}</TableCell>
                     <TableCell>{venta.toneladas} tn</TableCell>
                     <TableCell>${venta.precioTonelada.toLocaleString('en-US')}</TableCell>
                     <TableCell className="text-right font-semibold">${total.toLocaleString('en-US')}</TableCell>
-                    {canModify && (
+                    {user && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(venta)}>
                           <MoreHorizontal className="h-4 w-4" />
@@ -198,10 +194,10 @@ export function VentasList() {
             venta={selectedVenta}
             onSubmit={handleSave}
             onCancel={closeDialog}
-            parcelas={parcelas || []}
-            cultivos={cultivos || []}
-            zafras={zafras || []}
-            clientes={clientes || []}
+            parcelas={parcelas}
+            cultivos={cultivos}
+            zafras={zafras}
+            clientes={clientes}
           />
         </DialogContent>
       </Dialog>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -32,7 +32,7 @@ import {
 import { MoreHorizontal, PlusCircle, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Maquinaria } from "@/lib/types";
-import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { MaquinariaForm } from "./maquinaria-form";
@@ -48,9 +48,9 @@ export function MaquinariaList() {
 
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedMaquinaria, setSelectedMaquinaria] = useState<Maquinaria | null>(null);
-  const { role } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
-  const canModify = role === "admin" || role === "operador" || role === "gerente";
+  const canModify = user;
 
   const handleSave = (maquinariaData: Omit<Maquinaria, "id">) => {
     if (!firestore) return;

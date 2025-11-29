@@ -9,7 +9,7 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { RoleForm } from "./role-form";
 import type { Rol } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser } from "@/firebase";
 
 interface RolesListProps {
   initialRoles: Rol[];
@@ -19,8 +19,8 @@ export function RolesList({ initialRoles }: RolesListProps) {
   const [roles, setRoles] = useState(initialRoles);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedRol, setSelectedRol] = useState<Rol | null>(null);
-  const { role } = useAuth();
-  const canModify = role === 'admin';
+  const { user } = useUser();
+  const canModify = user;
 
   const handleSave = (rolData: Rol) => {
     if (selectedRol) {

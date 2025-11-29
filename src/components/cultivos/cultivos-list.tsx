@@ -1,31 +1,30 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { CultivoForm } from "./cultivo-form";
 import type { Cultivo } from "@/lib/types";
-import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 
-export function CultivosList() {
+interface CultivosListProps {
+  cultivos: Cultivo[];
+  isLoading: boolean;
+}
+
+export function CultivosList({ cultivos, isLoading }: CultivosListProps) {
   const firestore = useFirestore();
-  const cultivosQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'cultivos'), orderBy('nombre')) : null
-  , [firestore]);
-  const { data: cultivos, isLoading } = useCollection<Cultivo>(cultivosQuery);
-
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedCultivo, setSelectedCultivo] = useState<Cultivo | null>(null);
-  const { role } = useAuth();
-  const canModify = role === 'admin' || role === 'operador';
+  const { user } = useUser();
 
   const handleCreate = (cultivoData: Omit<Cultivo, 'id'>) => {
     if (!firestore) return;
@@ -34,10 +33,13 @@ export function CultivosList() {
     setCreateDialogOpen(false);
   };
 
-  const handleUpdate = (cultivoData: Omit<Cultivo, 'id'>) => {
+  const handleUpdate = (cultivoData: Cultivo) => {
     if (!firestore || !selectedCultivo) return;
     const cultivoRef = doc(firestore, 'cultivos', selectedCultivo.id);
-    updateDocumentNonBlocking(cultivoRef, cultivoData);
+    updateDocumentNonBlocking(cultivoRef, {
+        nombre: cultivoData.nombre,
+        descripcion: cultivoData.descripcion
+    });
     setEditDialogOpen(false);
     setSelectedCultivo(null);
   };
@@ -59,7 +61,7 @@ export function CultivosList() {
         title="Cultivos"
         description="Gestione los tipos de cultivos de su establecimiento."
       >
-        {canModify && (
+        {user && (
           <Button onClick={() => setCreateDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Crear Cultivo
@@ -68,22 +70,22 @@ export function CultivosList() {
       </PageHeader>
       
       <Card>
-        <CardContent>
+        <CardContent className="pt-6">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Descripción</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={3}>Cargando...</TableCell></TableRow>}
-              {cultivos?.map((cultivo) => (
+              {cultivos.map((cultivo) => (
                 <TableRow key={cultivo.id}>
                   <TableCell className="font-medium">{cultivo.nombre}</TableCell>
                   <TableCell>{cultivo.descripcion}</TableCell>
-                  {canModify && (
+                  {user && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

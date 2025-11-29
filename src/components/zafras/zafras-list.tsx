@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,7 +11,7 @@ import { MoreHorizontal, PlusCircle, PowerOff, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { ZafraForm } from "./zafra-form";
 import type { Zafra } from "@/lib/types";
-import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -26,36 +26,29 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { collection, doc, query, orderBy } from "firebase/firestore";
+import { collection, doc } from "firebase/firestore";
 
+interface ZafrasListProps {
+  zafras: Zafra[];
+  isLoading: boolean;
+}
 
-export function ZafrasList() {
+export function ZafrasList({ zafras, isLoading }: ZafrasListProps) {
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedZafra, setSelectedZafra] = useState<Partial<Zafra> | null>(null);
   
-  const { role } = useAuth();
+  const { user } = useUser();
   const firestore = useFirestore();
 
-  const zafrasCollection = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'zafras'), orderBy('fechaInicio', 'desc'));
-  }, [firestore]);
-
-  const { data: zafras, isLoading } = useCollection<Zafra>(zafrasCollection);
-
-  const canModify = role === 'admin' || role === 'operador';
-
   useEffect(() => {
-    if (!zafras) return;
+    if (!zafras || !firestore) return;
     const today = new Date();
     const interval = setInterval(() => {
         zafras.forEach(zafra => {
             if (zafra.estado === 'en curso' && zafra.fechaFin && new Date(zafra.fechaFin as string) < today) {
-                if (firestore) {
-                  const zafraRef = doc(firestore, "zafras", zafra.id);
-                  updateDocumentNonBlocking(zafraRef, { estado: 'finalizada' });
-                }
+                const zafraRef = doc(firestore, "zafras", zafra.id);
+                updateDocumentNonBlocking(zafraRef, { estado: 'finalizada' });
             }
         });
     }, 60000); // Check every minute
@@ -107,7 +100,7 @@ export function ZafrasList() {
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
             </Button>
-            {canModify && (
+            {user && (
               <Button onClick={() => setCreateDialogOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Crear Zafra
@@ -128,12 +121,12 @@ export function ZafrasList() {
                 <TableHead>Fecha de Inicio</TableHead>
                 <TableHead>Fecha de Fin</TableHead>
                 <TableHead>Estado</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Cargando...</TableCell></TableRow>}
-              {!isLoading && zafras?.map((zafra) => (
+              {!isLoading && zafras.map((zafra) => (
                 <TableRow key={zafra.id}>
                   <TableCell className="font-medium">{zafra.nombre}</TableCell>
                   <TableCell>{format(new Date(zafra.fechaInicio as string), "dd/MM/yyyy")}</TableCell>
@@ -149,7 +142,7 @@ export function ZafrasList() {
                       {zafra.estado}
                     </Badge>
                   </TableCell>
-                  {canModify && (
+                  {user && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

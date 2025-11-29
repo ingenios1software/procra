@@ -161,7 +161,7 @@ export default function AsistenciasPage() {
               {asistencias?.map((asistencia) => (
                   <TableRow key={asistencia.id}>
                     <TableCell>
-                      {format(new Date(asistencia.fecha), "dd/MM/yyyy")}
+                      {format(new Date(asistencia.fecha as string), "dd/MM/yyyy")}
                     </TableCell>
                     <TableCell className="font-medium">
                       {getEmpleadoNombre(asistencia.empleadoId)}

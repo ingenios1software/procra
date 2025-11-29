@@ -28,7 +28,7 @@ import {
 import { MoreHorizontal, PlusCircle, TriangleAlert, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
-import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -46,17 +46,12 @@ import {
 } from "@/components/ui/tooltip";
 import { EventoForm } from "./evento-form";
 import { collection, doc, query, orderBy } from "firebase/firestore";
+import Link from "next/link";
 
 
-export function EventosList() {
-  const { role } = useAuth();
-  const canModify = role === "admin" || role === "operador" || role === 'tecnicoCampo';
-  
+export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: { eventos: Evento[], parcelas: Parcela[], zafras: Zafra[], cultivos: Cultivo[], isLoading: boolean }) {
+  const { user } = useUser();
   const firestore = useFirestore();
-  const { data: eventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha', 'desc')) : null, [firestore]));
-  const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
-  const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
-  const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
   
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
@@ -130,10 +125,12 @@ export function EventosList() {
             <Download className="mr-2 h-4 w-4" />
             Exportar PDF
           </Button>
-          {canModify && (
-            <Button onClick={() => openForm()}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Registrar Evento
+          {user && (
+            <Button asChild>
+              <Link href="/eventos/crear">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Registrar Evento
+              </Link>
             </Button>
           )}
         </div>
@@ -209,7 +206,7 @@ export function EventosList() {
                   <TableHead>Tipo</TableHead>
                   <TableHead>Cultivo</TableHead>
                   <TableHead>Descripción</TableHead>
-                  {canModify && (
+                  {user && (
                     <TableHead className="text-right">Acciones</TableHead>
                   )}
                 </TableRow>
@@ -268,7 +265,7 @@ export function EventosList() {
                           </TooltipProvider>
                         )}
                       </TableCell>
-                      {canModify && (
+                      {user && (
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

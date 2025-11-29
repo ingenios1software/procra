@@ -45,25 +45,25 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmpleadoForm } from "./empleado-form";
 import type { Empleado } from "@/lib/types";
-import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useFirestore } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 
+interface EmpleadosListProps {
+  empleados: Empleado[];
+  isLoading: boolean;
+}
 
-export function EmpleadosList() {
+export function EmpleadosList({ empleados, isLoading }: EmpleadosListProps) {
   const firestore = useFirestore();
-  const empleadosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'empleados'), orderBy('apellido')) : null, [firestore]);
-  const { data: empleados, isLoading } = useCollection<Empleado>(empleadosQuery);
-  
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEmpleado, setSelectedEmpleado] = useState<Empleado | null>(null);
-  const { role } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
-  const canModify = role === "admin";
-
+  
   const handleSave = (empleadoData: Omit<Empleado, "id">) => {
     if (!firestore) return;
 
@@ -89,7 +89,7 @@ export function EmpleadosList() {
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore || !empleados) return;
+    if (!firestore) return;
     const empleado = empleados.find((e) => e.id === id);
     const empleadoRef = doc(firestore, 'empleados', id);
     deleteDocumentNonBlocking(empleadoRef);
@@ -111,7 +111,7 @@ export function EmpleadosList() {
         title="Gestión de Empleados"
         description="Administre la información del personal de la empresa."
       >
-        {canModify && (
+        {user && (
           <Button onClick={() => openForm()}>
             <PlusCircle />
             Nuevo Empleado
@@ -132,14 +132,14 @@ export function EmpleadosList() {
                 <TableHead>Puesto</TableHead>
                 <TableHead>Fecha de Contratación</TableHead>
                 <TableHead>Estado</TableHead>
-                {canModify && (
+                {user && (
                   <TableHead className="text-right">Acciones</TableHead>
                 )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={6}>Cargando...</TableCell></TableRow>}
-              {empleados?.map((empleado) => (
+              {empleados.map((empleado) => (
                 <TableRow key={empleado.id}>
                   <TableCell className="font-medium">
                     {empleado.nombre} {empleado.apellido}
@@ -162,7 +162,7 @@ export function EmpleadosList() {
                       {empleado.estado}
                     </Badge>
                   </TableCell>
-                  {canModify && (
+                  {user && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

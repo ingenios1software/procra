@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,18 +10,19 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Zafra } from "@/lib/types";
+import type { Zafra, Cultivo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import React from "react";
-import { useCollection, useFirestore } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from 'firebase/firestore';
 
 const formSchema = z.object({
   nombre: z.string().min(5, "El nombre debe tener al menos 5 caracteres."),
   cultivoId: z.string().optional(),
   fechaInicio: z.date({ required_error: "La fecha de inicio es obligatoria." }),
+  fechaSiembra: z.date().optional(),
   estado: z.enum(["planificada", "en curso", "finalizada"]),
 });
 
@@ -34,11 +36,11 @@ interface ZafraFormProps {
 
 export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormProps) => {
   const firestore = useFirestore();
-  const cultivosQuery = React.useMemo(() => {
+  const cultivosQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'cultivos'), orderBy('nombre'));
   }, [firestore]);
-  const { data: cultivos } = useCollection(cultivosQuery);
+  const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
   
   const form = useForm<ZafraFormValues>({
     resolver: zodResolver(formSchema),
@@ -46,6 +48,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
       nombre: zafra?.nombre || "",
       cultivoId: zafra?.cultivoId || "",
       fechaInicio: zafra?.fechaInicio ? new Date(zafra.fechaInicio as string) : new Date(),
+      fechaSiembra: zafra?.fechaSiembra ? new Date(zafra.fechaSiembra as string) : undefined,
       estado: zafra?.estado || "planificada",
     },
   });
@@ -54,6 +57,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
     const dataToSubmit = {
       ...data,
       fechaInicio: data.fechaInicio.toISOString(),
+      fechaSiembra: data.fechaSiembra ? data.fechaSiembra.toISOString() : undefined,
     };
     onSubmit(dataToSubmit);
   };
@@ -97,41 +101,77 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
                 </FormItem>
             )}
         />
-        <FormField
-          control={form.control}
-          name="fechaInicio"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Fecha de Inicio</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date) => date < new Date("1990-01-01")}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="fechaInicio"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Fecha de Inicio</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="fechaSiembra"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Fecha de Siembra (Opcional)</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                   <FormDescription>Fecha real de siembra para el panel agronómico.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+        </div>
         <FormField
           control={form.control}
           name="estado"

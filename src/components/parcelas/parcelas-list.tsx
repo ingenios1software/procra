@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { MoreHorizontal, PlusCircle, Download, Upload } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Parcela } from "@/lib/types";
-import { useAuth, useCollection, useFirestore, useMemoFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, deleteDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -25,18 +25,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 
+interface ParcelasListProps {
+  parcelas: Parcela[];
+  isLoading: boolean;
+}
 
-export function ParcelasList() {
+export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
   const firestore = useFirestore();
-  const parcelasQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'parcelas'), orderBy('nombre')) : null
-  , [firestore]);
-  const { data: parcelas, isLoading } = useCollection<Parcela>(parcelasQuery);
-
-  const { role } = useAuth();
-  const canModify = role === 'admin' || role === 'operador';
+  const { user } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -132,7 +130,7 @@ export function ParcelasList() {
             <Download className="mr-2 h-4 w-4" />
             Exportar PDF
           </Button>
-           {canModify && (
+           {user && (
             <>
               <Button variant="outline" onClick={handleImportClick}>
                 <Upload className="mr-2 h-4 w-4" />
@@ -166,7 +164,7 @@ export function ParcelasList() {
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
-              {parcelas?.map((parcela) => (
+              {parcelas.map((parcela) => (
                 <TableRow key={parcela.id}>
                   <TableCell className="font-medium">
                      <Link href={`/parcelas/${parcela.id}`} className="hover:underline text-primary">
@@ -201,7 +199,7 @@ export function ParcelasList() {
                         <DropdownMenuItem asChild>
                           <Link href={`/parcelas/${parcela.id}`}>Ver Detalles</Link>
                         </DropdownMenuItem>
-                        {canModify && (
+                        {user && (
                           <>
                             <DropdownMenuItem asChild>
                               <Link href={`/parcelas/editar/${parcela.id}`}>Editar</Link>

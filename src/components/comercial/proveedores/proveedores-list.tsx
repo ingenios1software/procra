@@ -8,20 +8,16 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { MoreHorizontal, PlusCircle, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Proveedor } from "@/lib/types";
-import { useAuth, useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { Badge } from "@/components/ui/badge";
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useUser } from "@/firebase";
 
-export function ProveedoresList() {
-  const firestore = useFirestore();
-  const proveedoresQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'proveedores'), orderBy('nombre')) : null
-  , [firestore]);
-  const { data: proveedores, isLoading } = useCollection<Proveedor>(proveedoresQuery);
+interface ProveedoresListProps {
+  proveedores: Proveedor[];
+  isLoading: boolean;
+}
 
-  const { role } = useAuth();
-  const canModify = role === 'admin' || role === 'gerente';
-
+export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps) {
+  const { user } = useUser();
+  
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
@@ -37,7 +33,7 @@ export function ProveedoresList() {
             <Download className="mr-2 h-4 w-4" />
             Exportar PDF
           </Button>
-          {canModify && (
+          {user && (
             <Button asChild>
               <Link href="/comercial/proveedores/crear">
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -60,18 +56,18 @@ export function ProveedoresList() {
                 <TableHead>RUC</TableHead>
                 <TableHead>Teléfono</TableHead>
                 <TableHead>Email</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
-              {proveedores?.map((proveedor) => (
+              {proveedores.map((proveedor) => (
                 <TableRow key={proveedor.id}>
                   <TableCell className="font-medium">{proveedor.nombre}</TableCell>
                   <TableCell>{proveedor.ruc}</TableCell>
                   <TableCell>{proveedor.telefono || 'N/A'}</TableCell>
                   <TableCell>{proveedor.email || 'N/A'}</TableCell>
-                  {canModify && (
+                  {user && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -83,7 +79,7 @@ export function ProveedoresList() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                           <DropdownMenuItem asChild>
-                            <Link href={`/comercial/proveedores/${proveedor.id}/editar`}>Editar</Link>
+                            <Link href={`/comercial/proveedores/editar/${proveedor.id}`}>Editar</Link>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
