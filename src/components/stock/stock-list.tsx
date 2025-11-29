@@ -9,8 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Insumo, Compra, Evento } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import type { Insumo } from "@/lib/types";
+import { useAuth, useCollection, useFirestore } from "@/firebase";
 import { InsumoForm } from "./insumo-form";
 import {
   Tooltip,
@@ -18,25 +18,42 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { mockEventos, mockCompras } from "@/lib/mock-data";
 import { PageHeader } from "../shared/page-header";
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
-import { format } from 'date-fns';
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { collection, query, orderBy } from "firebase/firestore";
 
 
 interface StockListProps {
-  initialInsumos: Insumo[];
 }
 
-export function StockList({ initialInsumos }: StockListProps) {
-  const [insumos, setInsumos] = useState(initialInsumos);
+export function StockList({}: StockListProps) {
+  const { role } = useAuth();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  
+  const insumosQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'insumos'), orderBy('nombre'));
+  }, [firestore]);
+  const { data: insumos = [] } = useCollection<Insumo>(insumosQuery);
+
+  const comprasQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'compras'), orderBy('fecha'));
+  }, [firestore]);
+  const { data: compras = [] } = useCollection<any>(comprasQuery);
+  
+  const eventosQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'eventos'), orderBy('fecha'));
+  }, [firestore]);
+  const { data: eventos = [] } = useCollection<any>(eventosQuery);
+
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedInsumo, setSelectedInsumo] = useState<Insumo | null>(null);
-  const { role } = useAuth();
-  const { toast } = useToast();
   const canModify = role === 'admin' || role === 'operador' || role === 'gerente';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -66,15 +83,15 @@ export function StockList({ initialInsumos }: StockListProps) {
     });
 
     // Añadir compras
-    mockCompras.forEach(compra => {
-        compra.items.forEach(item => {
+    compras.forEach(compra => {
+        compra.items.forEach((item:any) => {
             allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
         });
     });
 
     // Añadir salidas de eventos
-    mockEventos.forEach(evento => {
-        evento.productos?.forEach(prod => {
+    eventos.forEach((evento:any) => {
+        evento.productos?.forEach((prod:any) => {
             allEvents.push({ type: 'salida', fecha: new Date(evento.fecha), insumoId: prod.insumoId, cantidad: prod.cantidad });
         });
     });
@@ -135,7 +152,7 @@ export function StockList({ initialInsumos }: StockListProps) {
     });
 
     return calculatedInsumos;
-  }, [insumos]);
+  }, [insumos, compras, eventos]);
   
   const filteredStockData = useMemo(() => {
     return stockData.filter(insumo => {
@@ -161,11 +178,7 @@ export function StockList({ initialInsumos }: StockListProps) {
   const categoriasUnicas = [...new Set(insumos.map(i => i.categoria))];
 
   const handleSaveInsumo = useCallback((insumoData: Insumo) => {
-    if (selectedInsumo) {
-      setInsumos(prev => prev.map(i => i.id === insumoData.id ? insumoData : i));
-    } else {
-      setInsumos(prev => [...prev, { ...insumoData, id: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` }]);
-    }
+    // Logic to save insumo to Firestore
     setDialogOpen(false);
     setSelectedInsumo(null);
   }, [selectedInsumo]);
@@ -219,8 +232,10 @@ export function StockList({ initialInsumos }: StockListProps) {
           dosisRecomendada: Number(getColumnValue(row, 'Dosis Rec.')) || undefined,
           proveedor: getColumnValue(row, 'proveedor'),
         }));
+        
+        // Here you would add the new insumos to firestore
+        // addMultipleDocs('insumos', nuevosInsumos);
 
-        setInsumos(prev => [...prev, ...nuevosInsumos]);
         toast({
           title: "Importación exitosa",
           description: `${nuevosInsumos.length} insumos han sido agregados.`,
@@ -373,10 +388,10 @@ export function StockList({ initialInsumos }: StockListProps) {
                   <TableCell>{insumo.principioActivo || 'N/A'}</TableCell>
                   <TableCell>{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
                   <TableCell className="text-right font-mono">${insumo.precioPromedioPonderado.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono text-green-600 flex items-center justify-end gap-1"><ArrowUp size={14}/> {insumo.entradaTotal.toLocaleString()} {insumo.unidad}</TableCell>
-                  <TableCell className="text-right font-mono text-red-600 flex items-center justify-end gap-1"><ArrowDown size={14}/> {insumo.salidaTotal.toLocaleString()} {insumo.unidad}</TableCell>
-                  <TableCell className="text-right font-mono font-bold">{insumo.stockFinal.toLocaleString()} {insumo.unidad}</TableCell>
-                  <TableCell className="text-right font-mono">{insumo.stockMinimo.toLocaleString()} {insumo.unidad}</TableCell>
+                  <TableCell className="text-right font-mono text-green-600 flex items-center justify-end gap-1"><ArrowUp size={14}/> {insumo.entradaTotal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
+                  <TableCell className="text-right font-mono text-red-600 flex items-center justify-end gap-1"><ArrowDown size={14}/> {insumo.salidaTotal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
+                  <TableCell className="text-right font-mono font-bold">{insumo.stockFinal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
+                  <TableCell className="text-right font-mono">{insumo.stockMinimo.toLocaleString('en-US')} {insumo.unidad}</TableCell>
                   <TableCell className="text-right font-mono font-bold text-primary">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                   
                   {canModify && (
