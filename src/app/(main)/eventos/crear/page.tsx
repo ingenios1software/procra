@@ -2,11 +2,17 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { EventoForm } from "@/components/eventos/evento-form";
-import { mockParcelas, mockCultivos, mockZafras } from "@/lib/mock-data";
 import { useRouter } from "next/navigation";
+import { useDataStore } from "@/store/data-store";
 
 export default function CrearEventoPage() {
   const router = useRouter();
+  const { addEvento } = useDataStore();
+
+  const handleSave = (data: any) => {
+    addEvento(data);
+    router.push('/eventos');
+  }
 
   return (
     <>
@@ -15,9 +21,7 @@ export default function CrearEventoPage() {
         description="Complete los detalles de la actividad agrícola."
       />
       <EventoForm 
-        parcelas={mockParcelas}
-        cultivos={mockCultivos}
-        zafras={mockZafras}
+        onSave={handleSave}
         onCancel={() => router.push('/eventos')}
       />
     </>

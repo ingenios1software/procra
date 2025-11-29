@@ -78,7 +78,7 @@ export function EventosList() {
         (filters.parcelaId ? evento.parcelaId === filters.parcelaId : true) &&
         (filters.zafraId ? evento.zafraId === filters.zafraId : true)
       );
-    });
+    }).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
   }, [eventos, filters]);
 
   const eventTypes = [...new Set(eventos.map((e) => e.tipo))];
