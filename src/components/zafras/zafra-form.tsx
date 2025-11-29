@@ -9,14 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Zafra } from "@/lib/types";
+import type { Zafra, Cultivo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import React from "react";
+import { mockCultivos } from "@/lib/mock-data";
 
 const formSchema = z.object({
   nombre: z.string().min(5, "El nombre debe tener al menos 5 caracteres."),
+  cultivoId: z.string().optional(),
   fechaInicio: z.date({ required_error: "La fecha de inicio es obligatoria." }),
   estado: z.enum(["planificada", "en curso", "finalizada"]),
 });
@@ -34,6 +36,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
     resolver: zodResolver(formSchema),
     defaultValues: {
       nombre: zafra?.nombre || "",
+      cultivoId: zafra?.cultivoId || "",
       fechaInicio: zafra?.fechaInicio ? new Date(zafra.fechaInicio) : new Date(),
       estado: zafra?.estado || "planificada",
     },
@@ -55,13 +58,37 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
           name="nombre"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nombre de la Zafra</FormLabel>
+              <FormLabel>Nombre de la Zafra/Campaña</FormLabel>
               <FormControl>
-                <Input placeholder="Ej: Zafra 2024/2025" {...field} />
+                <Input placeholder="Ej: Soja Temprana - Lote 1 - 24/25" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
+        />
+        <FormField
+            control={form.control}
+            name="cultivoId"
+            render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Cultivo Asociado (Opcional)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Seleccione un cultivo" />
+                            </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value="">Ninguno</SelectItem>
+                            {mockCultivos.map(cultivo => (
+                                <SelectItem key={cultivo.id} value={cultivo.id}>{cultivo.nombre}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <FormDescription>Asociar un cultivo ayuda a organizar y filtrar los análisis.</FormDescription>
+                    <FormMessage />
+                </FormItem>
+            )}
         />
         <FormField
           control={form.control}
