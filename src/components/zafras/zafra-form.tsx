@@ -79,7 +79,6 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            <SelectItem value="">Ninguno</SelectItem>
                             {mockCultivos.map(cultivo => (
                                 <SelectItem key={cultivo.id} value={cultivo.id}>{cultivo.nombre}</SelectItem>
                             ))}
