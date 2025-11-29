@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -54,7 +55,7 @@ export function ZafrasList({ initialZafras }: ZafrasListProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleCreate = (zafraData: Omit<Zafra, 'id' | 'fechaFin'>) => {
+  const handleCreate = (zafraData: Zafra) => {
     const newZafra: Zafra = {
       ...zafraData,
       id: `z${zafras.length + 1}`,
