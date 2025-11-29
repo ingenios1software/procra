@@ -1,3 +1,4 @@
+
 "use client";
 
 import { InformeCostosParcela } from "@/components/agronomia/informe-costos/informe-costos-parcela";
