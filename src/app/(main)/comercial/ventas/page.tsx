@@ -1,16 +1,17 @@
 "use client";
 
 import { VentasList } from "@/components/finanzas/ventas-list";
-import { mockVentas, mockParcelas, mockCultivos, mockZafras, mockClientes } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 export default function VentasComercialPage() {
+  const { ventas, parcelas, cultivos, zafras, clientes } = useDataStore();
   return (
     <VentasList
-      initialVentas={mockVentas}
-      parcelas={mockParcelas}
-      cultivos={mockCultivos}
-      zafras={mockZafras}
-      clientes={mockClientes}
+      initialVentas={ventas}
+      parcelas={parcelas}
+      cultivos={cultivos}
+      zafras={zafras}
+      clientes={clientes}
     />
   );
 }

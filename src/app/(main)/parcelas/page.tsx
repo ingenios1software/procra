@@ -1,10 +1,10 @@
 "use client";
 
 import { ParcelasList } from "@/components/parcelas/parcelas-list";
-import { mockParcelas } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 export default function ParcelasPage() {
-  const parcelas = mockParcelas;
+  const { parcelas } = useDataStore();
 
   return (
     <ParcelasList initialParcelas={parcelas} />

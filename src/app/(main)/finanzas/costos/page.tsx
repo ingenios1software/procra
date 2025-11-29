@@ -1,13 +1,16 @@
+"use client";
+
 import { CostosList } from "@/components/finanzas/costos-list";
-import { mockCostos, mockParcelas, mockCultivos, mockZafras } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 export default function CostosPage() {
+  const { costos, parcelas, cultivos, zafras } = useDataStore();
   return (
     <CostosList
-      initialCostos={mockCostos}
-      parcelas={mockParcelas}
-      cultivos={mockCultivos}
-      zafras={mockZafras}
+      initialCostos={costos}
+      parcelas={parcelas}
+      cultivos={cultivos}
+      zafras={zafras}
     />
   );
 }

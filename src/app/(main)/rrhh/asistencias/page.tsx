@@ -45,13 +45,14 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { AsistenciaForm } from "@/components/rrhh/asistencias/asistencia-form";
 import type { Asistencia } from "@/lib/types";
-import { mockAsistencias, mockEmpleados } from "@/lib/mock-data";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useDataStore } from "@/store/data-store";
 
 export default function AsistenciasPage() {
-  const [asistencias, setAsistencias] = useState(mockAsistencias);
+  const { asistencias, empleados } = useDataStore();
+  const [asistenciasState, setAsistencias] = useState(asistencias);
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedAsistencia, setSelectedAsistencia] = useState<Asistencia | null>(
     null
@@ -61,7 +62,7 @@ export default function AsistenciasPage() {
   const canModify = role === "admin" || role === "gerente";
 
   const getEmpleadoNombre = (empleadoId: string) => {
-    const empleado = mockEmpleados.find((e) => e.id === empleadoId);
+    const empleado = empleados.find((e) => e.id === empleadoId);
     return empleado ? `${empleado.nombre} ${empleado.apellido}` : "N/A";
   };
 
@@ -149,8 +150,8 @@ export default function AsistenciasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {asistencias
-                .sort((a, b) => b.fecha.getTime() - a.fecha.getTime())
+              {asistenciasState
+                .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
                 .map((asistencia) => (
                   <TableRow key={asistencia.id}>
                     <TableCell>
@@ -240,7 +241,7 @@ export default function AsistenciasPage() {
           </DialogHeader>
           <AsistenciaForm
             asistencia={selectedAsistencia}
-            empleados={mockEmpleados}
+            empleados={empleados}
             onSubmit={handleSave}
             onCancel={() => {
               setFormOpen(false);

@@ -2,9 +2,10 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { CompraForm } from "@/components/comercial/compras/compra-form";
-import { mockProveedores, mockInsumos, mockParcelas, mockZafras } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 export default function CrearCompraPage() {
+  const { proveedores, insumos, parcelas, zafras } = useDataStore();
   return (
     <>
       <PageHeader
@@ -12,10 +13,10 @@ export default function CrearCompraPage() {
         description="Complete los detalles de la nueva compra de productos o insumos."
       />
       <CompraForm 
-        proveedores={mockProveedores}
-        insumos={mockInsumos}
-        parcelas={mockParcelas}
-        zafras={mockZafras}
+        proveedores={proveedores}
+        insumos={insumos}
+        parcelas={parcelas}
+        zafras={zafras}
       />
     </>
   );

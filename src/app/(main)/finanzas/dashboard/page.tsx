@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo } from "react";
@@ -16,12 +15,14 @@ import {
   Cell,
 } from "recharts";
 import { DollarSign, TrendingDown, TrendingUp, Landmark, Star, ChevronsDown } from "lucide-react";
-import { mockCostos, mockVentas, mockParcelas, mockCultivos, mockZafras } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 import { format } from "date-fns";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function DashboardFinancieroPage() {
+  const { costos: mockCostos, ventas: mockVentas, parcelas: mockParcelas, cultivos: mockCultivos } = useDataStore();
+
   const { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria, costosMensuales } = useMemo(() => {
     const totalCostos = mockCostos.reduce((acc, costo) => acc + costo.monto, 0);
     const totalIngresos = mockVentas.reduce((acc, venta) => acc + venta.toneladas * venta.precioTonelada, 0);
@@ -52,14 +53,14 @@ export default function DashboardFinancieroPage() {
     const costosCategoriaData = Object.entries(costosPorCategoria).map(([name, value]) => ({ name, value }));
 
     const costosMensuales = mockCostos.reduce((acc, costo) => {
-      const month = format(costo.fecha, 'MMM yyyy');
+      const month = format(new Date(costo.fecha), 'MMM yyyy');
       acc[month] = (acc[month] || 0) + costo.monto;
       return acc;
     }, {} as Record<string, number>);
     const costosMensualesData = Object.entries(costosMensuales).map(([name, total]) => ({ name, total })).slice(-6);
 
     return { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria: costosCategoriaData, costosMensuales: costosMensualesData };
-  }, []);
+  }, [mockCostos, mockVentas, mockParcelas, mockCultivos]);
 
   const topParcela = rentabilidadPorParcela[0];
   const peorParcela = rentabilidadPorParcela[rentabilidadPorParcela.length - 1];
@@ -134,5 +135,3 @@ export default function DashboardFinancieroPage() {
     </>
   );
 }
-
-    

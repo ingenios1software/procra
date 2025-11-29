@@ -1,13 +1,14 @@
 "use client";
 
 import { UsuariosList } from "@/components/usuarios/usuarios-list";
-import { mockUsuarios, mockRoles } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 export default function UsuariosPage() {
+  const { usuarios, roles } = useDataStore();
   return (
     <UsuariosList 
-      initialUsuarios={mockUsuarios}
-      roles={mockRoles}
+      initialUsuarios={usuarios}
+      roles={roles}
     />
   );
 }

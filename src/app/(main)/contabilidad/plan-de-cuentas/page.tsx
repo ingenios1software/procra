@@ -34,13 +34,14 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PlanDeCuentasForm } from "@/components/contabilidad/plan-de-cuentas/plan-de-cuentas-form";
 import type { PlanDeCuenta } from "@/lib/types";
-import { mockPlanDeCuentas } from "@/lib/mock-data";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { useDataStore } from "@/store/data-store";
 
 export default function PlanDeCuentasPage() {
-  const [cuentas, setCuentas] = useState(mockPlanDeCuentas);
+  const { planDeCuentas } = useDataStore();
+  const [cuentas, setCuentas] = useState(planDeCuentas);
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedCuenta, setSelectedCuenta] = useState<PlanDeCuenta | null>(
     null

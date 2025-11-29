@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { mockEventos, mockParcelas, mockCultivos, mockZafras } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 import { Activity, Map, Calendar, TriangleAlert, AreaChart } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { useMemo } from "react";
@@ -13,19 +13,21 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pi
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function DashboardPage() {
-  const totalParcelas = mockParcelas.length;
-  const totalHectareas = useMemo(() => mockParcelas.reduce((acc, p) => acc + p.superficie, 0), []);
-  const zafraActiva = mockZafras.find(z => z.estado === 'en curso');
+  const { parcelas, cultivos, zafras, eventos } = useDataStore();
+  
+  const totalParcelas = parcelas.length;
+  const totalHectareas = useMemo(() => parcelas.reduce((acc, p) => acc + p.superficie, 0), [parcelas]);
+  const zafraActiva = zafras.find(z => z.estado === 'en curso');
 
   const eventosPorTipo = useMemo(() => {
-    return mockEventos.reduce((acc, evento) => {
+    return eventos.reduce((acc, evento) => {
       acc[evento.tipo] = (acc[evento.tipo] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-  }, []);
+  }, [eventos]);
 
   const zafraProgress = useMemo(() => {
-    if (!zafraActiva || !zafraActiva.fechaFin) return 0;
+    if (!zafraActiva || !zafraActiva.fechaFin || !zafraActiva.fechaInicio) return 0;
     const totalDuration = new Date(zafraActiva.fechaFin).getTime() - new Date(zafraActiva.fechaInicio).getTime();
     if (totalDuration <= 0) return 0;
     const elapsed = new Date().getTime() - new Date(zafraActiva.fechaInicio).getTime();
@@ -34,34 +36,34 @@ export default function DashboardPage() {
   }, [zafraActiva]);
 
   const eventosPorMes = useMemo(() => {
-    const data = mockEventos.reduce((acc, evento) => {
+    const data = eventos.reduce((acc, evento) => {
       const month = format(new Date(evento.fecha), "MMM yyyy");
       acc[month] = (acc[month] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
     return Object.entries(data).map(([name, total]) => ({ name, total })).slice(-6); // Last 6 months
-  }, []);
+  }, [eventos]);
 
   const distribucionCultivos = useMemo(() => {
-    const data = mockEventos.reduce((acc, evento) => {
-      const cultivo = mockCultivos.find(c => c.id === evento.cultivoId);
+    const data = eventos.reduce((acc, evento) => {
+      const cultivo = cultivos.find(c => c.id === evento.cultivoId);
       if (cultivo) {
         acc[cultivo.nombre] = (acc[cultivo.nombre] || 0) + 1;
       }
       return acc;
     }, {} as Record<string, number>);
     return Object.entries(data).map(([name, value]) => ({ name, value }));
-  }, []);
+  }, [eventos, cultivos]);
 
   const alertasParcelas = useMemo(() => {
     const thirtyDaysAgo = subDays(new Date(), 30);
-    return mockParcelas.filter(parcela => {
-      const lastEvent = mockEventos
+    return parcelas.filter(parcela => {
+      const lastEvent = eventos
         .filter(e => e.parcelaId === parcela.id)
         .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
       return !lastEvent || new Date(lastEvent.fecha) < thirtyDaysAgo;
     });
-  }, []);
+  }, [parcelas, eventos]);
 
   return (
     <>
@@ -96,7 +98,7 @@ export default function DashboardPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockEventos.length}</div>
+            <div className="text-2xl font-bold">{eventos.length}</div>
             <p className="text-xs text-muted-foreground">Eventos agrícolas registrados</p>
           </CardContent>
         </Card>

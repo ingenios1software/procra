@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -6,24 +5,25 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { mockPlanDeCuentas, mockAsientosDiario } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export default function MayorPage() {
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(mockPlanDeCuentas[0]?.id || null);
+  const { planDeCuentas, asientosDiario } = useDataStore();
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(planDeCuentas[0]?.id || null);
 
   const { movimientos, totalDebe, totalHaber, saldoFinal, cuentaSeleccionada } = useMemo(() => {
     if (!selectedAccountId) {
       return { movimientos: [], totalDebe: 0, totalHaber: 0, saldoFinal: 0, cuentaSeleccionada: null };
     }
 
-    const cuenta = mockPlanDeCuentas.find(c => c.id === selectedAccountId);
+    const cuenta = planDeCuentas.find(c => c.id === selectedAccountId);
     if (!cuenta) {
       return { movimientos: [], totalDebe: 0, totalHaber: 0, saldoFinal: 0, cuentaSeleccionada: null };
     }
 
-    const movimientosCuenta = mockAsientosDiario
+    const movimientosCuenta = asientosDiario
       .flatMap(asiento => 
         asiento.movimientos
           .filter(mov => mov.cuentaId === selectedAccountId)
@@ -34,7 +34,7 @@ export default function MayorPage() {
             monto: mov.monto,
           }))
       )
-      .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
     let saldo = 0;
     let totalDebe = 0;
@@ -59,7 +59,7 @@ export default function MayorPage() {
       saldoFinal: saldo,
       cuentaSeleccionada: cuenta
     };
-  }, [selectedAccountId]);
+  }, [selectedAccountId, planDeCuentas, asientosDiario]);
 
   return (
     <>
@@ -78,7 +78,7 @@ export default function MayorPage() {
               <SelectValue placeholder="Seleccione una cuenta contable..." />
             </SelectTrigger>
             <SelectContent>
-              {mockPlanDeCuentas.sort((a,b) => a.codigo.localeCompare(b.codigo)).map(cuenta => (
+              {planDeCuentas.sort((a,b) => a.codigo.localeCompare(b.codigo)).map(cuenta => (
                 <SelectItem key={cuenta.id} value={cuenta.id}>
                   {cuenta.codigo} - {cuenta.nombre}
                 </SelectItem>
@@ -145,5 +145,3 @@ export default function MayorPage() {
     </>
   );
 }
-
-    

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo } from "react";
@@ -7,13 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DollarSign, TrendingUp, TrendingDown, Download } from "lucide-react";
-import { mockCostos, mockVentas, mockCultivos, mockParcelas } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function RentabilidadPage() {
+  const { costos: mockCostos, ventas: mockVentas, cultivos: mockCultivos, parcelas: mockParcelas } = useDataStore();
+
   const { totalIngresos, totalCostos, rentabilidadTotal, rentabilidadPorCultivo, rentabilidadPorParcela, composicionIngresos } = useMemo(() => {
     const totalIngresos = mockVentas.reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
     const totalCostos = mockCostos.reduce((sum, c) => sum + c.monto, 0);
@@ -69,7 +70,7 @@ export default function RentabilidadPage() {
       rentabilidadPorParcela,
       composicionIngresos
     };
-  }, []);
+  }, [mockCostos, mockVentas, mockCultivos, mockParcelas]);
 
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
@@ -174,5 +175,3 @@ export default function RentabilidadPage() {
     </>
   );
 }
-
-    

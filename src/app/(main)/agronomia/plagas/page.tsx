@@ -39,14 +39,15 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PlagaForm } from "@/components/agronomia/plagas/plaga-form";
-import type { Plaga, Cultivo } from "@/lib/types";
-import { mockPlagas, mockCultivos } from "@/lib/mock-data";
+import type { Plaga } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useDataStore } from "@/store/data-store";
 
 export default function PlagasPage() {
-  const [plagas, setPlagas] = useState(mockPlagas);
+  const { plagas, cultivos } = useDataStore();
+  const [plagasState, setPlagas] = useState(plagas); // Local state for optimistic updates
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedPlaga, setSelectedPlaga] = useState<Plaga | null>(null);
   const { role } = useAuth();
@@ -55,7 +56,7 @@ export default function PlagasPage() {
 
   const getCultivoNombres = (cultivoIds: string[]) => {
     return cultivoIds
-      .map((id) => mockCultivos.find((c) => c.id === id)?.nombre)
+      .map((id) => cultivos.find((c) => c.id === id)?.nombre)
       .filter(Boolean)
       .join(", ");
   };
@@ -82,7 +83,7 @@ export default function PlagasPage() {
   };
 
   const handleDelete = (id: string) => {
-    const plaga = plagas.find(p => p.id === id);
+    const plaga = plagasState.find(p => p.id === id);
     setPlagas((prev) => prev.filter((p) => p.id !== id));
     toast({ variant: "destructive", title: "Plaga eliminada", description: `La plaga "${plaga?.nombre}" ha sido eliminada.` });
   };
@@ -120,7 +121,7 @@ export default function PlagasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {plagas.map((plaga) => (
+              {plagasState.map((plaga) => (
                 <TableRow key={plaga.id}>
                   <TableCell className="font-medium">{plaga.nombre}</TableCell>
                   <TableCell>{plaga.descripcion}</TableCell>
@@ -198,7 +199,7 @@ export default function PlagasPage() {
           </DialogHeader>
           <PlagaForm
             plaga={selectedPlaga}
-            cultivos={mockCultivos}
+            cultivos={cultivos}
             onSubmit={handleSave}
             onCancel={() => {
               setFormOpen(false);

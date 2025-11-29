@@ -1,9 +1,11 @@
+"use client";
+
 import { PageHeader } from "@/components/shared/page-header";
 import { MaquinariaList } from "@/components/maquinaria/maquinaria-list";
-import { mockMaquinarias } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 export default function MaquinariaPage() {
-  const maquinarias = mockMaquinarias;
+  const { maquinarias } = useDataStore();
 
   return (
     <>

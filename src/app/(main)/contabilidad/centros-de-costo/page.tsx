@@ -34,14 +34,15 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { CentroDeCostoForm } from "@/components/contabilidad/centros-de-costo/centro-de-costo-form";
 import type { CentroDeCosto } from "@/lib/types";
-import { mockCentrosDeCosto } from "@/lib/mock-data";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useDataStore } from "@/store/data-store";
 
 export default function CentrosDeCostoPage() {
-  const [centros, setCentros] = useState(mockCentrosDeCosto);
+  const { centrosDeCosto } = useDataStore();
+  const [centros, setCentros] = useState(centrosDeCosto);
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedCentro, setSelectedCentro] = useState<CentroDeCosto | null>(
     null

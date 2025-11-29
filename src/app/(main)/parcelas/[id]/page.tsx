@@ -1,5 +1,7 @@
+"use client";
+
 import { PageHeader } from "@/components/shared/page-header";
-import { mockParcelas, mockEventos, mockCultivos } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,13 +10,14 @@ import { format } from "date-fns";
 import { MapPin, Code, Ruler, Activity } from "lucide-react";
 
 export default function ParcelaDetailPage({ params }: { params: { id: string } }) {
-  const parcela = mockParcelas.find(p => p.id === params.id);
+  const { parcelas, eventos, cultivos } = useDataStore();
+  const parcela = parcelas.find(p => p.id === params.id);
   
   if (!parcela) {
     notFound();
   }
 
-  const eventosRelacionados = mockEventos.filter(e => e.parcelaId === parcela.id);
+  const eventosRelacionados = eventos.filter(e => e.parcelaId === parcela.id);
 
   return (
     <>
@@ -63,7 +66,7 @@ export default function ParcelaDetailPage({ params }: { params: { id: string } }
             </TableHeader>
             <TableBody>
               {eventosRelacionados.length > 0 ? eventosRelacionados.map((evento) => {
-                const cultivo = mockCultivos.find(c => c.id === evento.cultivoId);
+                const cultivo = cultivos.find(c => c.id === evento.cultivoId);
                 return (
                   <TableRow key={evento.id}>
                     <TableCell>{format(new Date(evento.fecha), "dd/MM/yyyy")}</TableCell>

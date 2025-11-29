@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -17,11 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  mockAsientosDiario,
-  mockPlanDeCuentas,
-  mockCentrosDeCosto,
-} from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -29,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export default function DiarioPage() {
+  const { asientosDiario, planDeCuentas, centrosDeCosto } = useDataStore();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const toggleRow = (id: string) => {
@@ -42,9 +38,9 @@ export default function DiarioPage() {
   };
 
   const getCuentaNombre = (id: string) =>
-    mockPlanDeCuentas.find((c) => c.id === id)?.nombre || "N/A";
+    planDeCuentas.find((c) => c.id === id)?.nombre || "N/A";
   const getCentroCostoNombre = (id: string) =>
-    mockCentrosDeCosto.find((cc) => cc.id === id)?.nombre || "N/A";
+    centrosDeCosto.find((cc) => cc.id === id)?.nombre || "N/A";
 
   return (
     <>
@@ -67,8 +63,8 @@ export default function DiarioPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockAsientosDiario
-                .sort((a, b) => b.fecha.getTime() - a.fecha.getTime())
+              {asientosDiario
+                .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
                 .map((asiento) => {
                   const isExpanded = expandedRows.has(asiento.id);
                   const total = asiento.movimientos
@@ -180,5 +176,3 @@ export default function DiarioPage() {
     </>
   );
 }
-
-    

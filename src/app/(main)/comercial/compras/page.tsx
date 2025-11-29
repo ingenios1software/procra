@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -9,7 +8,7 @@ import { PlusCircle, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { mockCompras, mockProveedores } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 import type { Compra } from "@/lib/types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -23,11 +22,12 @@ import {
 import { MoreHorizontal } from "lucide-react";
 
 export default function ComprasPage() {
-  const [compras, setCompras] = useState(mockCompras);
+  const { compras, proveedores } = useDataStore();
+  const [comprasState, setCompras] = useState(compras);
   const router = useRouter();
 
   const getProveedorNombre = (id: string) => {
-    return mockProveedores.find(p => p.id === id)?.nombre || 'N/A';
+    return proveedores.find(p => p.id === id)?.nombre || 'N/A';
   }
 
   const handleExportPDF = () => {
@@ -69,7 +69,7 @@ export default function ComprasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {compras.map((compra) => (
+              {comprasState.map((compra) => (
                 <TableRow key={compra.id}>
                   <TableCell>{format(new Date(compra.fecha), "dd/MM/yyyy")}</TableCell>
                   <TableCell>
@@ -121,5 +121,3 @@ export default function ComprasPage() {
     </>
   );
 }
-
-    

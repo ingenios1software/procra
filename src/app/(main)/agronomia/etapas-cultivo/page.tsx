@@ -45,13 +45,14 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { EtapaCultivoForm } from "@/components/agronomia/etapas-cultivo/etapa-cultivo-form";
 import type { EtapaCultivo } from "@/lib/types";
-import { mockEtapasCultivo, mockCultivos } from "@/lib/mock-data";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useDataStore } from "@/store/data-store";
 
 export default function EtapasCultivoPage() {
-  const [etapas, setEtapas] = useState(mockEtapasCultivo);
+  const { etapasCultivo: etapas, cultivos } = useDataStore();
+  const [etapasState, setEtapas] = useState(etapas); // Local state for optimistic updates if needed
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEtapa, setSelectedEtapa] = useState<EtapaCultivo | null>(null);
   const { role } = useAuth();
@@ -59,24 +60,25 @@ export default function EtapasCultivoPage() {
   const canModify = role === "admin" || role === "tecnicoCampo";
 
   const getCultivoNombre = (cultivoId: string) => {
-    return mockCultivos.find((c) => c.id === cultivoId)?.nombre || "N/A";
+    return cultivos.find((c) => c.id === cultivoId)?.nombre || "N/A";
   };
 
   const handleSave = (etapaData: Omit<EtapaCultivo, "id">) => {
     if (selectedEtapa) {
-      // Update
+      // Update logic would go here, for now using local state
       const updatedEtapa = { ...selectedEtapa, ...etapaData };
-      setEtapas((prev) =>
-        prev
-          .map((e) => (e.id === updatedEtapa.id ? updatedEtapa : e))
-          .sort((a, b) => a.orden - b.orden)
+      setEtapas(
+        (prev) =>
+          prev
+            .map((e) => (e.id === updatedEtapa.id ? updatedEtapa : e))
+            .sort((a, b) => a.orden - b.orden)
       );
       toast({
         title: "Etapa actualizada",
         description: `La etapa "${updatedEtapa.nombre}" ha sido actualizada.`,
       });
     } else {
-      // Create
+      // Create logic would go here
       const newEtapa: EtapaCultivo = {
         id: `etapa-${Date.now()}`,
         ...etapaData,
@@ -92,7 +94,7 @@ export default function EtapasCultivoPage() {
   };
 
   const handleDelete = (id: string) => {
-    const etapa = etapas.find((e) => e.id === id);
+    const etapa = etapasState.find((e) => e.id === id);
     setEtapas((prev) => prev.filter((e) => e.id !== id));
     toast({
       variant: "destructive",
@@ -137,7 +139,7 @@ export default function EtapasCultivoPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {etapas.map((etapa) => (
+              {etapasState.map((etapa) => (
                 <TableRow key={etapa.id}>
                   <TableCell>
                     <Badge variant="secondary">{getCultivoNombre(etapa.cultivoId)}</Badge>
@@ -213,7 +215,7 @@ export default function EtapasCultivoPage() {
           </DialogHeader>
           <EtapaCultivoForm
             etapa={selectedEtapa}
-            cultivos={mockCultivos}
+            cultivos={cultivos}
             onSubmit={handleSave}
             onCancel={() => {
               setFormOpen(false);

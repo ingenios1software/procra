@@ -2,10 +2,10 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { CultivosList } from "@/components/cultivos/cultivos-list";
-import { mockCultivos } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 export default function CultivosPage() {
-  const cultivos = mockCultivos;
+  const { cultivos } = useDataStore();
 
   return (
     <>

@@ -1,13 +1,14 @@
 "use client";
 
 import { EmpleadosList } from "@/components/rrhh/empleados/empleados-list";
-import { mockEmpleados, mockRoles } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 export default function EmpleadosPage() {
+  const { empleados, roles } = useDataStore();
   return (
     <EmpleadosList 
-      initialEmpleados={mockEmpleados}
-      roles={mockRoles}
+      initialEmpleados={empleados}
+      roles={roles}
     />
   );
 }

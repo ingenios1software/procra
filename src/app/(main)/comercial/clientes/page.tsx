@@ -1,13 +1,13 @@
-
 "use client";
 
 import { ClientesList } from "@/components/comercial/clientes/clientes-list";
-import { mockClientes } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 export default function ClientesPage() {
+  const { clientes } = useDataStore();
   return (
     <ClientesList 
-      initialClientes={mockClientes}
+      initialClientes={clientes}
     />
   );
 }
