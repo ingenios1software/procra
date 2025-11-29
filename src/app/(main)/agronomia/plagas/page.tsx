@@ -46,8 +46,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDataStore } from "@/store/data-store";
 
 export default function PlagasPage() {
-  const { plagas, cultivos } = useDataStore();
-  const [plagasState, setPlagas] = useState(plagas); // Local state for optimistic updates
+  const { plagas, cultivos, addPlaga, updatePlaga, deletePlaga } = useDataStore();
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedPlaga, setSelectedPlaga] = useState<Plaga | null>(null);
   const { role } = useAuth();
@@ -61,30 +60,21 @@ export default function PlagasPage() {
       .join(", ");
   };
 
-  const handleSave = (plagaData: Omit<Plaga, "id">) => {
+  const handleSave = (plagaData: Plaga) => {
     if (selectedPlaga) {
-      // Update
-      const updatedPlaga = { ...selectedPlaga, ...plagaData };
-      setPlagas((prev) =>
-        prev.map((p) => (p.id === updatedPlaga.id ? updatedPlaga : p))
-      );
-      toast({ title: "Plaga actualizada", description: `La plaga "${updatedPlaga.nombre}" ha sido actualizada.` });
+      updatePlaga(plagaData);
+      toast({ title: "Plaga actualizada", description: `La plaga "${plagaData.nombre}" ha sido actualizada.` });
     } else {
-      // Create
-      const newPlaga: Plaga = {
-        id: `plaga-${Date.now()}`,
-        ...plagaData,
-      };
-      setPlagas((prev) => [...prev, newPlaga]);
-      toast({ title: "Plaga creada", description: `La plaga "${newPlaga.nombre}" ha sido creada.` });
+      addPlaga(plagaData);
+      toast({ title: "Plaga creada", description: `La plaga "${plagaData.nombre}" ha sido creada.` });
     }
     setFormOpen(false);
     setSelectedPlaga(null);
   };
 
   const handleDelete = (id: string) => {
-    const plaga = plagasState.find(p => p.id === id);
-    setPlagas((prev) => prev.filter((p) => p.id !== id));
+    const plaga = plagas.find(p => p.id === id);
+    deletePlaga(id);
     toast({ variant: "destructive", title: "Plaga eliminada", description: `La plaga "${plaga?.nombre}" ha sido eliminada.` });
   };
 
@@ -121,7 +111,7 @@ export default function PlagasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {plagasState.map((plaga) => (
+              {plagas.map((plaga) => (
                 <TableRow key={plaga.id}>
                   <TableCell className="font-medium">{plaga.nombre}</TableCell>
                   <TableCell>{plaga.descripcion}</TableCell>
@@ -199,7 +189,6 @@ export default function PlagasPage() {
           </DialogHeader>
           <PlagaForm
             plaga={selectedPlaga}
-            cultivos={cultivos}
             onSubmit={handleSave}
             onCancel={() => {
               setFormOpen(false);

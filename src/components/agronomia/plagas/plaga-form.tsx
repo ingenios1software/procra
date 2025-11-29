@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Plaga, Cultivo } from "@/lib/types";
+import { useDataStore } from "@/store/data-store";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre es muy corto."),
@@ -32,17 +33,17 @@ type PlagaFormValues = z.infer<typeof formSchema>;
 
 interface PlagaFormProps {
   plaga?: Plaga | null;
-  cultivos: Cultivo[];
-  onSubmit: (data: Omit<Plaga, "id">) => void;
+  onSubmit: (data: Plaga) => void;
   onCancel: () => void;
 }
 
 export function PlagaForm({
   plaga,
-  cultivos,
   onSubmit,
   onCancel,
 }: PlagaFormProps) {
+  const { cultivos } = useDataStore();
+  
   const form = useForm<PlagaFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -52,10 +53,17 @@ export function PlagaForm({
     },
   });
 
+  const handleSubmit = (data: PlagaFormValues) => {
+    onSubmit({
+      id: plaga?.id || "",
+      ...data
+    })
+  }
+
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={form.handleSubmit(handleSubmit)}
         className="space-y-6"
       >
         <FormField

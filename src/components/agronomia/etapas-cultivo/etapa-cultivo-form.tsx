@@ -22,29 +22,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { EtapaCultivo, Cultivo } from "@/lib/types";
+import { useDataStore } from "@/store/data-store";
 
 const formSchema = z.object({
   cultivoId: z.string().min(1, "Debe seleccionar un cultivo."),
   nombre: z.string().min(1, "El código de la etapa es requerido."),
   descripcion: z.string().min(3, "La descripción es muy corta."),
   orden: z.coerce.number().min(1, "El orden debe ser un número positivo."),
+  diasDesdeSiembraInicio: z.coerce.number().min(0, "Los días deben ser un número positivo."),
+  diasDesdeSiembraFin: z.coerce.number().min(0, "Los días deben ser un número positivo."),
 });
 
 type EtapaCultivoFormValues = z.infer<typeof formSchema>;
 
 interface EtapaCultivoFormProps {
   etapa?: EtapaCultivo | null;
-  cultivos: Cultivo[];
-  onSubmit: (data: Omit<EtapaCultivo, "id">) => void;
+  onSubmit: (data: EtapaCultivo) => void;
   onCancel: () => void;
 }
 
 export function EtapaCultivoForm({
   etapa,
-  cultivos,
   onSubmit,
   onCancel,
 }: EtapaCultivoFormProps) {
+  const { cultivos } = useDataStore();
+  
   const form = useForm<EtapaCultivoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -52,12 +55,21 @@ export function EtapaCultivoForm({
       nombre: etapa?.nombre || "",
       descripcion: etapa?.descripcion || "",
       orden: etapa?.orden || 1,
+      diasDesdeSiembraInicio: etapa?.diasDesdeSiembraInicio || 0,
+      diasDesdeSiembraFin: etapa?.diasDesdeSiembraFin || 0,
     },
   });
 
+  const handleSubmit = (data: EtapaCultivoFormValues) => {
+    onSubmit({
+      id: etapa?.id || "",
+      ...data
+    })
+  }
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="cultivoId"
@@ -126,6 +138,34 @@ export function EtapaCultivoForm({
             </FormItem>
           )}
         />
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="diasDesdeSiembraInicio"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Días Inicio</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="0" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="diasDesdeSiembraFin"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Días Fin</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="15" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>

@@ -51,8 +51,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useDataStore } from "@/store/data-store";
 
 export default function EtapasCultivoPage() {
-  const { etapasCultivo: etapas, cultivos } = useDataStore();
-  const [etapasState, setEtapas] = useState(etapas); // Local state for optimistic updates if needed
+  const { etapasCultivo, cultivos, addEtapaCultivo, updateEtapaCultivo, deleteEtapaCultivo } = useDataStore();
+
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEtapa, setSelectedEtapa] = useState<EtapaCultivo | null>(null);
   const { role } = useAuth();
@@ -63,30 +63,18 @@ export default function EtapasCultivoPage() {
     return cultivos.find((c) => c.id === cultivoId)?.nombre || "N/A";
   };
 
-  const handleSave = (etapaData: Omit<EtapaCultivo, "id">) => {
+  const handleSave = (etapaData: EtapaCultivo) => {
     if (selectedEtapa) {
-      // Update logic would go here, for now using local state
-      const updatedEtapa = { ...selectedEtapa, ...etapaData };
-      setEtapas(
-        (prev) =>
-          prev
-            .map((e) => (e.id === updatedEtapa.id ? updatedEtapa : e))
-            .sort((a, b) => a.orden - b.orden)
-      );
+      updateEtapaCultivo(etapaData);
       toast({
         title: "Etapa actualizada",
-        description: `La etapa "${updatedEtapa.nombre}" ha sido actualizada.`,
+        description: `La etapa "${etapaData.nombre}" ha sido actualizada.`,
       });
     } else {
-      // Create logic would go here
-      const newEtapa: EtapaCultivo = {
-        id: `etapa-${Date.now()}`,
-        ...etapaData,
-      };
-      setEtapas((prev) => [...prev, newEtapa].sort((a, b) => a.orden - b.orden));
+      addEtapaCultivo(etapaData);
       toast({
         title: "Etapa creada",
-        description: `La etapa "${newEtapa.nombre}" ha sido creada.`,
+        description: `La etapa "${etapaData.nombre}" ha sido creada.`,
       });
     }
     setFormOpen(false);
@@ -94,8 +82,8 @@ export default function EtapasCultivoPage() {
   };
 
   const handleDelete = (id: string) => {
-    const etapa = etapasState.find((e) => e.id === id);
-    setEtapas((prev) => prev.filter((e) => e.id !== id));
+    const etapa = etapasCultivo.find((e) => e.id === id);
+    deleteEtapaCultivo(id);
     toast({
       variant: "destructive",
       title: "Etapa eliminada",
@@ -139,7 +127,7 @@ export default function EtapasCultivoPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {etapasState.map((etapa) => (
+              {etapasCultivo.map((etapa) => (
                 <TableRow key={etapa.id}>
                   <TableCell>
                     <Badge variant="secondary">{getCultivoNombre(etapa.cultivoId)}</Badge>
@@ -215,7 +203,6 @@ export default function EtapasCultivoPage() {
           </DialogHeader>
           <EtapaCultivoForm
             etapa={selectedEtapa}
-            cultivos={cultivos}
             onSubmit={handleSave}
             onCancel={() => {
               setFormOpen(false);
