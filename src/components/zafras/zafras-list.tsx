@@ -51,7 +51,7 @@ export function ZafrasList() {
     const today = new Date();
     const interval = setInterval(() => {
         zafras.forEach(zafra => {
-            if (zafra.estado === 'en curso' && zafra.fechaFin && new Date(zafra.fechaFin) < today) {
+            if (zafra.estado === 'en curso' && zafra.fechaFin && new Date(zafra.fechaFin as string) < today) {
                 if (firestore) {
                   const zafraRef = doc(firestore, "zafras", zafra.id);
                   updateDocumentNonBlocking(zafraRef, { estado: 'finalizada' });
