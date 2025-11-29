@@ -142,5 +142,3 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
         </Card>
     )
 }
-
-    

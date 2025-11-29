@@ -65,5 +65,3 @@ export function PanelKpiCards({ parcela, cultivo, zafra, eventos }: PanelKpiCard
         </div>
     )
 }
-
-    

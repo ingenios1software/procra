@@ -17,11 +17,11 @@ export type Cultivo = {
 export type Zafra = {
   id:string;
   nombre: string;
-  fechaInicio: Date;
-  fechaFin?: Date;
+  fechaInicio: Date | string;
+  fechaFin?: Date | string;
   estado: 'planificada' | 'en curso' | 'finalizada';
   cultivoId?: string;
-  fechaSiembra?: Date;
+  fechaSiembra?: Date | string;
 };
 
 export type Evento = {

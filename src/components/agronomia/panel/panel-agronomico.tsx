@@ -65,7 +65,7 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
     }, [parcela, zafra, eventos]);
     
     const { diasDesdeSiembra, costoTotal, costoPorHa } = useMemo(() => {
-        if (!zafra || !parcela) return { diasDesdeSiembra: 0, costoTotal: 0, costoPorHa: 0};
+        if (!zafra || !parcela || !zafra.fechaSiembra) return { diasDesdeSiembra: 0, costoTotal: 0, costoPorHa: 0};
         const siembra = zafra.fechaSiembra ? new Date(zafra.fechaSiembra) : null;
         const dias = siembra ? differenceInDays(new Date(), siembra) : 0;
         const costo = filteredEvents.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
@@ -224,5 +224,3 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
         </>
     )
 }
-
-    

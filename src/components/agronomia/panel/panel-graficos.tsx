@@ -91,5 +91,3 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas }: PanelGraficos
         </div>
     )
 }
-
-    
