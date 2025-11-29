@@ -21,21 +21,53 @@ export const mockZafras: Zafra[] = [
   { id: 'z4', nombre: 'Zafra 2025/2026', fechaInicio: new Date('2025-09-01'), fechaFin: new Date('2026-08-31'), estado: 'planificada' },
 ];
 
-export const mockInsumos: Insumo[] = [];
+export const mockInsumos: Insumo[] = [
+    { id: 'i1', nombre: 'Semilla de Soja DM 5.9', categoria: 'semilla', unidad: 'kg', costoUnitario: 1.2, stockMinimo: 1000, stockActual: 5000 },
+    { id: 'i2', nombre: 'Urea Granulada', categoria: 'fertilizante', unidad: 'kg', costoUnitario: 0.8, stockMinimo: 2000, stockActual: 10000 },
+    { id: 'i3', nombre: 'Glifosato Atanor', categoria: 'herbicida', unidad: 'lt', costoUnitario: 5.5, stockMinimo: 100, stockActual: 500 },
+    { id: 'i4', nombre: 'Fungicida Opera', categoria: 'fungicida', unidad: 'lt', costoUnitario: 25, stockMinimo: 50, stockActual: 200 },
+    { id: 'i5', nombre: 'Insecticida Engeo', categoria: 'insecticida', unidad: 'lt', costoUnitario: 35, stockMinimo: 20, stockActual: 100 },
+];
 
-const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], categoria: Evento['categoria'], daysAgo: number, desc: string, productos: Evento['productos'], extras: Partial<Evento> = {}) => {
+const generateEvent = (id: string, parcelaId: string, cultivoId: string, zafraId: string, tipo: Evento['tipo'], categoria: Evento['categoria'], daysAgo: number, desc: string, productos: Evento['productos'], hectareasAplicadas: number, costoServicio: number, extras: Partial<Evento> = {}) => {
     const fecha = new Date();
     fecha.setDate(fecha.getDate() - daysAgo);
 
-    const costoTotal = productos?.reduce((sum, prod) => {
+    const costoProductos = productos?.reduce((sum, prod) => {
         const insumo = mockInsumos.find(i => i.id === prod.insumoId);
         return sum + (prod.cantidad * (insumo?.costoUnitario || 0));
-    }, 0);
+    }, 0) || 0;
 
-    return { id, parcelaId, cultivoId, zafraId, tipo, categoria, fecha, descripcion: desc, productos, costoTotal: costoTotal || extras.costoTotal || 0, ...extras };
+    const costoServicioTotal = hectareasAplicadas * costoServicio;
+
+    return { 
+        id, 
+        parcelaId, 
+        cultivoId, 
+        zafraId, 
+        tipo, 
+        categoria, 
+        fecha, 
+        descripcion: desc, 
+        productos, 
+        hectareasAplicadas,
+        costoServicioPorHa: costoServicio,
+        costoTotal: costoProductos + costoServicioTotal, 
+        ...extras 
+    };
 };
 
-export const mockEventos: Evento[] = [];
+export const mockEventos: Evento[] = [
+    generateEvent('ev1', 'p1', 'c1', 'z2', 'siembra', 'Siembra', 85, 'Siembra de Soja DM 5.9', [{insumoId: 'i1', dosis: 60, cantidad: 3000}], 50, 20),
+    generateEvent('ev2', 'p1', 'c1', 'z2', 'aplicacion', 'Herbicida', 70, 'Aplicación de herbicida pre-emergente', [{insumoId: 'i3', dosis: 2.5, cantidad: 125}], 50, 15),
+    generateEvent('ev3', 'p2', 'c2', 'z3', 'fertilización', 'Fertilizante', 40, 'Fertilización de base para Maíz', [{insumoId: 'i2', dosis: 150, cantidad: 11250}], 75, 18),
+    generateEvent('ev4', 'p1', 'c1', 'z2', 'plagas', 'Insecticida', 30, 'Control de isocas en Soja V4', [{insumoId: 'i5', dosis: 0.2, cantidad: 10}], 50, 15, { resultado: 'Control efectivo. Baja mortandad de plaga.' }),
+    generateEvent('ev5', 'p3', 'c1', 'z2', 'aplicacion', 'Fungicida', 15, 'Aplicación de fungicida preventivo en R1', [{insumoId: 'i4', dosis: 0.5, cantidad: 60}], 120, 15),
+    generateEvent('ev6', 'p2', 'c2', 'z3', 'riego', 'Otros', 10, 'Riego por aspersión - 20mm', [], 75, 5, { toneladas: 20, precioTonelada: 0}), // Usando toneladas como mm
+    generateEvent('ev7', 'p4', 'c3', 'z1', 'mantenimiento', 'Otros', 5, 'Reparación de alambrado perimetral', [], 0, 0, { costoTotal: 500 }),
+    generateEvent('ev8', 'p1', 'c1', 'z2', 'cosecha', 'Cosecha', 1, 'Inicio de cosecha de Soja', [], 50, 60, { toneladas: 150, precioTonelada: 300 }),
+    generateEvent('ev9', 'p1', 'c1', 'z2', 'rendimiento', 'Cosecha', 0, 'Cierre de rendimiento final', [], 0, 0, { toneladas: 210, precioTonelada: 305 }),
+];
 
 
 export const mockRoles: Rol[] = [
