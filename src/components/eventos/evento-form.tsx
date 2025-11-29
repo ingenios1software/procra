@@ -72,11 +72,28 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
     defaultValues: evento ? {
       ...evento,
       fecha: new Date(evento.fecha),
-      tipo: evento.tipo as any // Fix para enum
+      tipo: evento.tipo as any, // Fix para enum
+      hectareasAplicadas: evento.hectareasAplicadas || 0,
+      costoServicioPorHa: evento.costoServicioPorHa || 0,
+      temperatura: evento.temperatura || 0,
+      humedad: evento.humedad || 0,
+      viento: evento.viento || 0,
+      resultado: evento.resultado || "",
+      toneladas: evento.toneladas || 0,
+      precioTonelada: evento.precioTonelada || 0,
     } : {
       fecha: new Date(),
       tipo: 'siembra',
       productos: [],
+      descripcion: "",
+      hectareasAplicadas: 0,
+      costoServicioPorHa: 0,
+      temperatura: 0,
+      humedad: 0,
+      viento: 0,
+      resultado: "",
+      toneladas: 0,
+      precioTonelada: 0,
     },
   });
 
