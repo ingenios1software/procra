@@ -133,7 +133,7 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------------------
-    // Reference Data Rules (Crops, Seasons, Roles)
+    // Reference Data Rules (Crops, Seasons/Zafras, Roles)
     // ------------------------------------------------------------------------
 
     /**
@@ -164,6 +164,19 @@ service cloud.firestore {
       allow create: if false;
       allow update: if false;
       allow delete: if false;
+    }
+
+    /**
+     * @description Controls access to zafra reference data. This collection is read-only for clients.
+     * @path /zafras/{zafraId}
+     * @allow Any authenticated user reading the list of agricultural zafras. (get, list)
+     * @deny Any user trying to create a new zafra. (create)
+     * @principle Protects reference data, assuming it's managed by administrators or a backend service.
+     */
+    match /zafras/{zafraId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update, delete: if false;
     }
     
     /**
