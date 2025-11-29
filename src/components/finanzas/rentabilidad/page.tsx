@@ -9,7 +9,7 @@ import { DollarSign, TrendingUp, TrendingDown, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query } from 'firebase/firestore';
+import { collection, query } from "firebase/firestore";
 import type { Costo, Venta, Cultivo, Parcela } from '@/lib/types';
 
 
