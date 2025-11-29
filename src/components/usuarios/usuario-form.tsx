@@ -20,9 +20,9 @@ const formSchema = z.object({
 type UsuarioFormValues = z.infer<typeof formSchema>;
 
 interface UsuarioFormProps {
-  usuario?: Usuario | null;
+  usuario?: Partial<Usuario> | null;
   roles: Rol[];
-  onSubmit: (data: Usuario) => void;
+  onSubmit: (data: UsuarioFormValues) => void;
   onCancel: () => void;
 }
 
@@ -37,17 +37,9 @@ export function UsuarioForm({ usuario, roles, onSubmit, onCancel }: UsuarioFormP
     },
   });
 
-  const handleSubmit = (data: UsuarioFormValues) => {
-    onSubmit({
-      id: usuario?.id || "",
-      ...data,
-      rol: data.rol as UserRole,
-    });
-  };
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="nombre"
@@ -102,7 +94,7 @@ export function UsuarioForm({ usuario, roles, onSubmit, onCancel }: UsuarioFormP
         />
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-          <Button type="submit">{usuario ? "Guardar Cambios" : "Crear Usuario"}</Button>
+          <Button type="submit">{usuario?.id ? "Guardar Cambios" : "Crear Usuario"}</Button>
         </div>
       </form>
     </Form>

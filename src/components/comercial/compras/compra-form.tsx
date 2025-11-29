@@ -29,7 +29,9 @@ import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import type { Proveedor, Insumo, Parcela, Zafra } from "@/lib/types";
+import type { Proveedor, Insumo } from "@/lib/types";
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
 
 const itemSchema = z.object({
   insumoId: z.string().nonempty("Debe seleccionar un insumo."),
@@ -40,7 +42,7 @@ const itemSchema = z.object({
 
 const formSchema = z.object({
   proveedorId: z.string().nonempty("Debe seleccionar un proveedor."),
-  fechaEmision: z.date({ required_error: "La fecha es obligatoria." }),
+  fecha: z.date({ required_error: "La fecha es obligatoria." }),
   numeroDocumento: z.string().min(3, "El número de documento es muy corto."),
   tipoDocumento: z.enum(['Factura', 'Nota de Crédito', 'Remisión']),
   condicion: z.enum(['Contado', 'Crédito']),
@@ -50,16 +52,16 @@ const formSchema = z.object({
 
 type CompraFormValues = z.infer<typeof formSchema>;
 
-interface CompraFormProps {
-  proveedores: Proveedor[];
-  insumos: Insumo[];
-  parcelas: Parcela[];
-  zafras: Zafra[];
-}
-
-export function CompraForm({ proveedores, insumos }: CompraFormProps) {
+export function CompraForm() {
   const router = useRouter();
   const { toast } = useToast();
+  const firestore = useFirestore();
+
+  const proveedoresQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'proveedores'), orderBy('nombre')) : null, [firestore]);
+  const { data: proveedores } = useCollection<Proveedor>(proveedoresQuery);
+
+  const insumosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos'), orderBy('nombre')) : null, [firestore]);
+  const { data: insumos } = useCollection<Insumo>(insumosQuery);
   
   const form = useForm<CompraFormValues>({
     resolver: zodResolver(formSchema),
@@ -76,7 +78,19 @@ export function CompraForm({ proveedores, insumos }: CompraFormProps) {
   });
 
   const handleSubmit = (data: CompraFormValues) => {
-    console.log("Compra guardada:", data);
+    if (!firestore) return;
+
+    const total = data.items.reduce((sum, item) => sum + (item.cantidad * item.precioUnitario), 0);
+    const dataToSave = {
+      ...data,
+      fecha: data.fecha.toISOString(),
+      total,
+      estado: 'Registrado'
+    };
+
+    const comprasCol = collection(firestore, 'compras');
+    addDocumentNonBlocking(comprasCol, dataToSave);
+    
     toast({
       title: "Compra registrada",
       description: `La compra con N° ${data.numeroDocumento} ha sido guardada.`,
@@ -90,8 +104,8 @@ export function CompraForm({ proveedores, insumos }: CompraFormProps) {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField name="proveedorId" control={form.control} render={({ field }) => (<FormItem><FormLabel>Proveedor</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un proveedor" /></SelectTrigger></FormControl><SelectContent>{proveedores.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-              <FormField name="fechaEmision" control={form.control} render={({ field }) => (<FormItem className="flex flex-col pt-2"><FormLabel>Fecha de Emisión</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+              <FormField name="proveedorId" control={form.control} render={({ field }) => (<FormItem><FormLabel>Proveedor</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un proveedor" /></SelectTrigger></FormControl><SelectContent>{proveedores?.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+              <FormField name="fecha" control={form.control} render={({ field }) => (<FormItem className="flex flex-col pt-2"><FormLabel>Fecha de Emisión</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <FormField name="tipoDocumento" control={form.control} render={({ field }) => (<FormItem><FormLabel>Tipo de Documento</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="Factura">Factura</SelectItem><SelectItem value="Nota de Crédito">Nota de Crédito</SelectItem><SelectItem value="Remisión">Remisión</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
@@ -107,7 +121,7 @@ export function CompraForm({ proveedores, insumos }: CompraFormProps) {
                     <div className="space-y-4">
                         {fields.map((field, index) => (
                             <div key={field.id} className="flex items-end gap-4 p-4 border rounded-md">
-                                <FormField name={`items.${index}.insumoId`} control={form.control} render={({ field }) => (<FormItem className="flex-1"><FormLabel>Insumo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl><SelectContent>{insumos.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                                <FormField name={`items.${index}.insumoId`} control={form.control} render={({ field }) => (<FormItem className="flex-1"><FormLabel>Insumo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl><SelectContent>{insumos?.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                                 <FormField name={`items.${index}.cantidad`} control={form.control} render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField name={`items.${index}.precioUnitario`} control={form.control} render={({ field }) => (<FormItem><FormLabel>Precio Unitario</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField name={`items.${index}.porcentajeIva`} control={form.control} render={({ field }) => (<FormItem><FormLabel>IVA</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="10">10%</SelectItem><SelectItem value="5">5%</SelectItem><SelectItem value="0">Exento</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />

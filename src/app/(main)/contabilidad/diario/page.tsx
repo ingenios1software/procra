@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Card,
@@ -16,16 +16,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useDataStore } from "@/store/data-store";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import type { AsientoDiario, PlanDeCuenta, CentroDeCosto } from '@/lib/types';
 
 export default function DiarioPage() {
-  const { asientosDiario, planDeCuentas, centrosDeCosto } = useDataStore();
+  const firestore = useFirestore();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const asientosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'asientosDiario'), orderBy('fecha', 'desc')) : null, [firestore]);
+  const { data: asientosDiario, isLoading: isLoadingAsientos } = useCollection<AsientoDiario>(asientosQuery);
+
+  const planDeCuentasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'planDeCuentas')) : null, [firestore]);
+  const { data: planDeCuentas, isLoading: isLoadingCuentas } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
+  
+  const centrosDeCostoQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'centrosDeCosto')) : null, [firestore]);
+  const { data: centrosDeCosto, isLoading: isLoadingCentros } = useCollection<CentroDeCosto>(centrosDeCostoQuery);
 
   const toggleRow = (id: string) => {
     const newSet = new Set(expandedRows);
@@ -38,9 +49,11 @@ export default function DiarioPage() {
   };
 
   const getCuentaNombre = (id: string) =>
-    planDeCuentas.find((c) => c.id === id)?.nombre || "N/A";
+    planDeCuentas?.find((c) => c.id === id)?.nombre || "N/A";
   const getCentroCostoNombre = (id: string) =>
-    centrosDeCosto.find((cc) => cc.id === id)?.nombre || "N/A";
+    centrosDeCosto?.find((cc) => cc.id === id)?.nombre || "N/A";
+
+  const isLoading = isLoadingAsientos || isLoadingCuentas || isLoadingCentros;
 
   return (
     <>
@@ -63,9 +76,8 @@ export default function DiarioPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {asientosDiario
-                .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-                .map((asiento) => {
+              {isLoading && <TableRow><TableCell colSpan={4} className="text-center">Cargando...</TableCell></TableRow>}
+              {asientosDiario?.map((asiento) => {
                   const isExpanded = expandedRows.has(asiento.id);
                   const total = asiento.movimientos
                     .filter((m) => m.tipo === "debe")

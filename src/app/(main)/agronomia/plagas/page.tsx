@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -39,33 +39,48 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PlagaForm } from "@/components/agronomia/plagas/plaga-form";
-import type { Plaga } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import type { Plaga, Cultivo } from "@/lib/types";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useDataStore } from "@/store/data-store";
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 
 export default function PlagasPage() {
-  const { plagas, cultivos, addPlaga, updatePlaga, deletePlaga } = useDataStore();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  
+  const plagasQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'plagas'), orderBy('nombre')) : null
+  , [firestore]);
+  const { data: plagas, isLoading: isLoadingPlagas } = useCollection<Plaga>(plagasQuery);
+
+  const cultivosQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'cultivos'), orderBy('nombre')) : null
+  , [firestore]);
+  const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
+  
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedPlaga, setSelectedPlaga] = useState<Plaga | null>(null);
   const { role } = useAuth();
-  const { toast } = useToast();
   const canModify = role === "admin" || role === "tecnicoCampo";
 
   const getCultivoNombres = (cultivoIds: string[]) => {
+    if (!cultivos) return "";
     return cultivoIds
       .map((id) => cultivos.find((c) => c.id === id)?.nombre)
       .filter(Boolean)
       .join(", ");
   };
 
-  const handleSave = (plagaData: Plaga) => {
+  const handleSave = (plagaData: Omit<Plaga, 'id'>) => {
+    if (!firestore) return;
     if (selectedPlaga) {
-      updatePlaga(plagaData);
+      const plagaRef = doc(firestore, 'plagas', selectedPlaga.id);
+      updateDocumentNonBlocking(plagaRef, plagaData);
       toast({ title: "Plaga actualizada", description: `La plaga "${plagaData.nombre}" ha sido actualizada.` });
     } else {
-      addPlaga(plagaData);
+      const plagasCol = collection(firestore, 'plagas');
+      addDocumentNonBlocking(plagasCol, plagaData);
       toast({ title: "Plaga creada", description: `La plaga "${plagaData.nombre}" ha sido creada.` });
     }
     setFormOpen(false);
@@ -73,8 +88,10 @@ export default function PlagasPage() {
   };
 
   const handleDelete = (id: string) => {
-    const plaga = plagas.find(p => p.id === id);
-    deletePlaga(id);
+    if (!firestore) return;
+    const plaga = plagas?.find(p => p.id === id);
+    const plagaRef = doc(firestore, 'plagas', id);
+    deleteDocumentNonBlocking(plagaRef);
     toast({ variant: "destructive", title: "Plaga eliminada", description: `La plaga "${plaga?.nombre}" ha sido eliminada.` });
   };
 
@@ -111,7 +128,12 @@ export default function PlagasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {plagas.map((plaga) => (
+              {(isLoadingPlagas || isLoadingCultivos) && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center">Cargando datos...</TableCell>
+                </TableRow>
+              )}
+              {plagas?.map((plaga) => (
                 <TableRow key={plaga.id}>
                   <TableCell className="font-medium">{plaga.nombre}</TableCell>
                   <TableCell>{plaga.descripcion}</TableCell>

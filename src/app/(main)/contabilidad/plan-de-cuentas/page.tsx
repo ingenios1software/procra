@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,14 +34,19 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PlanDeCuentasForm } from "@/components/contabilidad/plan-de-cuentas/plan-de-cuentas-form";
 import type { PlanDeCuenta } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { useDataStore } from "@/store/data-store";
+import { collection, doc, query, orderBy } from 'firebase/firestore';
+
 
 export default function PlanDeCuentasPage() {
-  const { planDeCuentas } = useDataStore();
-  const [cuentas, setCuentas] = useState(planDeCuentas);
+  const firestore = useFirestore();
+  const planDeCuentasQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'planDeCuentas'), orderBy('codigo')) : null
+  , [firestore]);
+  const { data: cuentas, isLoading } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
+
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedCuenta, setSelectedCuenta] = useState<PlanDeCuenta | null>(
     null
@@ -51,26 +56,23 @@ export default function PlanDeCuentasPage() {
   const canModify = role === "admin";
 
   const handleSave = (cuentaData: Omit<PlanDeCuenta, "id">) => {
+    if (!firestore) return;
+
     if (selectedCuenta) {
       // Update
-      const updatedCuenta = { ...selectedCuenta, ...cuentaData };
-      setCuentas((prev) =>
-        prev.map((c) => (c.id === updatedCuenta.id ? updatedCuenta : c))
-      );
+      const cuentaRef = doc(firestore, 'planDeCuentas', selectedCuenta.id);
+      updateDocumentNonBlocking(cuentaRef, cuentaData);
       toast({
         title: "Cuenta actualizada",
-        description: `La cuenta "${updatedCuenta.nombre}" ha sido actualizada.`,
+        description: `La cuenta "${cuentaData.nombre}" ha sido actualizada.`,
       });
     } else {
       // Create
-      const newCuenta: PlanDeCuenta = {
-        id: `cta-${Date.now()}`,
-        ...cuentaData,
-      };
-      setCuentas((prev) => [...prev, newCuenta]);
+      const cuentasCol = collection(firestore, 'planDeCuentas');
+      addDocumentNonBlocking(cuentasCol, cuentaData);
       toast({
         title: "Cuenta creada",
-        description: `La cuenta "${newCuenta.nombre}" ha sido creada.`,
+        description: `La cuenta "${cuentaData.nombre}" ha sido creada.`,
       });
     }
     setFormOpen(false);
@@ -78,8 +80,10 @@ export default function PlanDeCuentasPage() {
   };
 
   const handleDelete = (id: string) => {
+    if (!firestore || !cuentas) return;
     const cuenta = cuentas.find((c) => c.id === id);
-    setCuentas((prev) => prev.filter((c) => c.id !== id));
+    const cuentaRef = doc(firestore, 'planDeCuentas', id);
+    deleteDocumentNonBlocking(cuentaRef);
     toast({
       variant: "destructive",
       title: "Cuenta eliminada",
@@ -123,9 +127,8 @@ export default function PlanDeCuentasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cuentas
-                .sort((a, b) => a.codigo.localeCompare(b.codigo))
-                .map((cuenta) => (
+              {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
+              {cuentas?.map((cuenta) => (
                   <TableRow key={cuenta.id}>
                     <TableCell className="font-mono">{cuenta.codigo}</TableCell>
                     <TableCell className="font-medium">{cuenta.nombre}</TableCell>

@@ -30,7 +30,7 @@ export type Evento = {
   cultivoId: string;
   zafraId: string;
   tipo: 'siembra' | 'fertilización' | 'riego' | 'cosecha' | 'mantenimiento' | 'plagas' | 'aplicacion' | 'rendimiento';
-  fecha: Date;
+  fecha: Date | string;
   descripcion: string;
   resultado?: string;
   
@@ -137,7 +137,7 @@ export type Costo = {
     tipo: 'insumo' | 'maquinaria' | 'combustible' | 'mano de obra' | 'otros';
     descripcion: string;
     monto: number;
-    fecha: Date;
+    fecha: Date | string;
 };
 
 export type Venta = {
@@ -147,7 +147,7 @@ export type Venta = {
     zafraId: string;
     toneladas: number;
     precioTonelada: number;
-    fecha: Date;
+    fecha: Date | string;
     clienteId?: string;
 };
 
@@ -186,7 +186,7 @@ export type Cliente = {
 export type Compra = {
   id: string;
   proveedorId: string;
-  fecha: Date;
+  fecha: Date | string;
   numeroDocumento: string;
   tipoDocumento: 'Factura' | 'Nota de Crédito' | 'Remisión';
   condicion: 'Contado' | 'Crédito';
@@ -222,8 +222,8 @@ export type Empleado = {
   nombre: string;
   apellido: string;
   documento: string;
-  fechaNacimiento: Date;
-  fechaContratacion: Date;
+  fechaNacimiento: Date | string;
+  fechaContratacion: Date | string;
   puesto: string;
   salario: number;
   estado: 'activo' | 'inactivo' | 'de vacaciones';
@@ -235,7 +235,7 @@ export type Empleado = {
 export type Asistencia = {
   id: string;
   empleadoId: string;
-  fecha: Date;
+  fecha: Date | string;
   horaEntrada: string; // "HH:mm"
   horaSalida: string; // "HH:mm"
   observaciones?: string;
@@ -260,7 +260,7 @@ export type CentroDeCosto = {
 
 export type AsientoDiario = {
   id: string;
-  fecha: Date;
+  fecha: Date | string;
   descripcion: string;
   movimientos: {
     cuentaId: string;

@@ -34,8 +34,8 @@ const formSchema = z.object({
 type MaquinariaFormValues = z.infer<typeof formSchema>;
 
 interface MaquinariaFormProps {
-  maquinaria?: Maquinaria | null;
-  onSubmit: (data: Omit<Maquinaria, "id">) => void;
+  maquinaria?: Partial<Maquinaria> | null;
+  onSubmit: (data: MaquinariaFormValues) => void;
   onCancel: () => void;
 }
 

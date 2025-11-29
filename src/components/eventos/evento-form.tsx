@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,14 +11,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Evento, Insumo } from "@/lib/types";
+import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, Compra } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Cloud, Thermometer, Wind, Upload, File, Image as ImageIcon, PlusCircle, Trash2, DollarSign } from "lucide-react";
+import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
 import { useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useDataStore } from "@/store/data-store";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy } from 'firebase/firestore';
 
 const productoSchema = z.object({
   insumoId: z.string().nonempty("Debe seleccionar un insumo."),
@@ -60,7 +60,15 @@ interface EventoFormProps {
 
 export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { toast } = useToast();
-  const { parcelas, cultivos, zafras, eventos: todosLosEventos, etapasCultivo, insumos, compras } = useDataStore();
+  const firestore = useFirestore();
+
+  const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
+  const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
+  const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
+  const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
+  const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
+  const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? collection(firestore, 'insumos') : null, [firestore]));
+  const { data: compras } = useCollection<Compra>(useMemoFirebase(() => firestore ? collection(firestore, 'compras') : null, [firestore]));
 
   const form = useForm<EventoFormValues>({
     resolver: zodResolver(formSchema),
@@ -107,6 +115,8 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedCostoServicio = form.watch('costoServicioPorHa');
 
   const stockCalculado = useMemo(() => {
+    if (!insumos || !compras || !todosLosEventos) return {};
+
     const allEvents: (
       { type: 'entrada'; fecha: Date; insumoId: string; cantidad: number; costo: number; } |
       { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
@@ -152,7 +162,8 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   }, [insumos, compras, todosLosEventos]);
 
   const insumosConStock = useMemo(() => {
-    return insumos.filter(insumo => stockCalculado[insumo.id]?.stock > 0);
+    if (!insumos) return [];
+    return insumos.filter(insumo => (stockCalculado[insumo.id]?.stock || 0) > 0);
   }, [insumos, stockCalculado]);
 
   useEffect(() => {
@@ -169,6 +180,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   }, [watchedHectareas, watchedProductos, form]);
   
   const totalCostoEvento = useMemo(() => {
+    if (!insumos) return 0;
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
         const insumo = insumos.find(i => i.id === prod.insumoId);
         const costoUnitario = insumo?.costoUnitario || 0;
@@ -182,9 +194,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
   const analisisProps = useMemo(() => ({
     eventoActual: { ...form.getValues(), fecha: watchedFecha } as Evento,
-    todosLosEventos: todosLosEventos,
-    zafras: zafras,
-    etapasCultivo: etapasCultivo,
+    todosLosEventos: todosLosEventos || [],
+    zafras: zafras || [],
+    etapasCultivo: etapasCultivo || [],
   }), [watchedParcelaId, watchedCultivoId, watchedZafraId, watchedFecha, form, todosLosEventos, zafras, etapasCultivo]);
 
 
@@ -199,6 +211,10 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         description: `El evento "${data.descripcion}" ha sido guardado con un costo de $${totalCostoEvento.toLocaleString('en-US')}.`,
     });
   };
+
+  if (!parcelas || !cultivos || !zafras || !etapasCultivo || !insumos) {
+    return <p>Cargando datos maestros...</p>;
+  }
 
   return (
     <>
@@ -320,23 +336,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
               )}
               
               <FormField control={form.control} name="resultado" render={({ field }) => (<FormItem><FormLabel>Resultado/Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones sobre el resultado de la labor..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-              
-               <div>
-                <FormLabel>Adjuntos</FormLabel>
-                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-input px-6 py-10">
-                  <div className="text-center">
-                    <ImageIcon className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
-                    <div className="mt-4 flex text-sm leading-6 text-gray-600">
-                      <label htmlFor="file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-primary focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 hover:text-primary/80">
-                        <span>Subir un archivo</span>
-                        <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple />
-                      </label>
-                      <p className="pl-1">o arrastrar y soltar</p>
-                    </div>
-                    <p className="text-xs leading-5 text-gray-600">Imágenes o PDF de hasta 10MB.</p>
-                  </div>
-                </div>
-              </div>
 
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>

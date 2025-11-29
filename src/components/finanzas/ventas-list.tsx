@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
@@ -10,26 +9,40 @@ import { MoreHorizontal, PlusCircle, TrendingUp, Download, Package } from "lucid
 import { PageHeader } from "@/components/shared/page-header";
 import { VentaForm } from "./venta-form";
 import type { Venta, Parcela, Zafra, Cultivo, Cliente } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 
-interface VentasListProps {
-  initialVentas: Venta[];
-  parcelas: Parcela[];
-  zafras: Zafra[];
-  cultivos: Cultivo[];
-  clientes: Cliente[];
-}
 
-export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes }: VentasListProps) {
-  const [ventas, setVentas] = useState(initialVentas);
+export function VentasList() {
+  const firestore = useFirestore();
+  
+  const ventasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas'), orderBy('fecha', 'desc')) : null, [firestore]);
+  const { data: ventas, isLoading: isLoadingVentas } = useCollection<Venta>(ventasQuery);
+
+  const parcelasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]);
+  const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(parcelasQuery);
+  
+  const zafrasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]);
+  const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(zafrasQuery);
+
+  const cultivosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]);
+  const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
+  
+  const clientesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'clientes')) : null, [firestore]);
+  const { data: clientes, isLoading: isLoadingClientes } = useCollection<Cliente>(clientesQuery);
+
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
   const { role } = useAuth();
   const canModify = role === 'admin' || role === 'gerente';
 
+  const isLoading = isLoadingVentas || isLoadingParcelas || isLoadingZafras || isLoadingCultivos || isLoadingClientes;
+
   const { totalIngresos, rendimientoPorParcela } = useMemo(() => {
+    if (!ventas || !parcelas) return { totalIngresos: 0, rendimientoPorParcela: [] };
+
     const totalIngresos = ventas.reduce((acc, venta) => acc + (venta.toneladas * venta.precioTonelada), 0);
 
     const rendimientoPorParcela = parcelas.map(parcela => {
@@ -45,16 +58,19 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes
     return { totalIngresos, rendimientoPorParcela };
   }, [ventas, parcelas]);
 
-  const handleSave = useCallback((ventaData: Venta) => {
-    const dataToSave = { ...ventaData, fecha: new Date(ventaData.fecha) };
-    if (selectedVenta) {
-      setVentas(prev => prev.map(v => v.id === dataToSave.id ? dataToSave : v));
+  const handleSave = useCallback((ventaData: Omit<Venta, 'id'>) => {
+    if (!firestore) return;
+    const dataToSave = { ...ventaData, fecha: (ventaData.fecha as Date).toISOString() };
+    if (selectedVenta?.id) {
+      const ventaRef = doc(firestore, 'ventas', selectedVenta.id);
+      updateDocumentNonBlocking(ventaRef, dataToSave);
     } else {
-      setVentas(prev => [...prev, { ...dataToSave, id: `venta${prev.length + 1}` }]);
+      const ventasCol = collection(firestore, 'ventas');
+      addDocumentNonBlocking(ventasCol, dataToSave);
     }
     setDialogOpen(false);
     setSelectedVenta(null);
-  }, [selectedVenta]);
+  }, [selectedVenta, firestore]);
   
   const openDialog = useCallback((venta?: Venta) => {
     setSelectedVenta(venta || null);
@@ -71,8 +87,13 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes
   };
 
   const getClienteNombre = (id?: string) => {
-    if (!id) return 'N/A';
+    if (!id || !clientes) return 'N/A';
     return clientes.find(c => c.id === id)?.nombre || 'N/A';
+  }
+  
+  const getCultivoNombre = (id: string) => {
+    if (!cultivos) return 'N/A';
+    return cultivos.find(c => c.id === id)?.nombre || 'N/A';
   }
 
   return (
@@ -142,14 +163,14 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ventas.map((venta) => {
-                const cultivo = cultivos.find(c => c.id === venta.cultivoId);
+              {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
+              {ventas?.map((venta) => {
                 const total = venta.toneladas * venta.precioTonelada;
                 return (
                   <TableRow key={venta.id}>
                     <TableCell>{format(new Date(venta.fecha), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{getClienteNombre(venta.clienteId)}</TableCell>
-                    <TableCell className="font-medium">{cultivo?.nombre || 'N/A'}</TableCell>
+                    <TableCell className="font-medium">{getCultivoNombre(venta.cultivoId)}</TableCell>
                     <TableCell>{venta.toneladas} tn</TableCell>
                     <TableCell>${venta.precioTonelada.toLocaleString('en-US')}</TableCell>
                     <TableCell className="text-right font-semibold">${total.toLocaleString('en-US')}</TableCell>
@@ -177,15 +198,13 @@ export function VentasList({ initialVentas, parcelas, zafras, cultivos, clientes
             venta={selectedVenta}
             onSubmit={handleSave}
             onCancel={closeDialog}
-            parcelas={parcelas}
-            cultivos={cultivos}
-            zafras={zafras}
-            clientes={clientes}
+            parcelas={parcelas || []}
+            cultivos={cultivos || []}
+            zafras={zafras || []}
+            clientes={clientes || []}
           />
         </DialogContent>
       </Dialog>
     </>
   );
 }
-
-    

@@ -2,12 +2,26 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { ClienteForm } from "@/components/comercial/clientes/cliente-form";
-import { mockClientes } from "@/lib/mock-data";
+import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { doc } from 'firebase/firestore';
 import { notFound } from "next/navigation";
+import type { Cliente } from '@/lib/types';
+
 
 export default function EditarClientePage({ params }: { params: { id: string } }) {
-  const cliente = mockClientes.find(c => c.id === params.id);
+  const firestore = useFirestore();
+  
+  const clienteRef = useMemoFirebase(() => {
+    if (!firestore || !params.id) return null;
+    return doc(firestore, 'clientes', params.id);
+  }, [firestore, params.id]);
 
+  const { data: cliente, isLoading } = useDoc<Cliente>(clienteRef);
+
+  if (isLoading) {
+    return <div>Cargando cliente...</div>
+  }
+  
   if (!cliente) {
     notFound();
   }
@@ -18,7 +32,7 @@ export default function EditarClientePage({ params }: { params: { id: string } }
         title="Editar Cliente"
         description={`Editando los detalles de ${cliente.nombre}.`}
       />
-      <ClienteForm cliente={cliente} />
+      <ClienteForm cliente={{...cliente, id: params.id}} />
     </>
   );
 }

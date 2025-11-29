@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
@@ -9,8 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Insumo } from "@/lib/types";
-import { useAuth, useCollection, useFirestore } from "@/firebase";
+import type { Insumo, Compra, Evento } from "@/lib/types";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { InsumoForm } from "./insumo-form";
 import {
   Tooltip,
@@ -23,34 +22,21 @@ import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { collection, query, orderBy } from "firebase/firestore";
+import { collection, query, orderBy, doc } from "firebase/firestore";
 
-
-interface StockListProps {
-}
-
-export function StockList({}: StockListProps) {
+export function StockList() {
   const { role } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const insumosQuery = useMemo(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'insumos'), orderBy('nombre'));
-  }, [firestore]);
+  const insumosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos'), orderBy('nombre')) : null, [firestore]);
   const { data: insumos = [] } = useCollection<Insumo>(insumosQuery);
 
-  const comprasQuery = useMemo(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'compras'), orderBy('fecha'));
-  }, [firestore]);
-  const { data: compras = [] } = useCollection<any>(comprasQuery);
+  const comprasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'compras'), orderBy('fecha')) : null, [firestore]);
+  const { data: compras = [] } = useCollection<Compra>(comprasQuery);
   
-  const eventosQuery = useMemo(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'eventos'), orderBy('fecha'));
-  }, [firestore]);
-  const { data: eventos = [] } = useCollection<any>(eventosQuery);
+  const eventosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha')) : null, [firestore]);
+  const { data: eventos = [] } = useCollection<Evento>(eventosQuery);
 
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedInsumo, setSelectedInsumo] = useState<Insumo | null>(null);
@@ -77,7 +63,6 @@ export function StockList({}: StockListProps) {
     // Añadir stock inicial como la primera entrada para cada insumo
     insumos.forEach(insumo => {
         if (insumo.stockActual > 0) {
-            // Usamos una fecha muy antigua para asegurar que sea el primer evento
             allEvents.push({ type: 'entrada', fecha: new Date('2000-01-01'), insumoId: insumo.id, cantidad: insumo.stockActual, costo: insumo.costoUnitario });
         }
     });
@@ -96,22 +81,18 @@ export function StockList({}: StockListProps) {
         });
     });
     
-    // Ordenar todos los movimientos por fecha
     allEvents.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
 
-    // 2. Procesar movimientos para cada insumo
     const calculatedInsumos = insumos.map(insumo => {
         let currentStock = 0;
         let totalValue = 0;
         let entradaTotal = 0;
         let salidaTotal = 0;
 
-        // Filtrar movimientos para el insumo actual
         const insumoMovements = allEvents.filter(e => e.insumoId === insumo.id);
         
         insumoMovements.forEach(mov => {
             if (mov.type === 'entrada') {
-                // Si el stock es cero, el nuevo promedio es simplemente el costo de esta entrada
                 if (currentStock === 0) {
                     totalValue = mov.cantidad * mov.costo;
                 } else {
@@ -124,16 +105,14 @@ export function StockList({}: StockListProps) {
                 currentStock -= mov.cantidad;
                 salidaTotal += mov.cantidad;
 
-                // El valor del inventario disminuye en proporción al costo promedio
                 if (stockAntesSalida > 0) {
                     const avgCost = totalValue / stockAntesSalida;
                     totalValue -= mov.cantidad * avgCost;
                 }
 
-                // Congelar y reiniciar si el stock llega a cero
                 if (currentStock <= 0) {
                     totalValue = 0;
-                    currentStock = 0; // Asegurarse de que no sea negativo
+                    currentStock = 0;
                 }
             }
         });
@@ -175,13 +154,22 @@ export function StockList({}: StockListProps) {
   const totalStockValue = useMemo(() => filteredStockData.reduce((sum, item) => sum + item.valorStock, 0), [filteredStockData]);
   const itemsBajoMinimo = useMemo(() => filteredStockData.filter(item => item.stockFinal < item.stockMinimo).length, [filteredStockData]);
   
-  const categoriasUnicas = [...new Set(insumos.map(i => i.categoria))];
+  const categoriasUnicas = useMemo(() => [...new Set(insumos.map(i => i.categoria))], [insumos]);
 
-  const handleSaveInsumo = useCallback((insumoData: Insumo) => {
-    // Logic to save insumo to Firestore
+  const handleSaveInsumo = useCallback((insumoData: Omit<Insumo, 'id'>) => {
+    if (!firestore) return;
+    if (selectedInsumo) {
+      const insumoRef = doc(firestore, 'insumos', selectedInsumo.id);
+      updateDocumentNonBlocking(insumoRef, insumoData);
+      toast({ title: "Insumo actualizado" });
+    } else {
+      const insumosCol = collection(firestore, 'insumos');
+      addDocumentNonBlocking(insumosCol, insumoData);
+      toast({ title: "Insumo creado" });
+    }
     setDialogOpen(false);
     setSelectedInsumo(null);
-  }, [selectedInsumo]);
+  }, [selectedInsumo, firestore, toast]);
 
   const openDialog = useCallback((insumo?: Insumo) => {
     setSelectedInsumo(insumo || null);
@@ -198,6 +186,7 @@ export function StockList({}: StockListProps) {
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!firestore) return;
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -220,8 +209,8 @@ export function StockList({}: StockListProps) {
             return undefined;
         };
 
-        const nuevosInsumos: Insumo[] = json.map((row, index) => ({
-          id: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        const insumosCol = collection(firestore, 'insumos');
+        const nuevosInsumos: Omit<Insumo, 'id'>[] = json.map((row) => ({
           nombre: getColumnValue(row, 'NOMBRE') || 'Sin Nombre',
           categoria: getColumnValue(row, 'CATEGORIA') || 'otros',
           unidad: getColumnValue(row, 'Unid') || 'unidad',
@@ -233,8 +222,7 @@ export function StockList({}: StockListProps) {
           proveedor: getColumnValue(row, 'proveedor'),
         }));
         
-        // Here you would add the new insumos to firestore
-        // addMultipleDocs('insumos', nuevosInsumos);
+        nuevosInsumos.forEach(insumo => addDocumentNonBlocking(insumosCol, insumo));
 
         toast({
           title: "Importación exitosa",
@@ -249,10 +237,7 @@ export function StockList({}: StockListProps) {
           description: "No se pudo leer el archivo. Asegúrese de que sea un formato válido.",
         });
       } finally {
-        // Reset file input
-        if(fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
+        if(fileInputRef.current) fileInputRef.current.value = '';
       }
     };
     reader.readAsArrayBuffer(file);
@@ -285,7 +270,7 @@ export function StockList({}: StockListProps) {
         )}
       </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Valor Total del Stock</CardTitle>

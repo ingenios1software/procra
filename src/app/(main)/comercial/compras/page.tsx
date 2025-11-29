@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,7 @@ import { PlusCircle, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useDataStore } from "@/store/data-store";
-import type { Compra } from "@/lib/types";
+import type { Compra, Proveedor } from "@/lib/types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -20,13 +19,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+
 
 export default function ComprasPage() {
-  const { compras, proveedores } = useDataStore();
-  const [comprasState, setCompras] = useState(compras);
   const router = useRouter();
+  const firestore = useFirestore();
+
+  const comprasQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'compras'), orderBy('fecha', 'desc')) : null
+  , [firestore]);
+  const { data: compras, isLoading: isLoadingCompras } = useCollection<Compra>(comprasQuery);
+
+  const proveedoresQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'proveedores')) : null
+  , [firestore]);
+  const { data: proveedores, isLoading: isLoadingProveedores } = useCollection<Proveedor>(proveedoresQuery);
 
   const getProveedorNombre = (id: string) => {
+    if (!proveedores) return 'N/A';
     return proveedores.find(p => p.id === id)?.nombre || 'N/A';
   }
 
@@ -69,7 +81,8 @@ export default function ComprasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {comprasState.map((compra) => (
+              {(isLoadingCompras || isLoadingProveedores) && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
+              {compras?.map((compra) => (
                 <TableRow key={compra.id}>
                   <TableCell>{format(new Date(compra.fecha), "dd/MM/yyyy")}</TableCell>
                   <TableCell>

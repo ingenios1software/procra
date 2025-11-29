@@ -1,13 +1,23 @@
 "use client";
 
 import { RolesList } from "@/components/roles/roles-list";
-import { useDataStore } from "@/store/data-store";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query } from 'firebase/firestore';
+import type { Rol } from '@/lib/types';
 
 export default function RolesPage() {
-  const { roles } = useDataStore();
+  const firestore = useFirestore();
+  
+  const rolesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'roles')) : null, [firestore]);
+  const { data: roles, isLoading } = useCollection<Rol>(rolesQuery);
+
+  if (isLoading) {
+    return <p>Cargando roles...</p>
+  }
+  
   return (
     <RolesList 
-      initialRoles={roles}
+      initialRoles={roles || []}
     />
   );
 }

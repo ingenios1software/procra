@@ -22,7 +22,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { EtapaCultivo, Cultivo } from "@/lib/types";
-import { useDataStore } from "@/store/data-store";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy } from 'firebase/firestore';
+import React from "react";
 
 const formSchema = z.object({
   cultivoId: z.string().min(1, "Debe seleccionar un cultivo."),
@@ -36,8 +38,8 @@ const formSchema = z.object({
 type EtapaCultivoFormValues = z.infer<typeof formSchema>;
 
 interface EtapaCultivoFormProps {
-  etapa?: EtapaCultivo | null;
-  onSubmit: (data: EtapaCultivo) => void;
+  etapa?: Partial<EtapaCultivo> | null;
+  onSubmit: (data: any) => void;
   onCancel: () => void;
 }
 
@@ -46,7 +48,12 @@ export function EtapaCultivoForm({
   onSubmit,
   onCancel,
 }: EtapaCultivoFormProps) {
-  const { cultivos } = useDataStore();
+  const firestore = useFirestore();
+  const cultivosQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'cultivos'), orderBy('nombre'));
+  }, [firestore]);
+  const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
   
   const form = useForm<EtapaCultivoFormValues>({
     resolver: zodResolver(formSchema),
@@ -62,7 +69,6 @@ export function EtapaCultivoForm({
 
   const handleSubmit = (data: EtapaCultivoFormValues) => {
     onSubmit({
-      id: etapa?.id || "",
       ...data
     })
   }
@@ -83,7 +89,7 @@ export function EtapaCultivoForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {cultivos.map((cultivo) => (
+                  {cultivos?.map((cultivo) => (
                     <SelectItem key={cultivo.id} value={cultivo.id}>
                       {cultivo.nombre}
                     </SelectItem>
@@ -172,7 +178,7 @@ export function EtapaCultivoForm({
             Cancelar
           </Button>
           <Button type="submit">
-            {etapa ? "Guardar Cambios" : "Crear Etapa"}
+            {etapa?.id ? "Guardar Cambios" : "Crear Etapa"}
           </Button>
         </div>
       </form>

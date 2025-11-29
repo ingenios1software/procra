@@ -2,13 +2,27 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { ClienteForm } from "@/components/comercial/clientes/cliente-form";
-import { useDataStore } from "@/store/data-store";
+import { useDoc, useFirestore } from "@/firebase";
+import { doc } from 'firebase/firestore';
 import { notFound } from "next/navigation";
+import { useMemo } from 'react';
+import type { Cliente } from '@/lib/types';
+
 
 export default function EditarClientePage({ params }: { params: { id: string } }) {
-  const { clientes } = useDataStore();
-  const cliente = clientes.find(c => c.id === params.id);
+  const firestore = useFirestore();
+  
+  const clienteRef = useMemo(() => {
+    if (!firestore || !params.id) return null;
+    return doc(firestore, 'clientes', params.id);
+  }, [firestore, params.id]);
 
+  const { data: cliente, isLoading } = useDoc<Cliente>(clienteRef);
+
+  if (isLoading) {
+    return <div>Cargando...</div>
+  }
+  
   if (!cliente) {
     notFound();
   }
@@ -19,7 +33,7 @@ export default function EditarClientePage({ params }: { params: { id: string } }
         title="Editar Cliente"
         description={`Editando los detalles de ${cliente.nombre}.`}
       />
-      <ClienteForm cliente={cliente} />
+      <ClienteForm cliente={{...cliente, id: params.id}} />
     </>
   );
 }

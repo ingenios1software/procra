@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,7 +44,7 @@ const formSchema = z.object({
 type EmpleadoFormValues = z.infer<typeof formSchema>;
 
 interface EmpleadoFormProps {
-  empleado?: Empleado | null;
+  empleado?: Partial<Empleado> | null;
   onSubmit: (data: Omit<Empleado, "id">) => void;
   onCancel: () => void;
 }
@@ -59,8 +58,8 @@ export function EmpleadoForm({
     resolver: zodResolver(formSchema),
     defaultValues: empleado ? {
         ...empleado,
-        fechaNacimiento: new Date(empleado.fechaNacimiento),
-        fechaContratacion: new Date(empleado.fechaContratacion),
+        fechaNacimiento: new Date(empleado.fechaNacimiento as string),
+        fechaContratacion: new Date(empleado.fechaContratacion as string),
     } : {
       nombre: "",
       apellido: "",
@@ -71,9 +70,17 @@ export function EmpleadoForm({
     },
   });
 
+  const handleSubmit = (data: EmpleadoFormValues) => {
+    onSubmit({
+      ...data,
+      fechaNacimiento: data.fechaNacimiento.toISOString(),
+      fechaContratacion: data.fechaContratacion.toISOString(),
+    })
+  }
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -231,12 +238,10 @@ export function EmpleadoForm({
             Cancelar
           </Button>
           <Button type="submit">
-            {empleado ? "Guardar Cambios" : "Crear Empleado"}
+            {empleado?.id ? "Guardar Cambios" : "Crear Empleado"}
           </Button>
         </div>
       </form>
     </Form>
   );
 }
-
-    

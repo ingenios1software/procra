@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,34 +44,49 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { EtapaCultivoForm } from "@/components/agronomia/etapas-cultivo/etapa-cultivo-form";
-import type { EtapaCultivo } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import type { EtapaCultivo, Cultivo } from "@/lib/types";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useDataStore } from "@/store/data-store";
+import { collection, query, orderBy, doc } from 'firebase/firestore';
+
 
 export default function EtapasCultivoPage() {
-  const { etapasCultivo, cultivos, addEtapaCultivo, updateEtapaCultivo, deleteEtapaCultivo } = useDataStore();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const etapasCultivoQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'etapasCultivo'), orderBy('orden')) : null
+  , [firestore]);
+  const { data: etapasCultivo, isLoading: isLoadingEtapas } = useCollection<EtapaCultivo>(etapasCultivoQuery);
+  
+  const cultivosQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'cultivos'), orderBy('nombre')) : null
+  , [firestore]);
+  const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
 
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEtapa, setSelectedEtapa] = useState<EtapaCultivo | null>(null);
   const { role } = useAuth();
-  const { toast } = useToast();
   const canModify = role === "admin" || role === "tecnicoCampo";
 
   const getCultivoNombre = (cultivoId: string) => {
-    return cultivos.find((c) => c.id === cultivoId)?.nombre || "N/A";
+    return cultivos?.find((c) => c.id === cultivoId)?.nombre || "N/A";
   };
 
-  const handleSave = (etapaData: EtapaCultivo) => {
+  const handleSave = (etapaData: Omit<EtapaCultivo, 'id'>) => {
+    if (!firestore) return;
+
     if (selectedEtapa) {
-      updateEtapaCultivo(etapaData);
+      const etapaRef = doc(firestore, "etapasCultivo", selectedEtapa.id);
+      updateDocumentNonBlocking(etapaRef, etapaData);
       toast({
         title: "Etapa actualizada",
         description: `La etapa "${etapaData.nombre}" ha sido actualizada.`,
       });
     } else {
-      addEtapaCultivo(etapaData);
+      const etapasCultivoCol = collection(firestore, 'etapasCultivo');
+      addDocumentNonBlocking(etapasCultivoCol, etapaData);
       toast({
         title: "Etapa creada",
         description: `La etapa "${etapaData.nombre}" ha sido creada.`,
@@ -82,8 +97,10 @@ export default function EtapasCultivoPage() {
   };
 
   const handleDelete = (id: string) => {
-    const etapa = etapasCultivo.find((e) => e.id === id);
-    deleteEtapaCultivo(id);
+    if (!firestore) return;
+    const etapa = etapasCultivo?.find((e) => e.id === id);
+    const etapaRef = doc(firestore, "etapasCultivo", id);
+    deleteDocumentNonBlocking(etapaRef);
     toast({
       variant: "destructive",
       title: "Etapa eliminada",
@@ -127,7 +144,12 @@ export default function EtapasCultivoPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {etapasCultivo.map((etapa) => (
+              {(isLoadingEtapas || isLoadingCultivos) && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">Cargando datos...</TableCell>
+                </TableRow>
+              )}
+              {etapasCultivo?.map((etapa) => (
                 <TableRow key={etapa.id}>
                   <TableCell>
                     <Badge variant="secondary">{getCultivoNombre(etapa.cultivoId)}</Badge>

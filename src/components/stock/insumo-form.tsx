@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,7 +31,7 @@ const formSchema = z.object({
   principioActivo: z.string().optional(),
   unidad: z.enum(['kg', 'lt', 'unidad']),
   dosisRecomendada: z.coerce.number().optional(),
-  costoUnitario: z.coerce.number().positive("El costo debe ser un número positivo."),
+  costoUnitario: z.coerce.number().min(0, "El costo no puede ser negativo."),
   stockActual: z.coerce.number().min(0, "El stock no puede ser negativo.").describe("Este es el stock inicial o de entrada."),
   stockMinimo: z.coerce.number().min(0, "El stock mínimo no puede ser negativo."),
   proveedor: z.string().optional(),
@@ -41,8 +40,8 @@ const formSchema = z.object({
 type InsumoFormValues = z.infer<typeof formSchema>;
 
 interface InsumoFormProps {
-  insumo?: Insumo | null;
-  onSubmit: (data: Insumo) => void;
+  insumo?: Partial<Insumo> | null;
+  onSubmit: (data: InsumoFormValues) => void;
   onCancel: () => void;
 }
 
@@ -62,16 +61,9 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
     },
   });
 
-  const handleSubmit = (data: InsumoFormValues) => {
-    onSubmit({
-      id: insumo?.id || "",
-      ...data,
-    });
-  };
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="nombre"
@@ -228,7 +220,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button type="submit">{insumo ? "Guardar Cambios" : "Crear Insumo"}</Button>
+          <Button type="submit">{insumo?.id ? "Guardar Cambios" : "Crear Insumo"}</Button>
         </div>
       </form>
     </Form>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -28,8 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { MoreHorizontal, PlusCircle, TriangleAlert, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import type { Evento } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -46,14 +45,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { EventoForm } from "./evento-form";
-import { useDataStore } from "@/store/data-store";
+import { collection, doc, query, orderBy } from "firebase/firestore";
 
 
 export function EventosList() {
   const { role } = useAuth();
   const canModify = role === "admin" || role === "operador" || role === 'tecnicoCampo';
   
-  const { eventos, parcelas, zafras, cultivos, addEvento, updateEvento } = useDataStore();
+  const firestore = useFirestore();
+  const { data: eventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha', 'desc')) : null, [firestore]));
+  const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
+  const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
+  const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
   
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
@@ -72,28 +75,38 @@ export function EventosList() {
   };
 
   const filteredEventos = useMemo(() => {
+    if (!eventos) return [];
     return eventos.filter((evento) => {
       return (
         (filters.tipo ? evento.tipo === filters.tipo : true) &&
         (filters.parcelaId ? evento.parcelaId === filters.parcelaId : true) &&
         (filters.zafraId ? evento.zafraId === filters.zafraId : true)
       );
-    }).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    });
   }, [eventos, filters]);
 
-  const eventTypes = [...new Set(eventos.map((e) => e.tipo))];
+  const eventTypes = useMemo(() => {
+    if (!eventos) return [];
+    return [...new Set(eventos.map((e) => e.tipo))];
+  }, [eventos]);
+
 
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
 
   const handleSave = (eventoData: Omit<Evento, 'id'>) => {
-      if (selectedEvento) {
-          updateEvento({ ...eventoData, id: selectedEvento.id });
-      } else {
-          addEvento(eventoData);
-      }
-      closeForm();
+    if (!firestore) return;
+    const dataToSave = {...eventoData, fecha: (eventoData.fecha as Date).toISOString() };
+
+    if (selectedEvento) {
+        const eventoRef = doc(firestore, 'eventos', selectedEvento.id);
+        updateDocumentNonBlocking(eventoRef, dataToSave);
+    } else {
+        const eventosCol = collection(firestore, 'eventos');
+        addDocumentNonBlocking(eventosCol, dataToSave);
+    }
+    closeForm();
   };
 
   const openForm = (evento?: Evento) => {
@@ -161,7 +174,7 @@ export function EventosList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las parcelas</SelectItem>
-                {parcelas.map((p) => (
+                {parcelas?.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.nombre}
                   </SelectItem>
@@ -179,7 +192,7 @@ export function EventosList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las zafras</SelectItem>
-                {zafras.map((z) => (
+                {zafras?.map((z) => (
                   <SelectItem key={z.id} value={z.id}>
                     {z.nombre}
                   </SelectItem>
@@ -203,8 +216,8 @@ export function EventosList() {
               </TableHeader>
               <TableBody>
                 {filteredEventos.map((evento) => {
-                  const parcela = parcelas.find((p) => p.id === evento.parcelaId);
-                  const cultivo = cultivos.find((c) => c.id === evento.cultivoId);
+                  const parcela = parcelas?.find((p) => p.id === evento.parcelaId);
+                  const cultivo = cultivos?.find((c) => c.id === evento.cultivoId);
                   const showAlert =
                     evento.productos && evento.productos.length > 0 && !evento.costoTotal;
 

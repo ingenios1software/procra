@@ -17,7 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Plaga, Cultivo } from "@/lib/types";
-import { useDataStore } from "@/store/data-store";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy } from 'firebase/firestore';
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre es muy corto."),
@@ -32,8 +33,8 @@ const formSchema = z.object({
 type PlagaFormValues = z.infer<typeof formSchema>;
 
 interface PlagaFormProps {
-  plaga?: Plaga | null;
-  onSubmit: (data: Plaga) => void;
+  plaga?: Partial<Plaga> | null;
+  onSubmit: (data: any) => void;
   onCancel: () => void;
 }
 
@@ -42,7 +43,12 @@ export function PlagaForm({
   onSubmit,
   onCancel,
 }: PlagaFormProps) {
-  const { cultivos } = useDataStore();
+  const firestore = useFirestore();
+  const cultivosQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'cultivos'), orderBy('nombre'));
+  }, [firestore]);
+  const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
   
   const form = useForm<PlagaFormValues>({
     resolver: zodResolver(formSchema),
@@ -54,10 +60,7 @@ export function PlagaForm({
   });
 
   const handleSubmit = (data: PlagaFormValues) => {
-    onSubmit({
-      id: plaga?.id || "",
-      ...data
-    })
+    onSubmit(data);
   }
 
   return (
@@ -107,7 +110,7 @@ export function PlagaForm({
                 </FormDescription>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                {cultivos.map((cultivo) => (
+                {cultivos?.map((cultivo) => (
                   <FormField
                     key={cultivo.id}
                     control={form.control}
@@ -124,7 +127,7 @@ export function PlagaForm({
                               onCheckedChange={(checked) => {
                                 return checked
                                   ? field.onChange([
-                                      ...field.value,
+                                      ...(field.value || []),
                                       cultivo.id,
                                     ])
                                   : field.onChange(
@@ -153,7 +156,7 @@ export function PlagaForm({
             Cancelar
           </Button>
           <Button type="submit">
-            {plaga ? "Guardar Cambios" : "Crear Plaga"}
+            {plaga?.id ? "Guardar Cambios" : "Crear Plaga"}
           </Button>
         </div>
       </form>

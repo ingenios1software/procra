@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,22 +9,27 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { MoreHorizontal, PlusCircle, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Cliente } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 
-interface ClientesListProps {
-  initialClientes: Cliente[];
-}
 
-export function ClientesList({ initialClientes }: ClientesListProps) {
-  const [clientes, setClientes] = useState(initialClientes);
+export function ClientesList() {
+  const firestore = useFirestore();
+  const clientesQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'clientes'), orderBy('nombre')) : null
+  , [firestore]);
+  const { data: clientes, isLoading } = useCollection<Cliente>(clientesQuery);
+
   const { role } = useAuth();
   const canModify = role === 'admin' || role === 'gerente';
 
   const handleToggleActive = (id: string) => {
-    setClientes(prev =>
-      prev.map(c => (c.id === id ? { ...c, activo: !c.activo } : c))
-    );
+    if (!firestore || !clientes) return;
+    const cliente = clientes.find(c => c.id === id);
+    if (!cliente) return;
+    const clienteRef = doc(firestore, 'clientes', id);
+    updateDocumentNonBlocking(clienteRef, { activo: !cliente.activo });
   };
   
   const handleExportPDF = () => {
@@ -70,7 +75,8 @@ export function ClientesList({ initialClientes }: ClientesListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clientes.map((cliente) => (
+              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
+              {clientes?.map((cliente) => (
                 <TableRow key={cliente.id}>
                   <TableCell className="font-medium">{cliente.nombre}</TableCell>
                   <TableCell>{cliente.ruc}</TableCell>
@@ -93,7 +99,7 @@ export function ClientesList({ initialClientes }: ClientesListProps) {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                           <DropdownMenuItem asChild>
-                            <Link href={`/comercial/clientes/${cliente.id}/editar`}>Editar</Link>
+                            <Link href={`/comercial/clientes/editar/${cliente.id}`}>Editar</Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleToggleActive(cliente.id)}>
                             {cliente.activo ? 'Desactivar' : 'Activar'}

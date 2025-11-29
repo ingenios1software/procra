@@ -28,8 +28,8 @@ const formSchema = z.object({
 type VentaFormValues = z.infer<typeof formSchema>;
 
 interface VentaFormProps {
-  venta?: Venta | null;
-  onSubmit: (data: Venta) => void;
+  venta?: Partial<Venta> | null;
+  onSubmit: (data: Omit<Venta, 'id'>) => void;
   onCancel: () => void;
   parcelas: Parcela[];
   cultivos: Cultivo[];
@@ -42,22 +42,16 @@ export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cult
     resolver: zodResolver(formSchema),
     defaultValues: venta ? {
       ...venta,
+      fecha: new Date(venta.fecha as string),
       precioTonelada: venta.precioTonelada
     } : {
       fecha: new Date(),
     },
   });
 
-  const handleSubmit = (data: VentaFormValues) => {
-    onSubmit({
-      id: venta?.id || "",
-      ...data,
-    });
-  };
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
            <FormField control={form.control} name="clienteId" render={({ field }) => ( <FormItem> <FormLabel>Cliente</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl> <SelectContent>{clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
            <FormField control={form.control} name="cultivoId" render={({ field }) => ( <FormItem> <FormLabel>Cultivo</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cultivo" /></SelectTrigger></FormControl> <SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
@@ -116,7 +110,7 @@ export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cult
         
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-          <Button type="submit">{venta ? "Guardar Cambios" : "Crear Venta"}</Button>
+          <Button type="submit">{venta?.id ? "Guardar Cambios" : "Crear Venta"}</Button>
         </div>
       </form>
     </Form>

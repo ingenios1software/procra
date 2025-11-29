@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,24 +8,20 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { MoreHorizontal, PlusCircle, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Proveedor } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
+import { collection, query, orderBy } from 'firebase/firestore';
 
-interface ProveedoresListProps {
-  initialProveedores: Proveedor[];
-}
+export function ProveedoresList() {
+  const firestore = useFirestore();
+  const proveedoresQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'proveedores'), orderBy('nombre')) : null
+  , [firestore]);
+  const { data: proveedores, isLoading } = useCollection<Proveedor>(proveedoresQuery);
 
-export function ProveedoresList({ initialProveedores }: ProveedoresListProps) {
-  const [proveedores, setProveedores] = useState(initialProveedores);
   const { role } = useAuth();
   const canModify = role === 'admin' || role === 'gerente';
 
-  const handleToggleActive = (id: string) => {
-    setProveedores(prev =>
-      prev.map(p => (p.id === id ? { ...p, activo: !p.activo } : p))
-    );
-  };
-  
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
@@ -65,22 +60,17 @@ export function ProveedoresList({ initialProveedores }: ProveedoresListProps) {
                 <TableHead>RUC</TableHead>
                 <TableHead>Teléfono</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Estado</TableHead>
                 {canModify && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {proveedores.map((proveedor) => (
+              {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
+              {proveedores?.map((proveedor) => (
                 <TableRow key={proveedor.id}>
                   <TableCell className="font-medium">{proveedor.nombre}</TableCell>
                   <TableCell>{proveedor.ruc}</TableCell>
                   <TableCell>{proveedor.telefono || 'N/A'}</TableCell>
                   <TableCell>{proveedor.email || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Badge variant={proveedor.activo ? 'default' : "destructive"}>
-                      {proveedor.activo ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                  </TableCell>
                   {canModify && (
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -94,9 +84,6 @@ export function ProveedoresList({ initialProveedores }: ProveedoresListProps) {
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                           <DropdownMenuItem asChild>
                             <Link href={`/comercial/proveedores/${proveedor.id}/editar`}>Editar</Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleActive(proveedor.id)}>
-                            {proveedor.activo ? 'Desactivar' : 'Activar'}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

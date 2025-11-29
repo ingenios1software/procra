@@ -3,14 +3,17 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { EventoForm } from "@/components/eventos/evento-form";
 import { useRouter } from "next/navigation";
-import { useDataStore } from "@/store/data-store";
+import { useFirestore, addDocumentNonBlocking } from "@/firebase";
+import { collection } from "firebase/firestore";
 
 export default function CrearEventoPage() {
   const router = useRouter();
-  const { addEvento } = useDataStore();
+  const firestore = useFirestore();
 
   const handleSave = (data: any) => {
-    addEvento(data);
+    if (!firestore) return;
+    const eventosCol = collection(firestore, 'eventos');
+    addDocumentNonBlocking(eventosCol, data);
     router.push('/eventos');
   }
 

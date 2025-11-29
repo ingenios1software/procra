@@ -41,7 +41,7 @@ const formSchema = z.object({
 type AsistenciaFormValues = z.infer<typeof formSchema>;
 
 interface AsistenciaFormProps {
-  asistencia?: Asistencia | null;
+  asistencia?: Partial<Asistencia> | null;
   empleados: Empleado[];
   onSubmit: (data: Omit<Asistencia, "id">) => void;
   onCancel: () => void;
@@ -58,7 +58,7 @@ export function AsistenciaForm({
     defaultValues: asistencia
       ? {
           ...asistencia,
-          fecha: new Date(asistencia.fecha),
+          fecha: new Date(asistencia.fecha as string),
         }
       : {
           empleadoId: "",
@@ -69,9 +69,14 @@ export function AsistenciaForm({
         },
   });
 
+  const handleSubmit = (data: AsistenciaFormValues) => {
+    onSubmit({ ...data, fecha: data.fecha.toISOString() });
+  };
+
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}

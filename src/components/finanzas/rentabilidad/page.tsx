@@ -6,20 +6,34 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DollarSign, TrendingUp, TrendingDown, Download } from "lucide-react";
-import { mockCostos, mockVentas, mockCultivos, mockParcelas } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query } from 'firebase/firestore';
+import type { Costo, Venta, Cultivo, Parcela } from '@/lib/types';
+
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function RentabilidadPage() {
+  const firestore = useFirestore();
+  
+  const { data: costos } = useCollection<Costo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'costos')) : null, [firestore]));
+  const { data: ventas } = useCollection<Venta>(useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas')) : null, [firestore]));
+  const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]));
+  const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]));
+
   const { totalIngresos, totalCostos, rentabilidadTotal, rentabilidadPorCultivo, rentabilidadPorParcela, composicionIngresos } = useMemo(() => {
-    const totalIngresos = mockVentas.reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
-    const totalCostos = mockCostos.reduce((sum, c) => sum + c.monto, 0);
+    if (!costos || !ventas || !cultivos || !parcelas) {
+      return { totalIngresos: 0, totalCostos: 0, rentabilidadTotal: 0, rentabilidadPorCultivo: [], rentabilidadPorParcela: [], composicionIngresos: [] };
+    }
+
+    const totalIngresos = ventas.reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+    const totalCostos = costos.reduce((sum, c) => sum + c.monto, 0);
     
-    const rentabilidadPorCultivo = mockCultivos.map(cultivo => {
-      const costosCultivo = mockCostos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + c.monto, 0);
-      const ingresosCultivo = mockVentas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+    const rentabilidadPorCultivo = cultivos.map(cultivo => {
+      const costosCultivo = costos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + c.monto, 0);
+      const ingresosCultivo = ventas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       const rentabilidadNeta = ingresosCultivo - costosCultivo;
       const margen = ingresosCultivo > 0 ? (rentabilidadNeta / ingresosCultivo) * 100 : 0;
       return {
@@ -31,9 +45,9 @@ export default function RentabilidadPage() {
       };
     }).filter(c => c.ingresos > 0 || c.costos > 0);
 
-    const rentabilidadPorParcela = mockParcelas.map(parcela => {
-      const costosParcela = mockCostos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + c.monto, 0);
-      const ingresosParcela = mockVentas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+    const rentabilidadPorParcela = parcelas.map(parcela => {
+      const costosParcela = costos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + c.monto, 0);
+      const ingresosParcela = ventas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       const margenNeto = ingresosParcela - costosParcela;
       const margenPorHa = parcela.superficie > 0 ? margenNeto / parcela.superficie : 0;
       const margenPercent = ingresosParcela > 0 ? (margenNeto / ingresosParcela) * 100 : 0;
@@ -50,8 +64,8 @@ export default function RentabilidadPage() {
       };
     }).filter(p => p.margenNeto !== 0);
 
-    const composicionIngresos = mockCultivos.map(cultivo => {
-      const ingresosCultivo = mockVentas
+    const composicionIngresos = cultivos.map(cultivo => {
+      const ingresosCultivo = ventas
         .filter(v => v.cultivoId === cultivo.id)
         .reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       return {
@@ -68,7 +82,7 @@ export default function RentabilidadPage() {
       rentabilidadPorParcela,
       composicionIngresos
     };
-  }, []);
+  }, [costos, ventas, cultivos, parcelas]);
 
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
@@ -87,9 +101,9 @@ export default function RentabilidadPage() {
       </PageHeader>
 
       <div className="grid gap-6 md:grid-cols-3 mb-6">
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle><TrendingUp className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">${totalIngresos.toLocaleString('es-AR')}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costos Totales</CardTitle><TrendingDown className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">${totalCostos.toLocaleString('es-AR')}</div></CardContent></Card>
-        <Card className="bg-primary/10"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-primary">Rentabilidad Total</CardTitle><DollarSign className="h-4 w-4 text-primary/70" /></CardHeader><CardContent><div className="text-2xl font-bold text-primary">${rentabilidadTotal.toLocaleString('es-AR')}</div></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle><TrendingUp className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">${totalIngresos.toLocaleString('en-US')}</div></CardContent></Card>
+        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costos Totales</CardTitle><TrendingDown className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">${totalCostos.toLocaleString('en-US')}</div></CardContent></Card>
+        <Card className="bg-primary/10"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-primary">Rentabilidad Total</CardTitle><DollarSign className="h-4 w-4 text-primary/70" /></CardHeader><CardContent><div className="text-2xl font-bold text-primary">${rentabilidadTotal.toLocaleString('en-US')}</div></CardContent></Card>
       </div>
 
       <Card className="mb-6">
@@ -104,9 +118,9 @@ export default function RentabilidadPage() {
                     {rentabilidadPorCultivo.map(c => (
                         <TableRow key={c.name}>
                             <TableCell className="font-medium">{c.name}</TableCell>
-                            <TableCell className="text-right">${c.ingresos.toLocaleString('es-AR')}</TableCell>
-                            <TableCell className="text-right">${c.costos.toLocaleString('es-AR')}</TableCell>
-                            <TableCell className={cn("text-right font-semibold", c.rentabilidad > 0 ? "text-green-600" : "text-red-600")}>${c.rentabilidad.toLocaleString('es-AR')}</TableCell>
+                            <TableCell className="text-right">${c.ingresos.toLocaleString('en-US')}</TableCell>
+                            <TableCell className="text-right">${c.costos.toLocaleString('en-US')}</TableCell>
+                            <TableCell className={cn("text-right font-semibold", c.rentabilidad > 0 ? "text-green-600" : "text-red-600")}>${c.rentabilidad.toLocaleString('en-US')}</TableCell>
                             <TableCell className={cn("text-right font-semibold", c.margen > 10 ? "text-green-600" : c.margen > 0 ? "text-yellow-600" : "text-red-600")}>{c.margen.toFixed(2)}%</TableCell>
                         </TableRow>
                     ))}
@@ -127,7 +141,7 @@ export default function RentabilidadPage() {
                     {rentabilidadPorParcela.map(p => (
                         <TableRow key={p.name}>
                             <TableCell className="font-medium">{p.name}</TableCell>
-                            <TableCell className={cn("text-right font-semibold", p.colorClass)}>${p.margenNeto.toLocaleString('es-AR')}</TableCell>
+                            <TableCell className={cn("text-right font-semibold", p.colorClass)}>${p.margenNeto.toLocaleString('en-US')}</TableCell>
                             <TableCell className={cn("text-right font-semibold", p.colorClass)}>${p.margenPorHa.toFixed(2)}</TableCell>
                         </TableRow>
                     ))}
@@ -145,7 +159,7 @@ export default function RentabilidadPage() {
                 <XAxis dataKey="name" />
                 <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} />
                 <Tooltip 
-                  formatter={(value) => `$${Number(value).toLocaleString('es-AR')}`}
+                  formatter={(value) => `$${Number(value).toLocaleString('en-US')}`}
                   cursor={{ fill: 'hsla(var(--muted))' }} 
                   contentStyle={{ backgroundColor: 'hsl(var(--background))' }} />
                 <Bar dataKey="rentabilidad" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
@@ -163,7 +177,7 @@ export default function RentabilidadPage() {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                 </Pie>
-                <Tooltip formatter={(value) => `$${Number(value).toLocaleString('es-AR')}`} contentStyle={{ backgroundColor: 'hsl(var(--background))' }} />
+                <Tooltip formatter={(value) => `$${Number(value).toLocaleString('en-US')}`} contentStyle={{ backgroundColor: 'hsl(var(--background))' }} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>

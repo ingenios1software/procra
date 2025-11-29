@@ -6,22 +6,39 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DollarSign, TrendingUp, TrendingDown, Download } from "lucide-react";
-import { useDataStore } from "@/store/data-store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query } from "firebase/firestore";
+import type { Costo, Venta, Parcela, Cultivo } from "@/lib/types";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function RentabilidadPage() {
-  const { costos: mockCostos, ventas: mockVentas, cultivos: mockCultivos, parcelas: mockParcelas } = useDataStore();
+  const firestore = useFirestore();
+
+  const costosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'costos')) : null, [firestore]);
+  const { data: costos } = useCollection<Costo>(costosQuery);
+  
+  const ventasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas')) : null, [firestore]);
+  const { data: ventas } = useCollection<Venta>(ventasQuery);
+
+  const parcelasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]);
+  const { data: parcelas } = useCollection<Parcela>(parcelasQuery);
+
+  const cultivosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]);
+  const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
+
 
   const { totalIngresos, totalCostos, rentabilidadTotal, rentabilidadPorCultivo, rentabilidadPorParcela, composicionIngresos } = useMemo(() => {
-    const totalIngresos = mockVentas.reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
-    const totalCostos = mockCostos.reduce((sum, c) => sum + c.monto, 0);
+    if (!costos || !ventas || !parcelas || !cultivos) return { totalIngresos: 0, totalCostos: 0, rentabilidadTotal: 0, rentabilidadPorCultivo: [], rentabilidadPorParcela: [], composicionIngresos: [] };
     
-    const rentabilidadPorCultivo = mockCultivos.map(cultivo => {
-      const costosCultivo = mockCostos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + c.monto, 0);
-      const ingresosCultivo = mockVentas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+    const totalIngresos = ventas.reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+    const totalCostos = costos.reduce((sum, c) => sum + c.monto, 0);
+    
+    const rentabilidadPorCultivo = cultivos.map(cultivo => {
+      const costosCultivo = costos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + c.monto, 0);
+      const ingresosCultivo = ventas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       const rentabilidadNeta = ingresosCultivo - costosCultivo;
       const margen = ingresosCultivo > 0 ? (rentabilidadNeta / ingresosCultivo) * 100 : 0;
       return {
@@ -33,9 +50,9 @@ export default function RentabilidadPage() {
       };
     }).filter(c => c.ingresos > 0 || c.costos > 0);
 
-    const rentabilidadPorParcela = mockParcelas.map(parcela => {
-      const costosParcela = mockCostos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + c.monto, 0);
-      const ingresosParcela = mockVentas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+    const rentabilidadPorParcela = parcelas.map(parcela => {
+      const costosParcela = costos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + c.monto, 0);
+      const ingresosParcela = ventas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       const margenNeto = ingresosParcela - costosParcela;
       const margenPorHa = parcela.superficie > 0 ? margenNeto / parcela.superficie : 0;
       const margenPercent = ingresosParcela > 0 ? (margenNeto / ingresosParcela) * 100 : 0;
@@ -52,8 +69,8 @@ export default function RentabilidadPage() {
       };
     }).filter(p => p.margenNeto !== 0);
 
-    const composicionIngresos = mockCultivos.map(cultivo => {
-      const ingresosCultivo = mockVentas
+    const composicionIngresos = cultivos.map(cultivo => {
+      const ingresosCultivo = ventas
         .filter(v => v.cultivoId === cultivo.id)
         .reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       return {
@@ -70,7 +87,7 @@ export default function RentabilidadPage() {
       rentabilidadPorParcela,
       composicionIngresos
     };
-  }, [mockCostos, mockVentas, mockCultivos, mockParcelas]);
+  }, [costos, ventas, cultivos, parcelas]);
 
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");

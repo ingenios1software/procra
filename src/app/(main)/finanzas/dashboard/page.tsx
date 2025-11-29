@@ -15,44 +15,61 @@ import {
   Cell,
 } from "recharts";
 import { DollarSign, TrendingDown, TrendingUp, Landmark, Star, ChevronsDown } from "lucide-react";
-import { useDataStore } from "@/store/data-store";
 import { format } from "date-fns";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query } from "firebase/firestore";
+import type { Costo, Venta, Parcela, Cultivo } from "@/lib/types";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function DashboardFinancieroPage() {
-  const { costos: mockCostos, ventas: mockVentas, parcelas: mockParcelas, cultivos: mockCultivos } = useDataStore();
+  const firestore = useFirestore();
+
+  const costosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'costos')) : null, [firestore]);
+  const { data: costos } = useCollection<Costo>(costosQuery);
+  
+  const ventasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas')) : null, [firestore]);
+  const { data: ventas } = useCollection<Venta>(ventasQuery);
+
+  const parcelasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]);
+  const { data: parcelas } = useCollection<Parcela>(parcelasQuery);
+
+  const cultivosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]);
+  const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
+
 
   const { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria, costosMensuales } = useMemo(() => {
-    const totalCostos = mockCostos.reduce((acc, costo) => acc + costo.monto, 0);
-    const totalIngresos = mockVentas.reduce((acc, venta) => acc + venta.toneladas * venta.precioTonelada, 0);
+    if (!costos || !ventas || !parcelas || !cultivos) return { totalCostos: 0, totalIngresos: 0, margenNeto: 0, rentabilidadPorParcela: [], rentabilidadPorCultivo: [], costosPorCategoria: [], costosMensuales: [] };
+
+    const totalCostos = costos.reduce((acc, costo) => acc + costo.monto, 0);
+    const totalIngresos = ventas.reduce((acc, venta) => acc + venta.toneladas * venta.precioTonelada, 0);
     const margenNeto = totalIngresos - totalCostos;
 
-    const rentabilidadPorParcela = mockParcelas.map(parcela => {
-      const costosParcela = mockCostos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + c.monto, 0);
-      const ingresosParcela = mockVentas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+    const rentabilidadPorParcela = parcelas.map(parcela => {
+      const costosParcela = costos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + c.monto, 0);
+      const ingresosParcela = ventas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       return {
         nombre: parcela.nombre,
         rentabilidad: ingresosParcela - costosParcela,
       };
     }).sort((a, b) => b.rentabilidad - a.rentabilidad);
 
-    const rentabilidadPorCultivo = mockCultivos.map(cultivo => {
-      const costosCultivo = mockCostos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + c.monto, 0);
-      const ingresosCultivo = mockVentas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+    const rentabilidadPorCultivo = cultivos.map(cultivo => {
+      const costosCultivo = costos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + c.monto, 0);
+      const ingresosCultivo = ventas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       return {
         name: cultivo.nombre,
         rentabilidad: ingresosCultivo - costosCultivo,
       };
     }).sort((a,b) => b.rentabilidad - a.rentabilidad);
 
-    const costosPorCategoria = mockCostos.reduce((acc, costo) => {
+    const costosPorCategoria = costos.reduce((acc, costo) => {
       acc[costo.tipo] = (acc[costo.tipo] || 0) + costo.monto;
       return acc;
     }, {} as Record<string, number>);
     const costosCategoriaData = Object.entries(costosPorCategoria).map(([name, value]) => ({ name, value }));
 
-    const costosMensuales = mockCostos.reduce((acc, costo) => {
+    const costosMensuales = costos.reduce((acc, costo) => {
       const month = format(new Date(costo.fecha), 'MMM yyyy');
       acc[month] = (acc[month] || 0) + costo.monto;
       return acc;
@@ -60,7 +77,7 @@ export default function DashboardFinancieroPage() {
     const costosMensualesData = Object.entries(costosMensuales).map(([name, total]) => ({ name, total })).slice(-6);
 
     return { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria: costosCategoriaData, costosMensuales: costosMensualesData };
-  }, [mockCostos, mockVentas, mockParcelas, mockCultivos]);
+  }, [costos, ventas, parcelas, cultivos]);
 
   const topParcela = rentabilidadPorParcela[0];
   const peorParcela = rentabilidadPorParcela[rentabilidadPorParcela.length - 1];
@@ -90,15 +107,15 @@ export default function DashboardFinancieroPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
         <Card className="bg-primary/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-primary">Mejor Parcela</CardTitle><Landmark className="h-4 w-4 text-primary/70" /></CardHeader>
-          <CardContent><div className="text-xl font-bold text-primary">{topParcela?.nombre}</div><p className="text-xs text-primary/80">Margen: ${topParcela?.rentabilidad.toLocaleString('en-US')}</p></CardContent>
+          <CardContent><div className="text-xl font-bold text-primary">{topParcela?.nombre || 'N/A'}</div><p className="text-xs text-primary/80">Margen: ${topParcela?.rentabilidad.toLocaleString('en-US') || '0'}</p></CardContent>
         </Card>
         <Card className="bg-destructive/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium text-destructive">Peor Parcela</CardTitle><ChevronsDown className="h-4 w-4 text-destructive/70" /></CardHeader>
-          <CardContent><div className="text-xl font-bold text-destructive">{peorParcela?.nombre}</div><p className="text-xs text-destructive/80">Margen: ${peorParcela?.rentabilidad.toLocaleString('en-US')}</p></CardContent>
+          <CardContent><div className="text-xl font-bold text-destructive">{peorParcela?.nombre || 'N/A'}</div><p className="text-xs text-destructive/80">Margen: ${peorParcela?.rentabilidad.toLocaleString('en-US') || '0'}</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Cultivo Más Rentable</CardTitle><Star className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent><div className="text-xl font-bold">{topCultivo?.name}</div><p className="text-xs text-muted-foreground">Margen: ${topCultivo?.rentabilidad.toLocaleString('en-US')}</p></CardContent>
+          <CardContent><div className="text-xl font-bold">{topCultivo?.name || 'N/A'}</div><p className="text-xs text-muted-foreground">Margen: ${topCultivo?.rentabilidad.toLocaleString('en-US') || '0'}</p></CardContent>
         </Card>
       </div>
 

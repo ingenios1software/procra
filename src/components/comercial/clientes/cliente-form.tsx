@@ -19,6 +19,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { Cliente } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { collection, doc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre es muy corto."),
@@ -30,6 +33,7 @@ const formSchema = z.object({
   pais: z.string().optional(),
   tipoCliente: z.enum(['productor', 'acopiador', 'industria', 'exportadora', 'interno']).optional(),
   observaciones: z.string().optional(),
+  activo: z.boolean().default(true),
 });
 
 type ClienteFormValues = z.infer<typeof formSchema>;
@@ -41,17 +45,28 @@ interface ClienteFormProps {
 export function ClienteForm({ cliente }: ClienteFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const firestore = useFirestore();
   const form = useForm<ClienteFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: cliente || {
       nombre: "",
       ruc: "",
-      tipoCliente: 'productor'
+      tipoCliente: 'productor',
+      activo: true,
     },
   });
 
   const handleSubmit = (data: ClienteFormValues) => {
-    console.log("Cliente guardado:", data);
+    if (!firestore) return;
+
+    if (cliente?.id) {
+      const clienteRef = doc(firestore, 'clientes', cliente.id);
+      updateDocumentNonBlocking(clienteRef, data);
+    } else {
+      const clientesCol = collection(firestore, 'clientes');
+      addDocumentNonBlocking(clientesCol, data);
+    }
+    
     toast({
       title: `Cliente ${cliente ? 'actualizado' : 'creado'}`,
       description: `El cliente ${data.nombre} ha sido guardado correctamente.`,

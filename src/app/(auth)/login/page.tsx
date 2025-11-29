@@ -1,9 +1,6 @@
-import { LoginCard } from "@/components/auth/login-card";
+import { redirect } from 'next/navigation';
 
 export default function LoginPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted/40 p-4">
-      <LoginCard />
-    </div>
-  );
+  // Redirect to dashboard as login is now handled automatically via anonymous auth
+  redirect('/dashboard');
 }

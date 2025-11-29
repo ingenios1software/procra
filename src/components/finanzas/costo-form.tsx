@@ -6,7 +6,6 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,8 +28,8 @@ const formSchema = z.object({
 type CostoFormValues = z.infer<typeof formSchema>;
 
 interface CostoFormProps {
-  costo?: Costo | null;
-  onSubmit: (data: Costo) => void;
+  costo?: Partial<Costo> | null;
+  onSubmit: (data: Omit<Costo, 'id'>) => void;
   onCancel: () => void;
   parcelas: Parcela[];
   cultivos: Cultivo[];
@@ -43,7 +42,7 @@ export const CostoForm = React.memo(({ costo, onSubmit, onCancel, parcelas, cult
     defaultValues: {
       descripcion: costo?.descripcion || "",
       monto: costo?.monto || 0,
-      fecha: costo?.fecha || new Date(),
+      fecha: costo?.fecha ? new Date(costo.fecha) : new Date(),
       tipo: costo?.tipo || 'insumo',
       parcelaId: costo?.parcelaId || "",
       cultivoId: costo?.cultivoId || "",
@@ -51,16 +50,9 @@ export const CostoForm = React.memo(({ costo, onSubmit, onCancel, parcelas, cult
     },
   });
 
-  const handleSubmit = (data: CostoFormValues) => {
-    onSubmit({
-      id: costo?.id || "", // Ensure id is handled
-      ...data,
-    });
-  };
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="descripcion"
@@ -135,7 +127,7 @@ export const CostoForm = React.memo(({ costo, onSubmit, onCancel, parcelas, cult
         </div>
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-          <Button type="submit">{costo ? "Guardar Cambios" : "Crear Costo"}</Button>
+          <Button type="submit">{costo?.id ? "Guardar Cambios" : "Crear Costo"}</Button>
         </div>
       </form>
     </Form>

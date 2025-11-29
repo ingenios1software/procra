@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,28 +9,33 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { UsuarioForm } from "./usuario-form";
 import type { Usuario, Rol } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 
-interface UsuariosListProps {
-  initialUsuarios: Usuario[];
-  roles: Rol[];
-}
 
-export function UsuariosList({ initialUsuarios, roles }: UsuariosListProps) {
-  const [usuarios, setUsuarios] = useState(initialUsuarios);
+export function UsuariosList() {
+  const firestore = useFirestore();
+
+  const usuariosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'usuarios'), orderBy('nombre')) : null, [firestore]);
+  const { data: usuarios, isLoading: isLoadingUsuarios } = useCollection<Usuario>(usuariosQuery);
+  
+  const rolesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'roles')) : null, [firestore]);
+  const { data: roles, isLoading: isLoadingRoles } = useCollection<Rol>(rolesQuery);
+
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const { role } = useAuth();
   const canModify = role === 'admin';
 
-  const handleSave = (usuario: Usuario) => {
+  const handleSave = (usuarioData: Omit<Usuario, 'id'>) => {
+    if (!firestore) return;
     if (selectedUsuario) {
-      // Update
-      setUsuarios(prev => prev.map(u => u.id === usuario.id ? usuario : u));
+      const usuarioRef = doc(firestore, 'usuarios', selectedUsuario.id);
+      updateDocumentNonBlocking(usuarioRef, usuarioData);
     } else {
-      // Create
-      setUsuarios(prev => [...prev, { ...usuario, id: `u${prev.length + 1}` }]);
+      const usuariosCol = collection(firestore, 'usuarios');
+      addDocumentNonBlocking(usuariosCol, usuarioData);
     }
     setDialogOpen(false);
     setSelectedUsuario(null);
@@ -40,6 +45,8 @@ export function UsuariosList({ initialUsuarios, roles }: UsuariosListProps) {
     setSelectedUsuario(usuario || null);
     setDialogOpen(true);
   }
+
+  const isLoading = isLoadingUsuarios || isLoadingRoles;
 
   return (
     <>
@@ -79,7 +86,8 @@ export function UsuariosList({ initialUsuarios, roles }: UsuariosListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {usuarios.map((usuario) => (
+              {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
+              {usuarios?.map((usuario) => (
                 <TableRow key={usuario.id}>
                   <TableCell className="font-medium">{usuario.nombre}</TableCell>
                   <TableCell>{usuario.email}</TableCell>
@@ -109,7 +117,7 @@ export function UsuariosList({ initialUsuarios, roles }: UsuariosListProps) {
           </DialogHeader>
           <UsuarioForm
             usuario={selectedUsuario}
-            roles={roles}
+            roles={roles || []}
             onSubmit={handleSave}
             onCancel={() => { setDialogOpen(false); setSelectedUsuario(null); }}
           />

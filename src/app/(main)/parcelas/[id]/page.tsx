@@ -1,23 +1,47 @@
 "use client";
 
+import { useMemo } from 'react';
 import { PageHeader } from "@/components/shared/page-header";
-import { useDataStore } from "@/store/data-store";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { MapPin, Code, Ruler, Activity } from "lucide-react";
+import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, collection, query, where } from 'firebase/firestore';
+import type { Parcela, Evento, Cultivo } from '@/lib/types';
+
 
 export default function ParcelaDetailPage({ params }: { params: { id: string } }) {
-  const { parcelas, eventos, cultivos } = useDataStore();
-  const parcela = parcelas.find(p => p.id === params.id);
+  const firestore = useFirestore();
+  
+  const parcelaRef = useMemo(() => {
+    if (!firestore || !params.id) return null;
+    return doc(firestore, 'parcelas', params.id);
+  }, [firestore, params.id]);
+  const { data: parcela, isLoading: isLoadingParcela } = useDoc<Parcela>(parcelaRef);
+
+  const eventosQuery = useMemo(() => {
+    if (!firestore || !params.id) return null;
+    return query(collection(firestore, 'eventos'), where('parcelaId', '==', params.id));
+  }, [firestore, params.id]);
+  const { data: eventosRelacionados, isLoading: isLoadingEventos } = useCollection<Evento>(eventosQuery);
+
+  const cultivosQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'cultivos'));
+  }, [firestore]);
+  const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
+
+
+  if (isLoadingParcela || isLoadingEventos || isLoadingCultivos) {
+    return <div>Cargando...</div>;
+  }
   
   if (!parcela) {
     notFound();
   }
-
-  const eventosRelacionados = eventos.filter(e => e.parcelaId === parcela.id);
 
   return (
     <>
@@ -65,8 +89,8 @@ export default function ParcelaDetailPage({ params }: { params: { id: string } }
               </TableRow>
             </TableHeader>
             <TableBody>
-              {eventosRelacionados.length > 0 ? eventosRelacionados.map((evento) => {
-                const cultivo = cultivos.find(c => c.id === evento.cultivoId);
+              {eventosRelacionados && eventosRelacionados.length > 0 ? eventosRelacionados.map((evento) => {
+                const cultivo = cultivos?.find(c => c.id === evento.cultivoId);
                 return (
                   <TableRow key={evento.id}>
                     <TableCell>{format(new Date(evento.fecha), "dd/MM/yyyy")}</TableCell>

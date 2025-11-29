@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,15 +34,19 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { CentroDeCostoForm } from "@/components/contabilidad/centros-de-costo/centro-de-costo-form";
 import type { CentroDeCosto } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useDataStore } from "@/store/data-store";
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 
 export default function CentrosDeCostoPage() {
-  const { centrosDeCosto } = useDataStore();
-  const [centros, setCentros] = useState(centrosDeCosto);
+  const firestore = useFirestore();
+  const centrosDeCostoQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'centrosDeCosto'), orderBy('nombre')) : null
+  , [firestore]);
+  const { data: centros, isLoading } = useCollection<CentroDeCosto>(centrosDeCostoQuery);
+  
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedCentro, setSelectedCentro] = useState<CentroDeCosto | null>(
     null
@@ -52,26 +56,22 @@ export default function CentrosDeCostoPage() {
   const canModify = role === "admin" || role === "gerente";
 
   const handleSave = (centroData: Omit<CentroDeCosto, "id">) => {
+    if (!firestore) return;
     if (selectedCentro) {
       // Update
-      const updatedCentro = { ...selectedCentro, ...centroData };
-      setCentros((prev) =>
-        prev.map((c) => (c.id === updatedCentro.id ? updatedCentro : c))
-      );
+      const centroRef = doc(firestore, 'centrosDeCosto', selectedCentro.id);
+      updateDocumentNonBlocking(centroRef, centroData);
       toast({
         title: "Centro de costo actualizado",
-        description: `El centro "${updatedCentro.nombre}" ha sido actualizado.`,
+        description: `El centro "${centroData.nombre}" ha sido actualizado.`,
       });
     } else {
       // Create
-      const newCentro: CentroDeCosto = {
-        id: `cc-${Date.now()}`,
-        ...centroData,
-      };
-      setCentros((prev) => [...prev, newCentro]);
+      const centrosCol = collection(firestore, 'centrosDeCosto');
+      addDocumentNonBlocking(centrosCol, centroData);
       toast({
         title: "Centro de costo creado",
-        description: `El centro "${newCentro.nombre}" ha sido creado.`,
+        description: `El centro "${centroData.nombre}" ha sido creado.`,
       });
     }
     setFormOpen(false);
@@ -79,8 +79,10 @@ export default function CentrosDeCostoPage() {
   };
 
   const handleDelete = (id: string) => {
+    if(!firestore || !centros) return;
     const centro = centros.find((c) => c.id === id);
-    setCentros((prev) => prev.filter((c) => c.id !== id));
+    const centroRef = doc(firestore, 'centrosDeCosto', id);
+    deleteDocumentNonBlocking(centroRef);
     toast({
       variant: "destructive",
       title: "Centro de costo eliminado",
@@ -123,7 +125,8 @@ export default function CentrosDeCostoPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {centros.map((centro) => (
+              {isLoading && <TableRow><TableCell colSpan={4}>Cargando...</TableCell></TableRow>}
+              {centros?.map((centro) => (
                 <TableRow key={centro.id}>
                   <TableCell className="font-medium">{centro.nombre}</TableCell>
                   <TableCell>

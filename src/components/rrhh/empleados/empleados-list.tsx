@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,20 +44,20 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmpleadoForm } from "./empleado-form";
-import type { Empleado, Rol } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import type { Empleado } from "@/lib/types";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 
-interface EmpleadosListProps {
-  initialEmpleados: Empleado[];
-  roles: Rol[];
-}
 
-export function EmpleadosList({ initialEmpleados }: EmpleadosListProps) {
-  const [empleados, setEmpleados] = useState(initialEmpleados);
+export function EmpleadosList() {
+  const firestore = useFirestore();
+  const empleadosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'empleados'), orderBy('apellido')) : null, [firestore]);
+  const { data: empleados, isLoading } = useCollection<Empleado>(empleadosQuery);
+  
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEmpleado, setSelectedEmpleado] = useState<Empleado | null>(null);
   const { role } = useAuth();
@@ -66,26 +65,23 @@ export function EmpleadosList({ initialEmpleados }: EmpleadosListProps) {
   const canModify = role === "admin";
 
   const handleSave = (empleadoData: Omit<Empleado, "id">) => {
+    if (!firestore) return;
+
     if (selectedEmpleado) {
       // Update
-      const updatedEmpleado = { ...selectedEmpleado, ...empleadoData };
-      setEmpleados((prev) =>
-        prev.map((e) => (e.id === updatedEmpleado.id ? updatedEmpleado : e))
-      );
+      const empleadoRef = doc(firestore, 'empleados', selectedEmpleado.id);
+      updateDocumentNonBlocking(empleadoRef, empleadoData);
       toast({
         title: "Empleado actualizado",
-        description: `Los datos de ${updatedEmpleado.nombre} ${updatedEmpleado.apellido} han sido actualizados.`,
+        description: `Los datos de ${empleadoData.nombre} ${empleadoData.apellido} han sido actualizados.`,
       });
     } else {
       // Create
-      const newEmpleado: Empleado = {
-        id: `emp-${Date.now()}`,
-        ...empleadoData,
-      };
-      setEmpleados((prev) => [...prev, newEmpleado]);
+      const empleadosCol = collection(firestore, 'empleados');
+      addDocumentNonBlocking(empleadosCol, empleadoData);
       toast({
         title: "Empleado creado",
-        description: `El empleado ${newEmpleado.nombre} ${newEmpleado.apellido} ha sido registrado.`,
+        description: `El empleado ${empleadoData.nombre} ${empleadoData.apellido} ha sido registrado.`,
       });
     }
     setFormOpen(false);
@@ -93,8 +89,10 @@ export function EmpleadosList({ initialEmpleados }: EmpleadosListProps) {
   };
 
   const handleDelete = (id: string) => {
+    if (!firestore || !empleados) return;
     const empleado = empleados.find((e) => e.id === id);
-    setEmpleados((prev) => prev.filter((e) => e.id !== id));
+    const empleadoRef = doc(firestore, 'empleados', id);
+    deleteDocumentNonBlocking(empleadoRef);
     toast({
       variant: "destructive",
       title: "Empleado eliminado",
@@ -140,7 +138,8 @@ export function EmpleadosList({ initialEmpleados }: EmpleadosListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {empleados.map((empleado) => (
+              {isLoading && <TableRow><TableCell colSpan={6}>Cargando...</TableCell></TableRow>}
+              {empleados?.map((empleado) => (
                 <TableRow key={empleado.id}>
                   <TableCell className="font-medium">
                     {empleado.nombre} {empleado.apellido}
@@ -148,7 +147,7 @@ export function EmpleadosList({ initialEmpleados }: EmpleadosListProps) {
                   <TableCell>{empleado.documento}</TableCell>
                   <TableCell>{empleado.puesto}</TableCell>
                   <TableCell>
-                    {format(new Date(empleado.fechaContratacion), "dd/MM/yyyy")}
+                    {format(new Date(empleado.fechaContratacion as string), "dd/MM/yyyy")}
                   </TableCell>
                   <TableCell>
                     <Badge

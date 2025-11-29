@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { MoreHorizontal, PlusCircle, Download, Upload } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Parcela } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -25,21 +25,25 @@ import {
 } from "@/components/ui/alert-dialog";
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 
 
-interface ParcelasListProps {
-  initialParcelas: Parcela[];
-}
+export function ParcelasList() {
+  const firestore = useFirestore();
+  const parcelasQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'parcelas'), orderBy('nombre')) : null
+  , [firestore]);
+  const { data: parcelas, isLoading } = useCollection<Parcela>(parcelasQuery);
 
-export function ParcelasList({ initialParcelas }: ParcelasListProps) {
-  const [parcelas, setParcelas] = useState(initialParcelas);
   const { role } = useAuth();
   const canModify = role === 'admin' || role === 'operador';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const handleDelete = (id: string) => {
-    setParcelas(prev => prev.filter(p => p.id !== id));
+    if (!firestore) return;
+    const parcelaRef = doc(firestore, 'parcelas', id);
+    deleteDocumentNonBlocking(parcelaRef);
   };
   
   const handleExportPDF = () => {
@@ -51,6 +55,7 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!firestore) return;
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -72,9 +77,9 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
             }
             return undefined;
         };
-
-        const nuevasParcelas: Parcela[] = json.map((row) => ({
-          id: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        
+        const parcelasCol = collection(firestore, 'parcelas');
+        const nuevasParcelas: Omit<Parcela, 'id'>[] = json.map((row) => ({
           nombre: getColumnValue(row, 'Nombre') || 'Sin Nombre',
           codigo: getColumnValue(row, 'Codigo') || 'N/A',
           superficie: Number(getColumnValue(row, 'Superficie')) || 0,
@@ -82,8 +87,11 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
           estado: (getColumnValue(row, 'Estado') as Parcela['estado']) || 'activa',
           sector: getColumnValue(row, 'Sector') || undefined,
         }));
+        
+        nuevasParcelas.forEach(parcela => {
+          addDocumentNonBlocking(parcelasCol, parcela);
+        })
 
-        setParcelas(prev => [...prev, ...nuevasParcelas]);
         toast({
           title: "Importación exitosa",
           description: `${nuevasParcelas.length} parcelas han sido agregadas.`,
@@ -157,7 +165,8 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {parcelas.map((parcela) => (
+              {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
+              {parcelas?.map((parcela) => (
                 <TableRow key={parcela.id}>
                   <TableCell className="font-medium">
                      <Link href={`/parcelas/${parcela.id}`} className="hover:underline text-primary">

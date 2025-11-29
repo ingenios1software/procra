@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,15 +44,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { AsistenciaForm } from "@/components/rrhh/asistencias/asistencia-form";
-import type { Asistencia } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import type { Asistencia, Empleado } from "@/lib/types";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { useDataStore } from "@/store/data-store";
+import { collection, doc, query, orderBy } from 'firebase/firestore';
+
 
 export default function AsistenciasPage() {
-  const { asistencias, empleados } = useDataStore();
-  const [asistenciasState, setAsistencias] = useState(asistencias);
+  const firestore = useFirestore();
+
+  const asistenciasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'asistencias'), orderBy('fecha', 'desc')) : null, [firestore]);
+  const { data: asistencias, isLoading: isLoadingAsistencias } = useCollection<Asistencia>(asistenciasQuery);
+
+  const empleadosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'empleados')) : null, [firestore]);
+  const { data: empleados, isLoading: isLoadingEmpleados } = useCollection<Empleado>(empleadosQuery);
+  
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedAsistencia, setSelectedAsistencia] = useState<Asistencia | null>(
     null
@@ -62,6 +69,7 @@ export default function AsistenciasPage() {
   const canModify = role === "admin" || role === "gerente";
 
   const getEmpleadoNombre = (empleadoId: string) => {
+    if (!empleados) return "N/A";
     const empleado = empleados.find((e) => e.id === empleadoId);
     return empleado ? `${empleado.nombre} ${empleado.apellido}` : "N/A";
   };
@@ -77,23 +85,20 @@ export default function AsistenciasPage() {
   };
 
   const handleSave = (asistenciaData: Omit<Asistencia, "id">) => {
+    if (!firestore) return;
+
     if (selectedAsistencia) {
       // Update
-      const updatedAsistencia = { ...selectedAsistencia, ...asistenciaData };
-      setAsistencias((prev) =>
-        prev.map((a) => (a.id === updatedAsistencia.id ? updatedAsistencia : a))
-      );
+      const asistenciaRef = doc(firestore, 'asistencias', selectedAsistencia.id);
+      updateDocumentNonBlocking(asistenciaRef, asistenciaData);
       toast({
         title: "Registro actualizado",
         description: `La asistencia ha sido actualizada.`,
       });
     } else {
       // Create
-      const newAsistencia: Asistencia = {
-        id: `asist-${Date.now()}`,
-        ...asistenciaData,
-      };
-      setAsistencias((prev) => [...prev, newAsistencia]);
+      const asistenciasCol = collection(firestore, 'asistencias');
+      addDocumentNonBlocking(asistenciasCol, asistenciaData);
       toast({
         title: "Asistencia registrada",
         description: `Se ha creado un nuevo registro de asistencia.`,
@@ -104,7 +109,9 @@ export default function AsistenciasPage() {
   };
 
   const handleDelete = (id: string) => {
-    setAsistencias((prev) => prev.filter((a) => a.id !== id));
+    if (!firestore) return;
+    const asistenciaRef = doc(firestore, 'asistencias', id);
+    deleteDocumentNonBlocking(asistenciaRef);
     toast({
       variant: "destructive",
       title: "Registro eliminado",
@@ -150,9 +157,8 @@ export default function AsistenciasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {asistenciasState
-                .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-                .map((asistencia) => (
+              {(isLoadingAsistencias || isLoadingEmpleados) && <TableRow><TableCell colSpan={7}>Cargando...</TableCell></TableRow>}
+              {asistencias?.map((asistencia) => (
                   <TableRow key={asistencia.id}>
                     <TableCell>
                       {format(new Date(asistencia.fecha), "dd/MM/yyyy")}
@@ -241,7 +247,7 @@ export default function AsistenciasPage() {
           </DialogHeader>
           <AsistenciaForm
             asistencia={selectedAsistencia}
-            empleados={empleados}
+            empleados={empleados || []}
             onSubmit={handleSave}
             onCancel={() => {
               setFormOpen(false);

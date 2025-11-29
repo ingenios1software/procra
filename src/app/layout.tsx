@@ -5,6 +5,7 @@ import { AuthProvider } from '@/context/auth-context';
 import { ThemeProvider } from '@/context/theme-provider';
 import { SidebarProvider } from '@/context/sidebar-context';
 import { PWALifecycle } from '@/components/pwa-lifecycle';
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'CRApro95 - Gestión Agrícola Integral',
@@ -28,12 +29,14 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeProvider>
-          <AuthProvider>
-            <SidebarProvider>
-              {children}
-            </SidebarProvider>
-            <Toaster />
-          </AuthProvider>
+          <FirebaseClientProvider>
+            <AuthProvider>
+              <SidebarProvider>
+                {children}
+              </SidebarProvider>
+              <Toaster />
+            </AuthProvider>
+          </FirebaseClientProvider>
         </ThemeProvider>
         <PWALifecycle />
       </body>

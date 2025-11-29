@@ -5,16 +5,25 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { useDataStore } from "@/store/data-store";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import type { AsientoDiario, PlanDeCuenta } from '@/lib/types';
 
 export default function MayorPage() {
-  const { planDeCuentas, asientosDiario } = useDataStore();
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(planDeCuentas[0]?.id || null);
+  const firestore = useFirestore();
+
+  const planDeCuentasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'planDeCuentas'), orderBy('codigo')) : null, [firestore]);
+  const { data: planDeCuentas, isLoading: isLoadingCuentas } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
+  
+  const asientosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'asientosDiario')) : null, [firestore]);
+  const { data: asientosDiario, isLoading: isLoadingAsientos } = useCollection<AsientoDiario>(asientosQuery);
+
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   const { movimientos, totalDebe, totalHaber, saldoFinal, cuentaSeleccionada } = useMemo(() => {
-    if (!selectedAccountId) {
+    if (!selectedAccountId || !planDeCuentas || !asientosDiario) {
       return { movimientos: [], totalDebe: 0, totalHaber: 0, saldoFinal: 0, cuentaSeleccionada: null };
     }
 
@@ -60,6 +69,13 @@ export default function MayorPage() {
       cuentaSeleccionada: cuenta
     };
   }, [selectedAccountId, planDeCuentas, asientosDiario]);
+  
+  // Set initial selected account
+  useState(() => {
+    if (planDeCuentas && planDeCuentas.length > 0 && !selectedAccountId) {
+      setSelectedAccountId(planDeCuentas[0].id);
+    }
+  });
 
   return (
     <>
@@ -78,7 +94,8 @@ export default function MayorPage() {
               <SelectValue placeholder="Seleccione una cuenta contable..." />
             </SelectTrigger>
             <SelectContent>
-              {planDeCuentas.sort((a,b) => a.codigo.localeCompare(b.codigo)).map(cuenta => (
+              {isLoadingCuentas && <SelectItem value="loading" disabled>Cargando cuentas...</SelectItem>}
+              {planDeCuentas?.map(cuenta => (
                 <SelectItem key={cuenta.id} value={cuenta.id}>
                   {cuenta.codigo} - {cuenta.nombre}
                 </SelectItem>
@@ -97,48 +114,52 @@ export default function MayorPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Descripción del Asiento</TableHead>
-                  <TableHead className="text-right">Debe</TableHead>
-                  <TableHead className="text-right">Haber</TableHead>
-                  <TableHead className="text-right">Saldo</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {movimientos.length > 0 ? movimientos.map((mov, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{format(new Date(mov.fecha), "dd/MM/yyyy")}</TableCell>
-                    <TableCell>{mov.descripcion}</TableCell>
-                    <TableCell className={cn("text-right font-mono", mov.tipo === "debe" && "text-green-600")}>
-                      {mov.tipo === "debe" ? `$${mov.monto.toLocaleString("en-US")}` : "-"}
-                    </TableCell>
-                    <TableCell className={cn("text-right font-mono", mov.tipo === "haber" && "text-red-600")}>
-                      {mov.tipo === "haber" ? `$${mov.monto.toLocaleString("en-US")}` : "-"}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">
-                      ${mov.saldo.toLocaleString("en-US")}
-                    </TableCell>
-                  </TableRow>
-                )) : (
+            {isLoadingAsientos ? (
+              <p>Cargando movimientos...</p>
+            ) : (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24">
-                      No hay movimientos para esta cuenta en el período seleccionado.
-                    </TableCell>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Descripción del Asiento</TableHead>
+                    <TableHead className="text-right">Debe</TableHead>
+                    <TableHead className="text-right">Haber</TableHead>
+                    <TableHead className="text-right">Saldo</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-              <TableFooter>
-                <TableRow className="bg-muted/50 font-bold">
-                  <TableCell colSpan={2}>Totales</TableCell>
-                  <TableCell className="text-right font-mono">${totalDebe.toLocaleString("en-US")}</TableCell>
-                  <TableCell className="text-right font-mono">${totalHaber.toLocaleString("en-US")}</TableCell>
-                  <TableCell className="text-right font-mono">${saldoFinal.toLocaleString("en-US")}</TableCell>
-                </TableRow>
-              </TableFooter>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {movimientos.length > 0 ? movimientos.map((mov, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{format(new Date(mov.fecha), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{mov.descripcion}</TableCell>
+                      <TableCell className={cn("text-right font-mono", mov.tipo === "debe" && "text-green-600")}>
+                        {mov.tipo === "debe" ? `$${mov.monto.toLocaleString("en-US")}` : "-"}
+                      </TableCell>
+                      <TableCell className={cn("text-right font-mono", mov.tipo === "haber" && "text-red-600")}>
+                        {mov.tipo === "haber" ? `$${mov.monto.toLocaleString("en-US")}` : "-"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-semibold">
+                        ${mov.saldo.toLocaleString("en-US")}
+                      </TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center h-24">
+                        No hay movimientos para esta cuenta en el período seleccionado.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+                <TableFooter>
+                  <TableRow className="bg-muted/50 font-bold">
+                    <TableCell colSpan={2}>Totales</TableCell>
+                    <TableCell className="text-right font-mono">${totalDebe.toLocaleString("en-US")}</TableCell>
+                    <TableCell className="text-right font-mono">${totalHaber.toLocaleString("en-US")}</TableCell>
+                    <TableCell className="text-right font-mono">${saldoFinal.toLocaleString("en-US")}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            )}
           </CardContent>
         </Card>
       )}

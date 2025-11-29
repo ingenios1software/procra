@@ -11,6 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import type { Parcela } from "@/lib/types";
 import React from "react";
+import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { useToast } from "@/hooks/use-toast";
+
 
 const formSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres."),
@@ -29,6 +33,9 @@ interface ParcelaFormProps {
 
 export const ParcelaForm = React.memo(({ parcela }: ParcelaFormProps) => {
   const router = useRouter();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
   const form = useForm<ParcelaFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: parcela || {
@@ -37,8 +44,15 @@ export const ParcelaForm = React.memo(({ parcela }: ParcelaFormProps) => {
   });
 
   const handleSubmit = (data: ParcelaFormValues) => {
-    console.log("Parcela guardada:", data);
-    // Here you would typically call an API to save the data
+    if (!firestore) return;
+    if (parcela?.id) {
+      const parcelaRef = doc(firestore, 'parcelas', parcela.id);
+      updateDocumentNonBlocking(parcelaRef, data);
+    } else {
+      const parcelasCol = collection(firestore, 'parcelas');
+      addDocumentNonBlocking(parcelasCol, data);
+    }
+    toast({ title: `Parcela ${parcela ? 'actualizada' : 'creada'}`, description: `La parcela ${data.nombre} ha sido guardada.` });
     router.push("/parcelas");
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -32,17 +32,20 @@ import {
 import { MoreHorizontal, PlusCircle, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Maquinaria } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { MaquinariaForm } from "./maquinaria-form";
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 
-interface MaquinariaListProps {
-  initialMaquinarias: Maquinaria[];
-}
 
-export function MaquinariaList({ initialMaquinarias }: MaquinariaListProps) {
-  const [maquinarias, setMaquinarias] = useState(initialMaquinarias);
+export function MaquinariaList() {
+  const firestore = useFirestore();
+  const maquinariasQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'maquinarias'), orderBy('nombre')) : null
+  , [firestore]);
+  const { data: maquinarias, isLoading } = useCollection<Maquinaria>(maquinariasQuery);
+
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedMaquinaria, setSelectedMaquinaria] = useState<Maquinaria | null>(null);
   const { role } = useAuth();
@@ -50,27 +53,25 @@ export function MaquinariaList({ initialMaquinarias }: MaquinariaListProps) {
   const canModify = role === "admin" || role === "operador" || role === "gerente";
 
   const handleSave = (maquinariaData: Omit<Maquinaria, "id">) => {
+    if (!firestore) return;
     if (selectedMaquinaria) {
-      const updatedMaquinaria = { ...selectedMaquinaria, ...maquinariaData };
-      setMaquinarias(prev =>
-        prev.map(m => (m.id === updatedMaquinaria.id ? updatedMaquinaria : m))
-      );
-      toast({ title: "Maquinaria actualizada", description: `Los datos de "${updatedMaquinaria.nombre}" han sido actualizados.` });
+      const maquinariaRef = doc(firestore, 'maquinarias', selectedMaquinaria.id);
+      updateDocumentNonBlocking(maquinariaRef, maquinariaData);
+      toast({ title: "Maquinaria actualizada", description: `Los datos de "${maquinariaData.nombre}" han sido actualizados.` });
     } else {
-      const newMaquinaria: Maquinaria = {
-        id: `maq-${Date.now()}`,
-        ...maquinariaData,
-      };
-      setMaquinarias(prev => [...prev, newMaquinaria]);
-      toast({ title: "Maquinaria creada", description: `La maquinaria "${newMaquinaria.nombre}" ha sido registrada.` });
+      const maquinariasCol = collection(firestore, 'maquinarias');
+      addDocumentNonBlocking(maquinariasCol, maquinariaData);
+      toast({ title: "Maquinaria creada", description: `La maquinaria "${maquinariaData.nombre}" ha sido registrada.` });
     }
     setFormOpen(false);
     setSelectedMaquinaria(null);
   };
 
   const handleDelete = (id: string) => {
+    if (!firestore || !maquinarias) return;
     const maquinaria = maquinarias.find(m => m.id === id);
-    setMaquinarias(prev => prev.filter(m => m.id !== id));
+    const maquinariaRef = doc(firestore, 'maquinarias', id);
+    deleteDocumentNonBlocking(maquinariaRef);
     toast({ variant: "destructive", title: "Maquinaria eliminada", description: `La maquinaria "${maquinaria?.nombre}" ha sido eliminada.` });
   };
 
@@ -103,7 +104,8 @@ export function MaquinariaList({ initialMaquinarias }: MaquinariaListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {maquinarias.map((maquinaria) => (
+              {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
+              {maquinarias?.map((maquinaria) => (
                 <TableRow key={maquinaria.id}>
                   <TableCell className="font-medium">{maquinaria.nombre}</TableCell>
                   <TableCell>

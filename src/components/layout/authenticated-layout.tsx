@@ -25,7 +25,7 @@ export function AuthenticatedLayout({
   if (isUserLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
-        <p>Cargando...</p>
+        <p>Cargando y autenticando...</p>
       </div>
     );
   }

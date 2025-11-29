@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,34 +10,42 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { CultivoForm } from "./cultivo-form";
 import type { Cultivo } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { collection, doc, query, orderBy } from 'firebase/firestore';
 
-interface CultivosListProps {
-  initialCultivos: Cultivo[];
-}
+export function CultivosList() {
+  const firestore = useFirestore();
+  const cultivosQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'cultivos'), orderBy('nombre')) : null
+  , [firestore]);
+  const { data: cultivos, isLoading } = useCollection<Cultivo>(cultivosQuery);
 
-export function CultivosList({ initialCultivos }: CultivosListProps) {
-  const [cultivos, setCultivos] = useState(initialCultivos);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedCultivo, setSelectedCultivo] = useState<Cultivo | null>(null);
   const { role } = useAuth();
   const canModify = role === 'admin' || role === 'operador';
 
-  const handleCreate = (cultivo: Cultivo) => {
-    setCultivos(prev => [...prev, { ...cultivo, id: `c${prev.length + 1}` }]);
+  const handleCreate = (cultivoData: Omit<Cultivo, 'id'>) => {
+    if (!firestore) return;
+    const cultivosCol = collection(firestore, 'cultivos');
+    addDocumentNonBlocking(cultivosCol, cultivoData);
     setCreateDialogOpen(false);
   };
 
-  const handleUpdate = (cultivo: Cultivo) => {
-    setCultivos(prev => prev.map(c => c.id === cultivo.id ? cultivo : c));
+  const handleUpdate = (cultivoData: Omit<Cultivo, 'id'>) => {
+    if (!firestore || !selectedCultivo) return;
+    const cultivoRef = doc(firestore, 'cultivos', selectedCultivo.id);
+    updateDocumentNonBlocking(cultivoRef, cultivoData);
     setEditDialogOpen(false);
     setSelectedCultivo(null);
   };
 
   const handleDelete = (id: string) => {
-    setCultivos(prev => prev.filter(c => c.id !== id));
+    if (!firestore) return;
+    const cultivoRef = doc(firestore, 'cultivos', id);
+    deleteDocumentNonBlocking(cultivoRef);
   };
   
   const openEditDialog = (cultivo: Cultivo) => {
@@ -70,7 +78,8 @@ export function CultivosList({ initialCultivos }: CultivosListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cultivos.map((cultivo) => (
+              {isLoading && <TableRow><TableCell colSpan={3}>Cargando...</TableCell></TableRow>}
+              {cultivos?.map((cultivo) => (
                 <TableRow key={cultivo.id}>
                   <TableCell className="font-medium">{cultivo.nombre}</TableCell>
                   <TableCell>{cultivo.descripcion}</TableCell>
@@ -88,7 +97,7 @@ export function CultivosList({ initialCultivos }: CultivosListProps) {
                           <DropdownMenuItem onClick={() => openEditDialog(cultivo)}>Editar</DropdownMenuItem>
                            <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Eliminar</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">Eliminar</DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>

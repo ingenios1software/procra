@@ -18,6 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Proveedor } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { collection, doc } from "firebase/firestore";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre es muy corto."),
@@ -40,6 +42,8 @@ interface ProveedorFormProps {
 export function ProveedorForm({ proveedor }: ProveedorFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const firestore = useFirestore();
+
   const form = useForm<ProveedorFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: proveedor || {
@@ -49,7 +53,16 @@ export function ProveedorForm({ proveedor }: ProveedorFormProps) {
   });
 
   const handleSubmit = (data: ProveedorFormValues) => {
-    console.log("Proveedor guardado:", data);
+    if (!firestore) return;
+
+    if (proveedor?.id) {
+      const proveedorRef = doc(firestore, 'proveedores', proveedor.id);
+      updateDocumentNonBlocking(proveedorRef, data);
+    } else {
+      const proveedoresCol = collection(firestore, 'proveedores');
+      addDocumentNonBlocking(proveedoresCol, data);
+    }
+
     toast({
       title: `Proveedor ${proveedor ? 'actualizado' : 'creado'}`,
       description: `El proveedor ${data.nombre} ha sido guardado correctamente.`,
