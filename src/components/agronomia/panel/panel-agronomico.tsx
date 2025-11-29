@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
@@ -26,8 +27,32 @@ interface PanelAgronomicoProps {
 }
 
 export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, etapas }: PanelAgronomicoProps) {
-    const [selectedParcelaId, setSelectedParcelaId] = useState<string | null>(null);
+    const [selectedCultivoId, setSelectedCultivoId] = useState<string | null>(null);
     const [selectedZafraId, setSelectedZafraId] = useState<string | null>(null);
+    const [selectedParcelaId, setSelectedParcelaId] = useState<string | null>(null);
+
+    const handleCultivoChange = (cultivoId: string) => {
+        setSelectedCultivoId(cultivoId);
+        setSelectedZafraId(null);
+        setSelectedParcelaId(null);
+    }
+    
+    const handleZafraChange = (zafraId: string) => {
+        setSelectedZafraId(zafraId);
+        setSelectedParcelaId(null);
+    }
+
+    const zafrasFiltradas = useMemo(() => {
+        if (!selectedCultivoId) return zafras;
+        return zafras.filter(z => z.cultivoId === selectedCultivoId);
+    }, [selectedCultivoId, zafras]);
+    
+    const parcelasFiltradas = useMemo(() => {
+        if (!selectedZafraId) return parcelas;
+        const parcelasConEventos = new Set(eventos.filter(e => e.zafraId === selectedZafraId).map(e => e.parcelaId));
+        return parcelas.filter(p => parcelasConEventos.has(p.id));
+    }, [selectedZafraId, eventos, parcelas]);
+
 
     const parcela = useMemo(() => parcelas.find(p => p.id === selectedParcelaId), [selectedParcelaId, parcelas]);
     const zafra = useMemo(() => zafras.find(z => z.id === selectedZafraId), [selectedZafraId, zafras]);
@@ -165,16 +190,20 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
                 <Card className="mb-6 no-print">
                     <CardHeader>
                         <CardTitle>Selección de Campaña</CardTitle>
-                        <CardDescription>Elija la parcela y la zafra que desea analizar.</CardDescription>
+                        <CardDescription>Elija el cultivo, la zafra y la parcela que desea analizar.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col md:flex-row gap-4">
-                        <Select onValueChange={setSelectedParcelaId} value={selectedParcelaId || ''}>
-                            <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="Seleccione Parcela..." /></SelectTrigger>
-                            <SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent>
+                        <Select onValueChange={handleCultivoChange} value={selectedCultivoId || ''}>
+                            <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="1. Seleccione Cultivo..." /></SelectTrigger>
+                            <SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent>
                         </Select>
-                         <Select onValueChange={setSelectedZafraId} value={selectedZafraId || ''}>
-                            <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="Seleccione Zafra..." /></SelectTrigger>
-                            <SelectContent>{zafras.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent>
+                         <Select onValueChange={handleZafraChange} value={selectedZafraId || ''} disabled={!selectedCultivoId}>
+                            <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="2. Seleccione Zafra..." /></SelectTrigger>
+                            <SelectContent>{zafrasFiltradas.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <Select onValueChange={setSelectedParcelaId} value={selectedParcelaId || ''} disabled={!selectedZafraId}>
+                            <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="3. Seleccione Parcela..." /></SelectTrigger>
+                            <SelectContent>{parcelasFiltradas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent>
                         </Select>
                     </CardContent>
                 </Card>
@@ -188,10 +217,12 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
                     </div>
                 ) : (
                     <Card className="flex items-center justify-center h-64 border-dashed no-print">
-                        <p className="text-muted-foreground">Por favor, seleccione una parcela y una zafra para comenzar el análisis.</p>
+                        <p className="text-muted-foreground">Por favor, seleccione cultivo, zafra y parcela para comenzar el análisis.</p>
                     </Card>
                 )}
             </div>
         </>
     )
 }
+
+    

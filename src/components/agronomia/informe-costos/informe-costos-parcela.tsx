@@ -72,8 +72,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
     const labelFont = isMobile ? 10 : 14;
 
     const [filters, setFilters] = useState({
-        cultivoId: cultivos[0]?.id || '',
-        zafraId: zafras.find(z => z.estado === 'en curso')?.id || '',
+        cultivoId: '',
+        zafraId: '',
         parcelaId: 'all',
         ordenarPor: 'costoPromedioHa',
         orden: 'desc',
@@ -88,18 +88,42 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
         costoKg: "",
       });
 
-    const handleFilterChange = (key: string, value: string) => {
-        setFilters(prev => ({ ...prev, [key]: value }));
+    const handleFilterChange = (key: keyof typeof filters, value: string) => {
+        setFilters(prev => {
+            const newState = { ...prev, [key]: value };
+            if (key === 'cultivoId') {
+                newState.zafraId = '';
+                newState.parcelaId = 'all';
+            }
+            if (key === 'zafraId') {
+                newState.parcelaId = 'all';
+            }
+            return newState;
+        });
     };
     
     const zafraSeleccionada = useMemo(() => zafras.find(z => z.id === filters.zafraId), [filters.zafraId, zafras]);
+    
+    const zafrasFiltradas = useMemo(() => {
+        if (!filters.cultivoId) return zafras;
+        return zafras.filter(z => z.cultivoId === filters.cultivoId);
+    }, [filters.cultivoId, zafras]);
+
+    const parcelasFiltradas = useMemo(() => {
+        if (!filters.zafraId) return parcelas;
+        const parcelasConEventos = new Set(eventos.filter(e => e.zafraId === filters.zafraId).map(e => e.parcelaId));
+        return parcelas.filter(p => parcelasConEventos.has(p.id));
+    }, [filters.zafraId, eventos, parcelas]);
+
 
     const reporteData = useMemo(() => {
-        let parcelasFiltradas = filters.parcelaId === 'all' 
-            ? parcelas 
-            : parcelas.filter(p => p.id === filters.parcelaId);
+        if (!filters.zafraId) return [];
 
-        let data = parcelasFiltradas.map(parcela => {
+        let parcelasAnalizadas = filters.parcelaId === 'all' 
+            ? parcelasFiltradas
+            : parcelasFiltradas.filter(p => p.id === filters.parcelaId);
+
+        let data = parcelasAnalizadas.map(parcela => {
             const eventosParcela = eventos.filter(e => 
                 e.parcelaId === parcela.id && 
                 e.zafraId === filters.zafraId &&
@@ -142,7 +166,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
 
         return data;
 
-    }, [filters, parcelas, eventos, zafraSeleccionada]);
+    }, [filters, parcelasFiltradas, eventos, zafraSeleccionada]);
 
     const filteredRows = useMemo(() => {
         return reporteData.filter(row => {
@@ -207,15 +231,15 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                             <SelectTrigger><SelectValue placeholder="Seleccione Cultivo" /></SelectTrigger>
                             <SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent>
                         </Select>
-                        <Select value={filters.zafraId} onValueChange={(v) => handleFilterChange('zafraId', v)}>
+                        <Select value={filters.zafraId} onValueChange={(v) => handleFilterChange('zafraId', v)} disabled={!filters.cultivoId}>
                             <SelectTrigger><SelectValue placeholder="Seleccione Zafra" /></SelectTrigger>
-                            <SelectContent>{zafras.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent>
+                            <SelectContent>{zafrasFiltradas.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent>
                         </Select>
-                        <Select value={filters.parcelaId} onValueChange={(v) => handleFilterChange('parcelaId', v)}>
+                        <Select value={filters.parcelaId} onValueChange={(v) => handleFilterChange('parcelaId', v)} disabled={!filters.zafraId}>
                             <SelectTrigger><SelectValue placeholder="Seleccione Parcela" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Todas las Parcelas</SelectItem>
-                                {parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
+                                <SelectItem value="all">Todas las Parcelas (de esta Zafra)</SelectItem>
+                                {parcelasFiltradas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </CardContent>
@@ -229,7 +253,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                             </div>
                             <div className="flex items-center gap-2 mt-4 md:mt-0">
                                 <span className="text-sm text-muted-foreground">Ordenar por:</span>
-                                <Select value={filters.ordenarPor} onValueChange={(v) => handleFilterChange('ordenarPor', v)}>
+                                <Select value={filters.ordenarPor} onValueChange={(v) => handleFilterChange('ordenarPor', v as typeof filters.ordenarPor)}>
                                     <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="costoPromedioHa">Costo/ha</SelectItem>
@@ -240,7 +264,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                         <SelectItem value="costoKg">Costo/kg</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <Select value={filters.orden} onValueChange={(v) => handleFilterChange('orden', v)}>
+                                <Select value={filters.orden} onValueChange={(v) => handleFilterChange('orden', v as typeof filters.orden)}>
                                     <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="desc">Descendente</SelectItem>
@@ -389,3 +413,5 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
     )
 
 }
+
+    
