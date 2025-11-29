@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Download } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Download, Upload } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Parcela } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
@@ -23,6 +23,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import * as XLSX from 'xlsx';
+import { useToast } from "@/hooks/use-toast";
+
 
 interface ParcelasListProps {
   initialParcelas: Parcela[];
@@ -32,6 +35,8 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
   const [parcelas, setParcelas] = useState(initialParcelas);
   const { role } = useAuth();
   const canModify = role === 'admin' || role === 'operador';
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleDelete = (id: string) => {
     setParcelas(prev => prev.filter(p => p.id !== id));
@@ -41,6 +46,66 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        const getColumnValue = (row: any, ...keys: string[]) => {
+            for (const key of keys) {
+                const rowKey = Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
+                if (rowKey && row[rowKey] !== undefined) {
+                    return row[rowKey];
+                }
+            }
+            return undefined;
+        };
+
+        const nuevasParcelas: Parcela[] = json.map((row) => ({
+          id: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          nombre: getColumnValue(row, 'Nombre') || 'Sin Nombre',
+          codigo: getColumnValue(row, 'Codigo') || 'N/A',
+          superficie: Number(getColumnValue(row, 'Superficie')) || 0,
+          ubicacion: getColumnValue(row, 'Ubicacion') || 'N/A',
+          estado: (getColumnValue(row, 'Estado') as Parcela['estado']) || 'activa',
+          sector: getColumnValue(row, 'Sector') || undefined,
+        }));
+
+        setParcelas(prev => [...prev, ...nuevasParcelas]);
+        toast({
+          title: "Importación exitosa",
+          description: `${nuevasParcelas.length} parcelas han sido agregadas.`,
+        });
+
+      } catch (error) {
+        console.error("Error al importar el archivo:", error);
+        toast({
+          variant: "destructive",
+          title: "Error de importación",
+          description: "No se pudo leer el archivo. Asegúrese de que el formato y las columnas sean correctos.",
+        });
+      } finally {
+        if(fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+
   return (
     <>
       <PageHeader
@@ -48,17 +113,30 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
         description="Gestione las parcelas de su establecimiento."
       >
         <div className="flex items-center gap-2">
+           <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              accept=".xlsx, .xls, .csv"
+            />
           <Button variant="outline" onClick={handleExportPDF}>
             <Download className="mr-2 h-4 w-4" />
             Exportar PDF
           </Button>
-          {canModify && (
-            <Button asChild>
-              <Link href="/parcelas/crear">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Crear Parcela
-              </Link>
-            </Button>
+           {canModify && (
+            <>
+              <Button variant="outline" onClick={handleImportClick}>
+                <Upload className="mr-2 h-4 w-4" />
+                Importar Excel
+              </Button>
+              <Button asChild>
+                <Link href="/parcelas/crear">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Crear Parcela
+                </Link>
+              </Button>
+            </>
           )}
         </div>
       </PageHeader>
