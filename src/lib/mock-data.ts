@@ -16,8 +16,8 @@ export const mockCultivos: Cultivo[] = [
 
 export const mockZafras: Zafra[] = [
   { id: 'z1', nombre: 'Zafra 2023/2024', fechaInicio: '2023-09-01T12:00:00.000Z', fechaFin: '2024-05-30T12:00:00.000Z', estado: 'finalizada' },
-  { id: 'z2', nombre: 'Zafra Soja 2024/2025', cultivoId: 'c1', fechaSiembra: new Date(new Date().setDate(new Date().getDate() - 85)), fechaInicio: '2024-09-01T12:00:00.000Z', fechaFin: '2025-08-31T12:00:00.000Z', estado: 'en curso' },
-  { id: 'z3', nombre: 'Zafra Maíz 2024/2025', cultivoId: 'c2', fechaSiembra: new Date(new Date().setDate(new Date().getDate() - 45)), fechaInicio: '2024-06-01T12:00:00.000Z', fechaFin: '2024-11-30T12:00:00.000Z', estado: 'en curso' },
+  { id: 'z2', nombre: 'Zafra Soja 2024/2025', cultivoId: 'c1', fechaSiembra: new Date(new Date().setDate(new Date().getDate() - 85)).toISOString(), fechaInicio: '2024-09-01T12:00:00.000Z', fechaFin: '2025-08-31T12:00:00.000Z', estado: 'en curso' },
+  { id: 'z3', nombre: 'Zafra Maíz 2024/2025', cultivoId: 'c2', fechaSiembra: new Date(new Date().setDate(new Date().getDate() - 45)).toISOString(), fechaInicio: '2024-06-01T12:00:00.000Z', fechaFin: '2024-11-30T12:00:00.000Z', estado: 'en curso' },
   { id: 'z4', nombre: 'Zafra 2025/2026', fechaInicio: '2025-09-01T12:00:00.000Z', fechaFin: '2026-08-31T12:00:00.000Z', estado: 'planificada' },
 ];
 

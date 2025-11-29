@@ -9,12 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Zafra, Cultivo } from "@/lib/types";
+import type { Zafra } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import React from "react";
-import { mockCultivos } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 const formSchema = z.object({
   nombre: z.string().min(5, "El nombre debe tener al menos 5 caracteres."),
@@ -26,12 +26,14 @@ const formSchema = z.object({
 type ZafraFormValues = z.infer<typeof formSchema>;
 
 interface ZafraFormProps {
-  zafra?: Zafra;
-  onSubmit: (data: Zafra) => void;
+  zafra?: Zafra | null;
+  onSubmit: (data: Omit<Zafra, 'id'>) => void;
   onCancel: () => void;
 }
 
 export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormProps) => {
+  const { cultivos } = useDataStore();
+  
   const form = useForm<ZafraFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -43,11 +45,17 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
   });
 
   const handleSubmit = (data: ZafraFormValues) => {
-    onSubmit({
-      id: zafra?.id || "",
-      fechaFin: zafra?.fechaFin,
+    const dataToSubmit = {
       ...data,
-    });
+      fechaInicio: data.fechaInicio.toISOString(),
+      fechaFin: zafra?.fechaFin,
+      fechaSiembra: zafra?.fechaSiembra
+    };
+    if (zafra) {
+        onSubmit({ ...zafra, ...dataToSubmit });
+    } else {
+        onSubmit(dataToSubmit);
+    }
   };
 
   return (
@@ -79,7 +87,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            {mockCultivos.map(cultivo => (
+                            {cultivos.map(cultivo => (
                                 <SelectItem key={cultivo.id} value={cultivo.id}>{cultivo.nombre}</SelectItem>
                             ))}
                         </SelectContent>

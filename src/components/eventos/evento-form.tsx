@@ -12,14 +12,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Evento, Parcela, Cultivo, Zafra, Insumo } from "@/lib/types";
+import type { Evento, Insumo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Cloud, Thermometer, Wind, Upload, File, Image as ImageIcon, PlusCircle, Trash2, DollarSign } from "lucide-react";
 import { format } from "date-fns";
-import { mockInsumos, mockEventos, mockZafras, mockEtapasCultivo, mockCompras } from "@/lib/mock-data";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
 import { useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useDataStore } from "@/store/data-store";
 
 const productoSchema = z.object({
   insumoId: z.string().nonempty("Debe seleccionar un insumo."),
@@ -35,22 +35,17 @@ const formSchema = z.object({
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
   descripcion: z.string().min(5, "La descripción es muy corta."),
   
-  // Nuevos campos para cálculo
   hectareasAplicadas: z.coerce.number().optional(),
   costoServicioPorHa: z.coerce.number().optional(),
 
-  // Array de productos
   productos: z.array(productoSchema).optional(),
 
-  // Campos climáticos
   temperatura: z.coerce.number().optional(),
   humedad: z.coerce.number().optional(),
   viento: z.coerce.number().optional(),
 
-  // Campos de evento genéricos
   resultado: z.string().optional(),
   
-  // Campos de rendimiento
   toneladas: z.coerce.number().optional(),
   precioTonelada: z.coerce.number().optional(),
 });
@@ -58,15 +53,15 @@ const formSchema = z.object({
 type EventoFormValues = z.infer<typeof formSchema>;
 
 interface EventoFormProps {
-  evento?: Evento;
-  parcelas: Parcela[];
-  cultivos: Cultivo[];
-  zafras: Zafra[];
+  evento?: Evento | null;
+  onSave: (data: Omit<Evento, 'id'>) => void;
   onCancel: () => void;
 }
 
-export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: EventoFormProps) {
+export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { toast } = useToast();
+  const { parcelas, cultivos, zafras, eventos: todosLosEventos, etapasCultivo, insumos, compras } = useDataStore();
+
   const form = useForm<EventoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: evento ? {
@@ -117,19 +112,19 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
       { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
     )[] = [];
 
-    mockInsumos.forEach(insumo => {
+    insumos.forEach(insumo => {
         if (insumo.stockActual > 0) {
             allEvents.push({ type: 'entrada', fecha: new Date('2000-01-01'), insumoId: insumo.id, cantidad: insumo.stockActual, costo: insumo.costoUnitario });
         }
     });
 
-    mockCompras.forEach(compra => {
+    compras.forEach(compra => {
         compra.items.forEach(item => {
             allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
         });
     });
 
-    mockEventos.forEach(evento => {
+    todosLosEventos.forEach(evento => {
         evento.productos?.forEach(prod => {
             allEvents.push({ type: 'salida', fecha: new Date(evento.fecha), insumoId: prod.insumoId, cantidad: prod.cantidad });
         });
@@ -138,7 +133,7 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
     allEvents.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
 
     const stockFinal: Record<string, { stock: number; unidad: string; }> = {};
-    mockInsumos.forEach(insumo => {
+    insumos.forEach(insumo => {
         let currentStock = 0;
         const insumoMovements = allEvents.filter(e => e.insumoId === insumo.id);
         
@@ -154,13 +149,12 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
     });
 
     return stockFinal;
-  }, []);
+  }, [insumos, compras, todosLosEventos]);
 
   const insumosConStock = useMemo(() => {
-    return mockInsumos.filter(insumo => stockCalculado[insumo.id]?.stock > 0);
-  }, [stockCalculado]);
+    return insumos.filter(insumo => stockCalculado[insumo.id]?.stock > 0);
+  }, [insumos, stockCalculado]);
 
-  // Lógica de cálculo automático
   useEffect(() => {
     if (watchedHectareas && watchedHectareas > 0) {
       watchedProductos?.forEach((producto, index) => {
@@ -176,7 +170,7 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
   
   const totalCostoEvento = useMemo(() => {
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
-        const insumo = mockInsumos.find(i => i.id === prod.insumoId);
+        const insumo = insumos.find(i => i.id === prod.insumoId);
         const costoUnitario = insumo?.costoUnitario || 0;
         return acc + (prod.cantidad * costoUnitario);
     }, 0) || 0;
@@ -184,14 +178,14 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
     const costoServicio = (watchedHectareas || 0) * (watchedCostoServicio || 0);
     
     return costoProductos + costoServicio;
-  }, [watchedProductos, watchedHectareas, watchedCostoServicio]);
+  }, [watchedProductos, watchedHectareas, watchedCostoServicio, insumos]);
 
   const analisisProps = useMemo(() => ({
     eventoActual: { ...form.getValues(), fecha: watchedFecha } as Evento,
-    todosLosEventos: mockEventos,
-    zafras: mockZafras,
-    etapasCultivo: mockEtapasCultivo,
-  }), [watchedParcelaId, watchedCultivoId, watchedZafraId, watchedFecha, form]);
+    todosLosEventos: todosLosEventos,
+    zafras: zafras,
+    etapasCultivo: etapasCultivo,
+  }), [watchedParcelaId, watchedCultivoId, watchedZafraId, watchedFecha, form, todosLosEventos, zafras, etapasCultivo]);
 
 
   const handleSubmit = (data: EventoFormValues) => {
@@ -199,12 +193,11 @@ export function EventoForm({ evento, parcelas, cultivos, zafras, onCancel }: Eve
       ...data,
       costoTotal: totalCostoEvento
     };
-    console.log("Evento guardado:", dataConCostoTotal);
+    onSave(dataConCostoTotal);
     toast({
         title: `Evento ${evento ? 'actualizado' : 'creado'}`,
         description: `El evento "${data.descripcion}" ha sido guardado con un costo de $${totalCostoEvento.toLocaleString('en-US')}.`,
     });
-    onCancel(); // Close the dialog
   };
 
   return (

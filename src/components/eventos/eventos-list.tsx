@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import Link from "next/link";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -29,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { MoreHorizontal, PlusCircle, TriangleAlert, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
+import type { Evento } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -47,29 +46,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { EventoForm } from "./evento-form";
-import { mockEventos, mockParcelas, mockZafras, mockCultivos } from "@/lib/mock-data";
+import { useDataStore } from "@/store/data-store";
 
 
-interface EventosListProps {
-  initialEventos: Evento[];
-  parcelas: Parcela[];
-  zafras: Zafra[];
-  cultivos: Cultivo[];
-}
-
-export function EventosList({
-  initialEventos,
-  parcelas,
-  zafras,
-  cultivos,
-}: EventosListProps) {
+export function EventosList() {
   const { role } = useAuth();
   const canModify = role === "admin" || role === "operador" || role === 'tecnicoCampo';
+  
+  const { eventos, parcelas, zafras, cultivos, addEvento, updateEvento } = useDataStore();
   
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
 
-  const [eventos, setEventos] = useState(initialEventos);
   const [filters, setFilters] = useState({
     tipo: "",
     parcelaId: "",
@@ -93,10 +81,19 @@ export function EventosList({
     });
   }, [eventos, filters]);
 
-  const eventTypes = [...new Set(initialEventos.map((e) => e.tipo))];
+  const eventTypes = [...new Set(eventos.map((e) => e.tipo))];
 
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
+  };
+
+  const handleSave = (eventoData: Omit<Evento, 'id'>) => {
+      if (selectedEvento) {
+          updateEvento({ ...eventoData, id: selectedEvento.id });
+      } else {
+          addEvento(eventoData);
+      }
+      closeForm();
   };
 
   const openForm = (evento?: Evento) => {
@@ -298,10 +295,8 @@ export function EventosList({
           </DialogHeader>
           <div className="overflow-y-auto max-h-[80vh] p-1">
             <EventoForm 
-                evento={selectedEvento || undefined}
-                parcelas={mockParcelas}
-                cultivos={mockCultivos}
-                zafras={mockZafras}
+                evento={selectedEvento}
+                onSave={handleSave}
                 onCancel={closeForm}
             />
           </div>

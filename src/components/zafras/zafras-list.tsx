@@ -26,13 +26,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useDataStore } from "@/store/data-store";
 
-interface ZafrasListProps {
-  initialZafras: Zafra[];
-}
-
-export function ZafrasList({ initialZafras }: ZafrasListProps) {
-  const [zafras, setZafras] = useState(initialZafras);
+export function ZafrasList() {
+  const { zafras, addZafra, updateZafra } = useDataStore();
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedZafra, setSelectedZafra] = useState<Zafra | null>(null);
@@ -42,43 +39,32 @@ export function ZafrasList({ initialZafras }: ZafrasListProps) {
   useEffect(() => {
     const today = new Date();
     const interval = setInterval(() => {
-        setZafras(currentZafras =>
-            currentZafras.map(zafra => {
-                if (zafra.estado === 'en curso' && zafra.fechaFin && new Date(zafra.fechaFin) < today) {
-                    return { ...zafra, estado: 'finalizada' };
-                }
-                return zafra;
-            })
-        );
+        zafras.forEach(zafra => {
+            if (zafra.estado === 'en curso' && zafra.fechaFin && new Date(zafra.fechaFin) < today) {
+                updateZafra({ ...zafra, estado: 'finalizada' });
+            }
+        });
     }, 60000); // Check every minute
 
     return () => clearInterval(interval);
-  }, []);
+  }, [zafras, updateZafra]);
 
-  const handleCreate = (zafraData: Zafra) => {
-    const newZafra: Zafra = {
-      ...zafraData,
-      id: `z${zafras.length + 1}`,
-      fechaInicio: new Date(zafraData.fechaInicio),
-      fechaFin: zafraData.fechaFin ? new Date(zafraData.fechaFin) : undefined
-    };
-    setZafras(prev => [...prev, newZafra]);
+  const handleCreate = (zafraData: Omit<Zafra, 'id'>) => {
+    addZafra(zafraData);
     setCreateDialogOpen(false);
   };
 
   const handleUpdate = (updatedZafra: Zafra) => {
-     const dataToSave = { 
-      ...updatedZafra,
-      fechaInicio: new Date(updatedZafra.fechaInicio),
-      fechaFin: updatedZafra.fechaFin ? new Date(updatedZafra.fechaFin) : undefined
-    };
-    setZafras(prev => prev.map(z => z.id === dataToSave.id ? dataToSave : z));
+    updateZafra(updatedZafra);
     setEditDialogOpen(false);
     setSelectedZafra(null);
   };
   
   const handleCloseZafra = (id: string) => {
-    setZafras(prev => prev.map(z => z.id === id ? { ...z, estado: 'finalizada', fechaFin: new Date() } : z));
+    const zafraToClose = zafras.find(z => z.id === id);
+    if(zafraToClose) {
+        updateZafra({ ...zafraToClose, estado: 'finalizada', fechaFin: new Date().toISOString() });
+    }
   };
 
   const openEditDialog = (zafra: Zafra) => {
@@ -200,7 +186,7 @@ export function ZafrasList({ initialZafras }: ZafrasListProps) {
       <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Editar Zafra</DialogTitle></DialogHeader>
-          {selectedZafra && <ZafraForm zafra={selectedZafra} onSubmit={(data) => handleUpdate({ ...selectedZafra, ...data })} onCancel={() => setEditDialogOpen(false)} />}
+          {selectedZafra && <ZafraForm zafra={selectedZafra} onSubmit={handleUpdate} onCancel={() => setEditDialogOpen(false)} />}
         </DialogContent>
       </Dialog>
     </>
