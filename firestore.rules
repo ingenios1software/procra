@@ -1,0 +1,184 @@
+/**
+ * Core Philosophy: This ruleset establishes a "secure by default" posture.
+ * For most data collections (Plots, Crops, Seasons, Events), all write
+ * operations are disabled pending the implementation of a clear ownership or
+ * role-based model. Read access is granted to any authenticated user. User
+ * profile data is strictly controlled, allowing users to manage only their own
+ * information.
+ *
+ * Data Structure: The database uses top-level collections for primary data
+ * types: 'plots', 'crops', 'seasons', 'users', and 'roles'. Agricultural
+ * 'events' are stored in a subcollection under the 'plot' they belong to.
+ * This structure logically groups related data.
+ *
+ * Key Security Decisions:
+ * - Default Deny for Writes: Collections like 'plots' and 'events' currently
+ *   lack ownership fields (e.g., 'ownerId'). To prevent unauthorized data
+ *   manipulation, all write access is blocked until these schemas are updated
+ *   to include denormalized authorization data.
+ * - User Data Privacy: Listing users is explicitly disallowed to prevent data
+ *   leakage and protect user privacy. Users can only access their own document
+ *   at /users/{userId}.
+ * - Read-Only Reference Data: Collections like 'roles' and 'crops' are treated
+ *   as read-only for clients, assuming they are managed by backend processes or
+ *   administrators.
+ *
+ * Denormalization for Authorization: This ruleset is designed to leverage
+ * denormalization. For write access to be enabled on collections like 'plots',
+ * an 'ownerId' field (or a 'members' map for collaboration) must be added
+ * directly to each plot document. This avoids slow and costly 'get()' calls
+ * and enables secure, performant rules.
+ *
+ * Structural Segregation: This pattern is not currently used but would be
+ * recommended if public and private plots were introduced. For example, using
+ * /plots/{plotId} for private/collaborative data and /publicPlots/{plotId} for
+ * publicly viewable data.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------------
+    // Helper Functions
+    // ------------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the requesting user's UID matches the provided userId.
+     * This is the foundation of the user-ownership model.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * Checks for ownership on an existing document.
+     * Used for update and delete operations to prevent acting on non-existent data.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Validates required fields for creating a new user document.
+     * Ensures the document ID in the path matches the 'id' field inside the document.
+     */
+    function isValidUserCreate(userId) {
+      let data = request.resource.data;
+      return isOwner(userId) && data.id == userId;
+    }
+    
+    /**
+     * Ensures critical relational IDs cannot be changed after creation.
+     */
+    function isImmutableUserId() {
+    	return request.resource.data.id == resource.data.id;
+    }
+
+    // ------------------------------------------------------------------------
+    // User Rules
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to a user's own profile document.
+     * @path /users/{userId}
+     * @allow A user (uid: 'user_abc') creating their own document at /users/user_abc. (create)
+     * @deny A user (uid: 'user_xyz') trying to read or write to /users/user_abc. (get, update)
+     * @principle Restricts access to a user's own data tree and enforces relational integrity on create.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isValidUserCreate(userId);
+      allow update: if isExistingOwner(userId) && isImmutableUserId();
+      allow delete: if false;
+    }
+
+    // ------------------------------------------------------------------------
+    // Plot & Event Rules
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to agricultural plots. Writes are currently blocked.
+     * @path /plots/{plotId}
+     * @allow Any authenticated user reading a plot document. (get, list)
+     * @deny Any user, authenticated or not, trying to create or modify a plot. (create, update)
+     * @principle Enforces a read-only policy for core data until a proper ownership model is defined in the schema.
+     */
+    match /plots/{plotId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      // CRITICAL: Cannot implement owner-only writes. The 'Plot' entity is missing an 'ownerId' or 'authorId' field.
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      
+      /**
+       * @description Controls access to events within a plot. Writes are currently blocked.
+       * @path /plots/{plotId}/events/{eventId}
+       * @allow Any authenticated user reading an event document. (get, list)
+       * @deny Any user trying to create a new event for a plot. (create)
+       * @principle Subcollection inherits the secure-by-default posture of its parent.
+       */
+      match /events/{eventId} {
+        allow get: if isSignedIn();
+        allow list: if isSignedIn();
+        // CRITICAL: Cannot implement owner-only writes. The 'Event' entity is missing an 'ownerId' or 'authorId' field.
+        allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // Reference Data Rules (Crops, Seasons, Roles)
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to crop reference data. This collection is read-only for clients.
+     * @path /crops/{cropId}
+     * @allow Any authenticated user reading the list of available crops. (get, list)
+     * @deny Any user trying to add a new crop type. (create)
+     * @principle Protects reference data, assuming it's managed by administrators or a backend service.
+     */
+    match /crops/{cropId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Controls access to season reference data. This collection is read-only for clients.
+     * @path /seasons/{seasonId}
+     * @allow Any authenticated user reading the list of agricultural seasons. (get, list)
+     * @deny Any user trying to create a new season. (create)
+     * @principle Protects reference data, assuming it's managed by administrators or a backend service.
+     */
+    match /seasons/{seasonId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    /**
+     * @description Controls access to user roles. This collection is read-only for clients.
+     * @path /roles/{roleId}
+     * @allow Any authenticated user reading the available role definitions. (get, list)
+     * @deny Any user trying to create or modify a role. (create, update)
+     * @principle Protects critical authorization data from client-side modification.
+     */
+    match /roles/{roleId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}
