@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import React from "react";
-import { useDataStore } from "@/store/data-store";
+import { useCollection, useFirestore } from "@/firebase";
+import { collection, query, orderBy } from 'firebase/firestore';
 
 const formSchema = z.object({
   nombre: z.string().min(5, "El nombre debe tener al menos 5 caracteres."),
@@ -26,20 +27,25 @@ const formSchema = z.object({
 type ZafraFormValues = z.infer<typeof formSchema>;
 
 interface ZafraFormProps {
-  zafra?: Zafra | null;
-  onSubmit: (data: Omit<Zafra, 'id'>) => void;
+  zafra?: Partial<Zafra> | null;
+  onSubmit: (data: any) => void;
   onCancel: () => void;
 }
 
 export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormProps) => {
-  const { cultivos } = useDataStore();
+  const firestore = useFirestore();
+  const cultivosQuery = React.useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'cultivos'), orderBy('nombre'));
+  }, [firestore]);
+  const { data: cultivos } = useCollection(cultivosQuery);
   
   const form = useForm<ZafraFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       nombre: zafra?.nombre || "",
       cultivoId: zafra?.cultivoId || "",
-      fechaInicio: zafra?.fechaInicio ? new Date(zafra.fechaInicio) : new Date(),
+      fechaInicio: zafra?.fechaInicio ? new Date(zafra.fechaInicio as string) : new Date(),
       estado: zafra?.estado || "planificada",
     },
   });
@@ -48,14 +54,8 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
     const dataToSubmit = {
       ...data,
       fechaInicio: data.fechaInicio.toISOString(),
-      fechaFin: zafra?.fechaFin,
-      fechaSiembra: zafra?.fechaSiembra
     };
-    if (zafra) {
-        onSubmit({ ...zafra, ...dataToSubmit });
-    } else {
-        onSubmit(dataToSubmit);
-    }
+    onSubmit(dataToSubmit);
   };
 
   return (
@@ -87,7 +87,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            {cultivos.map(cultivo => (
+                            {cultivos?.map(cultivo => (
                                 <SelectItem key={cultivo.id} value={cultivo.id}>{cultivo.nombre}</SelectItem>
                             ))}
                         </SelectContent>
@@ -138,7 +138,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
           render={({ field }) => (
             <FormItem>
               <FormLabel>Estado</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!zafra}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!zafra?.id}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione un estado" />
@@ -150,7 +150,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
                   <SelectItem value="finalizada" disabled>Finalizada</SelectItem>
                 </SelectContent>
               </Select>
-              {!!zafra && <FormDescription>El estado no puede ser modificado una vez creada la zafra.</FormDescription>}
+              {!!zafra?.id && <FormDescription>El estado no puede ser modificado una vez creada la zafra.</FormDescription>}
               <FormMessage />
             </FormItem>
           )}
@@ -159,7 +159,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button type="submit">{zafra ? "Guardar Cambios" : "Crear Zafra"}</Button>
+          <Button type="submit">{zafra?.id ? "Guardar Cambios" : "Crear Zafra"}</Button>
         </div>
       </form>
     </Form>

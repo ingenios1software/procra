@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,7 +11,7 @@ import { MoreHorizontal, PlusCircle, PowerOff, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { ZafraForm } from "./zafra-form";
 import type { Zafra } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -26,44 +26,64 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { useDataStore } from "@/store/data-store";
+import { collection, doc, query, orderBy } from "firebase/firestore";
+
 
 export function ZafrasList() {
-  const { zafras, addZafra, updateZafra } = useDataStore();
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedZafra, setSelectedZafra] = useState<Zafra | null>(null);
+  const [selectedZafra, setSelectedZafra] = useState<Partial<Zafra> | null>(null);
+  
   const { role } = useAuth();
+  const firestore = useFirestore();
+
+  const zafrasCollection = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'zafras'), orderBy('fechaInicio', 'desc'));
+  }, [firestore]);
+
+  const { data: zafras, isLoading } = useCollection<Zafra>(zafrasCollection);
+
   const canModify = role === 'admin' || role === 'operador';
 
   useEffect(() => {
+    if (!zafras) return;
     const today = new Date();
     const interval = setInterval(() => {
         zafras.forEach(zafra => {
             if (zafra.estado === 'en curso' && zafra.fechaFin && new Date(zafra.fechaFin) < today) {
-                updateZafra({ ...zafra, estado: 'finalizada' });
+                if (firestore) {
+                  const zafraRef = doc(firestore, "zafras", zafra.id);
+                  updateDocumentNonBlocking(zafraRef, { estado: 'finalizada' });
+                }
             }
         });
     }, 60000); // Check every minute
 
     return () => clearInterval(interval);
-  }, [zafras, updateZafra]);
+  }, [zafras, firestore]);
 
   const handleCreate = (zafraData: Omit<Zafra, 'id'>) => {
-    addZafra(zafraData);
+    if(firestore) {
+      const zafrasCol = collection(firestore, 'zafras');
+      addDocumentNonBlocking(zafrasCol, zafraData);
+    }
     setCreateDialogOpen(false);
   };
 
-  const handleUpdate = (updatedZafra: Zafra) => {
-    updateZafra(updatedZafra);
+  const handleUpdate = (updatedZafra: Omit<Zafra, 'id'>) => {
+    if (selectedZafra?.id && firestore) {
+      const zafraRef = doc(firestore, 'zafras', selectedZafra.id);
+      updateDocumentNonBlocking(zafraRef, updatedZafra);
+    }
     setEditDialogOpen(false);
     setSelectedZafra(null);
   };
   
   const handleCloseZafra = (id: string) => {
-    const zafraToClose = zafras.find(z => z.id === id);
-    if(zafraToClose) {
-        updateZafra({ ...zafraToClose, estado: 'finalizada', fechaFin: new Date().toISOString() });
+    if(firestore) {
+        const zafraRef = doc(firestore, "zafras", id);
+        updateDocumentNonBlocking(zafraRef, { estado: 'finalizada', fechaFin: new Date().toISOString() });
     }
   };
 
@@ -112,11 +132,12 @@ export function ZafrasList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {zafras.map((zafra) => (
+              {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Cargando...</TableCell></TableRow>}
+              {!isLoading && zafras?.map((zafra) => (
                 <TableRow key={zafra.id}>
                   <TableCell className="font-medium">{zafra.nombre}</TableCell>
-                  <TableCell>{format(new Date(zafra.fechaInicio), "dd/MM/yyyy")}</TableCell>
-                  <TableCell>{zafra.fechaFin ? format(new Date(zafra.fechaFin), "dd/MM/yyyy") : 'N/A'}</TableCell>
+                  <TableCell>{format(new Date(zafra.fechaInicio as string), "dd/MM/yyyy")}</TableCell>
+                  <TableCell>{zafra.fechaFin ? format(new Date(zafra.fechaFin as string), "dd/MM/yyyy") : 'N/A'}</TableCell>
                   <TableCell>
                     <Badge 
                       className={cn('capitalize', {
