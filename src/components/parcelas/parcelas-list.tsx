@@ -72,9 +72,9 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead>Código</TableHead>
                 <TableHead>Superficie (ha)</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Sector</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -86,7 +86,6 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
                       {parcela.nombre}
                     </Link>
                   </TableCell>
-                  <TableCell>{parcela.codigo}</TableCell>
                   <TableCell>{parcela.superficie}</TableCell>
                   <TableCell>
                     <Badge 
@@ -101,6 +100,7 @@ export function ParcelasList({ initialParcelas }: ParcelasListProps) {
                         {parcela.estado === 'en barbecho' ? 'En Barbecho' : parcela.estado}
                     </Badge>
                   </TableCell>
+                  <TableCell>{parcela.sector}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

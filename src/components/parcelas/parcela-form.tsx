@@ -18,6 +18,7 @@ const formSchema = z.object({
   superficie: z.coerce.number().positive("La superficie debe ser un número positivo."),
   ubicacion: z.string().min(5, "La ubicación es muy corta."),
   estado: z.enum(["activa", "inactiva", "en barbecho"]),
+  sector: z.string().optional(),
 });
 
 type ParcelaFormValues = z.infer<typeof formSchema>;
@@ -102,28 +103,43 @@ export const ParcelaForm = React.memo(({ parcela }: ParcelaFormProps) => {
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="estado"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Estado</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccione un estado" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="activa">Activa</SelectItem>
-                        <SelectItem value="inactiva">Inactiva</SelectItem>
-                        <SelectItem value="en barbecho">En Barbecho</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="estado"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estado</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccione un estado" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="activa">Activa</SelectItem>
+                          <SelectItem value="inactiva">Inactiva</SelectItem>
+                          <SelectItem value="en barbecho">En Barbecho</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="sector"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sector</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: Norte" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => router.back()}>
                 Cancelar

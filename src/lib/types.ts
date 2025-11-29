@@ -5,6 +5,7 @@ export type Parcela = {
   superficie: number;
   ubicacion: string;
   estado: 'activa' | 'inactiva' | 'en barbecho';
+  sector?: string;
 };
 
 export type Cultivo = {
