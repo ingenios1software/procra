@@ -10,41 +10,34 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { CultivoForm } from "./cultivo-form";
 import type { Cultivo } from "@/lib/types";
-import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { collection, doc } from 'firebase/firestore';
 
 interface CultivosListProps {
-  cultivos: Cultivo[];
-  isLoading: boolean;
+  initialCultivos: Cultivo[];
+  onAdd: (data: Omit<Cultivo, 'id'>) => void;
+  onUpdate: (data: Cultivo) => void;
+  onDelete: (id: string) => void;
 }
 
-export function CultivosList({ cultivos, isLoading }: CultivosListProps) {
-  const firestore = useFirestore();
+export function CultivosList({ initialCultivos, onAdd, onUpdate, onDelete }: CultivosListProps) {
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedCultivo, setSelectedCultivo] = useState<Cultivo | null>(null);
-  const { user } = useUser();
+  const { user } = useAuth();
+  const canModify = user && user.rol === 'admin';
 
   const handleCreate = (cultivoData: Omit<Cultivo, 'id'>) => {
-    if (!firestore) return;
-    const cultivosCol = collection(firestore, 'cultivos');
-    addDocumentNonBlocking(cultivosCol, cultivoData);
+    onAdd(cultivoData);
     setCreateDialogOpen(false);
   };
 
   const handleUpdate = (cultivoData: Omit<Cultivo, 'id'>) => {
-    if (!firestore || !selectedCultivo) return;
-    const cultivoRef = doc(firestore, 'cultivos', selectedCultivo.id);
-    updateDocumentNonBlocking(cultivoRef, cultivoData);
+    if (selectedCultivo) {
+      onUpdate({ ...selectedCultivo, ...cultivoData });
+    }
     setEditDialogOpen(false);
     setSelectedCultivo(null);
-  };
-
-  const handleDelete = (id: string) => {
-    if (!firestore) return;
-    const cultivoRef = doc(firestore, 'cultivos', id);
-    deleteDocumentNonBlocking(cultivoRef);
   };
   
   const openEditDialog = (cultivo: Cultivo) => {
@@ -58,7 +51,7 @@ export function CultivosList({ cultivos, isLoading }: CultivosListProps) {
         title="Cultivos"
         description="Gestione los tipos de cultivos de su establecimiento."
       >
-        {user && (
+        {canModify && (
           <Button onClick={() => setCreateDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Crear Cultivo
@@ -73,16 +66,15 @@ export function CultivosList({ cultivos, isLoading }: CultivosListProps) {
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Descripción</TableHead>
-                {user && <TableHead className="text-right">Acciones</TableHead>}
+                {canModify && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={3}>Cargando...</TableCell></TableRow>}
-              {cultivos.map((cultivo) => (
+              {initialCultivos.map((cultivo) => (
                 <TableRow key={cultivo.id}>
                   <TableCell className="font-medium">{cultivo.nombre}</TableCell>
                   <TableCell>{cultivo.descripcion}</TableCell>
-                  {user && (
+                  {canModify && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -107,7 +99,7 @@ export function CultivosList({ cultivos, isLoading }: CultivosListProps) {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDelete(cultivo.id)}>Continuar</AlertDialogAction>
+                                  <AlertDialogAction onClick={() => onDelete(cultivo.id)}>Continuar</AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>

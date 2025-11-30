@@ -32,35 +32,31 @@ import {
 import { MoreHorizontal, PlusCircle, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Maquinaria } from "@/lib/types";
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 import { MaquinariaForm } from "./maquinaria-form";
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { useToast } from "@/hooks/use-toast";
 
+interface MaquinariaListProps {
+  initialMaquinaria: Maquinaria[];
+  onAdd: (data: Omit<Maquinaria, 'id'>) => void;
+  onUpdate: (data: Maquinaria) => void;
+  onDelete: (id: string) => void;
+}
 
-export function MaquinariaList() {
-  const firestore = useFirestore();
-  const maquinariasQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'maquinarias'), orderBy('nombre')) : null
-  , [firestore]);
-  const { data: maquinarias, isLoading } = useCollection<Maquinaria>(maquinariasQuery);
-
+export function MaquinariaList({ initialMaquinaria, onAdd, onUpdate, onDelete }: MaquinariaListProps) {
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedMaquinaria, setSelectedMaquinaria] = useState<Maquinaria | null>(null);
-  const { user } = useUser();
+  const { user } = useAuth();
+  const canModify = user && user.rol === "admin";
   const { toast } = useToast();
-  const canModify = user;
 
   const handleSave = (maquinariaData: Omit<Maquinaria, "id">) => {
-    if (!firestore) return;
     if (selectedMaquinaria) {
-      const maquinariaRef = doc(firestore, 'maquinarias', selectedMaquinaria.id);
-      updateDocumentNonBlocking(maquinariaRef, maquinariaData);
+      onUpdate({ ...selectedMaquinaria, ...maquinariaData });
       toast({ title: "Maquinaria actualizada", description: `Los datos de "${maquinariaData.nombre}" han sido actualizados.` });
     } else {
-      const maquinariasCol = collection(firestore, 'maquinarias');
-      addDocumentNonBlocking(maquinariasCol, maquinariaData);
+      onAdd(maquinariaData);
       toast({ title: "Maquinaria creada", description: `La maquinaria "${maquinariaData.nombre}" ha sido registrada.` });
     }
     setFormOpen(false);
@@ -68,11 +64,8 @@ export function MaquinariaList() {
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore || !maquinarias) return;
-    const maquinaria = maquinarias.find(m => m.id === id);
-    const maquinariaRef = doc(firestore, 'maquinarias', id);
-    deleteDocumentNonBlocking(maquinariaRef);
-    toast({ variant: "destructive", title: "Maquinaria eliminada", description: `La maquinaria "${maquinaria?.nombre}" ha sido eliminada.` });
+    onDelete(id);
+    toast({ variant: "destructive", title: "Maquinaria eliminada", description: `La maquinaria ha sido eliminada.` });
   };
 
   const openForm = (maquinaria?: Maquinaria) => {
@@ -104,8 +97,7 @@ export function MaquinariaList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
-              {maquinarias?.map((maquinaria) => (
+              {initialMaquinaria.map((maquinaria) => (
                 <TableRow key={maquinaria.id}>
                   <TableCell className="font-medium">{maquinaria.nombre}</TableCell>
                   <TableCell>

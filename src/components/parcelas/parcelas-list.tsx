@@ -1,15 +1,17 @@
 "use client";
 
-import { useRef } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Download, Upload } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { ParcelaForm } from "./parcela-form";
 import type { Parcela } from "@/lib/types";
-import { useUser, useFirestore, deleteDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -25,23 +27,39 @@ import {
 } from "@/components/ui/alert-dialog";
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc } from 'firebase/firestore';
 
 interface ParcelasListProps {
   parcelas: Parcela[];
-  isLoading: boolean;
+  onAdd: (data: Omit<Parcela, 'id'>) => void;
+  onUpdate: (data: Parcela) => void;
+  onDelete: (id: string) => void;
 }
 
-export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
-  const firestore = useFirestore();
-  const { user } = useUser();
+export function ParcelasList({ parcelas, onAdd, onUpdate, onDelete }: ParcelasListProps) {
+  const [isFormOpen, setFormOpen] = useState(false);
+  const [selectedParcela, setSelectedParcela] = useState<Parcela | null>(null);
+  const { user } = useAuth();
+  const canModify = user && user.rol === 'admin';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  const handleSave = (parcelaData: Parcela | Omit<Parcela, 'id'>) => {
+    if ('id' in parcelaData) {
+      onUpdate(parcelaData);
+    } else {
+      onAdd(parcelaData);
+    }
+    setFormOpen(false);
+    setSelectedParcela(null);
+  };
+
   const handleDelete = (id: string) => {
-    if (!firestore) return;
-    const parcelaRef = doc(firestore, 'parcelas', id);
-    deleteDocumentNonBlocking(parcelaRef);
+    onDelete(id);
+  };
+  
+  const openForm = (parcela?: Parcela) => {
+    setSelectedParcela(parcela || null);
+    setFormOpen(true);
   };
   
   const handleExportPDF = () => {
@@ -53,7 +71,6 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!firestore) return;
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -65,34 +82,22 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-        const getColumnValue = (row: any, ...keys: string[]) => {
-            for (const key of keys) {
-                const rowKey = Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
-                if (rowKey && row[rowKey] !== undefined) {
-                    return row[rowKey];
-                }
-            }
-            return undefined;
-        };
         
-        const parcelasCol = collection(firestore, 'parcelas');
-        const nuevasParcelas: Omit<Parcela, 'id'>[] = json.map((row) => ({
-          nombre: getColumnValue(row, 'Nombre') || 'Sin Nombre',
-          codigo: getColumnValue(row, 'Codigo') || 'N/A',
-          superficie: Number(getColumnValue(row, 'Superficie')) || 0,
-          ubicacion: getColumnValue(row, 'Ubicacion') || 'N/A',
-          estado: (getColumnValue(row, 'Estado') as Parcela['estado']) || 'activa',
-          sector: getColumnValue(row, 'Sector') || undefined,
-        }));
-        
-        nuevasParcelas.forEach(parcela => {
-          addDocumentNonBlocking(parcelasCol, parcela);
-        })
+        json.forEach((row: any) => {
+          const newParcela: Omit<Parcela, 'id'> = {
+            nombre: row['Nombre'] || 'Sin Nombre',
+            codigo: row['Código'] || 'N/A',
+            superficie: Number(row['Superficie']) || 0,
+            ubicacion: row['Ubicación'] || 'N/A',
+            estado: (row['Estado'] as Parcela['estado']) || 'activa',
+            sector: row['Sector'] || undefined,
+          };
+          onAdd(newParcela);
+        });
 
         toast({
           title: "Importación exitosa",
-          description: `${nuevasParcelas.length} parcelas han sido agregadas.`,
+          description: `${json.length} parcelas han sido agregadas.`,
         });
 
       } catch (error) {
@@ -100,9 +105,10 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
         toast({
           variant: "destructive",
           title: "Error de importación",
-          description: "No se pudo leer el archivo. Asegúrese de que el formato y las columnas sean correctos.",
+          description: "No se pudo leer el archivo. Asegúrese de que el formato sea correcto.",
         });
       } finally {
+        // Reset file input
         if(fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -130,17 +136,15 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
             <Download className="mr-2 h-4 w-4" />
             Exportar PDF
           </Button>
-           {user && (
+           {canModify && (
             <>
               <Button variant="outline" onClick={handleImportClick}>
                 <Upload className="mr-2 h-4 w-4" />
                 Importar Excel
               </Button>
-              <Button asChild>
-                <Link href="/parcelas/crear">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Crear Parcela
-                </Link>
+              <Button onClick={() => openForm()}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Crear Parcela
               </Button>
             </>
           )}
@@ -163,7 +167,6 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
               {parcelas.map((parcela) => (
                 <TableRow key={parcela.id}>
                   <TableCell className="font-medium">
@@ -199,11 +202,9 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
                         <DropdownMenuItem asChild>
                           <Link href={`/parcelas/${parcela.id}`}>Ver Detalles</Link>
                         </DropdownMenuItem>
-                        {user && (
+                        {canModify && (
                           <>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/parcelas/editar/${parcela.id}`}>Editar</Link>
-                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openForm(parcela)}>Editar</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -233,6 +234,19 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedParcela ? 'Editar Parcela' : 'Crear Nueva Parcela'}</DialogTitle>
+          </DialogHeader>
+          <ParcelaForm 
+            parcela={selectedParcela || undefined} 
+            onSave={handleSave} 
+            onCancel={() => setFormOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

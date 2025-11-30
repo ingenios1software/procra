@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
@@ -10,10 +9,9 @@ import { MoreHorizontal, PlusCircle, TrendingUp, Download, Package } from "lucid
 import { PageHeader } from "@/components/shared/page-header";
 import { VentaForm } from "./venta-form";
 import type { Venta, Parcela, Zafra, Cultivo, Cliente } from "@/lib/types";
-import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useFirestore } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { collection, doc } from 'firebase/firestore';
 
 interface VentasListProps {
   ventas: Venta[];
@@ -21,14 +19,16 @@ interface VentasListProps {
   zafras: Zafra[];
   cultivos: Cultivo[];
   clientes: Cliente[];
+  onAddVenta: (data: Omit<Venta, 'id'>) => void;
+  onUpdateVenta: (data: Venta) => void;
   isLoading: boolean;
 }
 
-export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoading }: VentasListProps) {
-  const firestore = useFirestore();
+export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, onAddVenta, onUpdateVenta }: VentasListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
-  const { user } = useUser();
+  const { user } = useAuth();
+  const canModify = user && user.rol === 'admin';
   
   const { totalIngresos, rendimientoPorParcela } = useMemo(() => {
     const totalIngresos = ventas.reduce((acc, venta) => acc + (venta.toneladas * venta.precioTonelada), 0);
@@ -47,18 +47,14 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
   }, [ventas, parcelas]);
 
   const handleSave = useCallback((ventaData: Omit<Venta, 'id'>) => {
-    if (!firestore) return;
-    const dataToSave = { ...ventaData, fecha: (ventaData.fecha as Date).toISOString() };
-    if (selectedVenta?.id) {
-      const ventaRef = doc(firestore, 'ventas', selectedVenta.id);
-      updateDocumentNonBlocking(ventaRef, dataToSave);
+    if (selectedVenta) {
+      onUpdateVenta({ ...selectedVenta, ...ventaData });
     } else {
-      const ventasCol = collection(firestore, 'ventas');
-      addDocumentNonBlocking(ventasCol, dataToSave);
+      onAddVenta(ventaData);
     }
     setDialogOpen(false);
     setSelectedVenta(null);
-  }, [selectedVenta, firestore]);
+  }, [selectedVenta, onAddVenta, onUpdateVenta]);
   
   const openDialog = useCallback((venta?: Venta) => {
     setSelectedVenta(venta || null);
@@ -94,7 +90,7 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
             </Button>
-            {user && (
+            {canModify && (
               <Button onClick={() => openDialog()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Registrar Venta
@@ -146,22 +142,21 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
                 <TableHead>Toneladas</TableHead>
                 <TableHead>Precio/Ton</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                {user && <TableHead className="text-right">Acciones</TableHead>}
+                {canModify && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
               {ventas.map((venta) => {
                 const total = venta.toneladas * venta.precioTonelada;
                 return (
                   <TableRow key={venta.id}>
-                    <TableCell>{format(new Date(venta.fecha as string), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(venta.fecha), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{getClienteNombre(venta.clienteId)}</TableCell>
                     <TableCell className="font-medium">{getCultivoNombre(venta.cultivoId)}</TableCell>
                     <TableCell>{venta.toneladas} tn</TableCell>
                     <TableCell>${venta.precioTonelada.toLocaleString('en-US')}</TableCell>
                     <TableCell className="text-right font-semibold">${total.toLocaleString('en-US')}</TableCell>
-                    {user && (
+                    {canModify && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(venta)}>
                           <MoreHorizontal className="h-4 w-4" />

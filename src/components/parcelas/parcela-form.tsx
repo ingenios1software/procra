@@ -11,9 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import type { Parcela } from "@/lib/types";
 import React from "react";
-import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import { useToast } from "@/hooks/use-toast";
 
 
 const formSchema = z.object({
@@ -29,12 +26,12 @@ type ParcelaFormValues = z.infer<typeof formSchema>;
 
 interface ParcelaFormProps {
   parcela?: Parcela;
+  onSave: (data: Parcela | Omit<Parcela, 'id'>) => void;
+  onCancel: () => void;
 }
 
-export const ParcelaForm = React.memo(({ parcela }: ParcelaFormProps) => {
+export const ParcelaForm = React.memo(({ parcela, onSave, onCancel }: ParcelaFormProps) => {
   const router = useRouter();
-  const firestore = useFirestore();
-  const { toast } = useToast();
 
   const form = useForm<ParcelaFormValues>({
     resolver: zodResolver(formSchema),
@@ -44,16 +41,11 @@ export const ParcelaForm = React.memo(({ parcela }: ParcelaFormProps) => {
   });
 
   const handleSubmit = (data: ParcelaFormValues) => {
-    if (!firestore) return;
-    if (parcela?.id) {
-      const parcelaRef = doc(firestore, 'parcelas', parcela.id);
-      updateDocumentNonBlocking(parcelaRef, data);
+    if (parcela) {
+        onSave({ ...parcela, ...data });
     } else {
-      const parcelasCol = collection(firestore, 'parcelas');
-      addDocumentNonBlocking(parcelasCol, data);
+        onSave(data);
     }
-    toast({ title: `Parcela ${parcela ? 'actualizada' : 'creada'}`, description: `La parcela ${data.nombre} ha sido guardada.` });
-    router.push("/parcelas");
   };
 
   return (
@@ -155,7 +147,7 @@ export const ParcelaForm = React.memo(({ parcela }: ParcelaFormProps) => {
               />
             </div>
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => router.back()}>
+              <Button type="button" variant="outline" onClick={onCancel}>
                 Cancelar
               </Button>
               <Button type="submit">{parcela ? "Guardar Cambios" : "Crear Parcela"}</Button>

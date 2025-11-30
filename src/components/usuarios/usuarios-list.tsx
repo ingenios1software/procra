@@ -9,30 +9,27 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { UsuarioForm } from "./usuario-form";
 import type { Usuario, Rol } from "@/lib/types";
-import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useFirestore } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
-import { collection, doc } from 'firebase/firestore';
 
 interface UsuariosListProps {
-  usuarios: Usuario[];
+  initialUsuarios: Usuario[];
   roles: Rol[];
-  isLoading: boolean;
+  onAdd: (data: Omit<Usuario, 'id'>) => void;
+  onUpdate: (data: Usuario) => void;
 }
 
-export function UsuariosList({ usuarios, roles, isLoading }: UsuariosListProps) {
-  const firestore = useFirestore();
+export function UsuariosList({ initialUsuarios, roles, onAdd, onUpdate }: UsuariosListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
-  const { user } = useUser();
+  const { user } = useAuth();
+  const canModify = user && user.rol === "admin";
 
   const handleSave = (usuarioData: Omit<Usuario, 'id'>) => {
-    if (!firestore) return;
     if (selectedUsuario) {
-      const usuarioRef = doc(firestore, 'usuarios', selectedUsuario.id);
-      updateDocumentNonBlocking(usuarioRef, usuarioData);
+      onUpdate({ ...selectedUsuario, ...usuarioData });
     } else {
-      const usuariosCol = collection(firestore, 'usuarios');
-      addDocumentNonBlocking(usuariosCol, usuarioData);
+      onAdd(usuarioData);
     }
     setDialogOpen(false);
     setSelectedUsuario(null);
@@ -49,7 +46,7 @@ export function UsuariosList({ usuarios, roles, isLoading }: UsuariosListProps) 
         title="Gestión de Usuarios"
         description="Administración de cuentas y roles del sistema."
       >
-        {user && (
+        {canModify && (
           <Button onClick={() => openDialog()}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Crear Usuario
@@ -57,7 +54,7 @@ export function UsuariosList({ usuarios, roles, isLoading }: UsuariosListProps) 
         )}
       </PageHeader>
       
-      {!user && (
+      {!canModify && (
         <Card className="mb-4 bg-amber-50 border-amber-200">
             <CardContent className="p-4">
                 <p className="text-amber-800 font-medium">Solo los administradores pueden gestionar usuarios.</p>
@@ -77,12 +74,11 @@ export function UsuariosList({ usuarios, roles, isLoading }: UsuariosListProps) 
                 <TableHead>Email</TableHead>
                 <TableHead>Rol</TableHead>
                 <TableHead>Estado</TableHead>
-                {user && <TableHead className="text-right">Acciones</TableHead>}
+                {canModify && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
-              {usuarios.map((usuario) => (
+              {initialUsuarios.map((usuario) => (
                 <TableRow key={usuario.id}>
                   <TableCell className="font-medium">{usuario.nombre}</TableCell>
                   <TableCell>{usuario.email}</TableCell>
@@ -90,7 +86,7 @@ export function UsuariosList({ usuarios, roles, isLoading }: UsuariosListProps) 
                   <TableCell>
                     <Badge variant={usuario.activo ? 'default' : "destructive"}>{usuario.activo ? 'Activo' : 'Inactivo'}</Badge>
                   </TableCell>
-                  {user && (
+                  {canModify && (
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(usuario)}>
                         <span className="sr-only">Editar</span>

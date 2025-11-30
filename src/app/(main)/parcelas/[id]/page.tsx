@@ -8,37 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { MapPin, Code, Ruler, Activity } from "lucide-react";
-import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where } from 'firebase/firestore';
-import type { Parcela, Evento, Cultivo } from '@/lib/types';
-
+import { useDataStore } from "@/store/data-store";
 
 export default function ParcelaDetailPage({ params }: { params: { id: string } }) {
-  const firestore = useFirestore();
-  
-  const parcelaRef = useMemoFirebase(() => {
-    if (!firestore || !params.id) return null;
-    return doc(firestore, 'parcelas', params.id);
-  }, [firestore, params.id]);
-  const { data: parcela, isLoading: isLoadingParcela } = useDoc<Parcela>(parcelaRef);
+  const { parcelas, eventos, cultivos } = useDataStore();
+  const parcela = useMemo(() => parcelas.find((p) => p.id === params.id), [params.id, parcelas]);
+  const eventosRelacionados = useMemo(() => eventos.filter(e => e.parcelaId === params.id), [params.id, eventos]);
 
-  const eventosQuery = useMemoFirebase(() => {
-    if (!firestore || !params.id) return null;
-    return query(collection(firestore, 'eventos'), where('parcelaId', '==', params.id));
-  }, [firestore, params.id]);
-  const { data: eventosRelacionados, isLoading: isLoadingEventos } = useCollection<Evento>(eventosQuery);
-
-  const cultivosQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'cultivos'));
-  }, [firestore]);
-  const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
-
-
-  if (isLoadingParcela || isLoadingEventos || isLoadingCultivos) {
-    return <div>Cargando...</div>;
-  }
-  
   if (!parcela) {
     notFound();
   }
@@ -89,17 +65,18 @@ export default function ParcelaDetailPage({ params }: { params: { id: string } }
               </TableRow>
             </TableHeader>
             <TableBody>
-              {eventosRelacionados && eventosRelacionados.length > 0 ? eventosRelacionados.map((evento) => {
-                const cultivo = cultivos?.find(c => c.id === evento.cultivoId);
+              {eventosRelacionados.map((evento) => {
+                const cultivo = cultivos.find(c => c.id === evento.cultivoId);
                 return (
                   <TableRow key={evento.id}>
-                    <TableCell>{format(new Date(evento.fecha as string), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(evento.fecha), "dd/MM/yyyy")}</TableCell>
                     <TableCell><Badge variant="outline">{evento.tipo}</Badge></TableCell>
                     <TableCell>{cultivo?.nombre || 'N/A'}</TableCell>
                     <TableCell>{evento.descripcion}</TableCell>
                   </TableRow>
                 )
-              }) : (
+              })}
+              {eventosRelacionados.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center">No hay eventos registrados para esta parcela.</TableCell>
                 </TableRow>

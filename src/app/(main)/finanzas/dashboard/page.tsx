@@ -16,27 +16,13 @@ import {
 } from "recharts";
 import { DollarSign, TrendingDown, TrendingUp, Landmark, Star, ChevronsDown } from "lucide-react";
 import { format } from "date-fns";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query } from "firebase/firestore";
-import type { Costo, Venta, Parcela, Cultivo } from "@/lib/types";
+import { useDataStore } from "@/store/data-store";
+import { Costo, Venta, Parcela, Cultivo } from "@/lib/types";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function DashboardFinancieroPage() {
-  const firestore = useFirestore();
-
-  const costosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'costos')) : null, [firestore]);
-  const { data: costos } = useCollection<Costo>(costosQuery);
-  
-  const ventasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas')) : null, [firestore]);
-  const { data: ventas } = useCollection<Venta>(ventasQuery);
-
-  const parcelasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]);
-  const { data: parcelas } = useCollection<Parcela>(parcelasQuery);
-
-  const cultivosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]);
-  const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
-
+  const { costos, ventas, parcelas, cultivos } = useDataStore();
 
   const { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria, costosMensuales } = useMemo(() => {
     if (!costos || !ventas || !parcelas || !cultivos) return { totalCostos: 0, totalIngresos: 0, margenNeto: 0, rentabilidadPorParcela: [], rentabilidadPorCultivo: [], costosPorCategoria: [], costosMensuales: [] };

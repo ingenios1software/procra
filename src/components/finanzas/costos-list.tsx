@@ -9,30 +9,31 @@ import { MoreHorizontal, PlusCircle, DollarSign, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { CostoForm } from "./costo-form";
 import type { Costo, Parcela, Zafra, Cultivo } from "@/lib/types";
-import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useFirestore } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { collection, doc } from "firebase/firestore";
 
 interface CostosListProps {
-  costos: Costo[];
+  initialCostos: Costo[];
   parcelas: Parcela[];
   zafras: Zafra[];
   cultivos: Cultivo[];
+  onAddCosto: (data: Omit<Costo, 'id'>) => void;
+  onUpdateCosto: (data: Costo) => void;
 }
 
-export function CostosList({ costos, parcelas, zafras, cultivos }: CostosListProps) {
-  const firestore = useFirestore();
+export function CostosList({ initialCostos, parcelas, zafras, cultivos, onAddCosto, onUpdateCosto }: CostosListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedCosto, setSelectedCosto] = useState<Costo | null>(null);
-  const { user } = useUser();
+  const { user } = useAuth();
+  const canModify = user && user.rol === 'admin';
   
   const { totalCostos, costosPorParcela } = useMemo(() => {
-    const totalCostos = costos.reduce((acc, costo) => acc + costo.monto, 0);
+    const totalCostos = initialCostos.reduce((acc, costo) => acc + costo.monto, 0);
 
     const costosPorParcela = parcelas.map(parcela => {
-      const costosDeParcela = costos.filter(c => c.parcelaId === parcela.id);
+      const costosDeParcela = initialCostos.filter(c => c.parcelaId === parcela.id);
       const costoTotal = costosDeParcela.reduce((sum, c) => sum + c.monto, 0);
       const costoPorHa = parcela.superficie > 0 ? costoTotal / parcela.superficie : 0;
       return {
@@ -45,21 +46,17 @@ export function CostosList({ costos, parcelas, zafras, cultivos }: CostosListPro
     }).filter(p => p.costoTotal > 0);
 
     return { totalCostos, costosPorParcela };
-  }, [costos, parcelas]);
+  }, [initialCostos, parcelas]);
 
   const handleSave = useCallback((costoData: Omit<Costo, 'id'>) => {
-    if (!firestore) return;
-    const dataToSave = { ...costoData, fecha: (costoData.fecha as Date).toISOString() };
     if (selectedCosto) {
-      const costoRef = doc(firestore, "costos", selectedCosto.id);
-      updateDocumentNonBlocking(costoRef, dataToSave);
+      onUpdateCosto({ ...selectedCosto, ...costoData });
     } else {
-      const costosCol = collection(firestore, 'costos');
-      addDocumentNonBlocking(costosCol, dataToSave);
+      onAddCosto(costoData);
     }
     setDialogOpen(false);
     setSelectedCosto(null);
-  }, [selectedCosto, firestore]);
+  }, [selectedCosto, onAddCosto, onUpdateCosto]);
   
   const openDialog = useCallback((costo?: Costo) => {
     setSelectedCosto(costo || null);
@@ -86,7 +83,7 @@ export function CostosList({ costos, parcelas, zafras, cultivos }: CostosListPro
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
             </Button>
-            {user && (
+            {canModify && (
               <Button onClick={() => openDialog()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Registrar Costo
@@ -170,20 +167,20 @@ export function CostosList({ costos, parcelas, zafras, cultivos }: CostosListPro
                 <TableHead>Tipo</TableHead>
                 <TableHead>Parcela</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
-                {user && <TableHead className="text-right">Acciones</TableHead>}
+                {canModify && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {costos.map((costo) => {
+              {initialCostos.map((costo) => {
                 const parcela = parcelas.find(p => p.id === costo.parcelaId);
                 return (
                   <TableRow key={costo.id}>
-                    <TableCell>{format(new Date(costo.fecha as string), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(costo.fecha), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{costo.descripcion}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize">{costo.tipo}</Badge></TableCell>
                     <TableCell>{parcela?.nombre || 'N/A'}</TableCell>
                     <TableCell className="text-right">${costo.monto.toLocaleString('en-US')}</TableCell>
-                    {user && (
+                    {canModify && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(costo)}>
                           <MoreHorizontal className="h-4 w-4" />

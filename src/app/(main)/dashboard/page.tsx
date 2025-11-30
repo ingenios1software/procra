@@ -5,32 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Map, Calendar, TriangleAlert, AreaChart } from "lucide-react";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
+import { useDataStore } from "@/store/data-store";
 import { useMemo } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, where } from 'firebase/firestore';
-import type { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function DashboardPage() {
-  const firestore = useFirestore();
-
-  const parcelasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]);
-  const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(parcelasQuery);
-  
-  const cultivosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]);
-  const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
-
-  const zafrasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]);
-  const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(zafrasQuery);
-
-  const eventosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha', 'desc')) : null, [firestore]);
-  const { data: eventos, isLoading: isLoadingEventos } = useCollection<Evento>(eventosQuery);
-
-
-  const isLoading = isLoadingParcelas || isLoadingCultivos || isLoadingZafras || isLoadingEventos;
+  const { parcelas, cultivos, zafras, eventos } = useDataStore();
 
   const {
     totalParcelas,
@@ -43,10 +26,6 @@ export default function DashboardPage() {
     alertasParcelas,
     totalEventos
   } = useMemo(() => {
-    if (!parcelas || !cultivos || !zafras || !eventos) {
-      return { totalParcelas: 0, totalHectareas: 0, zafraActiva: null, zafraProgress: 0, eventosPorTipo: {}, eventosPorMes: [], distribucionCultivos: [], alertasParcelas: [], totalEventos: 0 };
-    }
-
     const totalParcelas = parcelas.length;
     const totalHectareas = parcelas.reduce((acc, p) => acc + p.superficie, 0);
     const zafraActiva = zafras.find(z => z.estado === 'en curso');
@@ -57,7 +36,7 @@ export default function DashboardPage() {
       return acc;
     }, {} as Record<string, number>);
 
-    const zafraProgress = zafraActiva?.fechaFin && zafraActiva?.fechaInicio ? (() => {
+    const zafraProgress = zafraActiva ? (() => {
         const totalDuration = new Date(zafraActiva.fechaFin as string).getTime() - new Date(zafraActiva.fechaInicio as string).getTime();
         if (totalDuration <= 0) return 0;
         const elapsed = new Date().getTime() - new Date(zafraActiva.fechaInicio as string).getTime();
@@ -67,7 +46,7 @@ export default function DashboardPage() {
 
     const eventosPorMes = (() => {
         const data = eventos.reduce((acc, evento) => {
-            const month = format(new Date(evento.fecha as string), "MMM yyyy");
+            const month = format(new Date(evento.fecha), "MMM yyyy");
             acc[month] = (acc[month] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
@@ -85,21 +64,10 @@ export default function DashboardPage() {
         return Object.entries(data).map(([name, value]) => ({ name, value }));
     })();
     
-    const alertasParcelas = (() => {
-        const thirtyDaysAgo = subDays(new Date(), 30);
-        return parcelas.filter(parcela => {
-            const hasRecentEvent = eventos.some(e => e.parcelaId === parcela.id && new Date(e.fecha as string) >= thirtyDaysAgo);
-            return !hasRecentEvent;
-        });
-    })();
-
+    const alertasParcelas = parcelas.filter(p => !p.tieneEventosRecientes);
 
     return { totalParcelas, totalHectareas, zafraActiva, zafraProgress, eventosPorTipo, eventosPorMes, distribucionCultivos, alertasParcelas, totalEventos };
   }, [parcelas, cultivos, zafras, eventos]);
-
-  if (isLoading) {
-    return <p>Cargando dashboard...</p>;
-  }
 
   return (
     <>
