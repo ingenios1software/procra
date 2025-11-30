@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
@@ -204,3 +205,4 @@ export function VentasList() {
     </>
   );
 }
+

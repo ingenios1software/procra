@@ -16,19 +16,19 @@ import type { Parcela, Evento, Cultivo } from '@/lib/types';
 export default function ParcelaDetailPage({ params }: { params: { id: string } }) {
   const firestore = useFirestore();
   
-  const parcelaRef = useMemo(() => {
+  const parcelaRef = useMemoFirebase(() => {
     if (!firestore || !params.id) return null;
     return doc(firestore, 'parcelas', params.id);
   }, [firestore, params.id]);
   const { data: parcela, isLoading: isLoadingParcela } = useDoc<Parcela>(parcelaRef);
 
-  const eventosQuery = useMemo(() => {
+  const eventosQuery = useMemoFirebase(() => {
     if (!firestore || !params.id) return null;
     return query(collection(firestore, 'eventos'), where('parcelaId', '==', params.id));
   }, [firestore, params.id]);
   const { data: eventosRelacionados, isLoading: isLoadingEventos } = useCollection<Evento>(eventosQuery);
 
-  const cultivosQuery = useMemo(() => {
+  const cultivosQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'cultivos'));
   }, [firestore]);

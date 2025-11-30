@@ -28,7 +28,7 @@ export default function CostosPage() {
 
   return (
     <CostosList 
-      initialCostos={costos || []}
+      costos={costos || []}
       parcelas={parcelas || []}
       zafras={zafras || []}
       cultivos={cultivos || []}

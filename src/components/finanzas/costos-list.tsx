@@ -16,15 +16,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recha
 import { collection, doc } from "firebase/firestore";
 
 interface CostosListProps {
-  initialCostos: Costo[];
+  costos: Costo[];
   parcelas: Parcela[];
   zafras: Zafra[];
   cultivos: Cultivo[];
 }
 
-export function CostosList({ initialCostos, parcelas, zafras, cultivos }: CostosListProps) {
+export function CostosList({ costos, parcelas, zafras, cultivos }: CostosListProps) {
   const firestore = useFirestore();
-  const [costos, setCostos] = useState(initialCostos);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedCosto, setSelectedCosto] = useState<Costo | null>(null);
   const { user } = useUser();
@@ -179,7 +178,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos }: Costos
                 const parcela = parcelas.find(p => p.id === costo.parcelaId);
                 return (
                   <TableRow key={costo.id}>
-                    <TableCell>{format(new Date(costo.fecha), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(costo.fecha as string), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{costo.descripcion}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize">{costo.tipo}</Badge></TableCell>
                     <TableCell>{parcela?.nombre || 'N/A'}</TableCell>
