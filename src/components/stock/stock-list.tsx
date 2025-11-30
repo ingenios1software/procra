@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Insumo, Compra, Evento } from "@/lib/types";
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { InsumoForm } from "./insumo-form";
 import {
   Tooltip,
@@ -22,22 +22,20 @@ import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { collection, query, orderBy, doc } from "firebase/firestore";
+import { collection, doc } from "firebase/firestore";
 
-export function StockList() {
+interface StockListProps {
+  insumos: Insumo[];
+  compras: Compra[];
+  eventos: Evento[];
+  isLoading: boolean;
+}
+
+export function StockList({ insumos, compras, eventos, isLoading }: StockListProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const insumosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos'), orderBy('nombre')) : null, [firestore]);
-  const { data: insumos = [] } = useCollection<Insumo>(insumosQuery);
-
-  const comprasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'compras'), orderBy('fecha')) : null, [firestore]);
-  const { data: compras = [] } = useCollection<Compra>(comprasQuery);
-  
-  const eventosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha')) : null, [firestore]);
-  const { data: eventos = [] } = useCollection<Evento>(eventosQuery);
-
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedInsumo, setSelectedInsumo] = useState<Insumo | null>(null);
   const canModify = user;
@@ -54,6 +52,7 @@ export function StockList() {
   };
 
   const stockData = useMemo(() => {
+    if (!insumos || !compras || !eventos) return [];
     // 1. Unificar y ordenar cronológicamente todos los movimientos (entradas y salidas)
     const allEvents: (
       { type: 'entrada'; fecha: Date; insumoId: string; cantidad: number; costo: number; } |
@@ -350,6 +349,7 @@ export function StockList() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading && <TableRow><TableCell colSpan={10} className="text-center">Cargando datos...</TableCell></TableRow>}
               {filteredStockData.map((insumo) => (
                 <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
                   <TableCell className="font-medium">
