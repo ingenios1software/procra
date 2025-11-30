@@ -28,7 +28,7 @@ import {
 import { MoreHorizontal, PlusCircle, TriangleAlert, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -45,7 +45,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { EventoForm } from "./evento-form";
-import { collection, doc, query, orderBy } from "firebase/firestore";
+import { collection, doc } from "firebase/firestore";
 import Link from "next/link";
 
 
@@ -212,6 +212,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
                 {filteredEventos.map((evento) => {
                   const parcela = parcelas?.find((p) => p.id === evento.parcelaId);
                   const cultivo = cultivos?.find((c) => c.id === evento.cultivoId);
@@ -221,7 +222,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                   return (
                     <TableRow key={evento.id}>
                       <TableCell>
-                        {format(new Date(evento.fecha), "dd/MM/yyyy")}
+                        {format(new Date(evento.fecha as string), "dd/MM/yyyy")}
                       </TableCell>
                       <TableCell className="font-medium">
                         {parcela?.nombre || "N/A"}
