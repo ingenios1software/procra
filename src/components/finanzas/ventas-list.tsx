@@ -10,36 +10,26 @@ import { MoreHorizontal, PlusCircle, TrendingUp, Download, Package } from "lucid
 import { PageHeader } from "@/components/shared/page-header";
 import { VentaForm } from "./venta-form";
 import type { Venta, Parcela, Zafra, Cultivo, Cliente } from "@/lib/types";
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useFirestore } from "@/firebase";
 import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 
+interface VentasListProps {
+  ventas: Venta[];
+  parcelas: Parcela[];
+  zafras: Zafra[];
+  cultivos: Cultivo[];
+  clientes: Cliente[];
+  isLoading: boolean;
+}
 
-export function VentasList() {
+export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoading }: VentasListProps) {
   const firestore = useFirestore();
-  
-  const ventasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas'), orderBy('fecha', 'desc')) : null, [firestore]);
-  const { data: ventas = [], isLoading: isLoadingVentas } = useCollection<Venta>(ventasQuery);
-
-  const parcelasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]);
-  const { data: parcelas = [], isLoading: isLoadingParcelas } = useCollection<Parcela>(parcelasQuery);
-  
-  const zafrasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]);
-  const { data: zafras = [], isLoading: isLoadingZafras } = useCollection<Zafra>(zafrasQuery);
-
-  const cultivosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]);
-  const { data: cultivos = [], isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
-  
-  const clientesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'clientes')) : null, [firestore]);
-  const { data: clientes = [], isLoading: isLoadingClientes } = useCollection<Cliente>(clientesQuery);
-
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
   const { user } = useUser();
   
-  const isLoading = isLoadingVentas || isLoadingParcelas || isLoadingZafras || isLoadingCultivos || isLoadingClientes;
-
   const { totalIngresos, rendimientoPorParcela } = useMemo(() => {
     const totalIngresos = ventas.reduce((acc, venta) => acc + (venta.toneladas * venta.precioTonelada), 0);
 
@@ -205,4 +195,3 @@ export function VentasList() {
     </>
   );
 }
-
