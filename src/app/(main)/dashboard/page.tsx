@@ -9,7 +9,7 @@ import { format, subDays } from "date-fns";
 import { useMemo } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, where } from 'firebase/firestore';
 import type { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
@@ -26,8 +26,9 @@ export default function DashboardPage() {
   const zafrasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]);
   const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(zafrasQuery);
 
-  const eventosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos')) : null, [firestore]);
+  const eventosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha', 'desc')) : null, [firestore]);
   const { data: eventos, isLoading: isLoadingEventos } = useCollection<Evento>(eventosQuery);
+
 
   const isLoading = isLoadingParcelas || isLoadingCultivos || isLoadingZafras || isLoadingEventos;
 
@@ -57,16 +58,16 @@ export default function DashboardPage() {
     }, {} as Record<string, number>);
 
     const zafraProgress = zafraActiva?.fechaFin && zafraActiva?.fechaInicio ? (() => {
-        const totalDuration = new Date(zafraActiva.fechaFin).getTime() - new Date(zafraActiva.fechaInicio).getTime();
+        const totalDuration = new Date(zafraActiva.fechaFin as string).getTime() - new Date(zafraActiva.fechaInicio as string).getTime();
         if (totalDuration <= 0) return 0;
-        const elapsed = new Date().getTime() - new Date(zafraActiva.fechaInicio).getTime();
+        const elapsed = new Date().getTime() - new Date(zafraActiva.fechaInicio as string).getTime();
         const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
         return Math.round(progress);
     })() : 0;
 
     const eventosPorMes = (() => {
         const data = eventos.reduce((acc, evento) => {
-            const month = format(new Date(evento.fecha), "MMM yyyy");
+            const month = format(new Date(evento.fecha as string), "MMM yyyy");
             acc[month] = (acc[month] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
@@ -83,16 +84,15 @@ export default function DashboardPage() {
         }, {} as Record<string, number>);
         return Object.entries(data).map(([name, value]) => ({ name, value }));
     })();
-
+    
     const alertasParcelas = (() => {
         const thirtyDaysAgo = subDays(new Date(), 30);
         return parcelas.filter(parcela => {
-            const lastEvent = eventos
-                .filter(e => e.parcelaId === parcela.id)
-                .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
-            return !lastEvent || new Date(lastEvent.fecha) < thirtyDaysAgo;
+            const hasRecentEvent = eventos.some(e => e.parcelaId === parcela.id && new Date(e.fecha as string) >= thirtyDaysAgo);
+            return !hasRecentEvent;
         });
     })();
+
 
     return { totalParcelas, totalHectareas, zafraActiva, zafraProgress, eventosPorTipo, eventosPorMes, distribucionCultivos, alertasParcelas, totalEventos };
   }, [parcelas, cultivos, zafras, eventos]);

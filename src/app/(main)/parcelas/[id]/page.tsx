@@ -93,7 +93,7 @@ export default function ParcelaDetailPage({ params }: { params: { id: string } }
                 const cultivo = cultivos?.find(c => c.id === evento.cultivoId);
                 return (
                   <TableRow key={evento.id}>
-                    <TableCell>{format(new Date(evento.fecha), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(evento.fecha as string), "dd/MM/yyyy")}</TableCell>
                     <TableCell><Badge variant="outline">{evento.tipo}</Badge></TableCell>
                     <TableCell>{cultivo?.nombre || 'N/A'}</TableCell>
                     <TableCell>{evento.descripcion}</TableCell>
