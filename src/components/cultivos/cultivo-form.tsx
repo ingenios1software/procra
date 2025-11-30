@@ -69,7 +69,7 @@ export const CultivoForm = React.memo(({ cultivo, onSubmit, onCancel }: CultivoF
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button type="submit">{cultivo ? "Guardar Cambios" : "Crear Cultivo"}</Button>
+          <Button type="submit">{cultivo?.id ? "Guardar Cambios" : "Crear Cultivo"}</Button>
         </div>
       </form>
     </Form>

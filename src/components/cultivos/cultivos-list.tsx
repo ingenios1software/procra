@@ -33,13 +33,10 @@ export function CultivosList({ cultivos, isLoading }: CultivosListProps) {
     setCreateDialogOpen(false);
   };
 
-  const handleUpdate = (cultivoData: Cultivo) => {
+  const handleUpdate = (cultivoData: Omit<Cultivo, 'id'>) => {
     if (!firestore || !selectedCultivo) return;
     const cultivoRef = doc(firestore, 'cultivos', selectedCultivo.id);
-    updateDocumentNonBlocking(cultivoRef, {
-        nombre: cultivoData.nombre,
-        descripcion: cultivoData.descripcion
-    });
+    updateDocumentNonBlocking(cultivoRef, cultivoData);
     setEditDialogOpen(false);
     setSelectedCultivo(null);
   };
