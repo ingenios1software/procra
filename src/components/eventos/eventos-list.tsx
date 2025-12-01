@@ -28,7 +28,7 @@ import {
 import { MoreHorizontal, PlusCircle, TriangleAlert, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
-import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -47,11 +47,13 @@ import {
 import { EventoForm } from "./evento-form";
 import { collection, doc } from "firebase/firestore";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
 
 export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: { eventos: Evento[], parcelas: Parcela[], zafras: Zafra[], cultivos: Cultivo[], isLoading: boolean }) {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
   
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
@@ -97,9 +99,11 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     if (selectedEvento) {
         const eventoRef = doc(firestore, 'eventos', selectedEvento.id);
         updateDocumentNonBlocking(eventoRef, dataToSave);
+        toast({ title: "Evento actualizado" });
     } else {
         const eventosCol = collection(firestore, 'eventos');
         addDocumentNonBlocking(eventosCol, dataToSave);
+        toast({ title: "Evento creado" });
     }
     closeForm();
   };

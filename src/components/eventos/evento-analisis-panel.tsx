@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from "@/components/ui/progress";
 import { Badge } from '@/components/ui/badge';
-import { Sprout, AlertCircle, CheckCircle, Clock, CalendarDays, SprayCan, BarChart2 } from 'lucide-react';
+import { Sprout, AlertCircle, CheckCircle, Clock, CalendarDays, SprayCan } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Evento, Zafra, EtapaCultivo } from '@/lib/types';
@@ -44,9 +44,9 @@ export function EventoAnalisisPanel({
     if (!zafra || !zafra.fechaSiembra) return { progresoZafra: 0 };
 
     const hoy = new Date();
-    const diasDesdeSiembra = differenceInDays(hoy, new Date(zafra.fechaSiembra));
+    const diasDesdeSiembra = differenceInDays(hoy, new Date(zafra.fechaSiembra as string));
     
-    const progreso = zafra.fechaFin ? Math.round((diasDesdeSiembra / differenceInDays(new Date(zafra.fechaFin), new Date(zafra.fechaSiembra))) * 100) : 0;
+    const progreso = zafra.fechaFin ? Math.round((diasDesdeSiembra / differenceInDays(new Date(zafra.fechaFin as string), new Date(zafra.fechaSiembra as string))) * 100) : 0;
     
     const etapasDelCultivo = etapasCultivo
       .filter(e => e.cultivoId === zafra.cultivoId)
@@ -77,13 +77,15 @@ export function EventoAnalisisPanel({
   const { ultimoEventoSimilar, diasDesdeUltimoSimilar, intervaloStatus } = useMemo(() => {
     if (!eventoActual.parcelaId || !eventoActual.tipo) return {};
     
+    const eventoFecha = eventoActual.fecha ? new Date(eventoActual.fecha) : new Date();
+
     const ultimo = todosLosEventos
-      .filter(e => e.parcelaId === eventoActual.parcelaId && e.tipo === eventoActual.tipo && new Date(e.fecha) < new Date(eventoActual.fecha || new Date()))
+      .filter(e => e.parcelaId === eventoActual.parcelaId && e.tipo === eventoActual.tipo && new Date(e.fecha) < eventoFecha)
       .sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
       
     if (!ultimo) return {};
 
-    const dias = differenceInDays(new Date(eventoActual.fecha || new Date()), new Date(ultimo.fecha));
+    const dias = differenceInDays(eventoFecha, new Date(ultimo.fecha));
     const recomendado = INTERVALO_RECOMENDADO[eventoActual.tipo] || INTERVALO_RECOMENDADO.default;
 
     let status: 'ok' | 'warn' | 'danger' = 'ok';
@@ -99,16 +101,18 @@ export function EventoAnalisisPanel({
   const { ultimaActividad, diasDesdeUltimaActividad, eventosUltimos30Dias } = useMemo(() => {
     if (!eventoActual.parcelaId) return {};
 
+    const eventoFecha = eventoActual.fecha ? new Date(eventoActual.fecha) : new Date();
+
     const eventosParcela = todosLosEventos
-      .filter(e => e.parcelaId === eventoActual.parcelaId && new Date(e.fecha) < new Date(eventoActual.fecha || new Date()))
+      .filter(e => e.parcelaId === eventoActual.parcelaId && new Date(e.fecha) < eventoFecha)
       .sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
     const ultima = eventosParcela[0];
-    const dias = ultima ? differenceInDays(new Date(eventoActual.fecha || new Date()), new Date(ultima.fecha)) : null;
+    const dias = ultima ? differenceInDays(eventoFecha, new Date(ultima.fecha)) : null;
 
-    const treintaDiasAtras = new Date();
+    const treintaDiasAtras = new Date(eventoFecha);
     treintaDiasAtras.setDate(treintaDiasAtras.getDate() - 30);
-    const eventosRecientes = todosLosEventos.filter(e => e.parcelaId === eventoActual.parcelaId && new Date(e.fecha) > treintaDiasAtras).length;
+    const eventosRecientes = todosLosEventos.filter(e => e.parcelaId === eventoActual.parcelaId && new Date(e.fecha) > treintaDiasAtras && new Date(e.fecha) <= eventoFecha).length;
 
     return { ultimaActividad: ultima, diasDesdeUltimaActividad: dias, eventosUltimos30Dias: eventosRecientes };
   }, [eventoActual.parcelaId, eventoActual.fecha, todosLosEventos]);

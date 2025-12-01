@@ -206,10 +206,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       costoTotal: totalCostoEvento
     };
     onSave(dataConCostoTotal);
-    toast({
-        title: `Evento ${evento ? 'actualizado' : 'creado'}`,
-        description: `El evento "${data.descripcion}" ha sido guardado con un costo de $${totalCostoEvento.toLocaleString('en-US')}.`,
-    });
   };
 
   if (!parcelas || !cultivos || !zafras || !etapasCultivo || !insumos) {
@@ -280,7 +276,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                                                 )
                                             })}
                                         </SelectContent>
-                                    </Select>
+                                     </Select>
                                      {stockInfo && <FormDescription className="text-xs pt-1">Stock Disponible: {stockInfo.stock.toFixed(2)} {stockInfo.unidad}</FormDescription>}
                                     <FormMessage />
                                 </FormItem> 
