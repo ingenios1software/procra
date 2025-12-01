@@ -7,13 +7,37 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { MapPin, Code, Ruler, Activity } from "lucide-react";
-import { useDataStore } from "@/store/data-store";
+import { MapPin, Ruler, Activity } from "lucide-react";
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, query, where } from 'firebase/firestore';
+import type { Parcela, Evento, Cultivo } from '@/lib/types';
 
 export default function ParcelaDetailPage({ params }: { params: { id: string } }) {
-  const { parcelas, eventos, cultivos } = useDataStore();
-  const parcela = useMemo(() => parcelas.find((p) => p.id === params.id), [params.id, parcelas]);
-  const eventosRelacionados = useMemo(() => eventos.filter(e => e.parcelaId === params.id), [params.id, eventos]);
+  const firestore = useFirestore();
+
+  const parcelaRef = useMemoFirebase(() => 
+    firestore ? doc(firestore, 'parcelas', params.id) : null, 
+    [firestore, params.id]
+  );
+  const { data: parcela, isLoading: isLoadingParcela } = useDoc<Parcela>(parcelaRef);
+
+  const eventosQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'eventos'), where('parcelaId', '==', params.id)) : null,
+    [firestore, params.id]
+  );
+  const { data: eventosRelacionados, isLoading: isLoadingEventos } = useCollection<Evento>(eventosQuery);
+
+  const cultivosQuery = useMemoFirebase(() => 
+    firestore ? collection(firestore, 'cultivos') : null,
+    [firestore]
+  );
+  const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
+  
+  const isLoading = isLoadingParcela || isLoadingEventos || isLoadingCultivos;
+
+  if (isLoading) {
+    return <p>Cargando detalles de la parcela...</p>;
+  }
 
   if (!parcela) {
     notFound();
@@ -65,18 +89,18 @@ export default function ParcelaDetailPage({ params }: { params: { id: string } }
               </TableRow>
             </TableHeader>
             <TableBody>
-              {eventosRelacionados.map((evento) => {
-                const cultivo = cultivos.find(c => c.id === evento.cultivoId);
+              {eventosRelacionados?.map((evento) => {
+                const cultivo = cultivos?.find(c => c.id === evento.cultivoId);
                 return (
                   <TableRow key={evento.id}>
-                    <TableCell>{format(new Date(evento.fecha), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(evento.fecha as string), "dd/MM/yyyy")}</TableCell>
                     <TableCell><Badge variant="outline">{evento.tipo}</Badge></TableCell>
                     <TableCell>{cultivo?.nombre || 'N/A'}</TableCell>
                     <TableCell>{evento.descripcion}</TableCell>
                   </TableRow>
                 )
               })}
-              {eventosRelacionados.length === 0 && (
+              {eventosRelacionados?.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center">No hay eventos registrados para esta parcela.</TableCell>
                 </TableRow>

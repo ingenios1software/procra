@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Parcela } from "@/lib/types";
-import React from "react";
-
+import { useToast } from "@/hooks/use-toast";
+import { addDocumentNonBlocking, updateDocumentNonBlocking, useFirestore } from "@/firebase";
+import { collection, doc } from "firebase/firestore";
 
 const formSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres."),
@@ -26,26 +27,39 @@ type ParcelaFormValues = z.infer<typeof formSchema>;
 
 interface ParcelaFormProps {
   parcela?: Parcela;
-  onSave: (data: Parcela | Omit<Parcela, 'id'>) => void;
-  onCancel: () => void;
 }
 
-export const ParcelaForm = React.memo(({ parcela, onSave, onCancel }: ParcelaFormProps) => {
+export function ParcelaForm({ parcela }: ParcelaFormProps) {
   const router = useRouter();
+  const firestore = useFirestore();
+  const { toast } = useToast();
 
   const form = useForm<ParcelaFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: parcela || {
+      nombre: "",
+      codigo: "",
+      superficie: 0,
+      ubicacion: "",
       estado: "activa",
+      sector: ""
     },
   });
 
   const handleSubmit = (data: ParcelaFormValues) => {
+    if(!firestore) return;
+
     if (parcela) {
-        onSave({ ...parcela, ...data });
+      const parcelaRef = doc(firestore, 'parcelas', parcela.id);
+      updateDocumentNonBlocking(parcelaRef, data);
+      toast({ title: "Parcela actualizada", description: `La parcela ${data.nombre} ha sido actualizada.` });
     } else {
-        onSave(data);
+      const parcelasCol = collection(firestore, 'parcelas');
+      addDocumentNonBlocking(parcelasCol, data);
+      toast({ title: "Parcela creada", description: `La parcela ${data.nombre} ha sido creada.` });
     }
+    router.push('/parcelas');
+    router.refresh(); // To ensure the list is updated
   };
 
   return (
@@ -147,7 +161,7 @@ export const ParcelaForm = React.memo(({ parcela, onSave, onCancel }: ParcelaFor
               />
             </div>
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={onCancel}>
+              <Button type="button" variant="outline" onClick={() => router.back()}>
                 Cancelar
               </Button>
               <Button type="submit">{parcela ? "Guardar Cambios" : "Crear Parcela"}</Button>
@@ -157,6 +171,6 @@ export const ParcelaForm = React.memo(({ parcela, onSave, onCancel }: ParcelaFor
       </CardContent>
     </Card>
   );
-});
+}
 
 ParcelaForm.displayName = 'ParcelaForm';
