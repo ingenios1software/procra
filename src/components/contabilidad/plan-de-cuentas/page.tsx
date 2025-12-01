@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -126,7 +126,7 @@ export default function PlanDeCuentasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Cargando...</TableCell></TableRow>}
               {cuentas?.map((cuenta) => (
                   <TableRow key={cuenta.id}>
                     <TableCell className="font-mono">{cuenta.codigo}</TableCell>

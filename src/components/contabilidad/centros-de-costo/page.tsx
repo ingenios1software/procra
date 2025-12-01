@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -124,7 +124,7 @@ export default function CentrosDeCostoPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={4}>Cargando...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={4} className="text-center">Cargando...</TableCell></TableRow>}
               {centros?.map((centro) => (
                 <TableRow key={centro.id}>
                   <TableCell className="font-medium">{centro.nombre}</TableCell>

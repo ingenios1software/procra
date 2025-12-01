@@ -157,7 +157,7 @@ export default function AsistenciasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(isLoadingAsistencias || isLoadingEmpleados) && <TableRow><TableCell colSpan={7}>Cargando...</TableCell></TableRow>}
+              {(isLoadingAsistencias || isLoadingEmpleados) && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
               {asistencias?.map((asistencia) => (
                   <TableRow key={asistencia.id}>
                     <TableCell>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -138,7 +138,7 @@ export function EmpleadosList({ empleados, isLoading }: EmpleadosListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6}>Cargando...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
               {empleados.map((empleado) => (
                 <TableRow key={empleado.id}>
                   <TableCell className="font-medium">
