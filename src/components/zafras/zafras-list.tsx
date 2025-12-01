@@ -10,7 +10,7 @@ import { MoreHorizontal, PlusCircle, PowerOff, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { ZafraForm } from "./zafra-form";
 import type { Zafra } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -25,62 +25,50 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast";
+import { collection, doc } from "firebase/firestore";
 
 interface ZafrasListProps {
   initialZafras: Zafra[];
-  onAdd: (data: Omit<Zafra, 'id'>) => void;
-  onUpdate: (data: Zafra) => void;
+  isLoading: boolean;
 }
 
-export function ZafrasList({ initialZafras, onAdd, onUpdate }: ZafrasListProps) {
-  const [zafras, setZafras] = useState(initialZafras);
-  const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedZafra, setSelectedZafra] = useState<Partial<Zafra> | null>(null);
+export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
+  const [isDialogOpen, setDialogOpen] = useState(false);
+  const [selectedZafra, setSelectedZafra] = useState<Zafra | null>(null);
   
-  const { user } = useAuth();
-  const canModify = user && user.rol === 'admin';
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    setZafras(initialZafras);
-    const interval = setInterval(() => {
-        setZafras(currentZafras =>
-            currentZafras.map(zafra => {
-                const today = new Date();
-                if (zafra.estado === 'en curso' && zafra.fechaFin && new Date(zafra.fechaFin) < today) {
-                    return { ...zafra, estado: 'finalizada' };
-                }
-                return zafra;
-            })
-        );
-    }, 60000); // Check every minute
-
-    return () => clearInterval(interval);
-  }, [initialZafras]);
-
-  const handleCreate = (zafraData: Omit<Zafra, 'id'>) => {
-    onAdd(zafraData);
-    setCreateDialogOpen(false);
-  };
-
-  const handleUpdate = (updatedZafra: Omit<Zafra, 'id'>) => {
-    if (selectedZafra?.id) {
-      onUpdate({ ...selectedZafra, ...updatedZafra, id: selectedZafra.id });
+  const handleSave = (zafraData: Omit<Zafra, 'id'>) => {
+    if (!firestore) return;
+    if (selectedZafra) {
+      const zafraRef = doc(firestore, 'zafras', selectedZafra.id);
+      updateDocumentNonBlocking(zafraRef, zafraData);
+      toast({ title: "Zafra actualizada" });
+    } else {
+      const zafrasCol = collection(firestore, 'zafras');
+      addDocumentNonBlocking(zafrasCol, zafraData);
+      toast({ title: "Zafra creada" });
     }
-    setEditDialogOpen(false);
+    setDialogOpen(false);
     setSelectedZafra(null);
   };
   
   const handleCloseZafra = (id: string) => {
-    const zafraToUpdate = zafras.find(z => z.id === id);
+    if (!firestore) return;
+    const zafraToUpdate = initialZafras.find(z => z.id === id);
     if(zafraToUpdate) {
-        onUpdate({ ...zafraToUpdate, estado: 'finalizada', fechaFin: new Date() });
+        const zafraRef = doc(firestore, 'zafras', id);
+        updateDocumentNonBlocking(zafraRef, { ...zafraToUpdate, estado: 'finalizada', fechaFin: new Date().toISOString() });
+        toast({ title: "Zafra cerrada", description: "La zafra ha sido marcada como finalizada."});
     }
   };
 
-  const openEditDialog = (zafra: Zafra) => {
-    setSelectedZafra(zafra);
-    setEditDialogOpen(true);
+  const openDialog = (zafra?: Zafra) => {
+    setSelectedZafra(zafra || null);
+    setDialogOpen(true);
   };
 
   const handleExportPDF = () => {
@@ -98,8 +86,8 @@ export function ZafrasList({ initialZafras, onAdd, onUpdate }: ZafrasListProps) 
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
             </Button>
-            {canModify && (
-              <Button onClick={() => setCreateDialogOpen(true)}>
+            {user && (
+              <Button onClick={() => openDialog()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Crear Zafra
               </Button>
@@ -119,15 +107,16 @@ export function ZafrasList({ initialZafras, onAdd, onUpdate }: ZafrasListProps) 
                 <TableHead>Fecha de Inicio</TableHead>
                 <TableHead>Fecha de Fin</TableHead>
                 <TableHead>Estado</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {zafras.map((zafra) => (
+              {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Cargando zafras...</TableCell></TableRow>}
+              {initialZafras.map((zafra) => (
                 <TableRow key={zafra.id}>
                   <TableCell className="font-medium">{zafra.nombre}</TableCell>
-                  <TableCell>{format(new Date(zafra.fechaInicio), "dd/MM/yyyy")}</TableCell>
-                  <TableCell>{zafra.fechaFin ? format(new Date(zafra.fechaFin), "dd/MM/yyyy") : 'N/A'}</TableCell>
+                  <TableCell>{format(new Date(zafra.fechaInicio as string), "dd/MM/yyyy")}</TableCell>
+                  <TableCell>{zafra.fechaFin ? format(new Date(zafra.fechaFin as string), "dd/MM/yyyy") : 'N/A'}</TableCell>
                   <TableCell>
                     <Badge 
                       className={cn('capitalize', {
@@ -139,7 +128,7 @@ export function ZafrasList({ initialZafras, onAdd, onUpdate }: ZafrasListProps) 
                       {zafra.estado}
                     </Badge>
                   </TableCell>
-                  {canModify && (
+                  {user && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -150,7 +139,7 @@ export function ZafrasList({ initialZafras, onAdd, onUpdate }: ZafrasListProps) 
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openEditDialog(zafra)}>Editar</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openDialog(zafra)}>Editar</DropdownMenuItem>
                           {zafra.estado !== 'finalizada' && (
                              <>
                                 <DropdownMenuSeparator />
@@ -182,22 +171,16 @@ export function ZafrasList({ initialZafras, onAdd, onUpdate }: ZafrasListProps) 
                   )}
                 </TableRow>
               ))}
+              {!isLoading && initialZafras.length === 0 && <TableRow><TableCell colSpan={5} className="text-center h-24">No hay zafras creadas.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
       
-      <Dialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Crear Nueva Zafra</DialogTitle></DialogHeader>
-          <ZafraForm onSubmit={handleCreate} onCancel={() => setCreateDialogOpen(false)} />
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Editar Zafra</DialogTitle></DialogHeader>
-          {selectedZafra && <ZafraForm zafra={selectedZafra} onSubmit={handleUpdate} onCancel={() => setEditDialogOpen(false)} />}
+          <DialogHeader><DialogTitle>{selectedZafra ? 'Editar Zafra' : 'Crear Nueva Zafra'}</DialogTitle></DialogHeader>
+          <ZafraForm zafra={selectedZafra} onSubmit={handleSave} onCancel={() => setDialogOpen(false)} />
         </DialogContent>
       </Dialog>
     </>
