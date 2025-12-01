@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Insumo, Compra, Evento } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { InsumoForm } from "./insumo-form";
 import {
   Tooltip,
@@ -22,22 +22,22 @@ import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { collection, doc } from "firebase/firestore";
 
 interface StockListProps {
   insumos: Insumo[];
   compras: Compra[];
   eventos: Evento[];
-  onAdd: (data: Omit<Insumo, 'id'>) => void;
-  onUpdate: (data: Insumo) => void;
+  isLoading: boolean;
 }
 
-export function StockList({ insumos, compras, eventos, onAdd, onUpdate }: StockListProps) {
-  const { user } = useAuth();
+export function StockList({ insumos, compras, eventos, isLoading }: StockListProps) {
+  const { user } = useUser();
+  const firestore = useFirestore();
   const { toast } = useToast();
   
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedInsumo, setSelectedInsumo] = useState<Insumo | null>(null);
-  const canModify = user && user.rol === "admin";
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [filters, setFilters] = useState({
@@ -52,30 +52,27 @@ export function StockList({ insumos, compras, eventos, onAdd, onUpdate }: StockL
 
   const stockData = useMemo(() => {
     if (!insumos || !compras || !eventos) return [];
-    // 1. Unificar y ordenar cronológicamente todos los movimientos (entradas y salidas)
+    
     const allEvents: (
       { type: 'entrada'; fecha: Date; insumoId: string; cantidad: number; costo: number; } |
       { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
     )[] = [];
 
-    // Añadir stock inicial como la primera entrada para cada insumo
     insumos.forEach(insumo => {
         if (insumo.stockActual > 0) {
             allEvents.push({ type: 'entrada', fecha: new Date('2000-01-01'), insumoId: insumo.id, cantidad: insumo.stockActual, costo: insumo.costoUnitario });
         }
     });
 
-    // Añadir compras
     compras.forEach(compra => {
         compra.items.forEach(item => {
-            allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
+            allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha as string), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
         });
     });
 
-    // Añadir salidas de eventos
     eventos.forEach(evento => {
         evento.productos?.forEach(prod => {
-            allEvents.push({ type: 'salida', fecha: new Date(evento.fecha), insumoId: prod.insumoId, cantidad: prod.cantidad });
+            allEvents.push({ type: 'salida', fecha: new Date(evento.fecha as string), insumoId: prod.insumoId, cantidad: prod.cantidad });
         });
     });
     
@@ -91,7 +88,7 @@ export function StockList({ insumos, compras, eventos, onAdd, onUpdate }: StockL
         
         insumoMovements.forEach(mov => {
             if (mov.type === 'entrada') {
-                if (currentStock === 0) {
+                if (currentStock <= 0) {
                     totalValue = mov.cantidad * mov.costo;
                 } else {
                     totalValue += mov.cantidad * mov.costo;
@@ -155,16 +152,20 @@ export function StockList({ insumos, compras, eventos, onAdd, onUpdate }: StockL
   const categoriasUnicas = useMemo(() => [...new Set(insumos.map(i => i.categoria))], [insumos]);
 
   const handleSaveInsumo = useCallback((insumoData: Omit<Insumo, 'id'>) => {
+    if (!firestore) return;
+    
     if (selectedInsumo) {
-      onUpdate({ ...selectedInsumo, ...insumoData });
+      const insumoRef = doc(firestore, 'insumos', selectedInsumo.id);
+      updateDocumentNonBlocking(insumoRef, insumoData);
       toast({ title: "Insumo actualizado" });
     } else {
-      onAdd(insumoData);
+      const insumosCol = collection(firestore, 'insumos');
+      addDocumentNonBlocking(insumosCol, insumoData);
       toast({ title: "Insumo creado" });
     }
     setDialogOpen(false);
     setSelectedInsumo(null);
-  }, [selectedInsumo, onAdd, onUpdate, toast]);
+  }, [selectedInsumo, firestore, toast]);
 
   const openDialog = useCallback((insumo?: Insumo) => {
     setSelectedInsumo(insumo || null);
@@ -181,6 +182,7 @@ export function StockList({ insumos, compras, eventos, onAdd, onUpdate }: StockL
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!firestore) return;
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -205,7 +207,8 @@ export function StockList({ insumos, compras, eventos, onAdd, onUpdate }: StockL
           proveedor: row['proveedor'],
         }));
         
-        nuevosInsumos.forEach(onAdd);
+        const insumosCol = collection(firestore, 'insumos');
+        nuevosInsumos.forEach(insumo => addDocumentNonBlocking(insumosCol, insumo));
 
         toast({
           title: "Importación exitosa",
@@ -232,7 +235,7 @@ export function StockList({ insumos, compras, eventos, onAdd, onUpdate }: StockL
         title="Control de Insumos y Stock"
         description="Gestione el inventario de fertilizantes, semillas y otros insumos agrícolas."
       >
-        {canModify && (
+        {user && (
             <div className="flex items-center gap-2">
                  <input
                     type="file"
@@ -329,10 +332,11 @@ export function StockList({ insumos, compras, eventos, onAdd, onUpdate }: StockL
                 <TableHead className="text-right">Stock Actual</TableHead>
                 <TableHead className="text-right">Stock Mínimo</TableHead>
                 <TableHead className="text-right">Valor en Stock</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading && <TableRow><TableCell colSpan={10} className="text-center">Cargando...</TableCell></TableRow>}
               {filteredStockData.map((insumo) => (
                 <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
                   <TableCell className="font-medium">
@@ -362,7 +366,7 @@ export function StockList({ insumos, compras, eventos, onAdd, onUpdate }: StockL
                   <TableCell className="text-right font-mono">{insumo.stockMinimo.toLocaleString('en-US')} {insumo.unidad}</TableCell>
                   <TableCell className="text-right font-mono font-bold text-primary">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                   
-                  {canModify && (
+                  {user && (
                     <TableCell className="text-right">
                        <DropdownMenu>
                         <DropdownMenuTrigger asChild>

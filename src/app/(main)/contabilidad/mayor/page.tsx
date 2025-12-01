@@ -37,13 +37,12 @@ export default function MayorPage() {
         asiento.movimientos
           .filter(mov => mov.cuentaId === selectedAccountId)
           .map(mov => ({
+            ...mov,
             fecha: asiento.fecha,
             descripcion: asiento.descripcion,
-            tipo: mov.tipo,
-            monto: mov.monto,
           }))
       )
-      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+      .sort((a, b) => new Date(a.fecha as string).getTime() - new Date(b.fecha as string).getTime());
 
     let saldo = 0;
     let totalDebe = 0;
@@ -130,7 +129,7 @@ export default function MayorPage() {
                 <TableBody>
                   {movimientos.length > 0 ? movimientos.map((mov, index) => (
                     <TableRow key={index}>
-                      <TableCell>{format(new Date(mov.fecha), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{format(new Date(mov.fecha as string), "dd/MM/yyyy")}</TableCell>
                       <TableCell>{mov.descripcion}</TableCell>
                       <TableCell className={cn("text-right font-mono", mov.tipo === "debe" && "text-green-600")}>
                         {mov.tipo === "debe" ? `$${mov.monto.toLocaleString("en-US")}` : "-"}

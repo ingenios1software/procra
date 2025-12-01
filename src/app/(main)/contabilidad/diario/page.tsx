@@ -100,7 +100,7 @@ export default function DiarioPage() {
                           </Button>
                         </TableCell>
                         <TableCell>
-                          {format(new Date(asiento.fecha), "dd/MM/yyyy")}
+                          {format(new Date(asiento.fecha as string), "dd/MM/yyyy")}
                         </TableCell>
                         <TableCell className="font-medium">
                           {asiento.descripcion}

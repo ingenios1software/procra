@@ -9,27 +9,30 @@ import { MoreHorizontal, PlusCircle, DollarSign, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { CostoForm } from "./costo-form";
 import type { Costo, Parcela, Zafra, Cultivo } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useToast } from "@/hooks/use-toast";
+import { collection, doc } from "firebase/firestore";
 
 interface CostosListProps {
   initialCostos: Costo[];
   parcelas: Parcela[];
   zafras: Zafra[];
   cultivos: Cultivo[];
-  onAddCosto: (data: Omit<Costo, 'id'>) => void;
-  onUpdateCosto: (data: Costo) => void;
+  isLoading: boolean;
 }
 
-export function CostosList({ initialCostos, parcelas, zafras, cultivos, onAddCosto, onUpdateCosto }: CostosListProps) {
+export function CostosList({ initialCostos, parcelas, zafras, cultivos, isLoading }: CostosListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedCosto, setSelectedCosto] = useState<Costo | null>(null);
-  const { user } = useAuth();
-  const canModify = user && user.rol === 'admin';
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
   
   const { totalCostos, costosPorParcela } = useMemo(() => {
+    if (!initialCostos || !parcelas) return { totalCostos: 0, costosPorParcela: [] };
     const totalCostos = initialCostos.reduce((acc, costo) => acc + costo.monto, 0);
 
     const costosPorParcela = parcelas.map(parcela => {
@@ -49,14 +52,21 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos, onAddCos
   }, [initialCostos, parcelas]);
 
   const handleSave = useCallback((costoData: Omit<Costo, 'id'>) => {
+    if (!firestore) return;
+    const dataToSave = { ...costoData, fecha: (costoData.fecha as Date).toISOString() };
+
     if (selectedCosto) {
-      onUpdateCosto({ ...selectedCosto, ...costoData });
+      const costoRef = doc(firestore, 'costos', selectedCosto.id);
+      updateDocumentNonBlocking(costoRef, dataToSave);
+      toast({ title: "Costo actualizado" });
     } else {
-      onAddCosto(costoData);
+      const costosCol = collection(firestore, 'costos');
+      addDocumentNonBlocking(costosCol, dataToSave);
+      toast({ title: "Costo creado" });
     }
     setDialogOpen(false);
     setSelectedCosto(null);
-  }, [selectedCosto, onAddCosto, onUpdateCosto]);
+  }, [selectedCosto, firestore, toast]);
   
   const openDialog = useCallback((costo?: Costo) => {
     setSelectedCosto(costo || null);
@@ -83,7 +93,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos, onAddCos
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
             </Button>
-            {canModify && (
+            {user && (
               <Button onClick={() => openDialog()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Registrar Costo
@@ -167,10 +177,11 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos, onAddCos
                 <TableHead>Tipo</TableHead>
                 <TableHead>Parcela</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
               {initialCostos.map((costo) => {
                 const parcela = parcelas.find(p => p.id === costo.parcelaId);
                 return (
@@ -180,7 +191,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos, onAddCos
                     <TableCell><Badge variant="outline" className="capitalize">{costo.tipo}</Badge></TableCell>
                     <TableCell>{parcela?.nombre || 'N/A'}</TableCell>
                     <TableCell className="text-right">${costo.monto.toLocaleString('en-US')}</TableCell>
-                    {canModify && (
+                    {user && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(costo)}>
                           <MoreHorizontal className="h-4 w-4" />

@@ -16,13 +16,19 @@ import {
 } from "recharts";
 import { DollarSign, TrendingDown, TrendingUp, Landmark, Star, ChevronsDown } from "lucide-react";
 import { format } from "date-fns";
-import { useDataStore } from "@/store/data-store";
-import { Costo, Venta, Parcela, Cultivo } from "@/lib/types";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection } from 'firebase/firestore';
+import type { Costo, Venta, Parcela, Cultivo } from "@/lib/types";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function DashboardFinancieroPage() {
-  const { costos, ventas, parcelas, cultivos } = useDataStore();
+  const firestore = useFirestore();
+
+  const { data: costos, isLoading: l1 } = useCollection<Costo>(useMemoFirebase(() => firestore ? collection(firestore, 'costos') : null, [firestore]));
+  const { data: ventas, isLoading: l2 } = useCollection<Venta>(useMemoFirebase(() => firestore ? collection(firestore, 'ventas') : null, [firestore]));
+  const { data: parcelas, isLoading: l3 } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
+  const { data: cultivos, isLoading: l4 } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
 
   const { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria, costosMensuales } = useMemo(() => {
     if (!costos || !ventas || !parcelas || !cultivos) return { totalCostos: 0, totalIngresos: 0, margenNeto: 0, rentabilidadPorParcela: [], rentabilidadPorCultivo: [], costosPorCategoria: [], costosMensuales: [] };
@@ -50,13 +56,14 @@ export default function DashboardFinancieroPage() {
     }).sort((a,b) => b.rentabilidad - a.rentabilidad);
 
     const costosPorCategoria = costos.reduce((acc, costo) => {
-      acc[costo.tipo] = (acc[costo.tipo] || 0) + costo.monto;
+      const tipo = costo.tipo || 'Sin tipo';
+      acc[tipo] = (acc[tipo] || 0) + costo.monto;
       return acc;
     }, {} as Record<string, number>);
     const costosCategoriaData = Object.entries(costosPorCategoria).map(([name, value]) => ({ name, value }));
 
     const costosMensuales = costos.reduce((acc, costo) => {
-      const month = format(new Date(costo.fecha), 'MMM yyyy');
+      const month = format(new Date(costo.fecha as string), 'MMM yyyy');
       acc[month] = (acc[month] || 0) + costo.monto;
       return acc;
     }, {} as Record<string, number>);
@@ -64,6 +71,9 @@ export default function DashboardFinancieroPage() {
 
     return { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria: costosCategoriaData, costosMensuales: costosMensualesData };
   }, [costos, ventas, parcelas, cultivos]);
+
+  const isLoading = l1 || l2 || l3 || l4;
+  if(isLoading) return <p>Cargando dashboard financiero...</p>
 
   const topParcela = rentabilidadPorParcela[0];
   const peorParcela = rentabilidadPorParcela[rentabilidadPorParcela.length - 1];

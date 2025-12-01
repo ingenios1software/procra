@@ -9,9 +9,11 @@ import { MoreHorizontal, PlusCircle, TrendingUp, Download, Package } from "lucid
 import { PageHeader } from "@/components/shared/page-header";
 import { VentaForm } from "./venta-form";
 import type { Venta, Parcela, Zafra, Cultivo, Cliente } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useToast } from "@/hooks/use-toast";
+import { collection, doc } from "firebase/firestore";
 
 interface VentasListProps {
   ventas: Venta[];
@@ -19,18 +21,19 @@ interface VentasListProps {
   zafras: Zafra[];
   cultivos: Cultivo[];
   clientes: Cliente[];
-  onAddVenta: (data: Omit<Venta, 'id'>) => void;
-  onUpdateVenta: (data: Venta) => void;
   isLoading: boolean;
 }
 
-export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, onAddVenta, onUpdateVenta }: VentasListProps) {
+export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoading }: VentasListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
-  const { user } = useAuth();
-  const canModify = user && user.rol === 'admin';
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
   
   const { totalIngresos, rendimientoPorParcela } = useMemo(() => {
+    if (!ventas || !parcelas) return { totalIngresos: 0, rendimientoPorParcela: [] };
+    
     const totalIngresos = ventas.reduce((acc, venta) => acc + (venta.toneladas * venta.precioTonelada), 0);
 
     const rendimientoPorParcela = parcelas.map(parcela => {
@@ -47,14 +50,21 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, onAdd
   }, [ventas, parcelas]);
 
   const handleSave = useCallback((ventaData: Omit<Venta, 'id'>) => {
+    if (!firestore) return;
+    const dataToSave = { ...ventaData, fecha: (ventaData.fecha as Date).toISOString() };
+
     if (selectedVenta) {
-      onUpdateVenta({ ...selectedVenta, ...ventaData });
+      const ventaRef = doc(firestore, 'ventas', selectedVenta.id);
+      updateDocumentNonBlocking(ventaRef, dataToSave);
+      toast({ title: "Venta actualizada" });
     } else {
-      onAddVenta(ventaData);
+      const ventasCol = collection(firestore, 'ventas');
+      addDocumentNonBlocking(ventasCol, dataToSave);
+      toast({ title: "Venta creada" });
     }
     setDialogOpen(false);
     setSelectedVenta(null);
-  }, [selectedVenta, onAddVenta, onUpdateVenta]);
+  }, [selectedVenta, firestore, toast]);
   
   const openDialog = useCallback((venta?: Venta) => {
     setSelectedVenta(venta || null);
@@ -71,11 +81,12 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, onAdd
   };
 
   const getClienteNombre = (id?: string) => {
-    if (!id) return 'N/A';
+    if (!id || !clientes) return 'N/A';
     return clientes.find(c => c.id === id)?.nombre || 'N/A';
   }
   
   const getCultivoNombre = (id: string) => {
+    if (!cultivos) return 'N/A';
     return cultivos.find(c => c.id === id)?.nombre || 'N/A';
   }
 
@@ -90,7 +101,7 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, onAdd
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
             </Button>
-            {canModify && (
+            {user && (
               <Button onClick={() => openDialog()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Registrar Venta
@@ -142,21 +153,22 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, onAdd
                 <TableHead>Toneladas</TableHead>
                 <TableHead>Precio/Ton</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
               {ventas.map((venta) => {
                 const total = venta.toneladas * venta.precioTonelada;
                 return (
                   <TableRow key={venta.id}>
-                    <TableCell>{format(new Date(venta.fecha), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(venta.fecha as string), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{getClienteNombre(venta.clienteId)}</TableCell>
                     <TableCell className="font-medium">{getCultivoNombre(venta.cultivoId)}</TableCell>
                     <TableCell>{venta.toneladas} tn</TableCell>
                     <TableCell>${venta.precioTonelada.toLocaleString('en-US')}</TableCell>
                     <TableCell className="text-right font-semibold">${total.toLocaleString('en-US')}</TableCell>
-                    {canModify && (
+                    {user && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(venta)}>
                           <MoreHorizontal className="h-4 w-4" />
