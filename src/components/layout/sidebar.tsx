@@ -78,8 +78,7 @@ const navItems = [
         title: "Agronomía",
         icon: Leaf,
         links: [
-            { href: "/agronomia/panel", icon: TestTube, label: "Panel Agronómico" },
-            { href: "/agronomia/proyeccion-rendimiento", icon: FileText, label: "Informe de Costos" },
+            { href: "/agronomia/panel", icon: FileText, label: "Informe de Costos" },
             { href: "/agronomia/plagas", icon: Bug, label: "Plagas" },
             { href: "/agronomia/etapas-cultivo", icon: ListTree, label: "Etapas del Cultivo" },
         ]
