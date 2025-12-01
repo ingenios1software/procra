@@ -32,31 +32,33 @@ import {
 import { MoreHorizontal, PlusCircle, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Maquinaria } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { cn } from "@/lib/utils";
 import { MaquinariaForm } from "./maquinaria-form";
 import { useToast } from "@/hooks/use-toast";
+import { collection, doc } from "firebase/firestore";
 
 interface MaquinariaListProps {
-  initialMaquinaria: Maquinaria[];
-  onAdd: (data: Omit<Maquinaria, 'id'>) => void;
-  onUpdate: (data: Maquinaria) => void;
-  onDelete: (id: string) => void;
+  maquinaria: Maquinaria[];
+  isLoading: boolean;
 }
 
-export function MaquinariaList({ initialMaquinaria, onAdd, onUpdate, onDelete }: MaquinariaListProps) {
+export function MaquinariaList({ maquinaria, isLoading }: MaquinariaListProps) {
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedMaquinaria, setSelectedMaquinaria] = useState<Maquinaria | null>(null);
-  const { user } = useAuth();
-  const canModify = user && user.rol === "admin";
+  const { user } = useUser();
+  const firestore = useFirestore();
   const { toast } = useToast();
 
   const handleSave = (maquinariaData: Omit<Maquinaria, "id">) => {
+    if (!firestore) return;
     if (selectedMaquinaria) {
-      onUpdate({ ...selectedMaquinaria, ...maquinariaData });
+      const maquinariaRef = doc(firestore, 'maquinaria', selectedMaquinaria.id);
+      updateDocumentNonBlocking(maquinariaRef, maquinariaData);
       toast({ title: "Maquinaria actualizada", description: `Los datos de "${maquinariaData.nombre}" han sido actualizados.` });
     } else {
-      onAdd(maquinariaData);
+      const maquinariaCol = collection(firestore, 'maquinaria');
+      addDocumentNonBlocking(maquinariaCol, maquinariaData);
       toast({ title: "Maquinaria creada", description: `La maquinaria "${maquinariaData.nombre}" ha sido registrada.` });
     }
     setFormOpen(false);
@@ -64,8 +66,11 @@ export function MaquinariaList({ initialMaquinaria, onAdd, onUpdate, onDelete }:
   };
 
   const handleDelete = (id: string) => {
-    onDelete(id);
-    toast({ variant: "destructive", title: "Maquinaria eliminada", description: `La maquinaria ha sido eliminada.` });
+    if (!firestore) return;
+    const maq = maquinaria.find(m => m.id === id);
+    const maquinariaRef = doc(firestore, 'maquinaria', id);
+    deleteDocumentNonBlocking(maquinariaRef);
+    toast({ variant: "destructive", title: "Maquinaria eliminada", description: `La maquinaria "${maq?.nombre}" ha sido eliminada.` });
   };
 
   const openForm = (maquinaria?: Maquinaria) => {
@@ -78,7 +83,7 @@ export function MaquinariaList({ initialMaquinaria, onAdd, onUpdate, onDelete }:
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Listado de Maquinaria</CardTitle>
-          {canModify && (
+          {user && (
             <Button onClick={() => openForm()}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Nueva Maquinaria
@@ -93,29 +98,30 @@ export function MaquinariaList({ initialMaquinaria, onAdd, onUpdate, onDelete }:
                 <TableHead>Tipo</TableHead>
                 <TableHead>Horas de Trabajo</TableHead>
                 <TableHead>Estado</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {initialMaquinaria.map((maquinaria) => (
-                <TableRow key={maquinaria.id}>
-                  <TableCell className="font-medium">{maquinaria.nombre}</TableCell>
+              {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Cargando maquinaria...</TableCell></TableRow>}
+              {maquinaria.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.nombre}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="capitalize">{maquinaria.tipo}</Badge>
+                    <Badge variant="outline" className="capitalize">{item.tipo}</Badge>
                   </TableCell>
-                  <TableCell>{maquinaria.horasTrabajo} hs</TableCell>
+                  <TableCell>{item.horasTrabajo} hs</TableCell>
                   <TableCell>
                     <Badge
                       className={cn("capitalize", {
-                        "bg-green-600 text-primary-foreground": maquinaria.estado === "operativa",
-                        "bg-amber-500 text-amber-foreground": maquinaria.estado === "en mantenimiento",
-                        "bg-destructive text-destructive-foreground": maquinaria.estado === "fuera de servicio",
+                        "bg-green-600 text-primary-foreground": item.estado === "operativa",
+                        "bg-amber-500 text-amber-foreground": item.estado === "en mantenimiento",
+                        "bg-destructive text-destructive-foreground": item.estado === "fuera de servicio",
                       })}
                     >
-                      {maquinaria.estado.replace(/([A-Z])/g, " $1")}
+                      {item.estado}
                     </Badge>
                   </TableCell>
-                  {canModify && (
+                  {user && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -126,7 +132,7 @@ export function MaquinariaList({ initialMaquinaria, onAdd, onUpdate, onDelete }:
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openForm(maquinaria)}>
+                          <DropdownMenuItem onClick={() => openForm(item)}>
                             Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem>
@@ -151,7 +157,7 @@ export function MaquinariaList({ initialMaquinaria, onAdd, onUpdate, onDelete }:
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => handleDelete(maquinaria.id)}
+                                  onClick={() => handleDelete(item.id)}
                                   className="bg-destructive hover:bg-destructive/90"
                                 >
                                   Eliminar
