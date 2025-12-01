@@ -10,34 +10,48 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { CultivoForm } from "./cultivo-form";
 import type { Cultivo } from "@/lib/types";
-import { useAuth } from "@/hooks/use-auth";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { collection, doc } from 'firebase/firestore';
+
 
 interface CultivosListProps {
   initialCultivos: Cultivo[];
-  onAdd: (data: Omit<Cultivo, 'id'>) => void;
-  onUpdate: (data: Cultivo) => void;
-  onDelete: (id: string) => void;
+  isLoading: boolean;
 }
 
-export function CultivosList({ initialCultivos, onAdd, onUpdate, onDelete }: CultivosListProps) {
+export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) {
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedCultivo, setSelectedCultivo] = useState<Cultivo | null>(null);
-  const { user } = useAuth();
-  const canModify = user && user.rol === 'admin';
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
 
   const handleCreate = (cultivoData: Omit<Cultivo, 'id'>) => {
-    onAdd(cultivoData);
+    if (!firestore) return;
+    const cultivosCol = collection(firestore, 'cultivos');
+    addDocumentNonBlocking(cultivosCol, cultivoData);
+    toast({ title: "Cultivo creado", description: `El cultivo "${cultivoData.nombre}" ha sido creado.` });
     setCreateDialogOpen(false);
   };
 
   const handleUpdate = (cultivoData: Omit<Cultivo, 'id'>) => {
-    if (selectedCultivo) {
-      onUpdate({ ...selectedCultivo, ...cultivoData });
-    }
+    if (!firestore || !selectedCultivo) return;
+    const cultivoRef = doc(firestore, 'cultivos', selectedCultivo.id);
+    updateDocumentNonBlocking(cultivoRef, cultivoData);
+    toast({ title: "Cultivo actualizado", description: `El cultivo "${cultivoData.nombre}" ha sido actualizado.` });
     setEditDialogOpen(false);
     setSelectedCultivo(null);
+  };
+
+  const handleDelete = (id: string) => {
+    if (!firestore) return;
+    const cultivo = initialCultivos.find(c => c.id === id);
+    const cultivoRef = doc(firestore, 'cultivos', id);
+    deleteDocumentNonBlocking(cultivoRef);
+    toast({ variant: "destructive", title: "Cultivo eliminado", description: `El cultivo "${cultivo?.nombre}" ha sido eliminado.` });
   };
   
   const openEditDialog = (cultivo: Cultivo) => {
@@ -51,7 +65,7 @@ export function CultivosList({ initialCultivos, onAdd, onUpdate, onDelete }: Cul
         title="Cultivos"
         description="Gestione los tipos de cultivos de su establecimiento."
       >
-        {canModify && (
+        {user && (
           <Button onClick={() => setCreateDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Crear Cultivo
@@ -66,15 +80,20 @@ export function CultivosList({ initialCultivos, onAdd, onUpdate, onDelete }: Cul
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Descripción</TableHead>
-                {canModify && <TableHead className="text-right">Acciones</TableHead>}
+                {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {initialCultivos.map((cultivo) => (
+              {isLoading && (
+                 <TableRow>
+                    <TableCell colSpan={3} className="text-center">Cargando cultivos...</TableCell>
+                </TableRow>
+              )}
+              {!isLoading && initialCultivos.map((cultivo) => (
                 <TableRow key={cultivo.id}>
                   <TableCell className="font-medium">{cultivo.nombre}</TableCell>
                   <TableCell>{cultivo.descripcion}</TableCell>
-                  {canModify && (
+                  {user && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -99,7 +118,7 @@ export function CultivosList({ initialCultivos, onAdd, onUpdate, onDelete }: Cul
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => onDelete(cultivo.id)}>Continuar</AlertDialogAction>
+                                  <AlertDialogAction onClick={() => handleDelete(cultivo.id)} className="bg-destructive hover:bg-destructive/90">Continuar</AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
@@ -109,6 +128,11 @@ export function CultivosList({ initialCultivos, onAdd, onUpdate, onDelete }: Cul
                   )}
                 </TableRow>
               ))}
+               {!isLoading && initialCultivos.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={3} className="text-center h-24">No se encontraron cultivos. Puede crear uno nuevo.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
