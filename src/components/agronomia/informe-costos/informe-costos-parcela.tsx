@@ -137,7 +137,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             const costoServiciosTotal = eventosParcela.reduce((sum, ev) => sum + ((ev.hectareasAplicadas || 0) * (ev.costoServicioPorHa || 0)), 0);
             
             const costoProductosTotal = eventosParcela.reduce((sum, ev) => {
-                const costoDeEsteEvento = (ev.costoTotal || 0);
+                 const costoDeEsteEvento = (ev.costoTotal || 0);
                 const costoServicioDeEsteEvento = ((ev.hectareasAplicadas || 0) * (ev.costoServicioPorHa || 0));
                 // El costo del producto es el total menos el del servicio
                 const costoProductoDeEsteEvento = costoDeEsteEvento - costoServicioDeEsteEvento;
@@ -145,7 +145,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             }, 0);
             
             const costoTotal = costoServiciosTotal + costoProductosTotal;
-            const cicloHoy = zafraSeleccionada?.fechaSiembra ? differenceInDays(new Date(), new Date(zafraSeleccionada.fechaSiembra as string)) : 0;
+            const cicloHoy = zafraSeleccionada.fechaSiembra ? differenceInDays(new Date(), new Date(zafraSeleccionada.fechaSiembra)) : 0;
             const costoPorHa = parcela.superficie > 0 ? costoTotal / parcela.superficie : 0;
             const totalCosechadoKg = eventosParcela
                 .filter(e => e.tipo === 'rendimiento')
@@ -160,7 +160,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                 costoServicios: costoServiciosTotal,
                 costoTotal,
                 hectareas: parcela.superficie,
-                fechaSiembra: zafraSeleccionada.fechaSiembra ? new Date(zafraSeleccionada.fechaSiembra as string) : null,
+                fechaSiembra: zafraSeleccionada.fechaSiembra ? new Date(zafraSeleccionada.fechaSiembra) : null,
                 cicloHoy: cicloHoy,
                 costoPromedioHa: costoPorHa,
                 rendimientoHa: rendimientoHa,
@@ -419,5 +419,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
     )
 
 }
+
+    
 
     
