@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -8,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Parcela, Cultivo, Zafra, Evento, Insumo } from "@/lib/types";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -86,6 +85,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
         costoServicios: "",
         costoTotal: "",
         hectareas: "",
+        fechaSiembra: "",
         cicloHoy: "",
         costoPromedioHa: "",
         rendimientoHa: "",
@@ -121,7 +121,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
 
 
     const reporteData = useMemo(() => {
-        if (!filters.zafraId || !insumos) return [];
+        if (!filters.zafraId || !insumos || !zafraSeleccionada) return [];
 
         let parcelasAnalizadas = filters.parcelaId === 'all' 
             ? parcelasFiltradas
@@ -160,6 +160,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                 costoServicios: costoServiciosTotal,
                 costoTotal,
                 hectareas: parcela.superficie,
+                fechaSiembra: zafraSeleccionada.fechaSiembra ? new Date(zafraSeleccionada.fechaSiembra as string) : null,
                 cicloHoy: cicloHoy,
                 costoPromedioHa: costoPorHa,
                 rendimientoHa: rendimientoHa,
@@ -173,6 +174,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
 
             if (typeof valA === 'number' && typeof valB === 'number') {
                 return filters.orden === 'asc' ? valA - valB : valB - valA;
+            }
+            if (valA instanceof Date && valB instanceof Date) {
+                return filters.orden === 'asc' ? valA.getTime() - valB.getTime() : valB.getTime() - valA.getTime();
             }
             if (typeof valA === 'string' && typeof valB === 'string') {
                  return filters.orden === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
@@ -192,6 +196,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             row.costoServicios.toString().includes(columnFilters.costoServicios) &&
             row.costoTotal.toString().includes(columnFilters.costoTotal) &&
             row.hectareas.toString().includes(columnFilters.hectareas) &&
+            (row.fechaSiembra ? format(row.fechaSiembra, 'dd/MM/yyyy').includes(columnFilters.fechaSiembra) : columnFilters.fechaSiembra === '') &&
             row.cicloHoy.toString().includes(columnFilters.cicloHoy) &&
             row.costoPromedioHa.toString().includes(columnFilters.costoPromedioHa) &&
             row.rendimientoHa.toString().includes(columnFilters.rendimientoHa) &&
@@ -282,6 +287,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         <SelectItem value="costoTotal">Costo Total</SelectItem>
                                         <SelectItem value="costoPromedioHa">Costo/ha</SelectItem>
                                         <SelectItem value="hectareas">Hectárea</SelectItem>
+                                        <SelectItem value="fechaSiembra">Fecha Siembra</SelectItem>
                                         <SelectItem value="cicloHoy">Ciclo</SelectItem>
                                         <SelectItem value="rendimientoHa">Rendimiento/ha</SelectItem>
                                         <SelectItem value="costoKg">Costo/kg</SelectItem>
@@ -307,6 +313,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         <TableHead className="font-bold text-right px-4 py-2 w-[200px]">Costo Servicios ($)</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2 w-[250px]">Costo Total ($)</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Hectáreas</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Fecha Siembra</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Ciclo</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Rend. (kg/ha)</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Costo/ha</TableHead>
@@ -318,6 +325,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoServicios} onChange={(e) => setColumnFilters(f => ({ ...f, costoServicios: e.target.value }))} /></TableHead>
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoTotal} onChange={(e) => setColumnFilters(f => ({ ...f, costoTotal: e.target.value }))} /></TableHead>
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.hectareas} onChange={(e) => setColumnFilters(f => ({ ...f, hectareas: e.target.value }))} /></TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.fechaSiembra} onChange={(e) => setColumnFilters(f => ({ ...f, fechaSiembra: e.target.value }))} /></TableHead>
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.cicloHoy} onChange={(e) => setColumnFilters(f => ({ ...f, cicloHoy: e.target.value }))} /></TableHead>
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.rendimientoHa} onChange={(e) => setColumnFilters(f => ({ ...f, rendimientoHa: e.target.value }))} /></TableHead>
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoPromedioHa} onChange={(e) => setColumnFilters(f => ({ ...f, costoPromedioHa: e.target.value }))} /></TableHead>
@@ -334,6 +342,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                                 <DataBar value={d.costoTotal} max={maxCosto} />
                                             </TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono">{d.hectareas.toLocaleString('en-US')} ha</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono">{d.fechaSiembra ? format(d.fechaSiembra, 'dd/MM/yyyy') : 'N/A'}</TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono">{d.cicloHoy} días</TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono font-bold">{d.rendimientoHa.toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha</TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono font-bold">${d.costoPromedioHa.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
@@ -348,6 +357,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.totalCostoServicios.toLocaleString('en-US')}</TableCell>
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.granTotalCostos.toLocaleString('en-US')}</TableCell>
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.totalHectareas.toLocaleString('en-US')} ha</TableCell>
+                                        <TableCell className="px-4 py-3 text-right"></TableCell>
                                         <TableCell className="px-4 py-3 text-right"></TableCell>
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.rendimientoPromedioGeneral.toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha</TableCell>
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.costoPromedioGeneral.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
@@ -409,3 +419,5 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
     )
 
 }
+
+    
