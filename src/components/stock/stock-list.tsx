@@ -343,6 +343,7 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
                   <TableHead className="w-[150px] min-w-[150px]">Principio Activo</TableHead>
                   <TableHead className="w-[150px] min-w-[150px]">Dosis Rec.</TableHead>
                   <TableHead className="w-[150px] min-w-[150px] text-right">Precio Promedio</TableHead>
+                  <TableHead className="w-[100px]">Unidad</TableHead>
                   <TableHead className="w-[150px] min-w-[150px] text-right">Entrada Total</TableHead>
                   <TableHead className="w-[150px] min-w-[150px] text-right">Salida Total</TableHead>
                   <TableHead className="w-[150px] min-w-[150px] text-right">Stock Actual</TableHead>
@@ -352,7 +353,7 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={11} className="text-center h-24">Cargando...</TableCell></TableRow>}
+                {isLoading && <TableRow><TableCell colSpan={12} className="text-center h-24">Cargando...</TableCell></TableRow>}
                 {filteredStockData.map((insumo) => (
                   <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
                     <TableCell className="font-medium text-muted-foreground">{insumo.numeroItem}</TableCell>
@@ -377,14 +378,15 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
                     <TableCell>{insumo.principioActivo || 'N/A'}</TableCell>
                     <TableCell>{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
                     <TableCell className="text-right font-mono">${insumo.precioPromedioPonderado.toFixed(2)}</TableCell>
+                    <TableCell>{insumo.unidad}</TableCell>
                     <TableCell className="text-right font-mono text-green-600">
-                      <div className="flex items-center justify-end gap-1"><ArrowUp size={14}/> {insumo.entradaTotal.toLocaleString('en-US')} {insumo.unidad}</div>
+                      <div className="flex items-center justify-end gap-1"><ArrowUp size={14}/> {insumo.entradaTotal.toLocaleString('en-US')}</div>
                     </TableCell>
                     <TableCell className="text-right font-mono text-red-600">
-                      <div className="flex items-center justify-end gap-1"><ArrowDown size={14}/> {insumo.salidaTotal.toLocaleString('en-US')} {insumo.unidad}</div>
+                      <div className="flex items-center justify-end gap-1"><ArrowDown size={14}/> {insumo.salidaTotal.toLocaleString('en-US')}</div>
                     </TableCell>
-                    <TableCell className="text-right font-mono font-bold">{insumo.stockFinal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
-                    <TableCell className="text-right font-mono">{insumo.stockMinimo.toLocaleString('en-US')} {insumo.unidad}</TableCell>
+                    <TableCell className="text-right font-mono font-bold">{insumo.stockFinal.toLocaleString('en-US')}</TableCell>
+                    <TableCell className="text-right font-mono">{insumo.stockMinimo.toLocaleString('en-US')}</TableCell>
                     <TableCell className="text-right font-mono font-bold text-primary">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                     
                     {user && (
@@ -410,7 +412,7 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
                   </TableRow>
                 ))}
                 {!isLoading && filteredStockData.length === 0 && (
-                  <TableRow><TableCell colSpan={11} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
