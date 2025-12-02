@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Insumo, Compra, Evento } from "@/lib/types";
-import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { InsumoForm } from "./insumo-form";
 import {
   Tooltip,
@@ -24,6 +24,7 @@ import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { collection, doc, getCountFromServer } from "firebase/firestore";
 import { ImportButton } from "./import-button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
 
 interface StockListProps {
   insumos: Insumo[];
@@ -54,7 +55,6 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
   const stockData = useMemo(() => {
     if (!insumos || !compras || !eventos) return [];
     
-    // 1. Calcular el precio promedio ponderado de CADA insumo basado en las compras
     const preciosCalculados: Record<string, number> = {};
     insumos.forEach(insumo => {
         const comprasDelInsumo = compras
@@ -67,20 +67,17 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
         preciosCalculados[insumo.id] = totalCantidadComprada > 0 ? totalValorComprado / totalCantidadComprada : 0;
     });
 
-    // 2. Calcular entradas, salidas y stock final
     const allEvents: (
       { type: 'entrada'; fecha: Date; insumoId: string; cantidad: number; } |
       { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
     )[] = [];
 
-    // Entradas desde compras
     compras.forEach(compra => {
         compra.items.forEach(item => {
             allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha as string), insumoId: item.insumoId, cantidad: item.cantidad });
         });
     });
 
-    // Salidas desde eventos
     eventos.forEach(evento => {
         evento.productos?.forEach(prod => {
             allEvents.push({ type: 'salida', fecha: new Date(evento.fecha as string), insumoId: prod.insumoId, cantidad: prod.cantidad });
@@ -90,7 +87,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
     allEvents.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
 
     const calculatedInsumos = insumos.map(insumo => {
-        let currentStock = insumo.stockActual; // Partimos del stock inicial importado/manual
+        let currentStock = insumo.stockActual;
         let entradaTotal = 0;
         let salidaTotal = 0;
         
@@ -170,6 +167,18 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
     setDialogOpen(false);
     setSelectedInsumo(null);
   }, [selectedInsumo, firestore, toast]);
+
+  const handleDelete = (id: string) => {
+    if (!firestore) return;
+    const insumo = insumos.find(i => i.id === id);
+    const insumoRef = doc(firestore, "insumos", id);
+    deleteDocumentNonBlocking(insumoRef);
+    toast({
+      variant: "destructive",
+      title: "Insumo Eliminado",
+      description: `El insumo "${insumo?.nombre}" ha sido eliminado.`,
+    });
+  };
 
   const openDialog = useCallback((insumo?: Insumo) => {
     setSelectedInsumo(insumo || null);
@@ -333,6 +342,36 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                             <DropdownMenuItem>
                               Ver Movimientos
                             </DropdownMenuItem>
+                             <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem
+                                    onSelect={(e) => e.preventDefault()}
+                                    className="text-destructive"
+                                  >
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      ¿Está seguro que desea eliminar este insumo?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta acción no se puede deshacer. Esto
+                                      eliminará permanentemente el insumo.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(insumo.id)}
+                                      className="bg-destructive hover:bg-destructive/90"
+                                    >
+                                      Eliminar
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -363,3 +402,5 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
     </>
   );
 }
+
+    
