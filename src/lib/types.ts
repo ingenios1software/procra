@@ -198,6 +198,7 @@ export type Compra = {
     insumoId: string;
     cantidad: number;
     precioUnitario: number;
+    porcentajeIva: '0' | '5' | '10';
   }[];
 }
 

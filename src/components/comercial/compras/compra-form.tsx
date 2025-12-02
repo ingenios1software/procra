@@ -29,7 +29,7 @@ import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import type { Proveedor, Insumo } from "@/lib/types";
+import type { Compra, Proveedor, Insumo } from "@/lib/types";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 
@@ -52,7 +52,12 @@ const formSchema = z.object({
 
 type CompraFormValues = z.infer<typeof formSchema>;
 
-export function CompraForm() {
+interface CompraFormProps {
+    compra?: Compra | null;
+}
+
+
+export function CompraForm({ compra }: CompraFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -65,7 +70,10 @@ export function CompraForm() {
   
   const form = useForm<CompraFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: compra ? {
+      ...compra,
+      fecha: new Date(compra.fecha),
+    } : {
       tipoDocumento: 'Factura',
       condicion: 'Contado',
       items: [],

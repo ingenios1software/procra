@@ -58,18 +58,21 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
       { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
     )[] = [];
 
+    // 1. Stock Inicial
     insumos.forEach(insumo => {
         if (insumo.stockActual > 0) {
             allEvents.push({ type: 'entrada', fecha: new Date('2000-01-01'), insumoId: insumo.id, cantidad: insumo.stockActual, costo: insumo.costoUnitario });
         }
     });
-
+    
+    // 2. Compras (Entradas)
     compras.forEach(compra => {
         compra.items.forEach(item => {
             allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha as string), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
         });
     });
 
+    // 3. Consumos en Eventos (Salidas)
     eventos.forEach(evento => {
         evento.productos?.forEach(prod => {
             allEvents.push({ type: 'salida', fecha: new Date(evento.fecha as string), insumoId: prod.insumoId, cantidad: prod.cantidad });
@@ -112,15 +115,15 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
             }
         });
         
-        const precioPromedioPonderado = currentStock > 0 ? totalValue / currentStock : 0;
-        const valorStock = totalValue;
+        const precioPromedioPonderado = entradaTotal > 0 ? insumoMovements.filter(m => m.type === 'entrada').reduce((sum, m) => sum + m.costo * m.cantidad, 0) / entradaTotal : 0;
+        const valorStock = currentStock * precioPromedioPonderado;
 
         return {
             ...insumo,
             entradaTotal,
             salidaTotal,
             stockFinal: currentStock,
-            precioPromedioPonderado: precioPromedioPonderado,
+            precioPromedioPonderado,
             valorStock,
         };
     });
@@ -326,7 +329,7 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
                 <TableHead>Nombre</TableHead>
                 <TableHead>Principio Activo</TableHead>
                 <TableHead>Dosis Rec.</TableHead>
-                <TableHead className="text-right">Precio Promedio Ponderado</TableHead>
+                <TableHead className="text-right">Precio Promedio</TableHead>
                 <TableHead className="text-right">Entrada Total</TableHead>
                 <TableHead className="text-right">Salida Total</TableHead>
                 <TableHead className="text-right">Stock Actual</TableHead>

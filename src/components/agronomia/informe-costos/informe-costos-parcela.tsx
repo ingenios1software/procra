@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
+import type { Parcela, Cultivo, Zafra, Evento, Insumo } from "@/lib/types";
 import { differenceInDays } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Printer } from "lucide-react";
@@ -29,11 +29,11 @@ const DataBar = ({ value, max }: { value: number; max: number }) => {
     return (
         <div className="w-full bg-muted/50 dark:bg-muted/30 rounded-sm h-6 relative my-1">
             <div 
-                className="bg-accent h-6 rounded-sm flex items-center justify-start" 
+                className="bg-primary h-6 rounded-sm flex items-center justify-start" 
                 style={{ width: `${percentage}%` }}
             >
                {showValueInside && (
-                    <span className="text-xs font-mono font-semibold text-accent-foreground pl-2">
+                    <span className="text-xs font-mono font-semibold text-primary-foreground pl-2">
                         ${value.toLocaleString('en-US')}
                     </span>
                )}
@@ -48,11 +48,12 @@ const DataBar = ({ value, max }: { value: number; max: number }) => {
 };
 
 
-export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
+export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insumos }: {
     parcelas: Parcela[];
     cultivos: Cultivo[];
     zafras: Zafra[];
     eventos: Evento[];
+    insumos: Insumo[];
 }) {
     const [isMobile, setIsMobile] = useState(false);
 
@@ -75,12 +76,14 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
         cultivoId: '',
         zafraId: '',
         parcelaId: 'all',
-        ordenarPor: 'costoPromedioHa',
+        ordenarPor: 'costoTotal',
         orden: 'desc',
     });
      const [columnFilters, setColumnFilters] = useState({
         nombreParcela: "",
-        costoProducto: "",
+        costoProductos: "",
+        costoServicios: "",
+        costoTotal: "",
         hectareas: "",
         cicloHoy: "",
         costoPromedioHa: "",
@@ -117,7 +120,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
 
 
     const reporteData = useMemo(() => {
-        if (!filters.zafraId) return [];
+        if (!filters.zafraId || !insumos) return [];
 
         let parcelasAnalizadas = filters.parcelaId === 'all' 
             ? parcelasFiltradas
@@ -130,7 +133,17 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                 (filters.cultivoId ? e.cultivoId === filters.cultivoId : true)
             );
             
-            const costoTotal = eventosParcela.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
+            const costoServicios = eventosParcela.reduce((sum, ev) => sum + ((ev.hectareasAplicadas || 0) * (ev.costoServicioPorHa || 0)), 0);
+            
+            const costoProductos = eventosParcela.reduce((sum, ev) => {
+                const costoInsumos = ev.productos?.reduce((prodSum, prod) => {
+                    const insumo = insumos.find(i => i.id === prod.insumoId);
+                    return prodSum + (prod.cantidad * (insumo?.costoUnitario || 0));
+                }, 0) || 0;
+                return sum + costoInsumos;
+            }, 0);
+            
+            const costoTotal = costoServicios + costoProductos;
             const cicloHoy = zafraSeleccionada?.fechaSiembra ? differenceInDays(new Date(), new Date(zafraSeleccionada.fechaSiembra as string)) : 0;
             const costoPorHa = parcela.superficie > 0 ? costoTotal / parcela.superficie : 0;
             const totalCosechadoKg = eventosParcela
@@ -142,7 +155,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
 
             return {
                 nombreParcela: parcela.nombre,
-                costoProducto: costoTotal,
+                costoProductos,
+                costoServicios,
+                costoTotal,
                 hectareas: parcela.superficie,
                 cicloHoy: cicloHoy,
                 costoPromedioHa: costoPorHa,
@@ -166,13 +181,15 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
 
         return data;
 
-    }, [filters, parcelasFiltradas, eventos, zafraSeleccionada]);
+    }, [filters, parcelasFiltradas, eventos, zafraSeleccionada, insumos]);
 
     const filteredRows = useMemo(() => {
         return reporteData.filter(row => {
           return (
             row.nombreParcela.toLowerCase().includes(columnFilters.nombreParcela.toLowerCase()) &&
-            row.costoProducto.toString().includes(columnFilters.costoProducto) &&
+            row.costoProductos.toString().includes(columnFilters.costoProductos) &&
+            row.costoServicios.toString().includes(columnFilters.costoServicios) &&
+            row.costoTotal.toString().includes(columnFilters.costoTotal) &&
             row.hectareas.toString().includes(columnFilters.hectareas) &&
             row.cicloHoy.toString().includes(columnFilters.cicloHoy) &&
             row.costoPromedioHa.toString().includes(columnFilters.costoPromedioHa) &&
@@ -184,17 +201,22 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
 
     const { totales, maxCosto } = useMemo(() => {
         const totalHectareas = filteredRows.reduce((sum, d) => sum + d.hectareas, 0);
-        const totalCostos = filteredRows.reduce((sum, d) => sum + d.costoProducto, 0);
-        const costoPromedioGeneral = totalHectareas > 0 ? totalCostos / totalHectareas : 0;
-        const maxCosto = Math.max(...reporteData.map(d => d.costoProducto), 0);
+        const totalCostoProductos = filteredRows.reduce((sum, d) => sum + d.costoProductos, 0);
+        const totalCostoServicios = filteredRows.reduce((sum, d) => sum + d.costoServicios, 0);
+        const granTotalCostos = totalCostoProductos + totalCostoServicios;
+        
+        const costoPromedioGeneral = totalHectareas > 0 ? granTotalCostos / totalHectareas : 0;
+        const maxCosto = Math.max(...reporteData.map(d => d.costoTotal), 0);
         const totalCosechadoKgGeneral = filteredRows.reduce((sum, d) => sum + (d.rendimientoHa * d.hectareas), 0);
         const rendimientoPromedioGeneral = totalHectareas > 0 ? totalCosechadoKgGeneral / totalHectareas : 0;
-        const costoKgPromedioGeneral = totalCosechadoKgGeneral > 0 ? totalCostos / totalCosechadoKgGeneral : 0;
+        const costoKgPromedioGeneral = totalCosechadoKgGeneral > 0 ? granTotalCostos / totalCosechadoKgGeneral : 0;
 
         return {
             totales: {
                 totalHectareas,
-                totalCostos,
+                totalCostoProductos,
+                totalCostoServicios,
+                granTotalCostos,
                 costoPromedioGeneral,
                 rendimientoPromedioGeneral,
                 costoKgPromedioGeneral,
@@ -256,8 +278,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                 <Select value={filters.ordenarPor} onValueChange={(v) => handleFilterChange('ordenarPor', v as typeof filters.ordenarPor)}>
                                     <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="costoTotal">Costo Total</SelectItem>
                                         <SelectItem value="costoPromedioHa">Costo/ha</SelectItem>
-                                        <SelectItem value="costoProducto">Costo Total</SelectItem>
                                         <SelectItem value="hectareas">Hectárea</SelectItem>
                                         <SelectItem value="cicloHoy">Ciclo</SelectItem>
                                         <SelectItem value="rendimientoHa">Rendimiento/ha</SelectItem>
@@ -277,61 +299,38 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                     <CardContent>
                         <div className="relative overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                             <Table className="min-w-max whitespace-nowrap">
-                                <TableHeader className="sticky top-0 z-40 
-           bg-muted/90 dark:bg-muted/95 
-           backdrop-blur-md 
-           supports-[backdrop-filter]:bg-muted/60 
-           shadow-md 
-           border-b border-muted-foreground/20">
+                                <TableHeader className="sticky top-0 z-40 bg-muted/90 dark:bg-muted/95 backdrop-blur-md supports-[backdrop-filter]:bg-muted/60 shadow-sm border-b border-muted-foreground/20">
                                     <TableRow>
-                                        <TableHead className="font-bold text-left px-4 py-2">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger className="flex items-center gap-1">
-                                                    Nombre de Parcela <ChevronDown className="h-4 w-4" />
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent>
-                                                    <DropdownMenuItem onClick={() => { handleFilterChange('ordenarPor', 'nombreParcela'); handleFilterChange('orden', 'asc'); }}>Orden Ascendente</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => { handleFilterChange('ordenarPor', 'nombreParcela'); handleFilterChange('orden', 'desc'); }}>Orden Descendente</DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2 w-[250px]">Costo en Producto por Parcela ($)</TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2">Hectárea Plantada</TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2">Ciclo a Hoy</TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2">Rendimiento (kg/ha)</TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2">Costo Promedio por Hectárea ($/ha)</TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2">Costo/kg Producido ($)</TableHead>
+                                        <TableHead className="font-bold text-left px-4 py-2 w-[200px]">Parcela</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2 w-[200px]">Costo Productos ($)</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2 w-[200px]">Costo Servicios ($)</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2 w-[250px]">Costo Total ($)</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Hectáreas</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Ciclo</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Rend. (kg/ha)</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Costo/ha</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Costo/kg</TableHead>
                                     </TableRow>
                                     <TableRow className="bg-muted/50 dark:bg-muted/80">
-                                        <TableHead className="px-2 py-1">
-                                            <Input className="w-full rounded border px-2 py-1 text-xs h-8 bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.nombreParcela} onChange={(e) => setColumnFilters(f => ({ ...f, nombreParcela: e.target.value }))} />
-                                        </TableHead>
-                                        <TableHead className="px-2 py-1">
-                                            <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.costoProducto} onChange={(e) => setColumnFilters(f => ({ ...f, costoProducto: e.target.value }))} />
-                                        </TableHead>
-                                        <TableHead className="px-2 py-1">
-                                            <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.hectareas} onChange={(e) => setColumnFilters(f => ({ ...f, hectareas: e.target.value }))} />
-                                        </TableHead>
-                                        <TableHead className="px-2 py-1">
-                                            <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.cicloHoy} onChange={(e) => setColumnFilters(f => ({ ...f, cicloHoy: e.target.value }))} />
-                                        </TableHead>
-                                        <TableHead className="px-2 py-1">
-                                            <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.rendimientoHa} onChange={(e) => setColumnFilters(f => ({ ...f, rendimientoHa: e.target.value }))} />
-                                        </TableHead>
-                                        <TableHead className="px-2 py-1">
-                                            <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.costoPromedioHa} onChange={(e) => setColumnFilters(f => ({ ...f, costoPromedioHa: e.target.value }))} />
-                                        </TableHead>
-                                        <TableHead className="px-2 py-1">
-                                            <Input className="w-full rounded border px-2 py-1 text-xs h-8 text-right bg-background dark:bg-card" placeholder="Filtrar..." value={columnFilters.costoKg} onChange={(e) => setColumnFilters(f => ({ ...f, costoKg: e.target.value }))} />
-                                        </TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8" placeholder="Filtrar..." value={columnFilters.nombreParcela} onChange={(e) => setColumnFilters(f => ({ ...f, nombreParcela: e.target.value }))} /></TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoProductos} onChange={(e) => setColumnFilters(f => ({ ...f, costoProductos: e.target.value }))} /></TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoServicios} onChange={(e) => setColumnFilters(f => ({ ...f, costoServicios: e.target.value }))} /></TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoTotal} onChange={(e) => setColumnFilters(f => ({ ...f, costoTotal: e.target.value }))} /></TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.hectareas} onChange={(e) => setColumnFilters(f => ({ ...f, hectareas: e.target.value }))} /></TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.cicloHoy} onChange={(e) => setColumnFilters(f => ({ ...f, cicloHoy: e.target.value }))} /></TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.rendimientoHa} onChange={(e) => setColumnFilters(f => ({ ...f, rendimientoHa: e.target.value }))} /></TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoPromedioHa} onChange={(e) => setColumnFilters(f => ({ ...f, costoPromedioHa: e.target.value }))} /></TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoKg} onChange={(e) => setColumnFilters(f => ({ ...f, costoKg: e.target.value }))} /></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody className="divide-y divide-gray-200 dark:divide-gray-700">
                                     {filteredRows.map((d, index) => (
                                         <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                             <TableCell className="px-4 py-3 text-left">{d.nombreParcela}</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono">${d.costoProductos.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono">${d.costoServicios.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
                                             <TableCell className="px-4 py-3 text-right">
-                                                <DataBar value={d.costoProducto} max={maxCosto} />
+                                                <DataBar value={d.costoTotal} max={maxCosto} />
                                             </TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono">{d.hectareas.toLocaleString('en-US')} ha</TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono">{d.cicloHoy} días</TableCell>
@@ -344,7 +343,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                 <TableFooter>
                                     <TableRow className="bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-100 dark:hover:bg-amber-900/50 border-t-2 border-gray-400 dark:border-gray-500">
                                         <TableCell className="px-4 py-3 font-bold text-left">Total General</TableCell>
-                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.totalCostos.toLocaleString('en-US')}</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.totalCostoProductos.toLocaleString('en-US')}</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.totalCostoServicios.toLocaleString('en-US')}</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.granTotalCostos.toLocaleString('en-US')}</TableCell>
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.totalHectareas.toLocaleString('en-US')} ha</TableCell>
                                         <TableCell className="px-4 py-3 text-right"></TableCell>
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.rendimientoPromedioGeneral.toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha</TableCell>
@@ -359,7 +360,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                 <h3 className="text-lg font-bold mb-4">Gráfico de Eficiencia: Costo/ha vs Rendimiento</h3>
                                 <div className="w-full overflow-x-auto">
                                     <ResponsiveContainer width="100%" height={chartHeight}>
-                                        <BarChart data={filteredRows}>
+                                        <ComposedChart data={filteredRows}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} tick={{ fontSize: tickFont }} />
                                         <YAxis yAxisId="left" label={{ value: 'Costo Promedio ($/ha)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
@@ -375,32 +376,26 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos }: {
                                         />
                                         <Legend wrapperStyle={{ fontSize: labelFont }} />
                                         <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" barSize={barSize} />
-                                        <Bar yAxisId="right" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" fill="#16a34a" barSize={barSize} />
-                                        </BarChart>
+                                        <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={2} />
+                                        </ComposedChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
                              <div>
-                                <h3 className="text-lg font-bold mb-4">Gráfico de Magnitud: Costo Total vs Hectáreas</h3>
+                                <h3 className="text-lg font-bold mb-4">Gráfico de Composición de Costos</h3>
                                 <div className="w-full overflow-x-auto">
                                     <ResponsiveContainer width="100%" height={chartHeight}>
                                         <BarChart data={filteredRows}>
                                             <CartesianGrid strokeDasharray="3 3" />
                                             <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} tick={{ fontSize: tickFont }} />
-                                            <YAxis yAxisId="left" orientation="left" label={{ value: 'Costo Total ($)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
-                                            <YAxis yAxisId="right" orientation="right" label={{ value: 'Hectáreas', angle: 90, position: 'insideRight', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
+                                            <YAxis label={{ value: 'Costo Total ($)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
                                             <Tooltip 
                                                 contentStyle={{ fontSize: tickFont }}
-                                                formatter={(value, name) => {
-                                                    if (name === 'Hectáreas') {
-                                                        return `${Number(value).toLocaleString('en-US')} ha`;
-                                                    }
-                                                    return `$${Number(value).toLocaleString('en-US')}`;
-                                                }}
+                                                formatter={(value) => `$${Number(value).toLocaleString('en-US')}`}
                                             />
                                             <Legend wrapperStyle={{ fontSize: labelFont }} />
-                                            <Bar yAxisId="left" dataKey="costoProducto" name="Costo Total" fill="#3b82f6" barSize={barSize} />
-                                            <Bar yAxisId="right" dataKey="hectareas" name="Hectáreas" fill="#ef4444" barSize={barSize} />
+                                            <Bar dataKey="costoProductos" name="Costo Productos" stackId="a" fill="#3b82f6" barSize={barSize} />
+                                            <Bar dataKey="costoServicios" name="Costo Servicios" stackId="a" fill="#ef4444" barSize={barSize} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
