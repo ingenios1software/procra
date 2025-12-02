@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp } from "lucide-react";
+import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Insumo, Compra, Evento } from "@/lib/types";
 import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
@@ -22,7 +22,7 @@ import { PageHeader } from "../shared/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { collection, doc, getCountFromServer } from "firebase/firestore";
+import { collection, doc, getCountFromServer, writeBatch } from "firebase/firestore";
 import { ImportButton } from "./import-button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
 
@@ -41,6 +41,9 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
   
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedInsumo, setSelectedInsumo] = useState<Insumo | null>(null);
+  const [isDeleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+
 
   const [filters, setFilters] = useState({
     nombre: '',
@@ -180,6 +183,35 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
     });
   };
 
+  const handleDeleteAll = async () => {
+    if (!firestore || insumos.length === 0) return;
+
+    const batch = writeBatch(firestore);
+    insumos.forEach(insumo => {
+        const docRef = doc(firestore, "insumos", insumo.id);
+        batch.delete(docRef);
+    });
+
+    try {
+        await batch.commit();
+        toast({
+            variant: "destructive",
+            title: "Todos los insumos eliminados",
+            description: `Se han eliminado ${insumos.length} registros de insumos.`,
+        });
+    } catch (error) {
+        console.error("Error al eliminar todos los insumos: ", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "No se pudieron eliminar todos los insumos.",
+        });
+    }
+    setDeleteAllOpen(false);
+    setDeleteConfirmationText("");
+  };
+
+
   const openDialog = useCallback((insumo?: Insumo) => {
     setSelectedInsumo(insumo || null);
     setDialogOpen(true);
@@ -203,6 +235,36 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Nuevo Insumo
                 </Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="icon">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar todos los insumos?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Esta acción es irreversible y eliminará todos los registros de insumos. Para confirmar, escriba "ELIMINAR" en el campo de abajo.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <Input 
+                            value={deleteConfirmationText}
+                            onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                            placeholder='Escriba ELIMINAR para confirmar'
+                        />
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setDeleteConfirmationText("")}>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={handleDeleteAll}
+                                disabled={deleteConfirmationText !== "ELIMINAR"}
+                                className="bg-destructive hover:bg-destructive/90"
+                            >
+                                Eliminar Todo
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         )}
       </PageHeader>
@@ -402,5 +464,3 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
     </>
   );
 }
-
-    
