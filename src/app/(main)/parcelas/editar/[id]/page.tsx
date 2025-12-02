@@ -1,14 +1,19 @@
 "use client";
 
-import { PageHeader } from "@/components/shared/page-header";
-import { ParcelaForm } from "@/components/parcelas/parcela-form";
-import { notFound } from "next/navigation";
+import { useMemo } from 'react';
+import { notFound, useRouter } from "next/navigation";
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { Parcela } from '@/lib/types';
-import { useMemo } from 'react';
+import { PageHeader } from "@/components/shared/page-header";
+import { ParcelaForm } from "@/components/parcelas/parcela-form";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertTriangle } from 'lucide-react';
+
 
 export default function EditarParcelaPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const firestore = useFirestore();
   const { id } = params;
   
@@ -20,11 +25,32 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
   const { data: parcela, isLoading } = useDoc<Parcela>(parcelaRef);
 
   if (isLoading) {
-    return <div>Cargando...</div>;
+    return (
+        <div className="flex justify-center items-center h-64">
+            <p>Cargando datos de la parcela...</p>
+        </div>
+    );
   }
 
   if (!parcela) {
-    notFound();
+    return (
+        <div className="flex flex-col items-center justify-center text-center py-10">
+            <Card className="w-full max-w-md">
+                <CardHeader>
+                    <CardTitle className="flex items-center justify-center gap-2">
+                        <AlertTriangle className="h-6 w-6 text-destructive"/>
+                        Parcela no encontrada
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <p>Esta parcela ya no existe o fue eliminada.</p>
+                    <Button onClick={() => router.push('/parcelas')}>
+                        Volver a la lista
+                    </Button>
+                </CardContent>
+            </Card>
+      </div>
+    );
   }
 
   return (
