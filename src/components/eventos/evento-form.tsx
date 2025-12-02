@@ -11,15 +11,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, Compra } from "@/lib/types";
+import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, Compra, EventoBorrador } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign } from "lucide-react";
+import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from 'firebase/firestore';
+import { useDraftStore } from "@/store/draft-store";
+import { produce } from 'immer';
+
 
 const productoSchema = z.object({
   insumoId: z.string().nonempty("Debe seleccionar un insumo."),
@@ -61,6 +64,7 @@ interface EventoFormProps {
 export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { draft, setDraft, clearDraft } = useDraftStore();
 
   const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
   const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
@@ -72,32 +76,16 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
   const form = useForm<EventoFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: evento ? {
-      ...evento,
-      fecha: new Date(evento.fecha),
-      tipo: evento.tipo as any, // Fix para enum
-      hectareasAplicadas: evento.hectareasAplicadas || 0,
-      costoServicioPorHa: evento.costoServicioPorHa || 0,
-      temperatura: evento.temperatura || 0,
-      humedad: evento.humedad || 0,
-      viento: evento.viento || 0,
-      resultado: evento.resultado || "",
-      toneladas: evento.toneladas || 0,
-      precioTonelada: evento.precioTonelada || 0,
-    } : {
-      fecha: new Date(),
-      tipo: 'siembra',
-      productos: [],
-      descripcion: "",
-      hectareasAplicadas: 0,
-      costoServicioPorHa: 0,
-      temperatura: 0,
-      humedad: 0,
-      viento: 0,
-      resultado: "",
-      toneladas: 0,
-      precioTonelada: 0,
-    },
+    defaultValues: evento 
+      ? { ...evento, fecha: new Date(evento.fecha) } 
+      : draft && Object.keys(draft).length > 0
+        ? { ...draft, fecha: draft.fecha ? new Date(draft.fecha) : new Date() }
+        : {
+            fecha: new Date(),
+            tipo: 'siembra',
+            productos: [],
+            descripcion: "",
+          },
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -105,14 +93,30 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     name: "productos",
   });
 
+  const watchedValues = form.watch();
+
+  useEffect(() => {
+    // No guardar el borrador si estamos editando un evento existente
+    if(evento) return;
+    
+    // Usamos `produce` para manejar la inmutabilidad de forma segura
+    const newDraft = produce(draft, (d: EventoBorrador) => {
+        Object.assign(d, watchedValues);
+    });
+
+    setDraft(newDraft);
+
+  }, [watchedValues, setDraft, evento]);
+
+
   const tipoEvento = form.watch('tipo');
-  const watchedParcelaId = form.watch('parcelaId');
-  const watchedCultivoId = form.watch('cultivoId');
-  const watchedZafraId = form.watch('zafraId');
-  const watchedFecha = form.watch('fecha');
   const watchedHectareas = form.watch('hectareasAplicadas');
   const watchedProductos = form.watch('productos');
   const watchedCostoServicio = form.watch('costoServicioPorHa');
+  const watchedParcelaId = form.watch('parcelaId');
+  const watchedZafraId = form.watch('zafraId');
+  const watchedFecha = form.watch('fecha');
+
 
   const stockCalculado = useMemo(() => {
     if (!insumos || !compras || !todosLosEventos) return {};
@@ -130,13 +134,13 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
     compras.forEach(compra => {
         compra.items.forEach(item => {
-            allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
+            allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha as string), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
         });
     });
 
     todosLosEventos.forEach(evento => {
         evento.productos?.forEach(prod => {
-            allEvents.push({ type: 'salida', fecha: new Date(evento.fecha), insumoId: prod.insumoId, cantidad: prod.cantidad });
+            allEvents.push({ type: 'salida', fecha: new Date(evento.fecha as string), insumoId: prod.insumoId, cantidad: prod.cantidad });
         });
     });
     
@@ -193,11 +197,11 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   }, [watchedProductos, watchedHectareas, watchedCostoServicio, insumos]);
 
   const analisisProps = useMemo(() => ({
-    eventoActual: { ...form.getValues(), fecha: watchedFecha } as Evento,
+    eventoActual: { ...form.getValues(), fecha: watchedFecha, parcelaId: watchedParcelaId, zafraId: watchedZafraId } as Evento,
     todosLosEventos: todosLosEventos || [],
     zafras: zafras || [],
     etapasCultivo: etapasCultivo || [],
-  }), [watchedParcelaId, watchedCultivoId, watchedZafraId, watchedFecha, form, todosLosEventos, zafras, etapasCultivo]);
+  }), [watchedParcelaId, watchedZafraId, watchedFecha, form, todosLosEventos, zafras, etapasCultivo]);
 
 
   const handleSubmit = (data: EventoFormValues) => {
@@ -206,7 +210,22 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       costoTotal: totalCostoEvento
     };
     onSave(dataConCostoTotal);
+    clearDraft();
   };
+
+  const handleDiscard = () => {
+    clearDraft();
+    form.reset({
+        fecha: new Date(),
+        tipo: 'siembra',
+        productos: [],
+        descripcion: "",
+    });
+    toast({
+        title: 'Borrador descartado',
+        description: 'El formulario se ha limpiado.',
+    })
+  }
 
   if (!parcelas || !cultivos || !zafras || !etapasCultivo || !insumos) {
     return <p>Cargando datos maestros...</p>;
@@ -220,12 +239,12 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FormField name="parcelaId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Parcela</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una parcela" /></SelectTrigger></FormControl><SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                <FormField name="cultivoId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cultivo / Variedad</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cultivo" /></SelectTrigger></FormControl><SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                <FormField name="zafraId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Zafra</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl><SelectContent>{zafras.filter(z => z.estado === 'en curso' || z.estado === 'planificada').map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="parcelaId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Parcela</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una parcela" /></SelectTrigger></FormControl><SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="cultivoId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cultivo / Variedad</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cultivo" /></SelectTrigger></FormControl><SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="zafraId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Zafra</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl><SelectContent>{zafras.filter(z => z.estado === 'en curso' || z.estado === 'planificada').map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField name="tipo" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tipo de Evento</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl><SelectContent><SelectItem value="siembra">Siembra</SelectItem><SelectItem value="aplicacion">Aplicación</SelectItem><SelectItem value="fertilización">Fertilización</SelectItem><SelectItem value="riego">Riego</SelectItem><SelectItem value="cosecha">Cosecha</SelectItem><SelectItem value="rendimiento">Rendimiento</SelectItem><SelectItem value="mantenimiento">Mantenimiento</SelectItem><SelectItem value="plagas">Control de Plagas</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="tipo" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tipo de Evento</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl><SelectContent><SelectItem value="siembra">Siembra</SelectItem><SelectItem value="aplicacion">Aplicación</SelectItem><SelectItem value="fertilización">Fertilización</SelectItem><SelectItem value="riego">Riego</SelectItem><SelectItem value="cosecha">Cosecha</SelectItem><SelectItem value="rendimiento">Rendimiento</SelectItem><SelectItem value="mantenimiento">Mantenimiento</SelectItem><SelectItem value="plagas">Control de Plagas</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha del Evento</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
               </div>
               <FormField name="descripcion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea placeholder="Describa el evento..." {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -333,9 +352,15 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
               
               <FormField control={form.control} name="resultado" render={({ field }) => (<FormItem><FormLabel>Resultado/Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones sobre el resultado de la labor..." {...field} /></FormControl><FormMessage /></FormItem>)} />
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-                <Button type="submit">{evento ? "Guardar Cambios" : "Registrar Evento"}</Button>
+              <div className="flex justify-between items-center pt-4">
+                <Button type="button" variant="ghost" onClick={handleDiscard} className="text-destructive hover:text-destructive">
+                    <Eraser className="mr-2"/>
+                    Descartar Borrador
+                </Button>
+                <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
+                    <Button type="submit">{evento ? "Guardar Cambios" : "Registrar Evento"}</Button>
+                </div>
               </div>
             </form>
           </Form>

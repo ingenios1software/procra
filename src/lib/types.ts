@@ -63,6 +63,8 @@ export type Evento = {
   insumoId?: string; // Deprecado, usar 'productos.insumoId'
 };
 
+export type EventoBorrador = Partial<Omit<Evento, 'id' | 'fecha'> & { fecha: Date | null }>;
+
 
 export type Usuario = {
   id: string;
