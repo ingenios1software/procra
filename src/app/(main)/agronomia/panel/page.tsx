@@ -1,41 +1,34 @@
 "use client";
 
-import { InformeCostosParcela } from "@/components/agronomia/informe-costos/informe-costos-parcela";
+import { PanelAgronomico } from "@/components/agronomia/panel/panel-agronomico";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
-import type { Parcela, Cultivo, Zafra, Evento, Insumo } from "@/lib/types";
+import type { Parcela, Cultivo, Zafra, Evento, Insumo, EtapaCultivo } from "@/lib/types";
 
 export default function PanelAgronomicoPage() {
     const firestore = useFirestore();
 
-    const parcelasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas'), orderBy('nombre')) : null, [firestore]);
-    const { data: parcelas, isLoading: loadingParcelas } = useCollection<Parcela>(parcelasQuery);
+    const { data: parcelas, isLoading: l1 } = useCollection<Parcela>(useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas'), orderBy('nombre')) : null, [firestore]));
+    const { data: cultivos, isLoading: l2 } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos'), orderBy('nombre')) : null, [firestore]));
+    const { data: zafras, isLoading: l3 } = useCollection<Zafra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras'), orderBy('nombre')) : null, [firestore]));
+    const { data: eventos, isLoading: l4 } = useCollection<Evento>(useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha')) : null, [firestore]));
+    const { data: insumos, isLoading: l5 } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos')) : null, [firestore]));
+    const { data: etapas, isLoading: l6 } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'etapasCultivo')) : null, [firestore]));
 
-    const cultivosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos'), orderBy('nombre')) : null, [firestore]);
-    const { data: cultivos, isLoading: loadingCultivos } = useCollection<Cultivo>(cultivosQuery);
-
-    const zafrasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras'), orderBy('nombre')) : null, [firestore]);
-    const { data: zafras, isLoading: loadingZafras } = useCollection<Zafra>(zafrasQuery);
-
-    const eventosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha')) : null, [firestore]);
-    const { data: eventos, isLoading: loadingEventos } = useCollection<Evento>(eventosQuery);
-
-    const insumosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos')) : null, [firestore]);
-    const { data: insumos, isLoading: loadingInsumos } = useCollection<Insumo>(insumosQuery);
-    
-    const isLoading = loadingParcelas || loadingCultivos || loadingZafras || loadingEventos || loadingInsumos;
+    const isLoading = l1 || l2 || l3 || l4 || l5 || l6;
 
     if (isLoading) {
-        return <p>Cargando datos del informe...</p>;
+        return <p>Cargando datos del panel agronómico...</p>;
     }
     
     return (
-        <InformeCostosParcela 
+        <PanelAgronomico 
             parcelas={parcelas || []}
             cultivos={cultivos || []}
             zafras={zafras || []}
             eventos={eventos || []}
             insumos={insumos || []}
+            etapas={etapas || []}
         />
     )
 }
