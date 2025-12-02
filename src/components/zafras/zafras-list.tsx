@@ -11,7 +11,7 @@ import { MoreHorizontal, PlusCircle, PowerOff, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { ZafraForm } from "./zafra-form";
 import type { Zafra } from "@/lib/types";
-import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -42,14 +42,14 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const handleSave = (zafraData: Omit<Zafra, 'id' | 'fechaFin'> & { fechaInicio: Date, fechaSiembra?: Date }) => {
+  const handleSave = (zafraData: Omit<Zafra, 'id' | 'fechaFin' | 'fechaInicio'> & { fechaInicio: Date, fechaSiembra?: Date }) => {
     if (!firestore) return;
     
     const dataToSave = {
-        ...zafraData,
-        fechaInicio: zafraData.fechaInicio.toISOString(),
-        fechaSiembra: zafraData.fechaSiembra ? zafraData.fechaSiembra.toISOString() : null,
-    };
+      ...zafraData,
+      fechaInicio: zafraData.fechaInicio.toISOString(),
+      fechaSiembra: zafraData.fechaSiembra ? zafraData.fechaSiembra.toISOString() : null,
+  };
 
     if (selectedZafra) {
       const zafraRef = doc(firestore, 'zafras', selectedZafra.id);
@@ -72,6 +72,18 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
         updateDocumentNonBlocking(zafraRef, { ...zafraToUpdate, estado: 'finalizada', fechaFin: new Date().toISOString() });
         toast({ title: "Zafra cerrada", description: "La zafra ha sido marcada como finalizada."});
     }
+  };
+
+  const handleDelete = (id: string) => {
+    if (!firestore) return;
+    const zafra = initialZafras.find(z => z.id === id);
+    const zafraRef = doc(firestore, 'zafras', id);
+    deleteDocumentNonBlocking(zafraRef);
+    toast({
+      variant: "destructive",
+      title: "Zafra eliminada",
+      description: `La zafra "${zafra?.nombre}" ha sido eliminada.`,
+    });
   };
 
   const openDialog = (zafra?: Zafra) => {
@@ -148,31 +160,47 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => openDialog(zafra)}>Editar</DropdownMenuItem>
+                          
                           {zafra.estado !== 'finalizada' && (
-                             <>
-                                <DropdownMenuSeparator />
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-amber-600 focus:text-amber-700 focus:bg-amber-50">
-                                       <PowerOff className="mr-2 h-4 w-4" />
-                                       Cerrar Zafra
-                                     </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>¿Desea cerrar la zafra?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esta acción marcará la zafra como 'finalizada' y registrará la fecha de fin actual. No podrá ser revertida.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleCloseZafra(zafra.id)}>Cerrar Zafra</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                             </>
+                             <AlertDialog>
+                               <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-amber-600 focus:text-amber-700 focus:bg-amber-50">
+                                    <PowerOff className="mr-2 h-4 w-4" />
+                                    Cerrar Zafra
+                                  </DropdownMenuItem>
+                               </AlertDialogTrigger>
+                               <AlertDialogContent>
+                                 <AlertDialogHeader>
+                                   <AlertDialogTitle>¿Desea cerrar la zafra?</AlertDialogTitle>
+                                   <AlertDialogDescription>
+                                     Esta acción marcará la zafra como 'finalizada' y registrará la fecha de fin actual. No podrá ser revertida.
+                                   </AlertDialogDescription>
+                                 </AlertDialogHeader>
+                                 <AlertDialogFooter>
+                                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                   <AlertDialogAction onClick={() => handleCloseZafra(zafra.id)}>Cerrar Zafra</AlertDialogAction>
+                                 </AlertDialogFooter>
+                               </AlertDialogContent>
+                             </AlertDialog>
                           )}
+                          <DropdownMenuSeparator />
+                           <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">Eliminar</DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta acción eliminará la zafra permanentemente. No se puede deshacer.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(zafra.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
