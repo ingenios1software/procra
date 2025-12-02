@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Menu } from "lucide-react"
 import { Button } from "../ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "../ui/sheet"
 import { Sidebar } from "./sidebar"
 import { UserNav } from "./user-nav"
 import { Logo } from "../icons"
@@ -20,6 +20,10 @@ export function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[300px] p-0">
+             <SheetHeader className="sr-only">
+                <SheetTitle>Menú Principal</SheetTitle>
+                <SheetDescription>Navegación principal de la aplicación CRApro95</SheetDescription>
+             </SheetHeader>
              <div className="flex h-16 items-center border-b px-4 shrink-0 bg-sidebar text-sidebar-foreground">
                 <Link href="/dashboard" className="flex items-center gap-2 font-headline text-lg font-bold text-primary">
                     <Logo className="h-8 w-8" />
