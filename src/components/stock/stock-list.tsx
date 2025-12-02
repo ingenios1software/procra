@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
@@ -156,17 +157,24 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
 
   const handleSaveInsumo = useCallback(async (insumoData: Omit<Insumo, 'id'>) => {
     if (!firestore) return;
+
+    const dataToSave = {
+      ...insumoData,
+      principioActivo: insumoData.principioActivo || null,
+      dosisRecomendada: insumoData.dosisRecomendada || null,
+      proveedor: insumoData.proveedor || null,
+    };
     
     if (selectedInsumo) {
       const insumoRef = doc(firestore, 'insumos', selectedInsumo.id);
-      updateDocumentNonBlocking(insumoRef, insumoData);
+      updateDocumentNonBlocking(insumoRef, dataToSave);
       toast({ title: "Insumo actualizado" });
     } else {
       const insumosCol = collection(firestore, 'insumos');
       const snapshot = await getCountFromServer(insumosCol);
       const numeroItem = snapshot.data().count + 1;
 
-      addDocumentNonBlocking(insumosCol, { ...insumoData, numeroItem });
+      addDocumentNonBlocking(insumosCol, { ...dataToSave, numeroItem });
       toast({ title: "Insumo creado", description: `Item Nº ${numeroItem}` });
     }
     setDialogOpen(false);
