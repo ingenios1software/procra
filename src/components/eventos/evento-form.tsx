@@ -258,8 +258,11 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
 
   const handleSubmit = (data: EventoFormValues) => {
+    const cleanData = Object.fromEntries(
+        Object.entries(data).filter(([, value]) => value !== undefined)
+    );
     const dataConCostoTotal = {
-      ...data,
+      ...cleanData,
       costoTotal: totalCostoEvento
     };
     onSave(dataConCostoTotal);
@@ -422,3 +425,5 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     </>
   );
 }
+
+    
