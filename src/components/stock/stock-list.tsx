@@ -323,76 +323,85 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Principio Activo</TableHead>
-                <TableHead>Dosis Rec.</TableHead>
-                <TableHead className="text-right">Precio Promedio</TableHead>
-                <TableHead className="text-right">Entrada Total</TableHead>
-                <TableHead className="text-right">Salida Total</TableHead>
-                <TableHead className="text-right">Stock Actual</TableHead>
-                <TableHead className="text-right">Stock Mínimo</TableHead>
-                <TableHead className="text-right">Valor en Stock</TableHead>
-                {user && <TableHead className="text-right">Acciones</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={10} className="text-center">Cargando...</TableCell></TableRow>}
-              {filteredStockData.map((insumo) => (
-                <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
-                  <TableCell className="font-medium">
-                     <div className="flex items-center gap-2">
-                        {insumo.stockFinal < insumo.stockMinimo && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <AlertCircle className="h-4 w-4 text-destructive" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Stock por debajo del mínimo</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                        {insumo.nombre}
-                     </div>
-                     <Badge variant="secondary" className="capitalize mt-1">{insumo.categoria}</Badge>
-                  </TableCell>
-                  <TableCell>{insumo.principioActivo || 'N/A'}</TableCell>
-                  <TableCell>{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
-                  <TableCell className="text-right font-mono">${insumo.precioPromedioPonderado.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono text-green-600 flex items-center justify-end gap-1"><ArrowUp size={14}/> {insumo.entradaTotal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
-                  <TableCell className="text-right font-mono text-red-600 flex items-center justify-end gap-1"><ArrowDown size={14}/> {insumo.salidaTotal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
-                  <TableCell className="text-right font-mono font-bold">{insumo.stockFinal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
-                  <TableCell className="text-right font-mono">{insumo.stockMinimo.toLocaleString('en-US')} {insumo.unidad}</TableCell>
-                  <TableCell className="text-right font-mono font-bold text-primary">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
-                  
-                  {user && (
-                    <TableCell className="text-right">
-                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Abrir menú</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openDialog(insumo)}>
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            Ver Movimientos
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  )}
+          <div className="w-full overflow-x-auto">
+            <Table className="whitespace-nowrap">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[250px] min-w-[250px]">Nombre</TableHead>
+                  <TableHead className="w-[150px] min-w-[150px]">Principio Activo</TableHead>
+                  <TableHead className="w-[150px] min-w-[150px]">Dosis Rec.</TableHead>
+                  <TableHead className="w-[150px] min-w-[150px] text-right">Precio Promedio</TableHead>
+                  <TableHead className="w-[150px] min-w-[150px] text-right">Entrada Total</TableHead>
+                  <TableHead className="w-[150px] min-w-[150px] text-right">Salida Total</TableHead>
+                  <TableHead className="w-[150px] min-w-[150px] text-right">Stock Actual</TableHead>
+                  <TableHead className="w-[150px] min-w-[150px] text-right">Stock Mínimo</TableHead>
+                  <TableHead className="w-[180px] min-w-[180px] text-right">Valor en Stock</TableHead>
+                  {user && <TableHead className="w-[100px] min-w-[100px] text-right">Acciones</TableHead>}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {isLoading && <TableRow><TableCell colSpan={10} className="text-center h-24">Cargando...</TableCell></TableRow>}
+                {filteredStockData.map((insumo) => (
+                  <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
+                    <TableCell className="font-medium">
+                       <div className="flex items-center gap-2">
+                          {insumo.stockFinal < insumo.stockMinimo && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <AlertCircle className="h-4 w-4 text-destructive" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Stock por debajo del mínimo</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {insumo.nombre}
+                       </div>
+                       <Badge variant="secondary" className="capitalize mt-1">{insumo.categoria}</Badge>
+                    </TableCell>
+                    <TableCell>{insumo.principioActivo || 'N/A'}</TableCell>
+                    <TableCell>{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
+                    <TableCell className="text-right font-mono">${insumo.precioPromedioPonderado.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono text-green-600">
+                      <div className="flex items-center justify-end gap-1"><ArrowUp size={14}/> {insumo.entradaTotal.toLocaleString('en-US')} {insumo.unidad}</div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-red-600">
+                      <div className="flex items-center justify-end gap-1"><ArrowDown size={14}/> {insumo.salidaTotal.toLocaleString('en-US')} {insumo.unidad}</div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold">{insumo.stockFinal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
+                    <TableCell className="text-right font-mono">{insumo.stockMinimo.toLocaleString('en-US')} {insumo.unidad}</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                    
+                    {user && (
+                      <TableCell className="text-right">
+                         <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menú</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openDialog(insumo)}>
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              Ver Movimientos
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+                {!isLoading && filteredStockData.length === 0 && (
+                  <TableRow><TableCell colSpan={10} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
       
