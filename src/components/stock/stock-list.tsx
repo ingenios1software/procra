@@ -24,7 +24,7 @@ import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { collection, doc, getCountFromServer, writeBatch } from "firebase/firestore";
 import { ImportButton } from "./import-button";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -51,7 +51,8 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
   const [filters, setFilters] = useState({
     nombre: '',
     categoria: '',
-    principioActivo: ''
+    principioActivo: '',
+    numeroItem: '',
   });
 
   const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
@@ -130,10 +131,11 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
       const nombreMatch = insumo.nombre.toLowerCase().includes(filters.nombre.toLowerCase());
       const categoriaMatch = filters.categoria ? insumo.categoria === filters.categoria : true;
       const principioActivoMatch = insumo.principioActivo ? insumo.principioActivo.toLowerCase().includes(filters.principioActivo.toLowerCase()) : true;
+      const numeroItemMatch = filters.numeroItem ? insumo.numeroItem?.toString().includes(filters.numeroItem) : true;
       
       if (filters.principioActivo && !insumo.principioActivo) return false;
 
-      return nombreMatch && categoriaMatch && principioActivoMatch;
+      return nombreMatch && categoriaMatch && principioActivoMatch && numeroItemMatch;
     }).sort((a, b) => {
         const categoriaComparison = a.categoria.localeCompare(b.categoria);
         if (categoriaComparison !== 0) {
@@ -357,7 +359,12 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
             <CardTitle>Inventario Detallado</CardTitle>
             <CardDescription>Análisis completo del movimiento de cada insumo.</CardDescription>
           </div>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 no-print">
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 no-print">
+            <Input 
+              placeholder="Filtrar por Nº Item..."
+              value={filters.numeroItem}
+              onChange={(e) => handleFilterChange('numeroItem', e.target.value)}
+            />
             <Input 
               placeholder="Filtrar por nombre..."
               value={filters.nombre}
