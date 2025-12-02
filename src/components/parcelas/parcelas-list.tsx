@@ -129,7 +129,7 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                         <DropdownMenuItem asChild>
-                          <Link href={`/parcelas/${parcela.id}/editar`}>Editar</Link>
+                          <Link href={`/parcelas/editar/${parcela.id}`}>Editar</Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <AlertDialog>
