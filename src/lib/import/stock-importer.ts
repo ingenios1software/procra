@@ -5,7 +5,6 @@ import type { Insumo } from "@/lib/types";
 // --- Mapeo de columnas flexibles ---
 const COLUMN_ALIASES = {
     nombre: ["Nombre", "NOMBRE"],
-    precioPromedio: ["Precio Promedio", "PRECIO PROMEDIO", "Precio", "PRECIO", "P. Promedio", "Ppromedio", "Costo", "Valor", "PRECIO PROM.", "Precio Prom."],
     categoria: ["Categoria", "Categoría", "CATEGORIA"],
     unidad: ["Unidad", "UNIDAD", "Unid", "UNID", "UNI"],
     principioActivo: ["Principio Activo", "Principio activo", "PRINCIPIO ACTIVO"],
@@ -48,7 +47,6 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
     const headers = Object.keys(json[0]);
     const missingFields: string[] = [];
     if (!hasAnyColumn(headers, COLUMN_ALIASES.nombre)) missingFields.push("Nombre");
-    if (!hasAnyColumn(headers, COLUMN_ALIASES.precioPromedio)) missingFields.push("Precio Promedio");
     if (!hasAnyColumn(headers, COLUMN_ALIASES.categoria)) missingFields.push("Categoría");
     if (!hasAnyColumn(headers, COLUMN_ALIASES.unidad)) missingFields.push("Unidad");
 
@@ -74,7 +72,6 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
             nombre,
             principioActivo: getCol(row, COLUMN_ALIASES.principioActivo),
             dosisRecomendada: Number(getCol(row, COLUMN_ALIASES.dosisRecomendada)) || 0,
-            precioPromedio: Number(getCol(row, COLUMN_ALIASES.precioPromedio)),
             categoria: ['fertilizante', 'herbicida', 'fungicida', 'semilla', 'insecticida'].includes(categoriaRaw) ? categoriaRaw : 'otros',
             unidad: ['kg', 'lt', 'ton'].includes(unidadRaw) ? unidadRaw : 'unidad',
             entradaTotal: Number(getCol(row, COLUMN_ALIASES.entrada) || 0),
@@ -94,20 +91,22 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
         for (const item of mappedData) {
             const stockActual = item.entradaTotal - item.salidaTotal;
 
+            // NO incluimos precioPromedioCalculado aquí.
             const finalItemData = {
                 nombre: item.nombre,
                 principioActivo: item.principioActivo || null,
                 dosisRecomendada: item.dosisRecomendada || null,
-                costoUnitario: item.precioPromedio,
                 categoria: item.categoria,
                 unidad: item.unidad,
-                stockActual: stockActual,
+                stockActual: stockActual, // Este es el único stock que gestiona el importador
                 stockMinimo: item.stockMinimo,
+                costoUnitario: 0, // Default a 0, ya no viene del Excel.
             };
 
             const existing = existingInsumos.get(item.nombre);
             if (existing) {
                 const docRef = doc(db, "insumos", existing.id);
+                // Actualizamos solo los campos del excel, no el precio calculado
                 batch.update(docRef, finalItemData);
             } else {
                 const docRef = doc(insumosCollection);

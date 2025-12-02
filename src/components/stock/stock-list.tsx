@@ -54,26 +54,33 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
   const stockData = useMemo(() => {
     if (!insumos || !compras || !eventos) return [];
     
+    // 1. Calcular el precio promedio ponderado de CADA insumo basado en las compras
+    const preciosCalculados: Record<string, number> = {};
+    insumos.forEach(insumo => {
+        const comprasDelInsumo = compras
+            .flatMap(c => c.items)
+            .filter(item => item.insumoId === insumo.id);
+        
+        const totalCantidadComprada = comprasDelInsumo.reduce((sum, item) => sum + item.cantidad, 0);
+        const totalValorComprado = comprasDelInsumo.reduce((sum, item) => sum + (item.cantidad * item.precioUnitario), 0);
+
+        preciosCalculados[insumo.id] = totalCantidadComprada > 0 ? totalValorComprado / totalCantidadComprada : 0;
+    });
+
+    // 2. Calcular entradas, salidas y stock final
     const allEvents: (
-      { type: 'entrada'; fecha: Date; insumoId: string; cantidad: number; costo: number; } |
+      { type: 'entrada'; fecha: Date; insumoId: string; cantidad: number; } |
       { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
     )[] = [];
 
-    // 1. Stock Inicial de la definicion del insumo
-    insumos.forEach(insumo => {
-        if (insumo.stockActual > 0) {
-            allEvents.push({ type: 'entrada', fecha: new Date('2000-01-01'), insumoId: insumo.id, cantidad: insumo.stockActual, costo: insumo.costoUnitario });
-        }
-    });
-    
-    // 2. Compras (Entradas)
+    // Entradas desde compras
     compras.forEach(compra => {
         compra.items.forEach(item => {
-            allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha as string), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
+            allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha as string), insumoId: item.insumoId, cantidad: item.cantidad });
         });
     });
 
-    // 3. Consumos en Eventos (Salidas)
+    // Salidas desde eventos
     eventos.forEach(evento => {
         evento.productos?.forEach(prod => {
             allEvents.push({ type: 'salida', fecha: new Date(evento.fecha as string), insumoId: prod.insumoId, cantidad: prod.cantidad });
@@ -83,34 +90,31 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
     allEvents.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
 
     const calculatedInsumos = insumos.map(insumo => {
-        let currentStock = 0;
+        let currentStock = insumo.stockActual; // Partimos del stock inicial importado/manual
         let entradaTotal = 0;
         let salidaTotal = 0;
         
-        let totalCostoEntrada = 0;
-
         const insumoMovements = allEvents.filter(e => e.insumoId === insumo.id);
         
         insumoMovements.forEach(mov => {
             if (mov.type === 'entrada') {
-                currentStock += mov.cantidad;
                 entradaTotal += mov.cantidad;
-                totalCostoEntrada += mov.cantidad * mov.costo;
             } else if (mov.type === 'salida') {
-                currentStock -= mov.cantidad;
                 salidaTotal += mov.cantidad;
             }
         });
         
-        const precioPromedioPonderado = entradaTotal > 0 ? totalCostoEntrada / entradaTotal : insumo.costoUnitario;
-        const valorStock = currentStock * precioPromedioPonderado;
+        currentStock = (insumo.stockActual || 0) + entradaTotal - salidaTotal;
+        
+        const precioPromedioCalculado = preciosCalculados[insumo.id] || 0;
+        const valorStock = currentStock * precioPromedioCalculado;
 
         return {
             ...insumo,
             entradaTotal,
             salidaTotal,
             stockFinal: currentStock,
-            precioPromedioPonderado,
+            precioPromedioCalculado,
             valorStock,
         };
     });
@@ -141,7 +145,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
   
   const categoriasUnicas = useMemo(() => [...new Set(insumos.map(i => i.categoria))], [insumos]);
 
-  const handleSaveInsumo = useCallback(async (insumoData: Omit<Insumo, 'id'>) => {
+  const handleSaveInsumo = useCallback(async (insumoData: Omit<Insumo, 'id' | 'precioPromedioCalculado'>) => {
     if (!firestore) return;
 
     const dataToSave = {
@@ -266,7 +270,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                   <TableHead className="w-[250px] min-w-[250px]">Nombre</TableHead>
                   <TableHead className="w-[150px] min-w-[150px]">Principio Activo</TableHead>
                   <TableHead className="w-[150px] min-w-[150px]">Dosis Rec.</TableHead>
-                  <TableHead className="w-[150px] min-w-[150px] text-right">Precio Promedio</TableHead>
+                  <TableHead className="w-[150px] min-w-[150px] text-right">Precio Prom. Calc.</TableHead>
                   <TableHead className="w-[100px]">Unidad</TableHead>
                   <TableHead className="w-[150px] min-w-[150px] text-right">Entrada Total</TableHead>
                   <TableHead className="w-[150px] min-w-[150px] text-right">Salida Total</TableHead>
@@ -301,7 +305,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                     </TableCell>
                     <TableCell>{insumo.principioActivo || 'N/A'}</TableCell>
                     <TableCell>{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
-                    <TableCell className="text-right font-mono">${insumo.precioPromedioPonderado.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">${insumo.precioPromedioCalculado.toFixed(2)}</TableCell>
                     <TableCell>{insumo.unidad}</TableCell>
                     <TableCell className="text-right font-mono text-green-600">
                       <div className="flex items-center justify-end gap-1"><ArrowUp size={14}/> {insumo.entradaTotal.toLocaleString('en-US')}</div>
