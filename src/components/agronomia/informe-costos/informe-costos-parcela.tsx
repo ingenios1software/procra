@@ -9,10 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Parcela, Cultivo, Zafra, Evento, Insumo } from "@/lib/types";
 import { differenceInDays, format } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Printer } from "lucide-react";
+import { ChevronDown, Printer, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line } from "recharts";
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
@@ -232,10 +236,69 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             maxCosto
         }
     }, [filteredRows, reporteData]);
-
+    
     const exportToExcel = () => {
-        alert("La exportación a Excel con formato de estilos no está implementada.");
-    }
+        if (filteredRows.length === 0) {
+            alert("No hay datos para exportar.");
+            return;
+        }
+
+        const dataForExport = filteredRows.map(row => ({
+            'Parcela': row.nombreParcela,
+            'Costo Productos ($)': row.costoProductos,
+            'Costo Servicios ($)': row.costoServicios,
+            'Costo Total ($)': row.costoTotal,
+            'Hectáreas': row.hectareas,
+            'Fecha Siembra': row.fechaSiembra ? format(row.fechaSiembra, 'dd/MM/yyyy') : 'N/A',
+            'Ciclo': row.cicloHoy,
+            'Rend. (ton/ha)': row.rendimientoHa,
+            'Costo/ha': row.costoPromedioHa,
+            'Costo/ton': row.costoPorTon,
+        }));
+        
+        const totalsRow = {
+            'Parcela': 'Total General',
+            'Costo Productos ($)': totales.totalCostoProductos,
+            'Costo Servicios ($)': totales.totalCostoServicios,
+            'Costo Total ($)': totales.granTotalCostos,
+            'Hectáreas': totales.totalHectareas,
+            'Fecha Siembra': '',
+            'Ciclo': '',
+            'Rend. (ton/ha)': totales.rendimientoPromedioGeneral,
+            'Costo/ha': totales.costoPromedioGeneral,
+            'Costo/ton': totales.costoPorTonPromedioGeneral,
+        }
+
+        const worksheet = XLSX.utils.json_to_sheet(dataForExport);
+        XLSX.utils.sheet_add_json(worksheet, [totalsRow], { origin: -1, skipHeader: true });
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Informe de Costos");
+        XLSX.writeFile(workbook, "InformeCostosParcela.xlsx");
+    };
+
+    const exportToPDF = async () => {
+        const input = document.getElementById('pdf-area');
+        if (input) {
+            const canvas = await html2canvas(input, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('l', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = imgWidth / imgHeight;
+            const width = pdfWidth;
+            const height = width / ratio;
+
+            if (height > pdfHeight) {
+                // Future handling for multi-page PDF if needed
+                console.warn("Contenido excede el tamaño de una página PDF.");
+            }
+            pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+            pdf.save("InformeCostosParcela.pdf");
+        }
+    };
 
 
     return (
@@ -244,8 +307,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                 title="Informe de Costos por Parcela"
                 description="Réplica de su informe de Excel para el seguimiento de costos de producción."
             >
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={exportToExcel}>Exportar Excel</Button>
+                <div className="flex items-center gap-2 no-print">
+                    <Button variant="outline" onClick={exportToExcel}><Download className="mr-2 h-4 w-4" />Exportar Excel</Button>
+                    <Button variant="outline" onClick={exportToPDF}><Download className="mr-2 h-4 w-4" />Exportar PDF</Button>
                     <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Imprimir</Button>
                 </div>
             </PageHeader>
@@ -281,7 +345,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                             <div>
                                 <CardTitle>Resultados del Informe</CardTitle>
                             </div>
-                            <div className="flex items-center gap-2 mt-4 md:mt-0">
+                            <div className="flex items-center gap-2 mt-4 md:mt-0 no-print">
                                 <span className="text-sm text-muted-foreground">Ordenar por:</span>
                                 <Select value={filters.ordenarPor} onValueChange={(v) => handleFilterChange('ordenarPor', v as typeof filters.ordenarPor)}>
                                     <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
@@ -321,7 +385,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         <TableHead className="font-bold text-right px-4 py-2">Costo/ha</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Costo/ton</TableHead>
                                     </TableRow>
-                                    <TableRow className="bg-muted/50 dark:bg-muted/80">
+                                    <TableRow className="bg-muted/50 dark:bg-muted/80 no-print">
                                         <TableHead className="px-2 py-1"><Input className="h-8" placeholder="Filtrar..." value={columnFilters.nombreParcela} onChange={(e) => setColumnFilters(f => ({ ...f, nombreParcela: e.target.value }))} /></TableHead>
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoProductos} onChange={(e) => setColumnFilters(f => ({ ...f, costoProductos: e.target.value }))} /></TableHead>
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoServicios} onChange={(e) => setColumnFilters(f => ({ ...f, costoServicios: e.target.value }))} /></TableHead>
