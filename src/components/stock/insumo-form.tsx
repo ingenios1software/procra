@@ -29,7 +29,7 @@ const formSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
   categoria: z.enum(['fertilizante', 'herbicida', 'fungicida', 'semilla', 'insecticida', 'otros']),
   principioActivo: z.string().optional(),
-  unidad: z.enum(['kg', 'lt', 'unidad']),
+  unidad: z.enum(['kg', 'lt', 'unidad', 'ton']),
   dosisRecomendada: z.coerce.number().optional(),
   costoUnitario: z.coerce.number().min(0, "El costo no puede ser negativo."),
   stockActual: z.coerce.number().min(0, "El stock no puede ser negativo.").describe("Este es el stock inicial o de entrada."),
@@ -135,6 +135,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
                   <SelectContent>
                     <SelectItem value="kg">Kilogramo (kg)</SelectItem>
                     <SelectItem value="lt">Litro (lt)</SelectItem>
+                    <SelectItem value="ton">Tonelada (ton)</SelectItem>
                     <SelectItem value="unidad">Unidad</SelectItem>
                   </SelectContent>
                 </Select>
@@ -217,9 +218,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
 
 
         <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancelar
-          </Button>
+          <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
           <Button type="submit">{insumo?.id ? "Guardar Cambios" : "Crear Insumo"}</Button>
         </div>
       </form>

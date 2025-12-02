@@ -21,7 +21,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useDraftStore } from "@/store/draft-store";
-import { produce } from 'immer';
 import isEqual from 'lodash.isequal';
 
 
@@ -96,7 +95,11 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
   const watchedValues = form.watch();
   const watchedValuesRef = useRef(watchedValues);
-  watchedValuesRef.current = watchedValues;
+
+  // Solo actualiza la ref si los valores han cambiado realmente
+  if (!isEqual(watchedValuesRef.current, watchedValues)) {
+    watchedValuesRef.current = watchedValues;
+  }
 
   useEffect(() => {
     if (evento) return;
@@ -170,18 +173,26 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     return insumos.filter(insumo => (stockCalculado[insumo.id]?.stock || 0) > 0);
   }, [insumos, stockCalculado]);
 
+  // Effect for auto-calculation of `cantidad`
   useEffect(() => {
-    if (watchedHectareas && watchedHectareas > 0) {
-      watchedProductos?.forEach((producto, index) => {
-        if (producto.dosis > 0) {
-          const nuevaCantidad = producto.dosis * watchedHectareas;
-          if (form.getValues(`productos.${index}.cantidad`) !== nuevaCantidad) {
-            form.setValue(`productos.${index}.cantidad`, nuevaCantidad, { shouldValidate: true });
-          }
+    const subscription = form.watch((value, { name, type }) => {
+        if (name && (name.startsWith('productos') || name === 'hectareasAplicadas')) {
+            const hectareas = value.hectareasAplicadas || 0;
+            if (hectareas > 0) {
+                value.productos?.forEach((producto, index) => {
+                    if (producto && producto.dosis > 0) {
+                        const nuevaCantidad = producto.dosis * hectareas;
+                        const campoCantidad = `productos.${index}.cantidad` as const;
+                        if (form.getValues(campoCantidad) !== nuevaCantidad) {
+                            form.setValue(campoCantidad, nuevaCantidad, { shouldValidate: true });
+                        }
+                    }
+                });
+            }
         }
-      });
-    }
-  }, [watchedHectareas, watchedProductos, form]);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
   
   const totalCostoEvento = useMemo(() => {
     if (!insumos) return 0;

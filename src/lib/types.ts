@@ -94,7 +94,7 @@ export type Insumo = {
   nombre: string;
   categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'otros';
   principioActivo?: string;
-  unidad: 'kg' | 'lt' | 'unidad';
+  unidad: 'kg' | 'lt' | 'unidad' | 'ton';
   dosisRecomendada?: number;
   costoUnitario: number;
   stockMinimo: number;
