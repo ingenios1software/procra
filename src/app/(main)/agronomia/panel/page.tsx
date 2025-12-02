@@ -3,7 +3,7 @@
 import { InformeCostosParcela } from "@/components/agronomia/informe-costos/informe-costos-parcela";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
-import type { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
+import type { Parcela, Cultivo, Zafra, Evento, Insumo } from "@/lib/types";
 
 export default function PanelAgronomicoPage() {
     const firestore = useFirestore();
@@ -19,8 +19,11 @@ export default function PanelAgronomicoPage() {
 
     const eventosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha')) : null, [firestore]);
     const { data: eventos, isLoading: loadingEventos } = useCollection<Evento>(eventosQuery);
+
+    const insumosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos')) : null, [firestore]);
+    const { data: insumos, isLoading: loadingInsumos } = useCollection<Insumo>(insumosQuery);
     
-    const isLoading = loadingParcelas || loadingCultivos || loadingZafras || loadingEventos;
+    const isLoading = loadingParcelas || loadingCultivos || loadingZafras || loadingEventos || loadingInsumos;
 
     if (isLoading) {
         return <p>Cargando datos del informe...</p>;
@@ -32,6 +35,7 @@ export default function PanelAgronomicoPage() {
             cultivos={cultivos || []}
             zafras={zafras || []}
             eventos={eventos || []}
+            insumos={insumos || []}
         />
     )
 }

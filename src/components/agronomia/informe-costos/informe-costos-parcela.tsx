@@ -133,17 +133,17 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                 (filters.cultivoId ? e.cultivoId === filters.cultivoId : true)
             );
             
-            const costoServicios = eventosParcela.reduce((sum, ev) => sum + ((ev.hectareasAplicadas || 0) * (ev.costoServicioPorHa || 0)), 0);
+            const costoServiciosTotal = eventosParcela.reduce((sum, ev) => sum + ((ev.hectareasAplicadas || 0) * (ev.costoServicioPorHa || 0)), 0);
             
-            const costoProductos = eventosParcela.reduce((sum, ev) => {
-                const costoInsumos = ev.productos?.reduce((prodSum, prod) => {
-                    const insumo = insumos.find(i => i.id === prod.insumoId);
-                    return prodSum + (prod.cantidad * (insumo?.costoUnitario || 0));
-                }, 0) || 0;
-                return sum + costoInsumos;
+            const costoProductosTotal = eventosParcela.reduce((sum, ev) => {
+                const costoDeEsteEvento = (ev.costoTotal || 0);
+                const costoServicioDeEsteEvento = ((ev.hectareasAplicadas || 0) * (ev.costoServicioPorHa || 0));
+                // El costo del producto es el total menos el del servicio
+                const costoProductoDeEsteEvento = costoDeEsteEvento - costoServicioDeEsteEvento;
+                return sum + costoProductoDeEsteEvento;
             }, 0);
             
-            const costoTotal = costoServicios + costoProductos;
+            const costoTotal = costoServiciosTotal + costoProductosTotal;
             const cicloHoy = zafraSeleccionada?.fechaSiembra ? differenceInDays(new Date(), new Date(zafraSeleccionada.fechaSiembra as string)) : 0;
             const costoPorHa = parcela.superficie > 0 ? costoTotal / parcela.superficie : 0;
             const totalCosechadoKg = eventosParcela
@@ -155,8 +155,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
 
             return {
                 nombreParcela: parcela.nombre,
-                costoProductos,
-                costoServicios,
+                costoProductos: costoProductosTotal,
+                costoServicios: costoServiciosTotal,
                 costoTotal,
                 hectareas: parcela.superficie,
                 cicloHoy: cicloHoy,
@@ -385,7 +385,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                 <h3 className="text-lg font-bold mb-4">Gráfico de Composición de Costos</h3>
                                 <div className="w-full overflow-x-auto">
                                     <ResponsiveContainer width="100%" height={chartHeight}>
-                                        <BarChart data={filteredRows}>
+                                        <BarChart data={filteredRows} stackOffset="sign">
                                             <CartesianGrid strokeDasharray="3 3" />
                                             <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} tick={{ fontSize: tickFont }} />
                                             <YAxis label={{ value: 'Costo Total ($)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
@@ -394,8 +394,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                                 formatter={(value) => `$${Number(value).toLocaleString('en-US')}`}
                                             />
                                             <Legend wrapperStyle={{ fontSize: labelFont }} />
-                                            <Bar dataKey="costoProductos" name="Costo Productos" stackId="a" fill="#3b82f6" barSize={barSize} />
-                                            <Bar dataKey="costoServicios" name="Costo Servicios" stackId="a" fill="#ef4444" barSize={barSize} />
+                                            <Bar dataKey="costoProductos" name="Costo Productos" stackId="a" fill="hsl(var(--chart-1))" barSize={barSize} />
+                                            <Bar dataKey="costoServicios" name="Costo Servicios" stackId="a" fill="hsl(var(--chart-2))" barSize={barSize} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
