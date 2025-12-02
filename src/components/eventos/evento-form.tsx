@@ -326,7 +326,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                        return (
                         <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
                             <FormField name={`productos.${index}.insumoId`} control={form.control} render={({ field }) => ( 
-                                <FormItem className="flex-grow">
+                                <FormItem>
                                     <FormLabel>Insumo</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
