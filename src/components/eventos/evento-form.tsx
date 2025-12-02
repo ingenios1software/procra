@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, Compra, EventoBorrador } from "@/lib/types";
+import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser } from "lucide-react";
 import { format } from "date-fns";
@@ -77,7 +77,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const form = useForm<EventoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: evento 
-      ? { ...evento, fecha: new Date(evento.fecha) } 
+      ? { ...evento, fecha: new Date(evento.fecha as string) } 
       : draft && Object.keys(draft).length > 0
         ? { ...draft, fecha: draft.fecha ? new Date(draft.fecha) : new Date() }
         : {
@@ -196,6 +196,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   
   const totalCostoEvento = useMemo(() => {
     if (!insumos) return 0;
+
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
         const insumo = insumos.find(i => i.id === prod.insumoId);
         const costoUnitario = insumo?.costoUnitario || 0;
