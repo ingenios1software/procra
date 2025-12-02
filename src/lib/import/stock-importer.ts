@@ -1,20 +1,33 @@
 import { collection, doc, getDocs, writeBatch } from "firebase/firestore";
-import { db } from "@/firebase/config"; // Asumiendo que esta es la forma de obtener la instancia de db
+import { db } from "@/firebase/config";
 import type { Insumo } from "@/lib/types";
 
-const REQUIRED_COLUMNS = ["Nombre", "Precio Promedio", "Categoria", "Unidad"];
-
-type MappedRow = {
-    nombre: string;
-    principioActivo?: string;
-    dosisRecomendada?: number;
-    precioPromedio: number;
-    categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'otros';
-    unidad: 'kg' | 'lt' | 'unidad' | 'ton';
-    entradaTotal: number;
-    salidaTotal: number;
-    stockMinimo: number;
+// --- Mapeo de columnas flexibles ---
+const COLUMN_ALIASES = {
+    nombre: ["Nombre", "NOMBRE"],
+    precioPromedio: ["Precio Promedio", "PRECIO PROMEDIO", "Precio", "PRECIO", "P. Promedio", "Ppromedio", "Costo", "Valor", "PRECIO PROM.", "Precio Prom."],
+    categoria: ["Categoria", "Categoría", "CATEGORIA"],
+    unidad: ["Unidad", "UNIDAD", "Unid", "UNID", "UNI"],
+    principioActivo: ["Principio Activo", "Principio activo", "PRINCIPIO ACTIVO"],
+    dosisRecomendada: ["Dosis Rec.", "Dosis recomendada", "Dosis"],
+    entrada: ["Entrada", "ENTRADA"],
+    salida: ["Salida", "SALIDA"],
+    stockMinimo: ["StockMinimo", "Stock Mínimo", "STOCK MINIMO"],
 };
+
+// Helper para obtener el valor de una fila usando alias
+function getCol(row: any, keys: string[]): any {
+  for (const key of keys) {
+    if (row[key] !== undefined) return row[key];
+  }
+  return null;
+}
+
+// Helper para verificar si al menos un alias de una columna requerida existe
+function hasAnyColumn(headers: string[], aliases: string[]): boolean {
+    return aliases.some(alias => headers.includes(alias));
+}
+
 
 export async function importarStockDesdeExcel(file: File): Promise<{ success: boolean; errors: string[] }> {
     const XLSX = await import("xlsx");
@@ -31,28 +44,42 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
         return { success: false, errors: ["El archivo Excel está vacío."] };
     }
 
-    // 2. Validar columnas
-    const firstRowHeaders = Object.keys(json[0]);
-    const missingColumns = REQUIRED_COLUMNS.filter(col => !firstRowHeaders.includes(col));
-    if (missingColumns.length > 0) {
-        return { success: false, errors: [`Faltan columnas obligatorias en el Excel: ${missingColumns.join(", ")}`] };
+    // 2. Validar columnas requeridas usando alias
+    const headers = Object.keys(json[0]);
+    const missingFields: string[] = [];
+    if (!hasAnyColumn(headers, COLUMN_ALIASES.nombre)) missingFields.push("Nombre");
+    if (!hasAnyColumn(headers, COLUMN_ALIASES.precioPromedio)) missingFields.push("Precio Promedio");
+    if (!hasAnyColumn(headers, COLUMN_ALIASES.categoria)) missingFields.push("Categoría");
+    if (!hasAnyColumn(headers, COLUMN_ALIASES.unidad)) missingFields.push("Unidad");
+
+    if (missingFields.length > 0) {
+        return { success: false, errors: [`Faltan columnas obligatorias en el Excel: ${missingFields.join(", ")}`] };
     }
 
     // 3. Mapear y procesar filas
-    const mappedData: MappedRow[] = [];
-    for (const row of json) {
-        if (!row["Nombre"]) continue; // Ignorar filas sin nombre
+    const mappedData = [];
+    for (let i = 0; i < json.length; i++) {
+        const row = json[i];
+        
+        const nombre = getCol(row, COLUMN_ALIASES.nombre);
+        if (!nombre) {
+            errors.push(`Fila ${i + 2}: Se ignoró la fila porque no tiene un valor en la columna 'Nombre'.`);
+            continue; 
+        }
 
-        const mappedRow: MappedRow = {
-            nombre: row["Nombre"],
-            principioActivo: row["Principio Activo"],
-            dosisRecomendada: Number(row["Dosis Rec."]) || undefined,
-            precioPromedio: Number(row["Precio Promedio"]),
-            categoria: row["Categoria"]?.toLowerCase() || 'otros',
-            unidad: row["Unid"]?.toLowerCase() || row["Unidad"]?.toLowerCase() || 'unidad',
-            entradaTotal: Number(row["Entrada"] || 0),
-            salidaTotal: Number(row["Salida"] || 0),
-            stockMinimo: Number(row["StockMinimo"] || 0),
+        const categoriaRaw = getCol(row, COLUMN_ALIASES.categoria)?.toLowerCase() || 'otros';
+        const unidadRaw = getCol(row, COLUMN_ALIASES.unidad)?.toLowerCase() || 'unidad';
+
+        const mappedRow = {
+            nombre,
+            principioActivo: getCol(row, COLUMN_ALIASES.principioActivo),
+            dosisRecomendada: Number(getCol(row, COLUMN_ALIASES.dosisRecomendada)) || 0,
+            precioPromedio: Number(getCol(row, COLUMN_ALIASES.precioPromedio)),
+            categoria: ['fertilizante', 'herbicida', 'fungicida', 'semilla', 'insecticida'].includes(categoriaRaw) ? categoriaRaw : 'otros',
+            unidad: ['kg', 'lt', 'ton'].includes(unidadRaw) ? unidadRaw : 'unidad',
+            entradaTotal: Number(getCol(row, COLUMN_ALIASES.entrada) || 0),
+            salidaTotal: Number(getCol(row, COLUMN_ALIASES.salida) || 0),
+            stockMinimo: Number(getCol(row, COLUMN_ALIASES.stockMinimo) || 0),
         };
         mappedData.push(mappedRow);
     }
@@ -66,27 +93,23 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
 
         for (const item of mappedData) {
             const stockActual = item.entradaTotal - item.salidaTotal;
-            const valorEnStock = stockActual * item.precioPromedio;
 
             const finalItemData = {
                 nombre: item.nombre,
-                principioActivo: item.principioActivo || "",
-                dosisRecomendada: item.dosisRecomendada || 0,
-                costoUnitario: item.precioPromedio, // Mapeado a costoUnitario
+                principioActivo: item.principioActivo || null,
+                dosisRecomendada: item.dosisRecomendada || null,
+                costoUnitario: item.precioPromedio,
                 categoria: item.categoria,
                 unidad: item.unidad,
-                stockActual: stockActual, // Este campo es el que se usa en la app
+                stockActual: stockActual,
                 stockMinimo: item.stockMinimo,
-                // Los campos de valor se calculan en el frontend, no se guardan
             };
 
             const existing = existingInsumos.get(item.nombre);
             if (existing) {
-                // Actualizar
                 const docRef = doc(db, "insumos", existing.id);
                 batch.update(docRef, finalItemData);
             } else {
-                // Crear
                 const docRef = doc(insumosCollection);
                 batch.set(docRef, finalItemData);
             }
