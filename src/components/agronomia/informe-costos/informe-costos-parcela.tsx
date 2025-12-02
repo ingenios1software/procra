@@ -387,7 +387,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         />
                                         <Legend wrapperStyle={{ fontSize: labelFont }} />
                                         <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" barSize={barSize} />
-                                        <Line yAxisId="right" type="monotone" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" stroke="#16a34a" strokeWidth={2} />
+                                        <Bar yAxisId="right" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" fill="#16a34a" barSize={barSize} />
                                         </ComposedChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -419,6 +419,8 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
     )
 
 }
+
+    
 
     
 
