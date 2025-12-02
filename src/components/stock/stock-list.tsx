@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Trash2, Download, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Insumo, Compra, Evento } from "@/lib/types";
 import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
@@ -25,6 +25,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { collection, doc, getCountFromServer, writeBatch } from "firebase/firestore";
 import { ImportButton } from "./import-button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface StockListProps {
   insumos: Insumo[];
@@ -222,6 +225,48 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
     setSelectedInsumo(null);
   }, []);
 
+  const exportToExcel = () => {
+    const dataForExport = filteredStockData.map(item => ({
+        'Item Nº': item.numeroItem,
+        'Nombre': item.nombre,
+        'Categoría': item.categoria,
+        'Principio Activo': item.principioActivo || 'N/A',
+        'Dosis Rec.': item.dosisRecomendada ? `${item.dosisRecomendada} ${item.unidad}/ha` : 'N/A',
+        'Precio Prom. Calc. ($)': item.precioPromedioCalculado,
+        'Unidad': item.unidad,
+        'Entrada Total': item.entradaTotal,
+        'Salida Total': item.salidaTotal,
+        'Stock Actual': item.stockFinal,
+        'Stock Mínimo': item.stockMinimo,
+        'Valor en Stock ($)': item.valorStock,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataForExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Stock de Insumos");
+    XLSX.writeFile(workbook, "StockInsumos.xlsx");
+  };
+
+  const exportToPDF = async () => {
+    const input = document.getElementById('pdf-area');
+    if (input) {
+        const canvas = await html2canvas(input, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('l', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const ratio = imgWidth / imgHeight;
+        const width = pdfWidth - 20; // Margen
+        const height = width / ratio;
+        
+        pdf.addImage(imgData, 'PNG', 10, 10, width, height);
+        pdf.save("StockInsumos.pdf");
+    }
+  };
+
+
   return (
     <>
       <PageHeader
@@ -230,6 +275,9 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
       >
         {user && (
             <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={exportToExcel}><Download className="mr-2 h-4 w-4" />Excel</Button>
+                <Button variant="outline" onClick={exportToPDF}><Download className="mr-2 h-4 w-4" />PDF</Button>
+                <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Imprimir</Button>
                 <ImportButton onClick={onImportClick} />
                 <Button onClick={() => openDialog()}>
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -302,13 +350,14 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
         </Card>
       </div>
 
+    <div id="pdf-area" className="print-area">
       <Card>
         <CardHeader>
           <div>
             <CardTitle>Inventario Detallado</CardTitle>
             <CardDescription>Análisis completo del movimiento de cada insumo.</CardDescription>
           </div>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 no-print">
             <Input 
               placeholder="Filtrar por nombre..."
               value={filters.nombre}
@@ -349,7 +398,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                   <TableHead className="w-[150px] min-w-[150px] text-right">Stock Actual</TableHead>
                   <TableHead className="w-[150px] min-w-[150px] text-right">Stock Mínimo</TableHead>
                   <TableHead className="w-[180px] min-w-[180px] text-right">Valor en Stock</TableHead>
-                  {user && <TableHead className="w-[100px] min-w-[100px] text-right">Acciones</TableHead>}
+                  {user && <TableHead className="w-[100px] min-w-[100px] text-right no-print">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -392,7 +441,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                     <TableCell className="text-right font-mono font-bold text-primary py-2 px-4">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                     
                     {user && (
-                      <TableCell className="text-right py-2 px-4">
+                      <TableCell className="text-right py-2 px-4 no-print">
                          <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">
@@ -451,6 +500,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
           </div>
         </CardContent>
       </Card>
+      </div>
       
       <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
