@@ -24,7 +24,7 @@ import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { collection, doc, getCountFromServer, writeBatch } from "firebase/firestore";
 import { ImportButton } from "./import-button";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -285,7 +285,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Nuevo Insumo
                 </Button>
-                <AlertDialog>
+                <AlertDialog onOpenChange={setDeleteAllOpen} open={isDeleteAllOpen}>
                     <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="icon">
                             <Trash2 className="h-4 w-4" />
