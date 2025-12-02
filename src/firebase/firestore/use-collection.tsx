@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Query,
   onSnapshot,
@@ -23,6 +23,7 @@ export interface UseCollectionResult<T> {
   data: WithId<T>[] | null; // Document data with ID, or null.
   isLoading: boolean;       // True if loading.
   error: FirestoreError | Error | null; // Error object, or null.
+  forceRefetch: () => void; // Function to manually trigger a refetch
 }
 
 /* Internal implementation of Query:
@@ -60,6 +61,11 @@ export function useCollection<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
+
+  const forceRefetch = useCallback(() => {
+    setRefetchTrigger(c => c + 1);
+  }, []);
 
   useEffect(() => {
     if (!memoizedTargetRefOrQuery) {
@@ -111,10 +117,10 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
+  }, [memoizedTargetRefOrQuery, refetchTrigger]); // Re-run if the target query/reference or refetch trigger changes.
   
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
     throw new Error('useCollection query was not properly memoized using useMemoFirebase. This will cause infinite re-renders.');
   }
-  return { data, isLoading, error };
+  return { data, isLoading, error, forceRefetch };
 }

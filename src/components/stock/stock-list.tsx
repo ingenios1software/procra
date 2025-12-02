@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Upload } from "lucide-react";
+import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Insumo, Compra, Evento } from "@/lib/types";
 import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
@@ -19,27 +19,27 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { PageHeader } from "../shared/page-header";
-import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { collection, doc, getCountFromServer } from "firebase/firestore";
+import { ImportButton } from "./import-button";
 
 interface StockListProps {
   insumos: Insumo[];
   compras: Compra[];
   eventos: Evento[];
   isLoading: boolean;
+  onImportClick: () => void;
 }
 
-export function StockList({ insumos, compras, eventos, isLoading }: StockListProps) {
+export function StockList({ insumos, compras, eventos, isLoading, onImportClick }: StockListProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedInsumo, setSelectedInsumo] = useState<Insumo | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [filters, setFilters] = useState({
     nombre: '',
@@ -59,7 +59,7 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
       { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
     )[] = [];
 
-    // 1. Stock Inicial
+    // 1. Stock Inicial de la definicion del insumo
     insumos.forEach(insumo => {
         if (insumo.stockActual > 0) {
             allEvents.push({ type: 'entrada', fecha: new Date('2000-01-01'), insumoId: insumo.id, cantidad: insumo.stockActual, costo: insumo.costoUnitario });
@@ -84,39 +84,25 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
 
     const calculatedInsumos = insumos.map(insumo => {
         let currentStock = 0;
-        let totalValue = 0;
         let entradaTotal = 0;
         let salidaTotal = 0;
+        
+        let totalCostoEntrada = 0;
 
         const insumoMovements = allEvents.filter(e => e.insumoId === insumo.id);
         
         insumoMovements.forEach(mov => {
             if (mov.type === 'entrada') {
-                if (currentStock <= 0) {
-                    totalValue = mov.cantidad * mov.costo;
-                } else {
-                    totalValue += mov.cantidad * mov.costo;
-                }
                 currentStock += mov.cantidad;
                 entradaTotal += mov.cantidad;
+                totalCostoEntrada += mov.cantidad * mov.costo;
             } else if (mov.type === 'salida') {
-                const stockAntesSalida = currentStock;
                 currentStock -= mov.cantidad;
                 salidaTotal += mov.cantidad;
-
-                if (stockAntesSalida > 0) {
-                    const avgCost = totalValue / stockAntesSalida;
-                    totalValue -= mov.cantidad * avgCost;
-                }
-
-                if (currentStock <= 0) {
-                    totalValue = 0;
-                    currentStock = 0;
-                }
             }
         });
         
-        const precioPromedioPonderado = entradaTotal > 0 ? insumoMovements.filter(m => m.type === 'entrada').reduce((sum, m) => sum + m.costo * m.cantidad, 0) / entradaTotal : 0;
+        const precioPromedioPonderado = entradaTotal > 0 ? totalCostoEntrada / entradaTotal : insumo.costoUnitario;
         const valorStock = currentStock * precioPromedioPonderado;
 
         return {
@@ -190,58 +176,6 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
     setDialogOpen(false);
     setSelectedInsumo(null);
   }, []);
-  
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!firestore) return;
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-        const nuevosInsumos: Omit<Insumo, 'id'>[] = json.map((row) => ({
-          nombre: row['NOMBRE'] || 'Sin Nombre',
-          categoria: row['CATEGORIA'] || 'otros',
-          unidad: row['Unid'] || 'unidad',
-          costoUnitario: Number(row['Precio Promedio']) || 0,
-          stockActual: Number(row['stockActual']) || 0,
-          stockMinimo: Number(row['stockMinimo']) || 0,
-          principioActivo: row['Principio Activo'],
-          dosisRecomendada: Number(row['Dosis Rec.']) || undefined,
-          proveedor: row['proveedor'],
-        }));
-        
-        const insumosCol = collection(firestore, 'insumos');
-        nuevosInsumos.forEach(insumo => addDocumentNonBlocking(insumosCol, insumo));
-
-        toast({
-          title: "Importación exitosa",
-          description: `${nuevosInsumos.length} insumos han sido agregados.`,
-        });
-
-      } catch (error) {
-        console.error("Error al importar el archivo:", error);
-        toast({
-          variant: "destructive",
-          title: "Error de importación",
-          description: "No se pudo leer el archivo. Asegúrese de que sea un formato válido.",
-        });
-      } finally {
-        if(fileInputRef.current) fileInputRef.current.value = '';
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  };
 
   return (
     <>
@@ -251,17 +185,7 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
       >
         {user && (
             <div className="flex items-center gap-2">
-                 <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    className="hidden"
-                    accept=".xlsx, .xls, .csv"
-                />
-                <Button variant="outline" onClick={handleImportClick}>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Importar Excel
-                </Button>
+                <ImportButton onClick={onImportClick} />
                 <Button onClick={() => openDialog()}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Nuevo Insumo
