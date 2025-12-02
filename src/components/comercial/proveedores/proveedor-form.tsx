@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { Proveedor } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, getCountFromServer } from "firebase/firestore";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre es muy corto."),
@@ -52,21 +52,27 @@ export function ProveedorForm({ proveedor }: ProveedorFormProps) {
     },
   });
 
-  const handleSubmit = (data: ProveedorFormValues) => {
+  const handleSubmit = async (data: ProveedorFormValues) => {
     if (!firestore) return;
 
     if (proveedor?.id) {
       const proveedorRef = doc(firestore, 'proveedores', proveedor.id);
       updateDocumentNonBlocking(proveedorRef, data);
+       toast({
+        title: `Proveedor actualizado`,
+        description: `El proveedor ${data.nombre} ha sido guardado correctamente.`,
+      });
     } else {
       const proveedoresCol = collection(firestore, 'proveedores');
-      addDocumentNonBlocking(proveedoresCol, data);
+      const snapshot = await getCountFromServer(proveedoresCol);
+      const numeroItem = snapshot.data().count + 1;
+      addDocumentNonBlocking(proveedoresCol, { ...data, numeroItem });
+      toast({
+        title: `Proveedor creado`,
+        description: `El proveedor ${data.nombre} (Item Nº ${numeroItem}) ha sido guardado.`,
+      });
     }
 
-    toast({
-      title: `Proveedor ${proveedor ? 'actualizado' : 'creado'}`,
-      description: `El proveedor ${data.nombre} ha sido guardado correctamente.`,
-    });
     router.push("/comercial/proveedores");
   };
 

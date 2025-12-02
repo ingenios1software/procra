@@ -27,7 +27,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, getCountFromServer } from "firebase/firestore";
 
 interface ZafrasListProps {
   initialZafras: Zafra[];
@@ -42,7 +42,7 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const handleSave = (zafraData: Omit<Zafra, 'id' | 'fechaFin' | 'fechaInicio'> & { fechaInicio: Date, fechaSiembra?: Date }) => {
+  const handleSave = async (zafraData: Omit<Zafra, 'id' | 'fechaFin' | 'fechaInicio'> & { fechaInicio: Date, fechaSiembra?: Date }) => {
     if (!firestore) return;
     
     const dataToSave = {
@@ -57,8 +57,11 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
       toast({ title: "Zafra actualizada" });
     } else {
       const zafrasCol = collection(firestore, 'zafras');
-      addDocumentNonBlocking(zafrasCol, dataToSave);
-      toast({ title: "Zafra creada" });
+      const snapshot = await getCountFromServer(zafrasCol);
+      const numeroItem = snapshot.data().count + 1;
+
+      addDocumentNonBlocking(zafrasCol, { ...dataToSave, numeroItem });
+      toast({ title: "Zafra creada", description: `Item Nº ${numeroItem}` });
     }
     setDialogOpen(false);
     setSelectedZafra(null);
@@ -123,6 +126,7 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Item Nº</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Fecha de Inicio</TableHead>
                 <TableHead>Fecha de Fin</TableHead>
@@ -131,9 +135,10 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Cargando zafras...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando zafras...</TableCell></TableRow>}
               {initialZafras.map((zafra) => (
                 <TableRow key={zafra.id}>
+                  <TableCell className="font-medium text-muted-foreground">{zafra.numeroItem}</TableCell>
                   <TableCell className="font-medium">{zafra.nombre}</TableCell>
                   <TableCell>{format(new Date(zafra.fechaInicio as string), "dd/MM/yyyy")}</TableCell>
                   <TableCell>{zafra.fechaFin ? format(new Date(zafra.fechaFin as string), "dd/MM/yyyy") : 'N/A'}</TableCell>
@@ -207,7 +212,7 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
                   )}
                 </TableRow>
               ))}
-              {!isLoading && initialZafras.length === 0 && <TableRow><TableCell colSpan={5} className="text-center h-24">No hay zafras creadas.</TableCell></TableRow>}
+              {!isLoading && initialZafras.length === 0 && <TableRow><TableCell colSpan={6} className="text-center h-24">No hay zafras creadas.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

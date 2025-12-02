@@ -36,7 +36,7 @@ import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlockin
 import { cn } from "@/lib/utils";
 import { MaquinariaForm } from "./maquinaria-form";
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, getCountFromServer } from "firebase/firestore";
 
 interface MaquinariaListProps {
   maquinaria: Maquinaria[];
@@ -50,7 +50,7 @@ export function MaquinariaList({ maquinaria, isLoading }: MaquinariaListProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const handleSave = (maquinariaData: Omit<Maquinaria, "id">) => {
+  const handleSave = async (maquinariaData: Omit<Maquinaria, "id">) => {
     if (!firestore) return;
     if (selectedMaquinaria) {
       const maquinariaRef = doc(firestore, 'maquinaria', selectedMaquinaria.id);
@@ -58,8 +58,10 @@ export function MaquinariaList({ maquinaria, isLoading }: MaquinariaListProps) {
       toast({ title: "Maquinaria actualizada", description: `Los datos de "${maquinariaData.nombre}" han sido actualizados.` });
     } else {
       const maquinariaCol = collection(firestore, 'maquinaria');
-      addDocumentNonBlocking(maquinariaCol, maquinariaData);
-      toast({ title: "Maquinaria creada", description: `La maquinaria "${maquinariaData.nombre}" ha sido registrada.` });
+      const snapshot = await getCountFromServer(maquinariaCol);
+      const numeroItem = snapshot.data().count + 1;
+      addDocumentNonBlocking(maquinariaCol, { ...maquinariaData, numeroItem });
+      toast({ title: "Maquinaria creada", description: `La maquinaria "${maquinariaData.nombre}" (Item Nº ${numeroItem}) ha sido registrada.` });
     }
     setFormOpen(false);
     setSelectedMaquinaria(null);
@@ -94,6 +96,7 @@ export function MaquinariaList({ maquinaria, isLoading }: MaquinariaListProps) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Item Nº</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Horas de Trabajo</TableHead>
@@ -102,9 +105,10 @@ export function MaquinariaList({ maquinaria, isLoading }: MaquinariaListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Cargando maquinaria...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando maquinaria...</TableCell></TableRow>}
               {maquinaria.map((item) => (
                 <TableRow key={item.id}>
+                  <TableCell className="font-medium text-muted-foreground">{item.numeroItem}</TableCell>
                   <TableCell className="font-medium">{item.nombre}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="capitalize">{item.tipo}</Badge>

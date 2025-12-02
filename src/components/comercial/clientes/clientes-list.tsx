@@ -64,6 +64,7 @@ export function ClientesList({ clientes, isLoading }: ClientesListProps) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Item Nº</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>RUC</TableHead>
                 <TableHead>Teléfono</TableHead>
@@ -73,9 +74,10 @@ export function ClientesList({ clientes, isLoading }: ClientesListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
               {clientes.map((cliente) => (
                 <TableRow key={cliente.id}>
+                  <TableCell className="font-medium text-muted-foreground">{cliente.numeroItem}</TableCell>
                   <TableCell className="font-medium">{cliente.nombre}</TableCell>
                   <TableCell>{cliente.ruc}</TableCell>
                   <TableCell>{cliente.telefono || 'N/A'}</TableCell>

@@ -22,7 +22,7 @@ import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, getCountFromServer } from "firebase/firestore";
 
 interface StockListProps {
   insumos: Insumo[];
@@ -154,7 +154,7 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
   
   const categoriasUnicas = useMemo(() => [...new Set(insumos.map(i => i.categoria))], [insumos]);
 
-  const handleSaveInsumo = useCallback((insumoData: Omit<Insumo, 'id'>) => {
+  const handleSaveInsumo = useCallback(async (insumoData: Omit<Insumo, 'id'>) => {
     if (!firestore) return;
     
     if (selectedInsumo) {
@@ -163,8 +163,11 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
       toast({ title: "Insumo actualizado" });
     } else {
       const insumosCol = collection(firestore, 'insumos');
-      addDocumentNonBlocking(insumosCol, insumoData);
-      toast({ title: "Insumo creado" });
+      const snapshot = await getCountFromServer(insumosCol);
+      const numeroItem = snapshot.data().count + 1;
+
+      addDocumentNonBlocking(insumosCol, { ...insumoData, numeroItem });
+      toast({ title: "Insumo creado", description: `Item Nº ${numeroItem}` });
     }
     setDialogOpen(false);
     setSelectedInsumo(null);
@@ -327,6 +330,7 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
             <Table className="whitespace-nowrap">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[80px]">Item Nº</TableHead>
                   <TableHead className="w-[250px] min-w-[250px]">Nombre</TableHead>
                   <TableHead className="w-[150px] min-w-[150px]">Principio Activo</TableHead>
                   <TableHead className="w-[150px] min-w-[150px]">Dosis Rec.</TableHead>
@@ -340,9 +344,10 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={10} className="text-center h-24">Cargando...</TableCell></TableRow>}
+                {isLoading && <TableRow><TableCell colSpan={11} className="text-center h-24">Cargando...</TableCell></TableRow>}
                 {filteredStockData.map((insumo) => (
                   <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
+                    <TableCell className="font-medium text-muted-foreground">{insumo.numeroItem}</TableCell>
                     <TableCell className="font-medium">
                        <div className="flex items-center gap-2">
                           {insumo.stockFinal < insumo.stockMinimo && (
@@ -397,7 +402,7 @@ export function StockList({ insumos, compras, eventos, isLoading }: StockListPro
                   </TableRow>
                 ))}
                 {!isLoading && filteredStockData.length === 0 && (
-                  <TableRow><TableCell colSpan={10} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={11} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

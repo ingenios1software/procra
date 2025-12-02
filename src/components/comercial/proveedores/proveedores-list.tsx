@@ -52,6 +52,7 @@ export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Item Nº</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>RUC</TableHead>
                 <TableHead>Teléfono</TableHead>
@@ -60,9 +61,10 @@ export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={6}>Cargando...</TableCell></TableRow>}
               {proveedores.map((proveedor) => (
                 <TableRow key={proveedor.id}>
+                  <TableCell className="font-medium text-muted-foreground">{proveedor.numeroItem}</TableCell>
                   <TableCell className="font-medium">{proveedor.nombre}</TableCell>
                   <TableCell>{proveedor.ruc}</TableCell>
                   <TableCell>{proveedor.telefono || 'N/A'}</TableCell>

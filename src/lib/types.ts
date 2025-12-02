@@ -6,12 +6,14 @@ export type Parcela = {
   ubicacion: string;
   estado: 'activa' | 'inactiva' | 'en barbecho';
   sector?: string;
+  numeroItem?: number;
 };
 
 export type Cultivo = {
   id: string;
   nombre: string;
   descripcion: string;
+  numeroItem?: number;
 };
 
 export type Zafra = {
@@ -22,6 +24,7 @@ export type Zafra = {
   estado: 'planificada' | 'en curso' | 'finalizada';
   cultivoId?: string;
   fechaSiembra?: Date | string;
+  numeroItem?: number;
 };
 
 export type Evento = {
@@ -34,6 +37,7 @@ export type Evento = {
   fecha: Date | string;
   descripcion: string;
   resultado?: string;
+  numeroItem?: number;
   
   // Campos climáticos
   temperatura?: number;
@@ -101,6 +105,7 @@ export type Insumo = {
   stockMinimo: number;
   stockActual: number; // Este será el valor inicial de "entrada total"
   proveedor?: string;
+  numeroItem?: number;
 };
 
 export type MovimientoInsumo = {
@@ -121,6 +126,7 @@ export type Maquinaria = {
   año?: number;
   horasTrabajo: number;
   estado: 'operativa' | 'en mantenimiento' | 'fuera de servicio';
+  numeroItem?: number;
 };
 
 export type Mantenimiento = {
@@ -168,6 +174,7 @@ export type Proveedor = {
   observaciones?: string;
   fechaRegistro?: Date;
   creadoPor?: string;
+  numeroItem?: number;
 };
 
 export type Cliente = {
@@ -184,6 +191,7 @@ export type Cliente = {
   observaciones?: string;
   fechaRegistro?: Date;
   creadoPor?: string;
+  numeroItem?: number;
 };
 
 export type Compra = {

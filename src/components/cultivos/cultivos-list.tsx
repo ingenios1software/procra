@@ -13,7 +13,7 @@ import type { Cultivo } from "@/lib/types";
 import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, getCountFromServer } from 'firebase/firestore';
 
 
 interface CultivosListProps {
@@ -29,11 +29,14 @@ export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) 
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const handleCreate = (cultivoData: Omit<Cultivo, 'id'>) => {
+  const handleCreate = async (cultivoData: Omit<Cultivo, 'id'>) => {
     if (!firestore) return;
     const cultivosCol = collection(firestore, 'cultivos');
-    addDocumentNonBlocking(cultivosCol, cultivoData);
-    toast({ title: "Cultivo creado", description: `El cultivo "${cultivoData.nombre}" ha sido creado.` });
+    const snapshot = await getCountFromServer(cultivosCol);
+    const numeroItem = snapshot.data().count + 1;
+
+    addDocumentNonBlocking(cultivosCol, { ...cultivoData, numeroItem });
+    toast({ title: "Cultivo creado", description: `El cultivo "${cultivoData.nombre}" (Item Nº ${numeroItem}) ha sido creado.` });
     setCreateDialogOpen(false);
   };
 
@@ -78,6 +81,7 @@ export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) 
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Item Nº</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Descripción</TableHead>
                 {user && <TableHead className="text-right">Acciones</TableHead>}
@@ -86,11 +90,12 @@ export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) 
             <TableBody>
               {isLoading && (
                  <TableRow>
-                    <TableCell colSpan={3} className="text-center">Cargando cultivos...</TableCell>
+                    <TableCell colSpan={4} className="text-center">Cargando cultivos...</TableCell>
                 </TableRow>
               )}
               {!isLoading && initialCultivos.map((cultivo) => (
                 <TableRow key={cultivo.id}>
+                  <TableCell className="font-medium text-muted-foreground">{cultivo.numeroItem}</TableCell>
                   <TableCell className="font-medium">{cultivo.nombre}</TableCell>
                   <TableCell>{cultivo.descripcion}</TableCell>
                   {user && (
@@ -130,7 +135,7 @@ export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) 
               ))}
                {!isLoading && initialCultivos.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={3} className="text-center h-24">No se encontraron cultivos. Puede crear uno nuevo.</TableCell>
+                    <TableCell colSpan={4} className="text-center h-24">No se encontraron cultivos. Puede crear uno nuevo.</TableCell>
                 </TableRow>
               )}
             </TableBody>

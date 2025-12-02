@@ -237,7 +237,8 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>N°</TableHead>
+                  <TableHead>Item Nº</TableHead>
+                  <TableHead>N° Lanz.</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Parcela</TableHead>
                   <TableHead>Tipo</TableHead>
@@ -249,7 +250,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
+                {isLoading && <TableRow><TableCell colSpan={8} className="text-center">Cargando...</TableCell></TableRow>}
                 {filteredEventos.map((evento) => {
                   const parcela = parcelas?.find((p) => p.id === evento.parcelaId);
                   const cultivo = cultivos?.find((c) => c.id === evento.cultivoId);
@@ -258,6 +259,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
 
                   return (
                     <TableRow key={evento.id}>
+                       <TableCell className="font-medium text-muted-foreground">{evento.numeroItem}</TableCell>
                        <TableCell className="font-bold text-muted-foreground">{evento.numeroLanzamiento}</TableCell>
                       <TableCell>
                         {format(new Date(evento.fecha as string), "dd/MM/yyyy")}

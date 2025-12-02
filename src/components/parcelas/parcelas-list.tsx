@@ -86,6 +86,7 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Item Nº</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Superficie (ha)</TableHead>
                 <TableHead>Estado</TableHead>
@@ -94,9 +95,10 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Cargando...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
               {parcelas.map((parcela) => (
                 <TableRow key={parcela.id}>
+                  <TableCell className="font-medium text-muted-foreground">{parcela.numeroItem}</TableCell>
                   <TableCell className="font-medium">
                      <Link href={`/parcelas/${parcela.id}`} className="hover:underline text-primary">
                       {parcela.nombre}
@@ -157,7 +159,7 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
               ))}
               {!isLoading && parcelas.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">No hay parcelas. Cree una para empezar.</TableCell>
+                  <TableCell colSpan={6} className="text-center h-24">No hay parcelas. Cree una para empezar.</TableCell>
                 </TableRow>
               )}
             </TableBody>

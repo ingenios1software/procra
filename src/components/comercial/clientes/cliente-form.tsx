@@ -20,7 +20,7 @@ import type { Cliente } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, getCountFromServer } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 
 const formSchema = z.object({
@@ -56,21 +56,27 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
     },
   });
 
-  const handleSubmit = (data: ClienteFormValues) => {
+  const handleSubmit = async (data: ClienteFormValues) => {
     if (!firestore) return;
 
     if (cliente?.id) {
       const clienteRef = doc(firestore, 'clientes', cliente.id);
       updateDocumentNonBlocking(clienteRef, data);
+      toast({
+        title: `Cliente actualizado`,
+        description: `El cliente ${data.nombre} ha sido guardado correctamente.`,
+      });
     } else {
       const clientesCol = collection(firestore, 'clientes');
-      addDocumentNonBlocking(clientesCol, data);
+      const snapshot = await getCountFromServer(clientesCol);
+      const numeroItem = snapshot.data().count + 1;
+      addDocumentNonBlocking(clientesCol, { ...data, numeroItem });
+      toast({
+        title: `Cliente creado`,
+        description: `El cliente ${data.nombre} (Item Nº ${numeroItem}) ha sido guardado.`,
+      });
     }
     
-    toast({
-      title: `Cliente ${cliente ? 'actualizado' : 'creado'}`,
-      description: `El cliente ${data.nombre} ha sido guardado correctamente.`,
-    });
     router.push("/comercial/clientes");
   };
 

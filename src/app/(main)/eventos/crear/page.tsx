@@ -5,7 +5,7 @@ import { EventoForm } from "@/components/eventos/evento-form";
 import { useRouter } from "next/navigation";
 import type { Evento } from "@/lib/types";
 import { useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, getCountFromServer } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 
 export default function CrearEventoPage() {
@@ -16,7 +16,7 @@ export default function CrearEventoPage() {
   const eventosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('numeroLanzamiento', 'desc')) : null, [firestore]);
   const { data: todosLosEventos } = useCollection<Evento>(eventosQuery);
 
-  const handleSave = (data: Omit<Evento, 'id'>) => {
+  const handleSave = async (data: Omit<Evento, 'id'>) => {
     if (!firestore || !todosLosEventos) return;
 
     const maxLanzamiento = todosLosEventos.length > 0 && todosLosEventos[0].numeroLanzamiento 
@@ -27,17 +27,21 @@ export default function CrearEventoPage() {
       Object.entries(data).filter(([, value]) => value !== undefined)
     );
 
+    const eventosCol = collection(firestore, 'eventos');
+    const snapshot = await getCountFromServer(eventosCol);
+    const numeroItem = snapshot.data().count + 1;
+
     const dataToSave = { 
         ...cleanData, 
         fecha: (data.fecha as Date).toISOString(),
-        numeroLanzamiento: (maxLanzamiento || 0) + 1
+        numeroLanzamiento: (maxLanzamiento || 0) + 1,
+        numeroItem,
     };
 
-    const eventosCol = collection(firestore, 'eventos');
     addDocumentNonBlocking(eventosCol, dataToSave);
     
     toast({
-        title: `Evento #${dataToSave.numeroLanzamiento} creado`,
+        title: `Evento #${dataToSave.numeroLanzamiento} (Item Nº ${numeroItem}) creado`,
         description: `El evento "${data.descripcion}" ha sido guardado.`,
     });
     router.push('/eventos');

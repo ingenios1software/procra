@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { Parcela } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, updateDocumentNonBlocking, useFirestore } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, getCountFromServer } from "firebase/firestore";
 
 const formSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres."),
@@ -46,7 +46,7 @@ export function ParcelaForm({ parcela }: ParcelaFormProps) {
     },
   });
 
-  const handleSubmit = (data: ParcelaFormValues) => {
+  const handleSubmit = async (data: ParcelaFormValues) => {
     if(!firestore) return;
 
     if (parcela) {
@@ -55,8 +55,11 @@ export function ParcelaForm({ parcela }: ParcelaFormProps) {
       toast({ title: "Parcela actualizada", description: `La parcela ${data.nombre} ha sido actualizada.` });
     } else {
       const parcelasCol = collection(firestore, 'parcelas');
-      addDocumentNonBlocking(parcelasCol, data);
-      toast({ title: "Parcela creada", description: `La parcela ${data.nombre} ha sido creada.` });
+      const snapshot = await getCountFromServer(parcelasCol);
+      const numeroItem = snapshot.data().count + 1;
+      
+      addDocumentNonBlocking(parcelasCol, { ...data, numeroItem });
+      toast({ title: "Parcela creada", description: `La parcela ${data.nombre} (Item Nº ${numeroItem}) ha sido creada.` });
     }
     router.push('/parcelas');
     router.refresh(); // To ensure the list is updated
