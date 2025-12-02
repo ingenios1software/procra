@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador } from "@/lib/types";
+import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Compra } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser } from "lucide-react";
 import { format } from "date-fns";
@@ -71,7 +71,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
   const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
   const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
-  const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? collection(firestore, 'insumos') : null, [firestore]));
+  const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos'), orderBy('nombre')) : null, [firestore]));
   const { data: compras } = useCollection<Compra>(useMemoFirebase(() => firestore ? collection(firestore, 'compras') : null, [firestore]));
 
   const getInitialValues = () => {
@@ -214,7 +214,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     if (!insumos) return 0;
     
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
-        if (!prod || !prod.insumoId || !prod.cantidad) return acc;
+        if (!prod || !prod.insumoId || !prod.cantidad) {
+            return acc;
+        }
         const insumo = insumos.find(i => i.id === prod.insumoId);
         const costoUnitario = insumo?.costoUnitario || 0;
         return acc + (prod.cantidad * costoUnitario);
