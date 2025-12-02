@@ -22,7 +22,7 @@ export default function CostosPage() {
 
   const isLoading = l1 || l2 || l3 || l4;
 
-  const { totalCostos, costosPorCategoria, costosPorZafra } = useMemo(() => {
+  const data = useMemo(() => {
     if (!eventos || !zafras) return { totalCostos: 0, costosPorCategoria: [], costosPorZafra: [] };
     
     const totalCostos = eventos.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
@@ -34,13 +34,15 @@ export default function CostosPage() {
     }, {} as Record<string, number>);
     const costosPorCategoria = Object.entries(costosCat).map(([name, value]) => ({ name, value }));
 
-    const costosZafra = zafras.map(zafra => {
+    const costosPorZafraData = zafras.map(zafra => {
         const costo = eventos.filter(ev => ev.zafraId === zafra.id).reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
         return { name: zafra.nombre, costo };
     }).filter(z => z.costo > 0);
 
-    return { totalCostos, costosPorCategoria, costosPorZafra };
+    return { totalCostos, costosPorCategoria, costosPorZafra: costosPorZafraData };
   }, [eventos, zafras]);
+
+  const { totalCostos, costosPorCategoria, costosPorZafra } = data;
 
   const getNombre = (id: string, coleccion: any[] | null) => coleccion?.find(item => item.id === id)?.nombre || 'N/A';
 
