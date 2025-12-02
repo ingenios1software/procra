@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -59,6 +59,7 @@ import { EventoForm } from "./evento-form";
 import { collection, doc } from "firebase/firestore";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "../ui/input";
 
 
 export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: { eventos: Evento[], parcelas: Parcela[], zafras: Zafra[], cultivos: Cultivo[], isLoading: boolean }) {
@@ -73,6 +74,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     tipo: "",
     parcelaId: "",
     zafraId: "",
+    numeroLanzamiento: ""
   });
 
   const handleFilterChange = (
@@ -85,7 +87,9 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
   const filteredEventos = useMemo(() => {
     if (!eventos) return [];
     return eventos.filter((evento) => {
+      const numeroMatch = filters.numeroLanzamiento ? evento.numeroLanzamiento?.toString().includes(filters.numeroLanzamiento) : true;
       return (
+        numeroMatch &&
         (filters.tipo ? evento.tipo === filters.tipo : true) &&
         (filters.parcelaId ? evento.parcelaId === filters.parcelaId : true) &&
         (filters.zafraId ? evento.zafraId === filters.zafraId : true)
@@ -168,6 +172,12 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row items-center gap-4 py-4">
+            <Input 
+              placeholder="Buscar por N°..."
+              value={filters.numeroLanzamiento}
+              onChange={(e) => handleFilterChange("numeroLanzamiento", e.target.value)}
+              className="w-full md:w-[180px]"
+            />
             <Select
               value={filters.tipo}
               onValueChange={(value) =>
@@ -227,6 +237,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>N°</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Parcela</TableHead>
                   <TableHead>Tipo</TableHead>
@@ -238,7 +249,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
+                {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
                 {filteredEventos.map((evento) => {
                   const parcela = parcelas?.find((p) => p.id === evento.parcelaId);
                   const cultivo = cultivos?.find((c) => c.id === evento.cultivoId);
@@ -247,6 +258,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
 
                   return (
                     <TableRow key={evento.id}>
+                       <TableCell className="font-bold text-muted-foreground">{evento.numeroLanzamiento}</TableCell>
                       <TableCell>
                         {format(new Date(evento.fecha as string), "dd/MM/yyyy")}
                       </TableCell>
@@ -349,7 +361,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{selectedEvento ? 'Editar Evento' : 'Registrar Nuevo Evento'}</DialogTitle>
+            <DialogTitle>{selectedEvento ? `Editar Evento #${selectedEvento.numeroLanzamiento}` : 'Registrar Nuevo Evento'}</DialogTitle>
             <DialogDescription>
                 Complete los detalles de la actividad agrícola. El panel superior le dará contexto agronómico.
             </DialogDescription>

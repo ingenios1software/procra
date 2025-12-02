@@ -26,6 +26,7 @@ export type Zafra = {
 
 export type Evento = {
   id: string;
+  numeroLanzamiento?: number;
   parcelaId: string;
   cultivoId: string;
   zafraId: string;

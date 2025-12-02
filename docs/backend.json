@@ -112,6 +112,10 @@
           "type": "string",
           "description": "Unique identifier for the Event entity."
         },
+        "numeroLanzamiento": {
+          "type": "number",
+          "description": "Sequential launch number for the event."
+        },
         "plotId": {
           "type": "string",
           "description": "Reference to Plot. (Relationship: Plot 1:N Event)"
