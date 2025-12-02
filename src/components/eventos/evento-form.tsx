@@ -213,39 +213,27 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
     const insumoCosts = useMemo(() => {
         const costs: Record<string, number> = {};
-        if (!compras || !insumos) return costs;
+        if (!insumos || !compras) return costs;
 
-        // Start with base costs from insumos
+        // 1. Set base costs from the insumos collection
         insumos.forEach(insumo => {
             costs[insumo.id] = insumo.costoUnitario || 0;
         });
 
-        // Sort purchases by date to get the latest price
-        const sortedCompras = [...compras].sort((a, b) => new Date(b.fecha as string).getTime() - new Date(a.fecha as string).getTime());
+        // 2. Sort all purchases by date to process them chronologically
+        const sortedCompras = [...compras].sort((a, b) => new Date(a.fecha as string).getTime() - new Date(b.fecha as string).getTime());
 
+        // 3. Override with purchase prices, ensuring latest purchase wins
         sortedCompras.forEach(compra => {
             compra.items.forEach(item => {
-                if (!costs[item.insumoId] || costs[item.insumoId] === 0) {
-                     // If we haven't found a newer price, use this one
-                    if (new Date(compra.fecha as string) > (new Date('2000-01-01'))) { // A bit of a hack to prioritize purchase prices
-                         costs[item.insumoId] = item.precioUnitario;
-                    }
+                if (item.insumoId && item.precioUnitario > 0) {
+                    costs[item.insumoId] = item.precioUnitario;
                 }
             });
         });
-        
-         // Last pass to ensure we have the latest price for everything
-        insumos.forEach(insumo => {
-            const relevantPurchases = compras.flatMap(c => c.items.filter(i => i.insumoId === insumo.id).map(i => ({...i, fecha: new Date(c.fecha as string)})));
-            if (relevantPurchases.length > 0) {
-                const latestPurchase = relevantPurchases.sort((a,b) => b.fecha.getTime() - a.fecha.getTime())[0];
-                costs[insumo.id] = latestPurchase.precioUnitario;
-            }
-        });
-
 
         return costs;
-    }, [compras, insumos]);
+    }, [insumos, compras]);
   
   const totalCostoEvento = useMemo(() => {
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
