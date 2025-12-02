@@ -16,12 +16,13 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
-import { useMemo, useEffect, useCallback } from "react";
+import { useMemo, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useDraftStore } from "@/store/draft-store";
 import { produce } from 'immer';
+import isEqual from 'lodash.isequal';
 
 
 const productoSchema = z.object({
@@ -94,19 +95,18 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   });
 
   const watchedValues = form.watch();
+  const watchedValuesRef = useRef(watchedValues);
+  watchedValuesRef.current = watchedValues;
 
   useEffect(() => {
-    // No guardar el borrador si estamos editando un evento existente
-    if(evento) return;
-    
-    // Usamos `produce` para manejar la inmutabilidad de forma segura
-    const newDraft = produce(draft, (d: EventoBorrador) => {
-        Object.assign(d, watchedValues);
-    });
+    if (evento) return;
 
-    setDraft(newDraft);
+    const intervalId = setInterval(() => {
+        setDraft(watchedValuesRef.current);
+    }, 1000); // Save every second
 
-  }, [watchedValues, setDraft, evento]);
+    return () => clearInterval(intervalId);
+  }, [evento, setDraft]);
 
 
   const tipoEvento = form.watch('tipo');

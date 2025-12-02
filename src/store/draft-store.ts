@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { EventoBorrador } from '@/lib/types';
+import isEqual from 'lodash.isequal';
 
 interface DraftState {
   draft: EventoBorrador;
@@ -12,9 +13,13 @@ interface DraftState {
 
 export const useDraftStore = create<DraftState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       draft: {},
-      setDraft: (newDraft) => set({ draft: newDraft }),
+      setDraft: (newDraft) => {
+        if (!isEqual(get().draft, newDraft)) {
+            set({ draft: newDraft });
+        }
+      },
       clearDraft: () => set({ draft: {} }),
     }),
     {
