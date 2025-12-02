@@ -25,10 +25,21 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { MoreHorizontal, PlusCircle, TriangleAlert, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
-import { useUser, useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -106,6 +117,17 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
         toast({ title: "Evento creado" });
     }
     closeForm();
+  };
+
+  const handleDelete = (id: string) => {
+    if (!firestore) return;
+    const eventoRef = doc(firestore, 'eventos', id);
+    deleteDocumentNonBlocking(eventoRef);
+    toast({
+      variant: "destructive",
+      title: "Evento eliminado",
+      description: "El evento ha sido eliminado correctamente."
+    });
   };
 
   const openForm = (evento?: Evento) => {
@@ -284,9 +306,33 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                               <DropdownMenuItem onClick={() => openForm(evento)}>
                                 Editar
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
-                                Eliminar
-                              </DropdownMenuItem>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem
+                                    onSelect={(e) => e.preventDefault()}
+                                    className="text-destructive"
+                                  >
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta acción es permanente y eliminará el evento del sistema.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(evento.id)}
+                                      className="bg-destructive hover:bg-destructive/90"
+                                    >
+                                      Eliminar
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
