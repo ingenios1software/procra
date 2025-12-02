@@ -314,11 +314,6 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
               value={filters.nombre}
               onChange={(e) => handleFilterChange('nombre', e.target.value)}
             />
-            <Input 
-              placeholder="Filtrar por principio activo..."
-              value={filters.principioActivo}
-              onChange={(e) => handleFilterChange('principioActivo', e.target.value)}
-            />
             <Select value={filters.categoria} onValueChange={(v) => handleFilterChange('categoria', v === 'all' ? '' : v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Filtrar por categoría..." />
@@ -330,6 +325,11 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                 ))}
               </SelectContent>
             </Select>
+            <Input 
+              placeholder="Filtrar por principio activo..."
+              value={filters.principioActivo}
+              onChange={(e) => handleFilterChange('principioActivo', e.target.value)}
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -339,6 +339,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                 <TableRow>
                   <TableHead className="w-[80px]">Item Nº</TableHead>
                   <TableHead className="w-[250px] min-w-[250px]">Nombre</TableHead>
+                  <TableHead className="w-[150px] min-w-[150px]">Categoría</TableHead>
                   <TableHead className="w-[150px] min-w-[150px]">Principio Activo</TableHead>
                   <TableHead className="w-[150px] min-w-[150px]">Dosis Rec.</TableHead>
                   <TableHead className="w-[150px] min-w-[150px] text-right">Precio Prom. Calc.</TableHead>
@@ -352,7 +353,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={12} className="text-center h-24">Cargando...</TableCell></TableRow>}
+                {isLoading && <TableRow><TableCell colSpan={13} className="text-center h-24">Cargando...</TableCell></TableRow>}
                 {filteredStockData.map((insumo) => (
                   <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
                     <TableCell className="font-medium text-muted-foreground">{insumo.numeroItem}</TableCell>
@@ -372,7 +373,9 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                           )}
                           {insumo.nombre}
                        </div>
-                       <Badge variant="secondary" className="capitalize mt-1">{insumo.categoria}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="capitalize">{insumo.categoria}</Badge>
                     </TableCell>
                     <TableCell>{insumo.principioActivo || 'N/A'}</TableCell>
                     <TableCell>{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
@@ -441,7 +444,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                   </TableRow>
                 ))}
                 {!isLoading && filteredStockData.length === 0 && (
-                  <TableRow><TableCell colSpan={12} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={13} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
