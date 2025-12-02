@@ -72,7 +72,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
   const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
   const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos'), orderBy('nombre')) : null, [firestore]));
-  const { data: compras } = useCollection<Compra>(useMemoFirebase(() => firestore ? collection(firestore, 'compras') : null, [firestore]));
+  const { data: compras } = useCollection<Compra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'compras'), orderBy('fecha', 'desc')) : null, [firestore]));
 
   const getInitialValues = () => {
     const base = evento 
@@ -81,7 +81,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         ? { ...draft, fecha: draft.fecha ? new Date(draft.fecha) : new Date() }
         : {
             fecha: new Date(),
-            tipo: 'siembra',
+            tipo: 'aplicacion',
             productos: [],
             descripcion: "",
           };
@@ -225,14 +225,14 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         if (!prod || !prod.insumoId || !prod.cantidad) {
             return acc;
         }
-        const costoUnitario = insumoCosts[prod.insumoId] || 0;
+        const costoUnitario = insumos?.find(i => i.id === prod.insumoId)?.costoUnitario || 0;
         return acc + (prod.cantidad * costoUnitario);
     }, 0) || 0;
 
     const costoServicio = (Number(watchedHectareas) || 0) * (Number(watchedCostoServicio) || 0);
     
     return costoProductos + costoServicio;
-  }, [watchedProductos, watchedHectareas, watchedCostoServicio, insumoCosts]);
+  }, [watchedProductos, watchedHectareas, watchedCostoServicio, insumos]);
 
   const analisisProps = useMemo(() => ({
     eventoActual: { ...form.getValues(), fecha: watchedFecha, parcelaId: watchedParcelaId, zafraId: watchedZafraId } as Evento,
@@ -258,9 +258,17 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     clearDraft();
     form.reset({
         fecha: new Date(),
-        tipo: 'siembra',
+        tipo: 'aplicacion',
         productos: [],
         descripcion: "",
+        hectareasAplicadas: '',
+        costoServicioPorHa: '',
+        temperatura: '',
+        humedad: '',
+        viento: '',
+        toneladas: '',
+        precioTonelada: '',
+        resultado: '',
     });
     toast({
         title: 'Borrador descartado',
