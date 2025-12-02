@@ -89,7 +89,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
         cicloHoy: "",
         costoPromedioHa: "",
         rendimientoHa: "",
-        costoKg: "",
+        costoPorTon: "",
       });
 
     const handleFilterChange = (key: keyof typeof filters, value: string) => {
@@ -139,7 +139,6 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             const costoProductosTotal = eventosParcela.reduce((sum, ev) => {
                  const costoDeEsteEvento = (ev.costoTotal || 0);
                 const costoServicioDeEsteEvento = ((ev.hectareasAplicadas || 0) * (ev.costoServicioPorHa || 0));
-                // El costo del producto es el total menos el del servicio
                 const costoProductoDeEsteEvento = costoDeEsteEvento - costoServicioDeEsteEvento;
                 return sum + costoProductoDeEsteEvento;
             }, 0);
@@ -147,12 +146,12 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             const costoTotal = costoServiciosTotal + costoProductosTotal;
             const cicloHoy = zafraSeleccionada.fechaSiembra ? differenceInDays(new Date(), new Date(zafraSeleccionada.fechaSiembra)) : 0;
             const costoPorHa = parcela.superficie > 0 ? costoTotal / parcela.superficie : 0;
-            const totalCosechadoKg = eventosParcela
+            const totalCosechadoTon = eventosParcela
                 .filter(e => e.tipo === 'rendimiento')
-                .reduce((sum, ev) => sum + ((ev.toneladas || 0) * 1000), 0);
+                .reduce((sum, ev) => sum + (ev.toneladas || 0), 0);
             
-            const rendimientoHa = parcela.superficie > 0 ? totalCosechadoKg / parcela.superficie : 0;
-            const costoKg = totalCosechadoKg > 0 ? costoTotal / totalCosechadoKg : 0;
+            const rendimientoHa = parcela.superficie > 0 ? totalCosechadoTon / parcela.superficie : 0;
+            const costoPorTon = totalCosechadoTon > 0 ? costoTotal / totalCosechadoTon : 0;
 
             return {
                 nombreParcela: parcela.nombre,
@@ -164,7 +163,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                 cicloHoy: cicloHoy,
                 costoPromedioHa: costoPorHa,
                 rendimientoHa: rendimientoHa,
-                costoKg: costoKg,
+                costoPorTon: costoPorTon,
             };
         });
 
@@ -200,7 +199,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             row.cicloHoy.toString().includes(columnFilters.cicloHoy) &&
             row.costoPromedioHa.toString().includes(columnFilters.costoPromedioHa) &&
             row.rendimientoHa.toString().includes(columnFilters.rendimientoHa) &&
-            row.costoKg.toString().includes(columnFilters.costoKg)
+            row.costoPorTon.toString().includes(columnFilters.costoPorTon)
           );
         });
     }, [reporteData, columnFilters]);
@@ -213,9 +212,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
         
         const costoPromedioGeneral = totalHectareas > 0 ? granTotalCostos / totalHectareas : 0;
         const maxCosto = Math.max(...reporteData.map(d => d.costoTotal), 0);
-        const totalCosechadoKgGeneral = filteredRows.reduce((sum, d) => sum + (d.rendimientoHa * d.hectareas), 0);
-        const rendimientoPromedioGeneral = totalHectareas > 0 ? totalCosechadoKgGeneral / totalHectareas : 0;
-        const costoKgPromedioGeneral = totalCosechadoKgGeneral > 0 ? granTotalCostos / totalCosechadoKgGeneral : 0;
+        const totalCosechadoTonGeneral = filteredRows.reduce((sum, d) => sum + (d.rendimientoHa * d.hectareas), 0);
+        const rendimientoPromedioGeneral = totalHectareas > 0 ? totalCosechadoTonGeneral / totalHectareas : 0;
+        const costoPorTonPromedioGeneral = totalCosechadoTonGeneral > 0 ? granTotalCostos / totalCosechadoTonGeneral : 0;
 
         return {
             totales: {
@@ -225,7 +224,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                 granTotalCostos,
                 costoPromedioGeneral,
                 rendimientoPromedioGeneral,
-                costoKgPromedioGeneral,
+                costoPorTonPromedioGeneral,
             },
             maxCosto
         }
@@ -290,7 +289,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         <SelectItem value="fechaSiembra">Fecha Siembra</SelectItem>
                                         <SelectItem value="cicloHoy">Ciclo</SelectItem>
                                         <SelectItem value="rendimientoHa">Rendimiento/ha</SelectItem>
-                                        <SelectItem value="costoKg">Costo/kg</SelectItem>
+                                        <SelectItem value="costoPorTon">Costo/ton</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <Select value={filters.orden} onValueChange={(v) => handleFilterChange('orden', v as typeof filters.orden)}>
@@ -315,9 +314,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         <TableHead className="font-bold text-right px-4 py-2">Hectáreas</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Fecha Siembra</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Ciclo</TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2">Rend. (kg/ha)</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Rend. (ton/ha)</TableHead>
                                         <TableHead className="font-bold text-right px-4 py-2">Costo/ha</TableHead>
-                                        <TableHead className="font-bold text-right px-4 py-2">Costo/kg</TableHead>
+                                        <TableHead className="font-bold text-right px-4 py-2">Costo/ton</TableHead>
                                     </TableRow>
                                     <TableRow className="bg-muted/50 dark:bg-muted/80">
                                         <TableHead className="px-2 py-1"><Input className="h-8" placeholder="Filtrar..." value={columnFilters.nombreParcela} onChange={(e) => setColumnFilters(f => ({ ...f, nombreParcela: e.target.value }))} /></TableHead>
@@ -329,7 +328,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.cicloHoy} onChange={(e) => setColumnFilters(f => ({ ...f, cicloHoy: e.target.value }))} /></TableHead>
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.rendimientoHa} onChange={(e) => setColumnFilters(f => ({ ...f, rendimientoHa: e.target.value }))} /></TableHead>
                                         <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoPromedioHa} onChange={(e) => setColumnFilters(f => ({ ...f, costoPromedioHa: e.target.value }))} /></TableHead>
-                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoKg} onChange={(e) => setColumnFilters(f => ({ ...f, costoKg: e.target.value }))} /></TableHead>
+                                        <TableHead className="px-2 py-1"><Input className="h-8 text-right" placeholder="Filtrar..." value={columnFilters.costoPorTon} onChange={(e) => setColumnFilters(f => ({ ...f, costoPorTon: e.target.value }))} /></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -344,9 +343,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                             <TableCell className="px-4 py-3 text-right font-mono">{d.hectareas.toLocaleString('en-US')} ha</TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono">{d.fechaSiembra ? format(d.fechaSiembra, 'dd/MM/yyyy') : 'N/A'}</TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono">{d.cicloHoy} días</TableCell>
-                                            <TableCell className="px-4 py-3 text-right font-mono font-bold">{d.rendimientoHa.toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono font-bold">{d.rendimientoHa.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ton/ha</TableCell>
                                             <TableCell className="px-4 py-3 text-right font-mono font-bold">${d.costoPromedioHa.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
-                                            <TableCell className="px-4 py-3 text-right font-mono text-accent-foreground dark:text-accent font-semibold">${d.costoKg.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
+                                            <TableCell className="px-4 py-3 text-right font-mono text-accent-foreground dark:text-accent font-semibold">${d.costoPorTon.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -359,9 +358,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.totalHectareas.toLocaleString('en-US')} ha</TableCell>
                                         <TableCell className="px-4 py-3 text-right"></TableCell>
                                         <TableCell className="px-4 py-3 text-right"></TableCell>
-                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.rendimientoPromedioGeneral.toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">{totales.rendimientoPromedioGeneral.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ton/ha</TableCell>
                                         <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.costoPromedioGeneral.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
-                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.costoKgPromedioGeneral.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className="px-4 py-3 text-right font-mono font-bold">${totales.costoPorTonPromedioGeneral.toLocaleString('en-US', { maximumFractionDigits: 2 })}</TableCell>
                                     </TableRow>
                                 </TableFooter>
                             </Table>
@@ -375,19 +374,19 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} tick={{ fontSize: tickFont }} />
                                         <YAxis yAxisId="left" label={{ value: 'Costo Promedio ($/ha)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
-                                        <YAxis yAxisId="right" orientation="right" label={{ value: 'Rendimiento (kg/ha)', angle: 90, position: 'insideRight', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }}/>
+                                        <YAxis yAxisId="right" orientation="right" label={{ value: 'Rendimiento (ton/ha)', angle: 90, position: 'insideRight', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }}/>
                                         <Tooltip 
                                             contentStyle={{ fontSize: tickFont }}
                                             formatter={(value, name) => {
-                                                if (name === 'Rendimiento (kg/ha)') {
-                                                    return `${Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 })} kg/ha`;
+                                                if (name === 'Rendimiento (ton/ha)') {
+                                                    return `${Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })} ton/ha`;
                                                 }
                                                 return `$${Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
                                             }}
                                         />
                                         <Legend wrapperStyle={{ fontSize: labelFont }} />
                                         <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" barSize={barSize} />
-                                        <Bar yAxisId="right" dataKey="rendimientoHa" name="Rendimiento (kg/ha)" fill="#16a34a" barSize={barSize} />
+                                        <Bar yAxisId="right" dataKey="rendimientoHa" name="Rendimiento (ton/ha)" fill="#16a34a" barSize={barSize} />
                                         </ComposedChart>
                                     </ResponsiveContainer>
                                 </div>
