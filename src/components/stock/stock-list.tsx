@@ -356,8 +356,8 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                 {isLoading && <TableRow><TableCell colSpan={13} className="text-center h-24">Cargando...</TableCell></TableRow>}
                 {filteredStockData.map((insumo) => (
                   <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
-                    <TableCell className="font-medium text-muted-foreground">{insumo.numeroItem}</TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium text-muted-foreground py-2 px-4">{insumo.numeroItem}</TableCell>
+                    <TableCell className="font-medium py-2 px-4">
                        <div className="flex items-center gap-2">
                           {insumo.stockFinal < insumo.stockMinimo && (
                             <TooltipProvider>
@@ -374,25 +374,25 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                           {insumo.nombre}
                        </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2 px-4">
                       <Badge variant="secondary" className="capitalize">{insumo.categoria}</Badge>
                     </TableCell>
-                    <TableCell>{insumo.principioActivo || 'N/A'}</TableCell>
-                    <TableCell>{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
-                    <TableCell className="text-right font-mono">${insumo.precioPromedioCalculado.toFixed(2)}</TableCell>
-                    <TableCell>{insumo.unidad}</TableCell>
-                    <TableCell className="text-right font-mono text-green-600">
+                    <TableCell className="py-2 px-4">{insumo.principioActivo || 'N/A'}</TableCell>
+                    <TableCell className="py-2 px-4">{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
+                    <TableCell className="text-right font-mono py-2 px-4">${insumo.precioPromedioCalculado.toFixed(2)}</TableCell>
+                    <TableCell className="py-2 px-4">{insumo.unidad}</TableCell>
+                    <TableCell className="text-right font-mono text-green-600 py-2 px-4">
                       <div className="flex items-center justify-end gap-1"><ArrowUp size={14}/> {insumo.entradaTotal.toLocaleString('en-US')}</div>
                     </TableCell>
-                    <TableCell className="text-right font-mono text-red-600">
+                    <TableCell className="text-right font-mono text-red-600 py-2 px-4">
                       <div className="flex items-center justify-end gap-1"><ArrowDown size={14}/> {insumo.salidaTotal.toLocaleString('en-US')}</div>
                     </TableCell>
-                    <TableCell className="text-right font-mono font-bold">{insumo.stockFinal.toLocaleString('en-US')}</TableCell>
-                    <TableCell className="text-right font-mono">{insumo.stockMinimo.toLocaleString('en-US')}</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right font-mono font-bold py-2 px-4">{insumo.stockFinal.toLocaleString('en-US')}</TableCell>
+                    <TableCell className="text-right font-mono py-2 px-4">{insumo.stockMinimo.toLocaleString('en-US')}</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary py-2 px-4">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                     
                     {user && (
-                      <TableCell className="text-right">
+                      <TableCell className="text-right py-2 px-4">
                          <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">
