@@ -54,12 +54,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
   });
 
   const handleSubmit = (data: ZafraFormValues) => {
-    const dataToSubmit = {
-      ...data,
-      fechaInicio: data.fechaInicio.toISOString(),
-      fechaSiembra: data.fechaSiembra ? data.fechaSiembra.toISOString() : undefined,
-    };
-    onSubmit(dataToSubmit);
+    onSubmit(data);
   };
 
   return (
@@ -178,7 +173,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
           render={({ field }) => (
             <FormItem>
               <FormLabel>Estado</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!zafra?.id}>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione un estado" />
@@ -187,10 +182,9 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
                 <SelectContent>
                   <SelectItem value="planificada">Planificada</SelectItem>
                   <SelectItem value="en curso">En Curso</SelectItem>
-                  <SelectItem value="finalizada" disabled>Finalizada</SelectItem>
+                  <SelectItem value="finalizada">Finalizada</SelectItem>
                 </SelectContent>
               </Select>
-              {!!zafra?.id && <FormDescription>El estado no puede ser modificado una vez creada la zafra.</FormDescription>}
               <FormMessage />
             </FormItem>
           )}

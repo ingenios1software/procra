@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -41,15 +42,22 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const handleSave = (zafraData: Omit<Zafra, 'id'>) => {
+  const handleSave = (zafraData: Omit<Zafra, 'id' | 'fechaFin'> & { fechaInicio: Date, fechaSiembra?: Date }) => {
     if (!firestore) return;
+    
+    const dataToSave = {
+        ...zafraData,
+        fechaInicio: zafraData.fechaInicio.toISOString(),
+        fechaSiembra: zafraData.fechaSiembra ? zafraData.fechaSiembra.toISOString() : null,
+    };
+
     if (selectedZafra) {
       const zafraRef = doc(firestore, 'zafras', selectedZafra.id);
-      updateDocumentNonBlocking(zafraRef, zafraData);
+      updateDocumentNonBlocking(zafraRef, dataToSave);
       toast({ title: "Zafra actualizada" });
     } else {
       const zafrasCol = collection(firestore, 'zafras');
-      addDocumentNonBlocking(zafrasCol, zafraData);
+      addDocumentNonBlocking(zafrasCol, dataToSave);
       toast({ title: "Zafra creada" });
     }
     setDialogOpen(false);
