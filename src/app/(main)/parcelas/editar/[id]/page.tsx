@@ -10,11 +10,12 @@ import { useMemo } from 'react';
 
 export default function EditarParcelaPage({ params }: { params: { id: string } }) {
   const firestore = useFirestore();
+  const { id } = params;
   
   const parcelaRef = useMemoFirebase(() => {
-    if (!firestore || !params.id) return null;
-    return doc(firestore, 'parcelas', params.id);
-  }, [firestore, params.id]);
+    if (!firestore || !id) return null;
+    return doc(firestore, 'parcelas', id);
+  }, [firestore, id]);
 
   const { data: parcela, isLoading } = useDoc<Parcela>(parcelaRef);
 
@@ -32,7 +33,7 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
         title="Editar Parcela"
         description={`Editando los detalles de ${parcela.nombre}.`}
       />
-      <ParcelaForm parcela={{...parcela, id: params.id}} />
+      <ParcelaForm parcela={{...parcela, id: id}} />
     </>
   );
 }
