@@ -17,18 +17,12 @@ const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3
 export default function RentabilidadPage() {
   const firestore = useFirestore();
 
-  const costosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'costos')) : null, [firestore]);
-  const { data: costos } = useCollection<Costo>(costosQuery);
-  
-  const ventasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas')) : null, [firestore]);
-  const { data: ventas } = useCollection<Venta>(ventasQuery);
+  const { data: costos, isLoading: l1 } = useCollection<Costo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'costos')) : null, [firestore]));
+  const { data: ventas, isLoading: l2 } = useCollection<Venta>(useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas')) : null, [firestore]));
+  const { data: parcelas, isLoading: l3 } = useCollection<Parcela>(useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]));
+  const { data: cultivos, isLoading: l4 } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]));
 
-  const parcelasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]);
-  const { data: parcelas } = useCollection<Parcela>(parcelasQuery);
-
-  const cultivosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]);
-  const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
-
+  const isLoading = l1 || l2 || l3 || l4;
 
   const { totalIngresos, totalCostos, rentabilidadTotal, rentabilidadPorCultivo, rentabilidadPorParcela, composicionIngresos } = useMemo(() => {
     if (!costos || !ventas || !parcelas || !cultivos) return { totalIngresos: 0, totalCostos: 0, rentabilidadTotal: 0, rentabilidadPorCultivo: [], rentabilidadPorParcela: [], composicionIngresos: [] };
@@ -92,6 +86,10 @@ export default function RentabilidadPage() {
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
+
+  if (isLoading) {
+    return <p>Cargando datos de rentabilidad...</p>
+  }
 
   return (
     <>
