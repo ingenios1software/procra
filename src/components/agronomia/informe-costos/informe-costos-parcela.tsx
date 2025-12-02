@@ -133,6 +133,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                 e.zafraId === filters.zafraId &&
                 (filters.cultivoId ? e.cultivoId === filters.cultivoId : true)
             );
+
+            const eventoSiembra = eventosParcela.find(e => e.tipo === 'siembra');
+            const fechaSiembra = eventoSiembra ? new Date(eventoSiembra.fecha as string) : (zafraSeleccionada.fechaSiembra ? new Date(zafraSeleccionada.fechaSiembra as string) : null);
             
             const costoServiciosTotal = eventosParcela.reduce((sum, ev) => sum + ((ev.hectareasAplicadas || 0) * (ev.costoServicioPorHa || 0)), 0);
             
@@ -144,7 +147,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             }, 0);
             
             const costoTotal = costoServiciosTotal + costoProductosTotal;
-            const cicloHoy = zafraSeleccionada.fechaSiembra ? differenceInDays(new Date(), new Date(zafraSeleccionada.fechaSiembra as string)) : 0;
+            const cicloHoy = fechaSiembra ? differenceInDays(new Date(), fechaSiembra) : 0;
             const costoPorHa = parcela.superficie > 0 ? costoTotal / parcela.superficie : 0;
             const totalCosechadoTon = eventosParcela
                 .filter(e => e.tipo === 'rendimiento')
@@ -159,7 +162,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                 costoServicios: costoServiciosTotal,
                 costoTotal,
                 hectareas: parcela.superficie,
-                fechaSiembra: zafraSeleccionada.fechaSiembra ? new Date(zafraSeleccionada.fechaSiembra as string) : null,
+                fechaSiembra: fechaSiembra,
                 cicloHoy: cicloHoy,
                 costoPromedioHa: costoPorHa,
                 rendimientoHa: rendimientoHa,
@@ -418,9 +421,3 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
     )
 
 }
-
-    
-
-    
-
-    
