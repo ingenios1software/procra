@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line, BarChart, Scatter } from "recharts";
+import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar, Line } from "recharts";
 
 const DataBar = ({ value, max }: { value: number; max: number }) => {
     const percentage = max > 0 ? (value / max) * 100 : 0;
@@ -144,7 +144,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             }, 0);
             
             const costoTotal = costoServiciosTotal + costoProductosTotal;
-            const cicloHoy = zafraSeleccionada.fechaSiembra ? differenceInDays(new Date(), new Date(zafraSeleccionada.fechaSiembra)) : 0;
+            const cicloHoy = zafraSeleccionada.fechaSiembra ? differenceInDays(new Date(), new Date(zafraSeleccionada.fechaSiembra as string)) : 0;
             const costoPorHa = parcela.superficie > 0 ? costoTotal / parcela.superficie : 0;
             const totalCosechadoTon = eventosParcela
                 .filter(e => e.tipo === 'rendimiento')
@@ -159,7 +159,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                 costoServicios: costoServiciosTotal,
                 costoTotal,
                 hectareas: parcela.superficie,
-                fechaSiembra: zafraSeleccionada.fechaSiembra ? new Date(zafraSeleccionada.fechaSiembra) : null,
+                fechaSiembra: zafraSeleccionada.fechaSiembra ? new Date(zafraSeleccionada.fechaSiembra as string) : null,
                 cicloHoy: cicloHoy,
                 costoPromedioHa: costoPorHa,
                 rendimientoHa: rendimientoHa,
@@ -386,7 +386,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                         />
                                         <Legend wrapperStyle={{ fontSize: labelFont }} />
                                         <Bar yAxisId="left" dataKey="costoPromedioHa" name="Costo Promedio/ha ($)" fill="#f97316" barSize={barSize} />
-                                        <Bar yAxisId="right" dataKey="rendimientoHa" name="Rendimiento (ton/ha)" fill="#16a34a" barSize={barSize} />
+                                        <Line yAxisId="right" dataKey="rendimientoHa" name="Rendimiento (ton/ha)" stroke="#16a34a" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                                         </ComposedChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -395,7 +395,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                 <h3 className="text-lg font-bold mb-4">Gráfico de Composición de Costos</h3>
                                 <div className="w-full overflow-x-auto">
                                     <ResponsiveContainer width="100%" height={chartHeight}>
-                                        <BarChart data={filteredRows} stackOffset="sign">
+                                        <ComposedChart data={filteredRows}>
                                             <CartesianGrid strokeDasharray="3 3" />
                                             <XAxis dataKey="nombreParcela" angle={-20} textAnchor="end" height={80} tick={{ fontSize: tickFont }} />
                                             <YAxis label={{ value: 'Costo Total ($)', angle: -90, position: 'insideLeft', style: { fontSize: labelFont } }} tick={{ fontSize: tickFont }} />
@@ -406,7 +406,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                                             <Legend wrapperStyle={{ fontSize: labelFont }} />
                                             <Bar dataKey="costoProductos" name="Costo Productos" stackId="a" fill="hsl(var(--chart-1))" barSize={barSize} />
                                             <Bar dataKey="costoServicios" name="Costo Servicios" stackId="a" fill="hsl(var(--chart-2))" barSize={barSize} />
-                                        </BarChart>
+                                        </ComposedChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
