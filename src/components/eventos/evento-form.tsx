@@ -71,7 +71,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
   const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
   const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
-  const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos'), orderBy('nombre')) : null, [firestore]));
+  const { data: insumos, isLoading: isLoadingInsumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos'), orderBy('nombre')) : null, [firestore]));
   const { data: compras } = useCollection<Compra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'compras'), orderBy('fecha', 'desc')) : null, [firestore]));
 
   const getInitialValues = () => {
@@ -276,7 +276,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     })
   }
 
-  if (!parcelas || !cultivos || !zafras || !etapasCultivo || !insumos) {
+  if (!parcelas || !cultivos || !zafras || !etapasCultivo) {
     return <p>Cargando datos maestros...</p>;
   }
 
@@ -326,23 +326,26 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                        return (
                         <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
                             <FormField name={`productos.${index}.insumoId`} control={form.control} render={({ field }) => ( 
-                                <FormItem>
+                                <FormItem className="flex-grow">
                                     <FormLabel>Insumo</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Seleccionar..." />
+                                                <SelectValue placeholder={isLoadingInsumos ? "Cargando..." : "Seleccionar..."} />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            {insumosConStock.map(i => {
-                                                const stockInfo = stockCalculado[i.id];
-                                                return (
+                                            {isLoadingInsumos ? (
+                                                <SelectItem value="loading" disabled>Cargando insumos...</SelectItem>
+                                            ) : insumos && insumos.length > 0 ? (
+                                                insumos.map(i => (
                                                     <SelectItem key={i.id} value={i.id}>
-                                                        {i.nombre} ({stockInfo.stock.toFixed(2)} {stockInfo.unidad})
+                                                        {i.nombre}
                                                     </SelectItem>
-                                                )
-                                            })}
+                                                ))
+                                            ) : (
+                                                <SelectItem value="no-insumos" disabled>No hay insumos registrados</SelectItem>
+                                            )}
                                         </SelectContent>
                                      </Select>
                                      {stockInfo && <FormDescription className="text-xs pt-1">Stock Disponible: {stockInfo.stock.toFixed(2)} {stockInfo.unidad}</FormDescription>}
