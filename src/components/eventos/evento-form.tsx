@@ -213,27 +213,12 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
     const insumoCosts = useMemo(() => {
         const costs: Record<string, number> = {};
-        if (!insumos || !compras) return costs;
-
-        // 1. Set base costs from the insumos collection
+        if (!insumos) return costs;
         insumos.forEach(insumo => {
             costs[insumo.id] = insumo.costoUnitario || 0;
         });
-
-        // 2. Sort all purchases by date to process them chronologically
-        const sortedCompras = [...compras].sort((a, b) => new Date(a.fecha as string).getTime() - new Date(b.fecha as string).getTime());
-
-        // 3. Override with purchase prices, ensuring latest purchase wins
-        sortedCompras.forEach(compra => {
-            compra.items.forEach(item => {
-                if (item.insumoId && item.precioUnitario > 0) {
-                    costs[item.insumoId] = item.precioUnitario;
-                }
-            });
-        });
-
         return costs;
-    }, [insumos, compras]);
+    }, [insumos]);
   
   const totalCostoEvento = useMemo(() => {
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
@@ -425,5 +410,3 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     </>
   );
 }
-
-    
