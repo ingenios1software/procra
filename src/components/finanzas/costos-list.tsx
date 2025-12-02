@@ -9,28 +9,29 @@ import { MoreHorizontal, PlusCircle, DollarSign, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { CostoForm } from "./costo-form";
 import type { Costo, Parcela, Zafra, Cultivo } from "@/lib/types";
-import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, query, orderBy } from "firebase/firestore";
 
-interface CostosListProps {
-  initialCostos: Costo[];
-  parcelas: Parcela[];
-  zafras: Zafra[];
-  cultivos: Cultivo[];
-  isLoading: boolean;
-}
-
-export function CostosList({ initialCostos, parcelas, zafras, cultivos, isLoading }: CostosListProps) {
-  const [isDialogOpen, setDialogOpen] = useState(false);
-  const [selectedCosto, setSelectedCosto] = useState<Costo | null>(null);
-  const { user } = useUser();
+export function CostosList() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   
+  const [isDialogOpen, setDialogOpen] = useState(false);
+  const [selectedCosto, setSelectedCosto] = useState<Costo | null>(null);
+
+  const { data: costos, isLoading: l1 } = useCollection<Costo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'costos'), orderBy('fecha', 'desc')) : null, [firestore]));
+  const { data: parcelas, isLoading: l2 } = useCollection<Parcela>(useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]));
+  const { data: cultivos, isLoading: l3 } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]));
+  const { data: zafras, isLoading: l4 } = useCollection<Zafra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]));
+  
+  const isLoading = l1 || l2 || l3 || l4;
+  const initialCostos = costos || [];
+
   const { totalCostos, costosPorParcela } = useMemo(() => {
     if (!initialCostos || !parcelas) return { totalCostos: 0, costosPorParcela: [] };
     const totalCostos = initialCostos.reduce((acc, costo) => acc + costo.monto, 0);
@@ -153,9 +154,9 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos, isLoadin
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={costosPorParcela}>
                 <XAxis dataKey="nombre" stroke="#888888" fontSize={12} />
-                <YAxis stroke="#888888" fontSize={12} tickFormatter={(value) => `$${value}`} />
+                <YAxis stroke="#888888" fontSize={12} tickFormatter={(value) => `$${'value'}`} />
                 <Tooltip 
-                    formatter={(value) => `$${Number(value).toFixed(2)}`} 
+                    formatter={(value) => `$${(typeof value === 'number' ? value.toFixed(2) : value)}`} 
                     cursor={{ fill: 'hsla(var(--muted))' }}
                     contentStyle={{ backgroundColor: 'hsl(var(--background))' }}
                 />
@@ -183,10 +184,10 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos, isLoadin
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
               {initialCostos.map((costo) => {
-                const parcela = parcelas.find(p => p.id === costo.parcelaId);
+                const parcela = parcelas?.find(p => p.id === costo.parcelaId);
                 return (
                   <TableRow key={costo.id}>
-                    <TableCell>{format(new Date(costo.fecha), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(costo.fecha as string), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium">{costo.descripcion}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize">{costo.tipo}</Badge></TableCell>
                     <TableCell>{parcela?.nombre || 'N/A'}</TableCell>
@@ -201,6 +202,7 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos, isLoadin
                   </TableRow>
                 );
               })}
+               {!isLoading && initialCostos.length === 0 && <TableRow><TableCell colSpan={6} className="text-center h-24">No hay costos registrados.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
@@ -215,9 +217,9 @@ export function CostosList({ initialCostos, parcelas, zafras, cultivos, isLoadin
             costo={selectedCosto}
             onSubmit={handleSave}
             onCancel={closeDialog}
-            parcelas={parcelas}
-            cultivos={cultivos}
-            zafras={zafras}
+            parcelas={parcelas || []}
+            cultivos={cultivos || []}
+            zafras={zafras || []}
           />
         </DialogContent>
       </Dialog>
