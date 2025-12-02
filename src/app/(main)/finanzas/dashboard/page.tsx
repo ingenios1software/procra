@@ -18,27 +18,27 @@ import { DollarSign, TrendingDown, TrendingUp, Landmark, Star, ChevronsDown } fr
 import { format } from "date-fns";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection } from 'firebase/firestore';
-import type { Costo, Venta, Parcela, Cultivo } from "@/lib/types";
+import type { Evento, Venta, Parcela, Cultivo } from "@/lib/types";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function DashboardFinancieroPage() {
   const firestore = useFirestore();
 
-  const { data: costos, isLoading: l1 } = useCollection<Costo>(useMemoFirebase(() => firestore ? collection(firestore, 'costos') : null, [firestore]));
+  const { data: eventos, isLoading: l1 } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
   const { data: ventas, isLoading: l2 } = useCollection<Venta>(useMemoFirebase(() => firestore ? collection(firestore, 'ventas') : null, [firestore]));
   const { data: parcelas, isLoading: l3 } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
   const { data: cultivos, isLoading: l4 } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
 
   const { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria, costosMensuales } = useMemo(() => {
-    if (!costos || !ventas || !parcelas || !cultivos) return { totalCostos: 0, totalIngresos: 0, margenNeto: 0, rentabilidadPorParcela: [], rentabilidadPorCultivo: [], costosPorCategoria: [], costosMensuales: [] };
+    if (!eventos || !ventas || !parcelas || !cultivos) return { totalCostos: 0, totalIngresos: 0, margenNeto: 0, rentabilidadPorParcela: [], rentabilidadPorCultivo: [], costosPorCategoria: [], costosMensuales: [] };
 
-    const totalCostos = costos.reduce((acc, costo) => acc + costo.monto, 0);
+    const totalCostos = eventos.reduce((acc, evento) => acc + (evento.costoTotal || 0), 0);
     const totalIngresos = ventas.reduce((acc, venta) => acc + venta.toneladas * venta.precioTonelada, 0);
     const margenNeto = totalIngresos - totalCostos;
 
     const rentabilidadPorParcela = parcelas.map(parcela => {
-      const costosParcela = costos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + c.monto, 0);
+      const costosParcela = eventos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + (c.costoTotal || 0), 0);
       const ingresosParcela = ventas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       return {
         nombre: parcela.nombre,
@@ -47,7 +47,7 @@ export default function DashboardFinancieroPage() {
     }).sort((a, b) => b.rentabilidad - a.rentabilidad);
 
     const rentabilidadPorCultivo = cultivos.map(cultivo => {
-      const costosCultivo = costos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + c.monto, 0);
+      const costosCultivo = eventos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + (c.costoTotal || 0), 0);
       const ingresosCultivo = ventas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       return {
         name: cultivo.nombre,
@@ -55,22 +55,22 @@ export default function DashboardFinancieroPage() {
       };
     }).sort((a,b) => b.rentabilidad - a.rentabilidad);
 
-    const costosPorCategoria = costos.reduce((acc, costo) => {
-      const tipo = costo.tipo || 'Sin tipo';
-      acc[tipo] = (acc[tipo] || 0) + costo.monto;
+    const costosPorCategoria = eventos.reduce((acc, evento) => {
+      const categoria = evento.categoria || 'Otros';
+      acc[categoria] = (acc[categoria] || 0) + (evento.costoTotal || 0);
       return acc;
     }, {} as Record<string, number>);
     const costosCategoriaData = Object.entries(costosPorCategoria).map(([name, value]) => ({ name, value }));
 
-    const costosMensuales = costos.reduce((acc, costo) => {
-      const month = format(new Date(costo.fecha as string), 'MMM yyyy');
-      acc[month] = (acc[month] || 0) + costo.monto;
+    const costosMensuales = eventos.reduce((acc, evento) => {
+      const month = format(new Date(evento.fecha as string), 'MMM yyyy');
+      acc[month] = (acc[month] || 0) + (evento.costoTotal || 0);
       return acc;
     }, {} as Record<string, number>);
     const costosMensualesData = Object.entries(costosMensuales).map(([name, total]) => ({ name, total })).slice(-6);
 
     return { totalCostos, totalIngresos, margenNeto, rentabilidadPorParcela, rentabilidadPorCultivo, costosPorCategoria: costosCategoriaData, costosMensuales: costosMensualesData };
-  }, [costos, ventas, parcelas, cultivos]);
+  }, [eventos, ventas, parcelas, cultivos]);
 
   const isLoading = l1 || l2 || l3 || l4;
   if(isLoading) return <p>Cargando dashboard financiero...</p>

@@ -10,14 +10,14 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query } from "firebase/firestore";
-import type { Costo, Venta, Parcela, Cultivo } from "@/lib/types";
+import type { Evento, Venta, Parcela, Cultivo } from "@/lib/types";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function RentabilidadPage() {
   const firestore = useFirestore();
 
-  const { data: costos, isLoading: l1 } = useCollection<Costo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'costos')) : null, [firestore]));
+  const { data: eventos, isLoading: l1 } = useCollection<Evento>(useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos')) : null, [firestore]));
   const { data: ventas, isLoading: l2 } = useCollection<Venta>(useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas')) : null, [firestore]));
   const { data: parcelas, isLoading: l3 } = useCollection<Parcela>(useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]));
   const { data: cultivos, isLoading: l4 } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]));
@@ -25,13 +25,13 @@ export default function RentabilidadPage() {
   const isLoading = l1 || l2 || l3 || l4;
 
   const { totalIngresos, totalCostos, rentabilidadTotal, rentabilidadPorCultivo, rentabilidadPorParcela, composicionIngresos } = useMemo(() => {
-    if (!costos || !ventas || !parcelas || !cultivos) return { totalIngresos: 0, totalCostos: 0, rentabilidadTotal: 0, rentabilidadPorCultivo: [], rentabilidadPorParcela: [], composicionIngresos: [] };
+    if (!eventos || !ventas || !parcelas || !cultivos) return { totalIngresos: 0, totalCostos: 0, rentabilidadTotal: 0, rentabilidadPorCultivo: [], rentabilidadPorParcela: [], composicionIngresos: [] };
     
     const totalIngresos = ventas.reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
-    const totalCostos = costos.reduce((sum, c) => sum + c.monto, 0);
+    const totalCostos = eventos.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
     
     const rentabilidadPorCultivo = cultivos.map(cultivo => {
-      const costosCultivo = costos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + c.monto, 0);
+      const costosCultivo = eventos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + (c.costoTotal || 0), 0);
       const ingresosCultivo = ventas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       const rentabilidadNeta = ingresosCultivo - costosCultivo;
       const margen = ingresosCultivo > 0 ? (rentabilidadNeta / ingresosCultivo) * 100 : 0;
@@ -45,7 +45,7 @@ export default function RentabilidadPage() {
     }).filter(c => c.ingresos > 0 || c.costos > 0);
 
     const rentabilidadPorParcela = parcelas.map(parcela => {
-      const costosParcela = costos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + c.monto, 0);
+      const costosParcela = eventos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + (c.costoTotal || 0), 0);
       const ingresosParcela = ventas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
       const margenNeto = ingresosParcela - costosParcela;
       const margenPorHa = parcela.superficie > 0 ? margenNeto / parcela.superficie : 0;
@@ -81,7 +81,7 @@ export default function RentabilidadPage() {
       rentabilidadPorParcela,
       composicionIngresos
     };
-  }, [costos, ventas, cultivos, parcelas]);
+  }, [eventos, ventas, cultivos, parcelas]);
 
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");

@@ -138,6 +138,7 @@ export type Mantenimiento = {
   notas?: string;
 };
 
+// DEPRECATED: No longer used. Costs are derived from Events.
 export type Costo = {
     id: string;
     parcelaId: string;
