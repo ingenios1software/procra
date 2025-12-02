@@ -74,9 +74,8 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? collection(firestore, 'insumos') : null, [firestore]));
   const { data: compras } = useCollection<Compra>(useMemoFirebase(() => firestore ? collection(firestore, 'compras') : null, [firestore]));
 
-  const form = useForm<EventoFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: evento 
+  const getInitialValues = () => {
+    const base = evento 
       ? { ...evento, fecha: new Date(evento.fecha as string) } 
       : draft && Object.keys(draft).length > 0
         ? { ...draft, fecha: draft.fecha ? new Date(draft.fecha) : new Date() }
@@ -85,7 +84,24 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
             tipo: 'siembra',
             productos: [],
             descripcion: "",
-          },
+          };
+
+    // Ensure optional number fields are not undefined
+    return {
+      ...base,
+      hectareasAplicadas: base.hectareasAplicadas ?? '',
+      costoServicioPorHa: base.costoServicioPorHa ?? '',
+      temperatura: base.temperatura ?? '',
+      humedad: base.humedad ?? '',
+      viento: base.viento ?? '',
+      toneladas: base.toneladas ?? '',
+      precioTonelada: base.precioTonelada ?? '',
+    };
+  }
+
+  const form = useForm<EventoFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: getInitialValues() as any,
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -105,7 +121,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     if (evento) return;
 
     const intervalId = setInterval(() => {
-        setDraft(watchedValuesRef.current);
+        setDraft(watchedValuesRef.current as EventoBorrador);
     }, 1000); // Save every second
 
     return () => clearInterval(intervalId);
@@ -196,14 +212,15 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   
   const totalCostoEvento = useMemo(() => {
     if (!insumos) return 0;
-
+    
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
+        if (!prod || !prod.insumoId || !prod.cantidad) return acc;
         const insumo = insumos.find(i => i.id === prod.insumoId);
         const costoUnitario = insumo?.costoUnitario || 0;
         return acc + (prod.cantidad * costoUnitario);
     }, 0) || 0;
 
-    const costoServicio = (watchedHectareas || 0) * (watchedCostoServicio || 0);
+    const costoServicio = (Number(watchedHectareas) || 0) * (Number(watchedCostoServicio) || 0);
     
     return costoProductos + costoServicio;
   }, [watchedProductos, watchedHectareas, watchedCostoServicio, insumos]);
