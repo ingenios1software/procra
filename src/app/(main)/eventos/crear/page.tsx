@@ -22,9 +22,13 @@ export default function CrearEventoPage() {
     const maxLanzamiento = todosLosEventos.length > 0 && todosLosEventos[0].numeroLanzamiento 
       ? todosLosEventos[0].numeroLanzamiento
       : 0;
+      
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([, value]) => value !== undefined)
+    );
 
     const dataToSave = { 
-        ...data, 
+        ...cleanData, 
         fecha: (data.fecha as Date).toISOString(),
         numeroLanzamiento: (maxLanzamiento || 0) + 1
     };

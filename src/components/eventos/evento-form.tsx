@@ -96,6 +96,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       viento: base.viento ?? '',
       toneladas: base.toneladas ?? '',
       precioTonelada: base.precioTonelada ?? '',
+      resultado: base.resultado ?? '',
     };
   }
 
