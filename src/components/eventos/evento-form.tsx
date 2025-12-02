@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
-import { useMemo, useEffect, useCallback, useRef } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from 'firebase/firestore';
@@ -209,23 +209,56 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     });
     return () => subscription.unsubscribe();
   }, [form]);
+
+    const insumoCosts = useMemo(() => {
+        const costs: Record<string, number> = {};
+        if (!compras || !insumos) return costs;
+
+        // Start with base costs from insumos
+        insumos.forEach(insumo => {
+            costs[insumo.id] = insumo.costoUnitario || 0;
+        });
+
+        // Sort purchases by date to get the latest price
+        const sortedCompras = [...compras].sort((a, b) => new Date(b.fecha as string).getTime() - new Date(a.fecha as string).getTime());
+
+        sortedCompras.forEach(compra => {
+            compra.items.forEach(item => {
+                if (!costs[item.insumoId] || costs[item.insumoId] === 0) {
+                     // If we haven't found a newer price, use this one
+                    if (new Date(compra.fecha as string) > (new Date('2000-01-01'))) { // A bit of a hack to prioritize purchase prices
+                         costs[item.insumoId] = item.precioUnitario;
+                    }
+                }
+            });
+        });
+        
+         // Last pass to ensure we have the latest price for everything
+        insumos.forEach(insumo => {
+            const relevantPurchases = compras.flatMap(c => c.items.filter(i => i.insumoId === insumo.id).map(i => ({...i, fecha: new Date(c.fecha as string)})));
+            if (relevantPurchases.length > 0) {
+                const latestPurchase = relevantPurchases.sort((a,b) => b.fecha.getTime() - a.fecha.getTime())[0];
+                costs[insumo.id] = latestPurchase.precioUnitario;
+            }
+        });
+
+
+        return costs;
+    }, [compras, insumos]);
   
   const totalCostoEvento = useMemo(() => {
-    if (!insumos) return 0;
-    
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
         if (!prod || !prod.insumoId || !prod.cantidad) {
             return acc;
         }
-        const insumo = insumos.find(i => i.id === prod.insumoId);
-        const costoUnitario = insumo?.costoUnitario || 0;
+        const costoUnitario = insumoCosts[prod.insumoId] || 0;
         return acc + (prod.cantidad * costoUnitario);
     }, 0) || 0;
 
     const costoServicio = (Number(watchedHectareas) || 0) * (Number(watchedCostoServicio) || 0);
     
     return costoProductos + costoServicio;
-  }, [watchedProductos, watchedHectareas, watchedCostoServicio, insumos]);
+  }, [watchedProductos, watchedHectareas, watchedCostoServicio, insumoCosts]);
 
   const analisisProps = useMemo(() => ({
     eventoActual: { ...form.getValues(), fecha: watchedFecha, parcelaId: watchedParcelaId, zafraId: watchedZafraId } as Evento,
