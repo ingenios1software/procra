@@ -67,5 +67,8 @@ service cloud.firestore {
     match /asientosDiario/{asientoId} {
       allow read, write: if request.auth != null;
     }
+    match /costos/{costoId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
