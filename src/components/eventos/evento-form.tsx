@@ -18,11 +18,12 @@ import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
 import { useMemo, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useDraftStore } from "@/store/draft-store";
 import isEqual from 'lodash.isequal';
 import { InsumoSelector } from "../insumos/InsumoSelector";
+import { procesarConsumoDeStockDesdeEvento } from "@/lib/stock/consumo-desde-evento";
 
 
 const productoSchema = z.object({
@@ -65,6 +66,7 @@ interface EventoFormProps {
 export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
   const { draft, setDraft, clearDraft } = useDraftStore();
 
   const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
@@ -178,18 +180,21 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
 
   const handleSubmit = (data: EventoFormValues) => {
-    const cleanData = Object.fromEntries(
-        Object.entries(data).filter(([, value]) => value !== undefined)
-    );
+    if (!firestore || !user) return;
+    
+    const productosFinal = data.productos?.map(p => {
+        const consumoCalculado = (p.dosis || 0) * (data.hectareasAplicadas || 0);
+        return {
+            insumoId: p.insumo.id,
+            dosis: p.dosis,
+            cantidad: consumoCalculado, // Usar el consumo calculado final
+        };
+    });
+
     const dataConCostoTotal = {
-      ...cleanData,
+      ...data,
       costoTotal: totalCostoEvento,
-      // Mapear solo el ID del insumo para guardarlo en Firestore
-      productos: data.productos?.map(p => ({
-        insumoId: p.insumo.id,
-        dosis: p.dosis,
-        cantidad: p.cantidad
-      }))
+      productos: productosFinal,
     };
     onSave(dataConCostoTotal);
     clearDraft();
@@ -202,13 +207,13 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         tipo: 'aplicacion',
         productos: [],
         descripcion: "",
-        hectareasAplicadas: '',
-        costoServicioPorHa: '',
-        temperatura: '',
-        humedad: '',
-        viento: '',
-        toneladas: '',
-        precioTonelada: '',
+        hectareasAplicadas: '' as any,
+        costoServicioPorHa: '' as any,
+        temperatura: '' as any,
+        humedad: '' as any,
+        viento: '' as any,
+        toneladas: '' as any,
+        precioTonelada: '' as any,
         resultado: '',
     });
     toast({

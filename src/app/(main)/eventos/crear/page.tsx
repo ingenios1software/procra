@@ -4,20 +4,22 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EventoForm } from "@/components/eventos/evento-form";
 import { useRouter } from "next/navigation";
 import type { Evento } from "@/lib/types";
-import { useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, orderBy, getCountFromServer } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
+import { procesarConsumoDeStockDesdeEvento } from "@/lib/stock/consumo-desde-evento";
 
 export default function CrearEventoPage() {
   const router = useRouter();
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const eventosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('numeroLanzamiento', 'desc')) : null, [firestore]);
   const { data: todosLosEventos } = useCollection<Evento>(eventosQuery);
 
   const handleSave = async (data: Omit<Evento, 'id'>) => {
-    if (!firestore || !todosLosEventos) return;
+    if (!firestore || !todosLosEventos || !user) return;
 
     const maxLanzamiento = todosLosEventos.length > 0 && todosLosEventos[0].numeroLanzamiento 
       ? todosLosEventos[0].numeroLanzamiento
@@ -38,11 +40,23 @@ export default function CrearEventoPage() {
         numeroItem,
     };
 
-    addDocumentNonBlocking(eventosCol, dataToSave);
+    const docRef = await addDocumentNonBlocking(eventosCol, dataToSave);
+    
+    if (docRef) {
+      const eventoGuardado = { ...dataToSave, id: docRef.id };
+      const { success, errors } = await procesarConsumoDeStockDesdeEvento(eventoGuardado, firestore, user.uid);
+      if (!success) {
+        toast({
+          variant: "destructive",
+          title: "Error en el consumo de stock",
+          description: errors.join('. '),
+        });
+      }
+    }
     
     toast({
         title: `Evento #${dataToSave.numeroLanzamiento} (Item Nº ${numeroItem}) creado`,
-        description: `El evento "${data.descripcion}" ha sido guardado.`,
+        description: `El evento "${data.descripcion}" ha sido guardado y el stock actualizado.`,
     });
     router.push('/eventos');
   }

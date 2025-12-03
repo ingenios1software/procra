@@ -51,6 +51,7 @@ export type Evento = {
     insumo?: Insumo; // Objeto completo del insumo para fácil acceso
     cantidad: number;
     dosis: number;
+    consumoCalculado?: number;
   }[];
   costoTotal?: number;
   hectareasAplicadas?: number;
@@ -113,12 +114,49 @@ export type Insumo = {
 export type MovimientoInsumo = {
   id: string;
   insumoId: string;
-  tipo: 'entrada' | 'salida';
+  tipo: 'entrada' | 'salida' | 'ajuste';
   cantidad: number;
   fecha: Date;
+  origen: 'compra' | 'evento' | 'ajuste manual';
+  origenId?: string; // ID de la compra, evento o ajuste
   lote?: string;
   eventoId?: string;
 };
+
+export type AjusteInsumo = {
+  id: string;
+  insumoId: string;
+  fecha: Date;
+  cantidad: number; // Positivo para agregar, negativo para quitar
+  motivo: string;
+  responsableId: string;
+}
+
+export type MovimientoStock = {
+    id: string;
+    fecha: Date;
+    tipo: "salida" | "entrada" | "ajuste";
+    origen: "evento" | "compra" | "ajuste manual";
+    eventoId?: string;
+    compraId?: string;
+    ajusteId?: string;
+    parcelaId?: string;
+    parcelaNombre?: string;
+    zafraId?: string;
+    cultivo?: string;
+    insumoId: string;
+    insumoNombre: string;
+    unidad: string;
+    categoria: string;
+    cantidad: number;
+    stockAntes: number;
+    stockDespues: number;
+    precioUnitario: number;
+    costoTotal: number;
+    creadoPor: string;
+    creadoEn: Date;
+};
+
 
 export type Maquinaria = {
   id: string;
