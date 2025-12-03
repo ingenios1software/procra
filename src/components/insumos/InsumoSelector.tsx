@@ -30,12 +30,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import type { Insumo } from "@/lib/types";
 import { collection, orderBy, query } from "firebase/firestore";
@@ -86,9 +80,9 @@ export function InsumoSelector({
   );
   const { data: insumos, isLoading } = useCollection<Insumo>(insumosQuery);
 
-  const { insumosFiltrados, gruposCategorias } = React.useMemo(() => {
+  const { gruposCategorias } = React.useMemo(() => {
     if (!insumos) {
-      return { insumosFiltrados: [], gruposCategorias: [] };
+      return { gruposCategorias: [] };
     }
 
     const filtered = filtrarInsumos(insumos, searchQuery);
@@ -105,20 +99,9 @@ export function InsumoSelector({
     const orderedGroups = Object.entries(grouped).sort((a,b) => a[0].localeCompare(b[0]));
 
     return {
-      insumosFiltrados: filtered,
       gruposCategorias: orderedGroups,
     };
   }, [insumos, searchQuery]);
-
-  const getStockIndicator = (insumo: Insumo) => {
-    if (insumo.stockActual < insumo.stockMinimo) {
-        return <AlertCircle className="h-4 w-4 text-destructive" />;
-    }
-    if (insumo.stockActual < insumo.stockMinimo * 1.2) {
-        return <AlertCircle className="h-4 w-4 text-yellow-500" />;
-    }
-    return null;
-  }
 
   const selectorContent = (
     <Command>
@@ -157,16 +140,18 @@ export function InsumoSelector({
                     }}
                     className="cursor-pointer"
                   >
-                    <div className="flex flex-col">
-                      <span className="font-semibold">
-                        #{insumo.numeroItem} — {insumo.nombre}
-                      </span>
-                      <span className="text-sm">
-                        Stock: {insumo.stockActual} {insumo.unidad}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Costo promedio: {insumo.precioPromedioCalculado}
-                      </span>
+                     <div className="flex flex-col w-full">
+                        <div className="flex justify-between items-center">
+                            <span className="font-semibold text-base">#{insumo.numeroItem} — {insumo.nombre}</span>
+                            <span className="text-xs bg-muted px-2 py-1 rounded-full">{insumo.unidad}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-muted-foreground mt-1">
+                            <span>Stock: {insumo.stockActual?.toLocaleString('en-US') || 0}</span>
+                            <span>Precio: ${insumo.precioPromedioCalculado?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || 0}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                            Principio Activo: {insumo.principioActivo || '----'}
+                        </div>
                     </div>
                   </CommandItem>
                 ))}
