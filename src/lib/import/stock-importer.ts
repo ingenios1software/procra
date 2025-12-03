@@ -47,8 +47,6 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
     const headers = Object.keys(json[0]);
     const missingFields: string[] = [];
     if (!hasAnyColumn(headers, COLUMN_ALIASES.nombre)) missingFields.push("Nombre");
-    if (!hasAnyColumn(headers, COLUMN_ALIASES.categoria)) missingFields.push("Categoría");
-    if (!hasAnyColumn(headers, COLUMN_ALIASES.unidad)) missingFields.push("Unidad");
 
     if (missingFields.length > 0) {
         return { success: false, errors: [`Faltan columnas obligatorias en el Excel: ${missingFields.join(", ")}`] };
@@ -91,22 +89,20 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
         for (const item of mappedData) {
             const stockActual = item.entradaTotal - item.salidaTotal;
 
-            // NO incluimos precioPromedioCalculado aquí.
             const finalItemData = {
                 nombre: item.nombre,
                 principioActivo: item.principioActivo || null,
                 dosisRecomendada: item.dosisRecomendada || null,
                 categoria: item.categoria,
                 unidad: item.unidad,
-                stockActual: stockActual, // Este es el único stock que gestiona el importador
+                stockActual: stockActual,
                 stockMinimo: item.stockMinimo,
-                costoUnitario: 0, // Default a 0, ya no viene del Excel.
+                costoUnitario: 0,
             };
 
             const existing = existingInsumos.get(item.nombre);
             if (existing) {
                 const docRef = doc(db, "insumos", existing.id);
-                // Actualizamos solo los campos del excel, no el precio calculado
                 batch.update(docRef, finalItemData);
             } else {
                 const docRef = doc(insumosCollection);

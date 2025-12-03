@@ -72,8 +72,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
   const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
   const { data: insumos, isLoading: isLoadingInsumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos'), orderBy('nombre')) : null, [firestore]));
-  const { data: compras } = useCollection<Compra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'compras'), orderBy('fecha', 'desc')) : null, [firestore]));
-
+  
   const getInitialValues = () => {
     const base = evento 
       ? { ...evento, fecha: new Date(evento.fecha as string) } 
@@ -138,58 +137,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedFecha = form.watch('fecha');
 
 
-  const stockCalculado = useMemo(() => {
-    if (!insumos || !compras || !todosLosEventos) return {};
-
-    const allEvents: (
-      { type: 'entrada'; fecha: Date; insumoId: string; cantidad: number; costo: number; } |
-      { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
-    )[] = [];
-
-    insumos.forEach(insumo => {
-        if (insumo.stockActual > 0) {
-            allEvents.push({ type: 'entrada', fecha: new Date('2000-01-01'), insumoId: insumo.id, cantidad: insumo.stockActual, costo: insumo.costoUnitario });
-        }
-    });
-
-    compras.forEach(compra => {
-        compra.items.forEach(item => {
-            allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha as string), insumoId: item.insumoId, cantidad: item.cantidad, costo: item.precioUnitario });
-        });
-    });
-
-    todosLosEventos.forEach(evento => {
-        evento.productos?.forEach(prod => {
-            allEvents.push({ type: 'salida', fecha: new Date(evento.fecha as string), insumoId: prod.insumoId, cantidad: prod.cantidad });
-        });
-    });
-    
-    allEvents.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
-
-    const stockFinal: Record<string, { stock: number; unidad: string; }> = {};
-    insumos.forEach(insumo => {
-        let currentStock = 0;
-        const insumoMovements = allEvents.filter(e => e.insumoId === insumo.id);
-        
-        insumoMovements.forEach(mov => {
-            if (mov.type === 'entrada') {
-                currentStock += mov.cantidad;
-            } else if (mov.type === 'salida') {
-                currentStock -= mov.cantidad;
-            }
-        });
-
-        stockFinal[insumo.id] = { stock: Math.max(0, currentStock), unidad: insumo.unidad };
-    });
-
-    return stockFinal;
-  }, [insumos, compras, todosLosEventos]);
-
-  const insumosConStock = useMemo(() => {
-    if (!insumos) return [];
-    return insumos.filter(insumo => (stockCalculado[insumo.id]?.stock || 0) > 0);
-  }, [insumos, stockCalculado]);
-
   // Effect for auto-calculation of `cantidad`
   useEffect(() => {
     const subscription = form.watch((value, { name, type }) => {
@@ -210,15 +157,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     });
     return () => subscription.unsubscribe();
   }, [form]);
-
-    const insumoCosts = useMemo(() => {
-        const costs: Record<string, number> = {};
-        if (!insumos) return costs;
-        insumos.forEach(insumo => {
-            costs[insumo.id] = insumo.costoUnitario || 0;
-        });
-        return costs;
-    }, [insumos]);
   
   const totalCostoEvento = useMemo(() => {
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
@@ -320,9 +258,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   </CardHeader>
                   <CardContent className="p-2 space-y-4">
                      {fields.map((field, index) => {
-                       const selectedInsumoId = form.watch(`productos.${index}.insumoId`);
-                       const stockInfo = selectedInsumoId ? stockCalculado[selectedInsumoId] : null;
-
                        return (
                         <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
                             <FormField name={`productos.${index}.insumoId`} control={form.control} render={({ field }) => ( 
@@ -348,7 +283,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                                             )}
                                         </SelectContent>
                                      </Select>
-                                     {stockInfo && <FormDescription className="text-xs pt-1">Stock Disponible: {stockInfo.stock.toFixed(2)} {stockInfo.unidad}</FormDescription>}
                                     <FormMessage />
                                 </FormItem> 
                             )}/>
