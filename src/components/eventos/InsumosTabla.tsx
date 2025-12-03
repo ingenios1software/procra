@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useCallback } from "react";
@@ -46,14 +47,14 @@ export function InsumosTabla({ fields, hectareas, append, remove, update }: Insu
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12">Ítem</TableHead>
-              <TableHead className="min-w-[300px]">Nombre del Insumo</TableHead>
-              <TableHead>Unidad</TableHead>
-              <TableHead>Dosis/ha</TableHead>
-              <TableHead>Cantidad Total</TableHead>
-              <TableHead className="text-right">Precio Unitario</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
-              <TableHead className="text-right">Acción</TableHead>
+              <TableHead className="w-12 py-2 px-4">Ítem</TableHead>
+              <TableHead className="min-w-[300px] py-2 px-4">Nombre del Insumo</TableHead>
+              <TableHead className="py-2 px-4">Unidad</TableHead>
+              <TableHead className="py-2 px-4">Dosis/ha</TableHead>
+              <TableHead className="py-2 px-4">Cantidad Total</TableHead>
+              <TableHead className="text-right py-2 px-4">Precio Unitario</TableHead>
+              <TableHead className="text-right py-2 px-4">Valor</TableHead>
+              <TableHead className="text-right py-2 px-4">Acción</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -64,27 +65,27 @@ export function InsumosTabla({ fields, hectareas, append, remove, update }: Insu
 
               return (
                 <TableRow key={field.id}>
-                  <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell>
+                  <TableCell className="font-medium text-muted-foreground py-1 px-4">{index + 1}</TableCell>
+                  <TableCell className="py-1 px-4">
                     <InsumoSelector
                       value={field.insumo}
                       onChange={(insumo) => handleInsumoChange(index, insumo)}
                     />
                   </TableCell>
-                  <TableCell>{field.insumo?.unidad || 'N/A'}</TableCell>
-                  <TableCell>
+                  <TableCell className="py-1 px-4">{field.insumo?.unidad || 'N/A'}</TableCell>
+                  <TableCell className="py-1 px-4">
                     <Input
                       type="number"
                       value={field.dosis || ''}
                       onChange={(e) => handleDosisChange(index, e)}
                       placeholder="0"
-                      className="w-24"
+                      className="w-24 h-9"
                     />
                   </TableCell>
-                  <TableCell className="font-mono">{cantidadTotal.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono">${precioUnitario.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">${valorTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="font-mono py-1 px-4">{cantidadTotal.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono py-1 px-4">${precioUnitario.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono font-semibold py-1 px-4">${valorTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right py-1 px-4">
                     <Button variant="ghost" size="icon" onClick={() => remove(index)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -100,9 +101,9 @@ export function InsumosTabla({ fields, hectareas, append, remove, update }: Insu
           </TableBody>
           <TableFooter>
              <TableRow>
-                <TableCell colSpan={6} className="text-right font-semibold">Valor Total de Items</TableCell>
-                <TableCell className="text-right font-bold text-lg font-mono">${valorTotalItems.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
-                <TableCell></TableCell>
+                <TableCell colSpan={6} className="text-right font-semibold py-2 px-4">Valor Total de Items</TableCell>
+                <TableCell className="text-right font-bold text-lg font-mono py-2 px-4">${valorTotalItems.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                <TableCell className="py-2 px-4"></TableCell>
              </TableRow>
           </TableFooter>
         </Table>
