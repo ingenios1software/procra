@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast";
 import { collection, doc, getCountFromServer } from "firebase/firestore";
+import Link from "next/link";
 
 interface ZafrasListProps {
   initialZafras: Zafra[];
@@ -139,7 +140,11 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
               {initialZafras.map((zafra) => (
                 <TableRow key={zafra.id}>
                   <TableCell className="font-medium text-muted-foreground">{zafra.numeroItem}</TableCell>
-                  <TableCell className="font-medium">{zafra.nombre}</TableCell>
+                  <TableCell className="font-medium">
+                     <Link href={`/zafras/${zafra.id}`} className="hover:underline text-primary">
+                      {zafra.nombre}
+                    </Link>
+                  </TableCell>
                   <TableCell>{format(new Date(zafra.fechaInicio as string), "dd/MM/yyyy")}</TableCell>
                   <TableCell>{zafra.fechaFin ? format(new Date(zafra.fechaFin as string), "dd/MM/yyyy") : 'N/A'}</TableCell>
                   <TableCell>
