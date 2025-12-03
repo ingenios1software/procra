@@ -41,7 +41,7 @@ export function AuthenticatedLayout({
           </main>
         </div>
         <footer className="text-center text-xs text-muted-foreground p-4 border-t">
-          © 2024 CRApro95 - Creado por Anibal Gonzalez. Todos los derechos reservados.
+          © 2024 CRApro95 - Creado por Ricardo Ortellado. Todos los derechos reservados.
         </footer>
       </div>
       <ConnectionStatusIndicator />
