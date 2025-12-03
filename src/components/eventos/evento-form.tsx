@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Foto } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser } from "lucide-react";
+import { CalendarIcon, Cloud, Thermometer, Wind, DollarSign, Eraser } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
 import { useMemo, useEffect, useRef, useState } from "react";
@@ -22,7 +22,6 @@ import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebas
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useDraftStore } from "@/store/draft-store";
 import isEqual from 'lodash.isequal';
-import { InsumoSelector } from "../insumos/InsumoSelector";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
 import { ImageUpload } from "./ImageUpload";
@@ -146,7 +145,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedZafraId = form.watch('zafraId');
   const watchedFecha = form.watch('fecha');
   
-  const totalCostoEvento = useMemo(() => {
+  const { totalInsumos, totalServicio, totalEvento } = useMemo(() => {
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
         if (!prod || !prod.insumo || !prod.dosis) {
             return acc;
@@ -158,7 +157,11 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
     const costoServicio = (Number(watchedHectareas) || 0) * (Number(watchedCostoServicio) || 0);
     
-    return costoProductos + costoServicio;
+    return {
+      totalInsumos: costoProductos,
+      totalServicio: costoServicio,
+      totalEvento: costoProductos + costoServicio
+    };
   }, [watchedProductos, watchedHectareas, watchedCostoServicio]);
 
   const analisisProps = useMemo(() => ({
@@ -187,7 +190,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     const dataConCostoTotal = {
       ...data,
       fotos: data.fotos || [],
-      costoTotal: totalCostoEvento,
+      costoTotal: totalEvento,
       productos: productosFinal,
     };
     onSave(dataConCostoTotal);
@@ -315,10 +318,19 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
               <div className="flex justify-end pt-4 gap-4">
                  <div className="flex items-center gap-4 p-3 rounded-lg bg-background border border-primary/20 mr-auto">
-                    <DollarSign className="h-6 w-6 text-primary" />
-                    <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Costo Total del Evento</p>
-                        <p className="text-xl font-bold text-primary">${totalCostoEvento.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <div className="flex flex-col gap-2">
+                        <div className="flex justify-between items-center gap-4">
+                            <span className="text-sm text-muted-foreground">Valor Total de Ítems:</span>
+                            <span className="font-mono font-semibold">${totalInsumos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                         <div className="flex justify-between items-center gap-4">
+                            <span className="text-sm text-muted-foreground">Costo de Servicio:</span>
+                            <span className="font-mono font-semibold">${totalServicio.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between items-center gap-4 border-t pt-2 mt-1">
+                            <span className="text-lg font-bold text-primary">Costo Total del Evento:</span>
+                            <span className="text-xl font-bold text-primary font-mono">${totalEvento.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
                     </div>
                  </div>
 

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useCallback } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InsumoSelector } from "../insumos/InsumoSelector";
@@ -60,13 +60,6 @@ export function InsumosTabla({ fields, hectareas, append, remove, update }: Insu
     update(index, { dosis: newDosis });
   }, [update]);
 
-  const valorTotalItems = fields.reduce((acc, field, index) => {
-    const cantidad = (hectareas || 0) * (field.dosis || 0);
-    const precio = field.insumo?.precioPromedioCalculado || field.insumo?.costoUnitario || 0;
-    const valor = cantidad * precio;
-    return acc + valor;
-  }, 0);
-
   return (
     <>
       <div className="overflow-x-auto border rounded-md">
@@ -78,7 +71,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, update }: Insu
               <TableHead className="py-2 px-4">Unidad</TableHead>
               <TableHead className="py-2 px-4">Dosis/ha</TableHead>
               <TableHead className="py-2 px-4">Cantidad Total</TableHead>
-              <TableHead className="text-right py-2 px-4">Precio Unitario</TableHead>
+              <TableHead className="text-right py-2 px-4">Precio Unit.</TableHead>
               <TableHead className="text-right py-2 px-4">Valor</TableHead>
               <TableHead className="text-right py-2 px-4">Acción</TableHead>
             </TableRow>
@@ -128,13 +121,6 @@ export function InsumosTabla({ fields, hectareas, append, remove, update }: Insu
                 </TableRow>
              )}
           </TableBody>
-          <TableFooter>
-             <TableRow>
-                <TableCell colSpan={6} className="text-right font-semibold py-2 px-4">Valor Total de Items</TableCell>
-                <TableCell className="text-right font-bold text-lg font-mono py-2 px-4">${valorTotalItems.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
-                <TableCell className="py-2 px-4"></TableCell>
-             </TableRow>
-          </TableFooter>
         </Table>
       </div>
       <Button
