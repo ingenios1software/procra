@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InsumoSelector } from "../insumos/InsumoSelector";
-import { Trash2, PlusCircle } from "lucide-react";
+import { Trash2, PlusCircle, AlertTriangle } from "lucide-react";
 import type { Insumo } from "@/lib/types";
 
 interface ProductoField {
@@ -22,6 +22,32 @@ interface InsumosTablaProps {
   remove: (index: number) => void;
   update: (index: number, value: Partial<ProductoField>) => void;
 }
+
+const StockAlert = ({ insumo, cantidadNecesaria }: { insumo: Insumo, cantidadNecesaria: number }) => {
+    const stockActual = insumo.stockActual || 0;
+    const stockMinimo = insumo.stockMinimo || 0;
+
+    if (cantidadNecesaria > stockActual) {
+        return (
+            <div className="flex items-center gap-1.5 mt-1.5 text-red-600 font-medium text-xs">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                <span>Stock insuficiente: necesita {cantidadNecesaria.toFixed(2)} y hay {stockActual.toFixed(2)}</span>
+            </div>
+        );
+    }
+    
+    if (stockActual <= stockMinimo) {
+        return (
+            <div className="flex items-center gap-1.5 mt-1.5 text-amber-600 text-xs">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                <span>Stock bajo (quedan {stockActual.toFixed(2)} {insumo.unidad})</span>
+            </div>
+        );
+    }
+
+    return null;
+}
+
 
 export function InsumosTabla({ fields, hectareas, append, remove, update }: InsumosTablaProps) {
 
@@ -66,14 +92,17 @@ export function InsumosTabla({ fields, hectareas, append, remove, update }: Insu
               return (
                 <TableRow key={field.id}>
                   <TableCell className="font-medium text-muted-foreground py-1 px-4">{index + 1}</TableCell>
-                  <TableCell className="py-1 px-4">
+                  <TableCell className="py-1 px-4 align-top">
                     <InsumoSelector
                       value={field.insumo}
                       onChange={(insumo) => handleInsumoChange(index, insumo)}
                     />
+                    {field.insumo && (
+                        <StockAlert insumo={field.insumo} cantidadNecesaria={cantidadTotal} />
+                    )}
                   </TableCell>
-                  <TableCell className="py-1 px-4">{field.insumo?.unidad || 'N/A'}</TableCell>
-                  <TableCell className="py-1 px-4">
+                  <TableCell className="py-1 px-4 align-top">{field.insumo?.unidad || 'N/A'}</TableCell>
+                  <TableCell className="py-1 px-4 align-top">
                     <Input
                       type="number"
                       value={field.dosis || ''}
@@ -82,10 +111,10 @@ export function InsumosTabla({ fields, hectareas, append, remove, update }: Insu
                       className="w-24 h-9"
                     />
                   </TableCell>
-                  <TableCell className="font-mono py-1 px-4">{cantidadTotal.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono py-1 px-4">${precioUnitario.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold py-1 px-4">${valorTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right py-1 px-4">
+                  <TableCell className="font-mono py-1 px-4 align-top">{cantidadTotal.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono py-1 px-4 align-top">${precioUnitario.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono font-semibold py-1 px-4 align-top">${valorTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right py-1 px-4 align-top">
                     <Button variant="ghost" size="icon" onClick={() => remove(index)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
