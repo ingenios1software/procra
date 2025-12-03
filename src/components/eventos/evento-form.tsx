@@ -284,7 +284,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                      {fields.map((field, index) => {
                        return (
                         <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
-                            <Controller
+                            <FormField
                                 control={form.control}
                                 name={`productos.${index}.insumo`}
                                 render={({ field }) => (
