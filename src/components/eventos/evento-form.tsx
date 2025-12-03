@@ -13,15 +13,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Compra } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser } from "lucide-react";
+import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser, ChevronsUpDown, Check } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useDraftStore } from "@/store/draft-store";
 import isEqual from 'lodash.isequal';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 
 const productoSchema = z.object({
@@ -214,6 +215,32 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     })
   }
 
+    // --- Searchable Insumo Logic ---
+    const [searchQuery, setSearchQuery] = useState('');
+    const [openPopover, setOpenPopover] = useState(-1);
+
+    const insumosFiltrados = useMemo(() => {
+        if (!insumos) return [];
+        if (!searchQuery) return insumos;
+    
+        const q = searchQuery.toLowerCase();
+        const isNumeric = /^\d+$/.test(q);
+
+        return insumos.filter(ins => {
+            const numeroItemStr = ins.numeroItem?.toString() || '';
+
+            if (isNumeric) {
+                return numeroItemStr.includes(q);
+            }
+
+            const nombreMatch = ins.nombre.toLowerCase().includes(q);
+            const principioActivoMatch = ins.principioActivo ? ins.principioActivo.toLowerCase().includes(q) : false;
+        
+            return nombreMatch || principioActivoMatch;
+        });
+    }, [insumos, searchQuery]);
+    // --- End Searchable Insumo Logic ---
+
   if (!parcelas || !cultivos || !zafras || !etapasCultivo) {
     return <p>Cargando datos maestros...</p>;
   }
@@ -261,28 +288,44 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                        return (
                         <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
                             <FormField name={`productos.${index}.insumoId`} control={form.control} render={({ field }) => ( 
-                                <FormItem className="flex-grow">
+                                <FormItem className="flex flex-col flex-grow">
                                     <FormLabel>Insumo</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={isLoadingInsumos ? "Cargando..." : "Seleccionar..."} />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {isLoadingInsumos ? (
-                                                <SelectItem value="loading" disabled>Cargando insumos...</SelectItem>
-                                            ) : insumos && insumos.length > 0 ? (
-                                                insumos.map(i => (
-                                                    <SelectItem key={i.id} value={i.id}>
-                                                        {i.nombre}
-                                                    </SelectItem>
-                                                ))
-                                            ) : (
-                                                <SelectItem value="no-insumos" disabled>No hay insumos registrados</SelectItem>
-                                            )}
-                                        </SelectContent>
-                                     </Select>
+                                    <Popover open={openPopover === index} onOpenChange={(open) => setOpenPopover(open ? index : -1)}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? insumos?.find((insumo) => insumo.id === field.value)?.nombre : "Seleccionar insumo"}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[400px] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Buscar por nombre, principio activo o Nº de ítem..." onValueChange={setSearchQuery}/>
+                                                <CommandList>
+                                                    <CommandEmpty>{isLoadingInsumos ? "Cargando..." : "No se encontraron insumos."}</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {insumosFiltrados.map((insumo) => (
+                                                            <CommandItem
+                                                                value={insumo.id}
+                                                                key={insumo.id}
+                                                                onSelect={() => {
+                                                                    form.setValue(`productos.${index}.insumoId`, insumo.id);
+                                                                    setOpenPopover(-1);
+                                                                }}
+                                                            >
+                                                                <Check className={cn("mr-2 h-4 w-4", insumo.id === field.value ? "opacity-100" : "opacity-0")} />
+                                                                <div className="flex flex-col">
+                                                                    <p className="font-semibold">#{insumo.numeroItem} — {insumo.nombre}</p>
+                                                                    <p className="text-xs text-muted-foreground">Unidad: {insumo.unidad} | Categoría: {insumo.categoria}</p>
+                                                                </div>
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                     <FormMessage />
                                 </FormItem> 
                             )}/>
