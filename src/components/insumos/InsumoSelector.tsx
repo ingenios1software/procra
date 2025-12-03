@@ -61,18 +61,13 @@ export function InsumoSelector({
     let filtered = insumos;
 
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const isNumeric = /^\d+$/.test(q);
-
-      filtered = insumos.filter((ins) => {
-        if (isNumeric) {
-          return ins.numeroItem?.toString().includes(q);
-        }
-        return (
-          ins.nombre.toLowerCase().includes(q) ||
-          (ins.principioActivo && ins.principioActivo.toLowerCase().includes(q))
-        );
-      });
+        const q = searchQuery.toLowerCase();
+        filtered = insumos.filter(ins => {
+            const byNumero = ins.numeroItem?.toString().includes(q);
+            const byNombre = ins.nombre.toLowerCase().includes(q);
+            const byPrincipio = ins.principioActivo && ins.principioActivo.toLowerCase().includes(q);
+            return byNumero || byNombre || byPrincipio;
+        });
     }
 
     const grouped: Record<string, Insumo[]> = filtered.reduce((acc, ins) => {
@@ -170,7 +165,7 @@ export function InsumoSelector({
                                         </span>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        Costo Promedio: ${insumo.precioPromedioCalculado?.toLocaleString('en-US',{maximumFractionDigits: 2}) || 'N/A'}
+                                        <p>Costo Promedio: ${insumo.precioPromedioCalculado?.toLocaleString('en-US',{maximumFractionDigits: 2}) || 'N/A'}</p>
                                     </TooltipContent>
                                 </Tooltip>
                              </TooltipProvider>
