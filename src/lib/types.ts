@@ -53,10 +53,9 @@ export type Evento = {
   categoria?: 'Desecación' | 'Siembra' | 'Fertilizante' | 'Herbicida' | 'Fungicida' | 'Insecticida' | 'Cosecha' | 'Otros';
   productos?: {
     insumoId: string;
-    insumo?: Insumo; // Objeto completo del insumo para fácil acceso
+    // El objeto completo del insumo no se debe guardar en el evento. Se obtiene por referencia.
     cantidad: number;
     dosis: number;
-    consumoCalculado?: number;
   }[];
   fotos?: Foto[];
   costoTotal?: number;
