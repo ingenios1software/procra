@@ -35,6 +35,7 @@ import {
     TestTube,
     Target,
     FileText,
+    Monitor,
 } from "lucide-react"
 import {
   Accordion,
@@ -69,6 +70,7 @@ const navItems = [
         title: "Operaciones",
         icon: Tractor,
         links: [
+            { href: "/dashboard/monitoreo", icon: Monitor, label: "Monitoreo" },
             { href: "/eventos", icon: ClipboardList, label: "Eventos" },
             { href: "/stock", icon: Boxes, label: "Stock" },
             { href: "/maquinaria", icon: Wrench, label: "Maquinaria" },
