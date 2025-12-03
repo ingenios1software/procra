@@ -33,11 +33,16 @@ export function AuthenticatedLayout({
   return (
     <div className="flex min-h-screen w-full bg-muted/40">
       <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <Header />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-screen-2xl">{children}</div>
-        </main>
+      <div className="flex flex-1 flex-col justify-between">
+        <div>
+          <Header />
+          <main className="flex-1 p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto max-w-screen-2xl">{children}</div>
+          </main>
+        </div>
+        <footer className="text-center text-xs text-muted-foreground p-4 border-t">
+          © 2024 CRApro95 - Creado por Anibal Gonzalez. Todos los derechos reservados.
+        </footer>
       </div>
       <ConnectionStatusIndicator />
     </div>
