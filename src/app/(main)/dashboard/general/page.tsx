@@ -1,38 +1,31 @@
 "use client";
 
-import { useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Map, Calendar, TriangleAlert, AreaChart } from "lucide-react";
 import { format, subDays } from "date-fns";
+import { useMemo } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, where } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import type { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
-export default function DashboardPage() {
+export default function DashboardGeneralPage() {
   const firestore = useFirestore();
-
-  // Filtrar por zafra activa
-  const zafraActivaQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras'), where('estado', '==', 'en curso')) : null, [firestore]);
-  const { data: zafrasActivas, isLoading: l3 } = useCollection<Zafra>(zafraActivaQuery);
-  const zafraActiva = zafrasActivas?.[0];
 
   const { data: parcelas, isLoading: l1 } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
   const { data: cultivos, isLoading: l2 } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
-  const { data: eventos, isLoading: l4 } = useCollection<Evento>(
-    useMemoFirebase(() => 
-      firestore && zafraActiva ? query(collection(firestore, 'eventos'), where('zafraId', '==', zafraActiva.id)) : null,
-      [firestore, zafraActiva]
-  ));
+  const { data: zafras, isLoading: l3 } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
+  const { data: eventos, isLoading: l4 } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
 
   const {
     totalParcelas,
     totalHectareas,
+    zafraActiva,
     zafraProgress,
     eventosPorTipo,
     eventosPorMes,
@@ -40,15 +33,13 @@ export default function DashboardPage() {
     alertasParcelas,
     totalEventos
   } = useMemo(() => {
-    if (!parcelas || !cultivos || !zafraActiva || !eventos) {
+    if (!parcelas || !cultivos || !zafras || !eventos) {
       return { totalParcelas: 0, totalHectareas: 0, zafraProgress: 0, eventosPorTipo: {}, eventosPorMes: [], distribucionCultivos: [], alertasParcelas: [], totalEventos: 0 };
     }
-    
-    const idParcelasEnZafra = new Set(eventos.map(e => e.parcelaId));
-    const parcelasEnZafra = parcelas.filter(p => idParcelasEnZafra.has(p.id));
 
-    const totalParcelas = parcelasEnZafra.length;
-    const totalHectareas = parcelasEnZafra.reduce((acc, p) => acc + p.superficie, 0);
+    const totalParcelas = parcelas.length;
+    const totalHectareas = parcelas.reduce((acc, p) => acc + p.superficie, 0);
+    const zafraActiva = zafras.find(z => z.estado === 'en curso');
     const totalEventos = eventos.length;
 
     const eventosPorTipo = eventos.reduce((acc, evento) => {
@@ -57,13 +48,13 @@ export default function DashboardPage() {
       return acc;
     }, {} as Record<string, number>);
 
-    const zafraProgress = (() => {
+    const zafraProgress = zafraActiva ? (() => {
         const totalDuration = new Date(zafraActiva.fechaFin as string).getTime() - new Date(zafraActiva.fechaInicio as string).getTime();
         if (totalDuration <= 0) return 0;
         const elapsed = new Date().getTime() - new Date(zafraActiva.fechaInicio as string).getTime();
         const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
         return Math.round(progress);
-    })();
+    })() : 0;
 
     const eventosPorMes = (() => {
         const data = eventos.reduce((acc, evento) => {
@@ -89,34 +80,19 @@ export default function DashboardPage() {
     const parcelasConEventosRecientes = new Set(
         eventos.filter(e => new Date(e.fecha as string) > treintaDiasAtras).map(e => e.parcelaId)
     );
-    const alertasParcelas = parcelasEnZafra.filter(p => !parcelasConEventosRecientes.has(p.id));
+    const alertasParcelas = parcelas.filter(p => !parcelasConEventosRecientes.has(p.id));
 
     return { totalParcelas, totalHectareas, zafraActiva, zafraProgress, eventosPorTipo, eventosPorMes, distribucionCultivos, alertasParcelas, totalEventos };
-  }, [parcelas, cultivos, zafraActiva, eventos]);
+  }, [parcelas, cultivos, zafras, eventos]);
 
   const isLoading = l1 || l2 || l3 || l4;
-  if (isLoading) return <p>Cargando dashboard de monitoreo...</p>;
-  
-  if (!zafraActiva) {
-    return (
-        <>
-            <PageHeader
-                title="Dashboard de Monitoreo"
-                description="Vista general de la zafra activa."
-            />
-            <Card className="flex items-center justify-center h-48 border-dashed">
-                <p className="text-muted-foreground">No hay una zafra "en curso" activa para mostrar el dashboard.</p>
-            </Card>
-        </>
-    )
-  }
-
+  if (isLoading) return <p>Cargando dashboard...</p>;
 
   return (
     <>
       <PageHeader
-        title="Dashboard de Monitoreo"
-        description={`Resumen de la zafra activa: ${zafraActiva?.nombre || 'N/A'}`}
+        title="Bienvenido a CRApro95"
+        description="Sistema Integral de Gestión Agrícola. Administra tus parcelas, cultivos, eventos y zafras desde un solo lugar."
       />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -126,7 +102,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalParcelas}</div>
-            <p className="text-xs text-muted-foreground">Parcelas en esta zafra</p>
+            <p className="text-xs text-muted-foreground">Parcelas gestionadas en el sistema</p>
           </CardContent>
         </Card>
         <Card>
@@ -135,8 +111,8 @@ export default function DashboardPage() {
             <AreaChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalHectareas.toLocaleString('de-DE')} ha</div>
-            <p className="text-xs text-muted-foreground">Suma de parcelas en la zafra</p>
+            <div className="text-2xl font-bold">{totalHectareas} ha</div>
+            <p className="text-xs text-muted-foreground">Suma de todas las parcelas</p>
           </CardContent>
         </Card>
         <Card>
@@ -146,17 +122,17 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalEventos}</div>
-            <p className="text-xs text-muted-foreground">Actividades en la zafra</p>
+            <p className="text-xs text-muted-foreground">Eventos agrícolas registrados</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avance de Zafra</CardTitle>
+            <CardTitle className="text-sm font-medium">Avance de Zafra Activa</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{zafraProgress}%</div>
-            <p className="text-xs text-muted-foreground">Progreso estimado de la campaña</p>
+            <p className="text-xs text-muted-foreground">{zafraActiva?.nombre || 'Sin zafra activa'}</p>
           </CardContent>
         </Card>
       </div>

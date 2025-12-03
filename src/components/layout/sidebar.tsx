@@ -36,6 +36,7 @@ import {
     Target,
     FileText,
     Monitor,
+    AreaChart,
 } from "lucide-react"
 import {
   Accordion,
@@ -127,6 +128,7 @@ const navItems = [
         title: "Administración",
         icon: Cog,
         links: [
+            { href: "/dashboard/general", icon: AreaChart, label: "Dashboard General" },
             { href: "/usuarios", icon: Users, label: "Usuarios" },
             { href: "/roles", icon: Shield, label: "Roles" },
             { href: "/auditoria", icon: History, label: "Auditoría" },
@@ -191,7 +193,7 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
               >
                 <Link href="/dashboard">
                   <LayoutDashboard className="h-5 w-5" />
-                  <span className="ml-4">Dashboard</span>
+                  <span className="ml-4">Dashboard Monitoreo</span>
                 </Link>
               </Button>
 
