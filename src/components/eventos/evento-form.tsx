@@ -26,12 +26,12 @@ import { InsumoSelector } from "../insumos/InsumoSelector";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
 import { ImageUpload } from "./ImageUpload";
+import { InsumosTabla } from "./InsumosTabla";
 
 
 const productoSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar un insumo válido." }),
   dosis: z.coerce.number().positive("La dosis debe ser mayor a 0."),
-  cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
 });
 
 const fotoSchema = z.object({
@@ -115,7 +115,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     defaultValues: getInitialValues() as any,
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "productos",
   });
@@ -145,35 +145,15 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedParcelaId = form.watch('parcelaId');
   const watchedZafraId = form.watch('zafraId');
   const watchedFecha = form.watch('fecha');
-
-
-  useEffect(() => {
-    const subscription = form.watch((value, { name, type }) => {
-        if (name && (name.startsWith('productos') || name === 'hectareasAplicadas')) {
-            const hectareas = value.hectareasAplicadas || 0;
-            if (hectareas > 0) {
-                value.productos?.forEach((producto, index) => {
-                    if (producto && producto.dosis > 0) {
-                        const nuevaCantidad = producto.dosis * hectareas;
-                        const campoCantidad = `productos.${index}.cantidad` as const;
-                        if (form.getValues(campoCantidad) !== nuevaCantidad) {
-                            form.setValue(campoCantidad, nuevaCantidad, { shouldValidate: true });
-                        }
-                    }
-                });
-            }
-        }
-    });
-    return () => subscription.unsubscribe();
-  }, [form]);
   
   const totalCostoEvento = useMemo(() => {
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
-        if (!prod || !prod.insumo || !prod.cantidad) {
+        if (!prod || !prod.insumo || !prod.dosis) {
             return acc;
         }
+        const cantidad = (watchedHectareas || 0) * prod.dosis;
         const costoUnitario = prod.insumo.precioPromedioCalculado || prod.insumo.costoUnitario || 0;
-        return acc + (prod.cantidad * costoUnitario);
+        return acc + (cantidad * costoUnitario);
     }, 0) || 0;
 
     const costoServicio = (Number(watchedHectareas) || 0) * (Number(watchedCostoServicio) || 0);
@@ -276,44 +256,15 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                 <Card className="bg-muted/30 p-4">
                   <CardHeader className="p-2 flex flex-row items-center justify-between">
                     <CardTitle className="text-lg">Productos/Insumos</CardTitle>
-                    <Button type="button" variant="outline" size="sm" onClick={() => append({ insumo: undefined, dosis: 0, cantidad: 0 })}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Agregar Producto
-                    </Button>
                   </CardHeader>
                   <CardContent className="p-2 space-y-4">
-                     {fields.map((field, index) => {
-                       return (
-                        <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
-                            <FormField
-                                control={form.control}
-                                name={`productos.${index}.insumo`}
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-col flex-grow">
-                                        <FormLabel>Insumo</FormLabel>
-                                        <InsumoSelector
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                        />
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField name={`productos.${index}.dosis`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Dosis/ha</FormLabel><FormControl><Input className="w-28" type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                            <FormField name={`productos.${index}.cantidad`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cant. Total</FormLabel><FormControl><Input className="w-28 bg-muted/70" type="number" placeholder="0" {...field} readOnly /></FormControl><FormMessage /></FormItem> )}/>
-                            <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                       )
-                     })}
-                     {fields.length === 0 && ( <p className="text-sm text-muted-foreground text-center py-4">No se han agregado productos.</p> )}
-                     <div className="flex justify-end pt-4">
-                        <div className="flex items-center gap-4 p-3 rounded-lg bg-background border border-primary/20">
-                            <DollarSign className="h-6 w-6 text-primary" />
-                            <div className="text-right">
-                                <p className="text-sm text-muted-foreground">Costo Total del Evento</p>
-                                <p className="text-xl font-bold text-primary">${totalCostoEvento.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                            </div>
-                        </div>
-                     </div>
+                     <InsumosTabla
+                        fields={fields as any}
+                        hectareas={watchedHectareas || 0}
+                        append={append}
+                        remove={remove}
+                        update={update}
+                     />
                   </CardContent>
                 </Card>
               )}
@@ -362,12 +313,21 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                 )}
               />
 
+              <div className="flex justify-end pt-4 gap-4">
+                 <div className="flex items-center gap-4 p-3 rounded-lg bg-background border border-primary/20 mr-auto">
+                    <DollarSign className="h-6 w-6 text-primary" />
+                    <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Costo Total del Evento</p>
+                        <p className="text-xl font-bold text-primary">${totalCostoEvento.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </div>
+                 </div>
 
-              <div className="flex justify-between items-center pt-4">
-                <Button type="button" variant="ghost" onClick={handleDiscard} className="text-destructive hover:text-destructive">
-                    <Eraser className="mr-2"/>
-                    Descartar Borrador
-                </Button>
+                {draft && Object.keys(draft).length > 0 && !evento && (
+                    <Button type="button" variant="ghost" onClick={handleDiscard} className="text-destructive hover:text-destructive">
+                        <Eraser className="mr-2"/>
+                        Descartar Borrador
+                    </Button>
+                )}
                 <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
                     <Button type="submit" disabled={isSubmitting}>{evento ? "Guardar Cambios" : "Registrar Evento"}</Button>
