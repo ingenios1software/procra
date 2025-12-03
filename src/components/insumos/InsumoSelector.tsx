@@ -47,21 +47,20 @@ interface InsumoSelectorProps {
 }
 
 function filtrarInsumos(insumos: Insumo[], query: string): Insumo[] {
+  if (!query || query.trim() === "") return insumos;
+
   const q = query.toLowerCase().trim();
-  if (!q) return insumos;
 
   return insumos.filter((ins) => {
     const nombre = ins.nombre?.toLowerCase() || "";
     const principio = ins.principioActivo?.toLowerCase() || "";
     const categoria = ins.categoria?.toLowerCase() || "";
-    // const codigo = ins.codigo?.toLowerCase() || ""; // 'codigo' field does not exist on Insumo type
     const item = ins.numeroItem?.toString() || "";
 
     return (
       nombre.includes(q) ||
       principio.includes(q) ||
       categoria.includes(q) ||
-      // codigo.includes(q) ||
       item.includes(q)
     );
   });
@@ -76,7 +75,6 @@ export function InsumoSelector({
   const firestore = useFirestore();
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedId, setSelectedId] = React.useState<string | undefined>(value?.id);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
 
@@ -85,10 +83,6 @@ export function InsumoSelector({
     [firestore]
   );
   const { data: insumos, isLoading } = useCollection<Insumo>(insumosQuery);
-
-  React.useEffect(() => {
-    setSelectedId(value?.id);
-  }, [value]);
 
   const { insumosFiltrados, gruposCategorias } = React.useMemo(() => {
     if (!insumos) {
@@ -106,7 +100,6 @@ export function InsumoSelector({
       return acc;
     }, {} as Record<string, Insumo[]>);
     
-    // Ordenar los grupos
     const orderedGroups = Object.entries(grouped).sort((a,b) => a[0].localeCompare(b[0]));
 
     return {
@@ -115,14 +108,6 @@ export function InsumoSelector({
     };
   }, [insumos, searchQuery]);
 
-  const handleSelect = (currentValue: string) => {
-    const selected = insumos?.find((insumo) => insumo.id === currentValue);
-    setSelectedId(selected?.id);
-    onChange(selected);
-    setOpen(false);
-    setSearchQuery("");
-  };
-
   const getStockIndicator = (insumo: Insumo) => {
     if (insumo.stockActual < insumo.stockMinimo) {
         return <AlertCircle className="h-4 w-4 text-destructive" />;
@@ -130,7 +115,7 @@ export function InsumoSelector({
     if (insumo.stockActual < insumo.stockMinimo * 1.2) {
         return <AlertCircle className="h-4 w-4 text-yellow-500" />;
     }
-    return <div className="h-4 w-4" />;
+    return null;
   }
 
   const selectorContent = (
@@ -163,38 +148,23 @@ export function InsumoSelector({
                 {insumosGrupo.map((insumo) => (
                   <CommandItem
                     key={insumo.id}
-                    value={insumo.id}
-                    onSelect={handleSelect}
-                    className="py-3 px-3 text-base sm:text-sm"
+                    value={insumo.nombre}
+                    onSelect={() => {
+                      onChange(insumo);
+                      setOpen(false);
+                    }}
+                    className="cursor-pointer"
                   >
-                    <Check
-                      className={cn(
-                        "mr-3 h-5 w-5",
-                        selectedId === insumo.id ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex flex-col w-full">
-                      <p className="font-semibold text-base sm:text-sm">
+                    <div className="flex flex-col">
+                      <span className="font-semibold">
                         #{insumo.numeroItem} — {insumo.nombre}
-                      </p>
-                      <div className="flex justify-between items-center text-sm sm:text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                            Stock: {insumo.stockActual?.toLocaleString() || 0} {insumo.unidad}
-                            {getStockIndicator(insumo)}
-                        </span>
-                         <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span className="font-mono">
-                                        ${insumo.precioPromedioCalculado?.toLocaleString('en-US',{maximumFractionDigits: 2}) || 'N/A'}
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Costo Promedio Calculado</p>
-                                </TooltipContent>
-                            </Tooltip>
-                         </TooltipProvider>
-                      </div>
+                      </span>
+                      <span className="text-sm">
+                        Stock: {insumo.stockActual} {insumo.unidad}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Costo promedio: {insumo.precioPromedioCalculado}
+                      </span>
                     </div>
                   </CommandItem>
                 ))}
