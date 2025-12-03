@@ -145,7 +145,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedZafraId = form.watch('zafraId');
   const watchedFecha = form.watch('fecha');
   
-  const { totalInsumos, totalServicio, totalEvento } = useMemo(() => {
+  const { totalInsumos, totalServicio, totalEvento, costoPorHa } = useMemo(() => {
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
         if (!prod || !prod.insumo || !prod.dosis) {
             return acc;
@@ -156,11 +156,14 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     }, 0) || 0;
 
     const costoServicio = (Number(watchedHectareas) || 0) * (Number(watchedCostoServicio) || 0);
+    const costoTotal = costoProductos + costoServicio;
+    const costoHa = (Number(watchedHectareas) > 0) ? costoTotal / Number(watchedHectareas) : 0;
     
     return {
       totalInsumos: costoProductos,
       totalServicio: costoServicio,
-      totalEvento: costoProductos + costoServicio
+      totalEvento: costoTotal,
+      costoPorHa: costoHa,
     };
   }, [watchedProductos, watchedHectareas, watchedCostoServicio]);
 
@@ -191,6 +194,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       ...data,
       fotos: data.fotos || [],
       costoTotal: totalEvento,
+      costoPorHa: costoPorHa,
       productos: productosFinal,
     };
     onSave(dataConCostoTotal);
@@ -317,20 +321,30 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
               />
 
               <div className="flex justify-end pt-4 gap-4">
-                 <div className="flex items-center gap-4 p-3 rounded-lg bg-background border border-primary/20 mr-auto">
-                    <div className="flex flex-col gap-2">
-                        <div className="flex justify-between items-center gap-4">
-                            <span className="text-sm text-muted-foreground">Valor Total de Ítems:</span>
-                            <span className="font-mono font-semibold">${totalInsumos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <div className="flex items-center gap-4 mr-auto">
+                    <div className="flex items-stretch gap-4">
+                        <div className="flex flex-col gap-2 p-3 rounded-lg bg-background border border-primary/20">
+                            <div className="flex justify-between items-center gap-4">
+                                <span className="text-sm text-muted-foreground">Valor Total de Ítems:</span>
+                                <span className="font-mono font-semibold">${totalInsumos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between items-center gap-4">
+                                <span className="text-sm text-muted-foreground">Costo de Servicio:</span>
+                                <span className="font-mono font-semibold">${totalServicio.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between items-center gap-4 border-t pt-2 mt-1">
+                                <span className="text-lg font-bold text-primary">Costo Total del Evento:</span>
+                                <span className="text-xl font-bold text-primary font-mono">${totalEvento.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
                         </div>
-                         <div className="flex justify-between items-center gap-4">
-                            <span className="text-sm text-muted-foreground">Costo de Servicio:</span>
-                            <span className="font-mono font-semibold">${totalServicio.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="flex justify-between items-center gap-4 border-t pt-2 mt-1">
-                            <span className="text-lg font-bold text-primary">Costo Total del Evento:</span>
-                            <span className="text-xl font-bold text-primary font-mono">${totalEvento.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
+                        <Card className="flex flex-col items-center justify-center p-4 bg-primary/5 border-primary/20">
+                           <CardHeader className="p-0 text-center">
+                               <p className="text-sm text-muted-foreground">Costo por Hectárea</p>
+                           </CardHeader>
+                           <CardContent className="p-0">
+                                <p className="text-2xl font-bold text-green-700 dark:text-green-500 font-mono">${costoPorHa.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                           </CardContent>
+                        </Card>
                     </div>
                  </div>
 

@@ -59,6 +59,7 @@ export type Evento = {
   }[];
   fotos?: Foto[];
   costoTotal?: number;
+  costoPorHa?: number;
   hectareasAplicadas?: number;
   costoServicioPorHa?: number;
 
