@@ -6,6 +6,7 @@ import {
   ChevronsUpDown,
   Loader2,
   PackageSearch,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -63,7 +64,7 @@ export function InsumoSelector({
     if (searchQuery) {
         const q = searchQuery.toLowerCase();
         filtered = insumos.filter(ins => {
-            const byNumero = ins.numeroItem?.toString().includes(q);
+            const byNumero = ins.numeroItem?.toString().toLowerCase().includes(q);
             const byNombre = ins.nombre.toLowerCase().includes(q);
             const byPrincipio = ins.principioActivo && ins.principioActivo.toLowerCase().includes(q);
             return byNumero || byNombre || byPrincipio;
@@ -95,6 +96,16 @@ export function InsumoSelector({
     setSearchQuery("");
   };
 
+  const getStockIndicator = (insumo: Insumo) => {
+    if (insumo.stockActual < insumo.stockMinimo) {
+        return <AlertCircle className="h-4 w-4 text-destructive" />;
+    }
+    if (insumo.stockActual < insumo.stockMinimo * 1.2) {
+        return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+    }
+    return <div className="h-4 w-4" />;
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -102,26 +113,29 @@ export function InsumoSelector({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between h-auto py-3 px-4 text-base sm:text-sm"
           disabled={disabled || isLoading}
         >
+          <span className="truncate">
           {isLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            "Cargando..."
           ) : value ? (
             `#${value.numeroItem} - ${value.nombre}`
           ) : (
             "Seleccionar insumo..."
           )}
+          </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[80vh] sm:max-h-[60vh] p-0 flex flex-col">
         <Command>
           <CommandInput
             placeholder="Buscar por Nº, nombre, o principio activo..."
             onValueChange={setSearchQuery}
+            className="text-base sm:text-sm h-12"
           />
-          <CommandList>
+          <CommandList className="flex-grow">
             {isLoading ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
                 <Loader2 className="mx-auto h-6 w-6 animate-spin" />
@@ -138,34 +152,39 @@ export function InsumoSelector({
                 {gruposCategorias.map(([categoria, insumosGrupo]) => (
                   <CommandGroup
                     key={categoria}
-                    heading={<span className="capitalize">{categoria}</span>}
+                    heading={<span className="capitalize px-2 py-1.5 text-sm font-semibold">{categoria}</span>}
                   >
                     {insumosGrupo.map((insumo) => (
                       <CommandItem
                         key={insumo.id}
                         value={insumo.id}
                         onSelect={handleSelect}
+                        className="py-2 px-3 text-base sm:text-sm"
                       >
                         <Check
                           className={cn(
-                            "mr-2 h-4 w-4",
+                            "mr-3 h-5 w-5",
                             value?.id === insumo.id ? "opacity-100" : "opacity-0"
                           )}
                         />
                         <div className="flex flex-col w-full">
-                          <p className="font-semibold">
+                          <p className="font-semibold text-base sm:text-sm">
                             #{insumo.numeroItem} — {insumo.nombre}
                           </p>
-                          <div className="flex justify-between text-xs text-muted-foreground">
+                          <div className="flex justify-between items-center text-sm sm:text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                                Stock: {insumo.stockActual?.toLocaleString() || 0} {insumo.unidad}
+                                {getStockIndicator(insumo)}
+                            </span>
                              <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <span>
-                                            Stock: {insumo.stockActual?.toLocaleString() || 0} {insumo.unidad}
+                                        <span className="font-mono">
+                                            ${insumo.precioPromedioCalculado?.toLocaleString('en-US',{maximumFractionDigits: 2}) || 'N/A'}
                                         </span>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>Costo Promedio: ${insumo.precioPromedioCalculado?.toLocaleString('en-US',{maximumFractionDigits: 2}) || 'N/A'}</p>
+                                        <p>Costo Promedio Calculado</p>
                                     </TooltipContent>
                                 </Tooltip>
                              </TooltipProvider>

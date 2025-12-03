@@ -16,6 +16,8 @@ import { InsumoSelector } from '../insumos/InsumoSelector';
 import type { Parcela, Zafra, Cultivo, Insumo } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { doc } from 'firebase/firestore';
+import { X } from 'lucide-react';
+import { ScrollArea } from '../ui/scroll-area';
 
 const formSchema = z.object({
   parcelaId: z.string().nonempty("La parcela es obligatoria."),
@@ -65,14 +67,14 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
       tipo: 'aplicacion',
       insumos: [],
       observacion: '',
-      hectareas: 0,
+      hectareas: '' as any, // Inicializar como string vacío para evitar error de uncontrolled
       plaga: '',
       variedad: '',
-      densidad: 0,
+      densidad: '' as any,
       tipoLabor: '',
-      horasTrabajo: 0,
-      rindeEsperado: 0,
-      rindeReal: 0,
+      horasTrabajo: '' as any,
+      rindeEsperado: '' as any,
+      rindeReal: '' as any,
     },
   });
 
@@ -94,20 +96,18 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
       case 'fertilizacion':
         return (
           <>
-            {/* Aquí iría el selector de insumos múltiples */}
             <FormField
               control={form.control}
               name="hectareas"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Hectáreas</FormLabel>
-                  <FormControl><Input type="number" {...field} /></FormControl>
+                  <FormControl><Input type="number" {...field} className="py-3 px-4 text-base sm:text-sm" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-             <p className="text-sm font-medium">Insumos</p>
-            {/* Simplificado por ahora, idealmente usaríamos useFieldArray */}
+            <p className="text-sm font-medium">Insumos</p>
              <FormField
                 control={form.control}
                 name="insumos.0.insumo"
@@ -125,7 +125,7 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
                 render={({ field }) => (
                     <FormItem>
                         <FormLabel>Dosis por Hectárea</FormLabel>
-                        <FormControl><Input type="number" /></FormControl>
+                        <FormControl><Input type="number" className="py-3 px-4 text-base sm:text-sm"/></FormControl>
                         <FormMessage />
                     </FormItem>
                 )}
@@ -135,8 +135,8 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
       case 'monitoreo':
         return (
           <>
-            <FormField control={form.control} name="plaga" render={({ field }) => ( <FormItem> <FormLabel>Plaga/Enfermedad</FormLabel> <FormControl><Input placeholder="Ej: Roya asiática" {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
-            <FormField control={form.control} name="gradoInfestacion" render={({ field }) => ( <FormItem> <FormLabel>Grado de Infestación</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un nivel" /></SelectTrigger></FormControl> <SelectContent> <SelectItem value="bajo">Bajo</SelectItem> <SelectItem value="medio">Medio</SelectItem> <SelectItem value="alto">Alto</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
+            <FormField control={form.control} name="plaga" render={({ field }) => ( <FormItem> <FormLabel>Plaga/Enfermedad</FormLabel> <FormControl><Input placeholder="Ej: Roya asiática" {...field} className="py-3 px-4 text-base sm:text-sm" /></FormControl> <FormMessage /> </FormItem> )}/>
+            <FormField control={form.control} name="gradoInfestacion" render={({ field }) => ( <FormItem> <FormLabel>Grado de Infestación</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger className="py-3 px-4 text-base sm:text-sm h-auto"><SelectValue placeholder="Seleccione un nivel" /></SelectTrigger></FormControl> <SelectContent> <SelectItem value="bajo">Bajo</SelectItem> <SelectItem value="medio">Medio</SelectItem> <SelectItem value="alto">Alto</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
           </>
         );
       // ... otros casos
@@ -177,8 +177,6 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
         if (!item.insumo || !item.insumo.id) return;
         const consumoTotal = item.dosis * (data.hectareas || 0);
         const insumoRef = doc(firestore, "insumos", item.insumo.id);
-        // OJO: Esta no es una operación atómica. Idealmente se usaría una transacción o Cloud Function.
-        // Para este MVP, lo hacemos así. El stock actual vendría del objeto 'insumo'.
         const stockActual = item.insumo.stockActual || 0;
         batch.update(insumoRef, { stockActual: stockActual - consumoTotal });
       });
@@ -197,26 +195,34 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] md:max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Registrar Nuevo Evento</DialogTitle>
-          <DialogDescription>Complete los detalles de la actividad de campo.</DialogDescription>
+      <DialogContent className="h-screen w-screen max-w-full rounded-none p-0 sm:h-auto sm:w-auto sm:max-w-2xl sm:rounded-lg">
+        <DialogHeader className="flex-row items-center justify-between border-b px-4 py-3 sm:text-left sm:p-6">
+          <div>
+            <DialogTitle className="text-lg">Registrar Nuevo Evento</DialogTitle>
+            <DialogDescription className="hidden sm:block">Complete los detalles de la actividad de campo.</DialogDescription>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 sm:h-8 sm:w-8">
+            <X className="h-6 w-6 sm:h-4 sm:w-4"/>
+            <span className="sr-only">Cerrar</span>
+          </Button>
         </DialogHeader>
-        <div className="flex-grow overflow-y-auto pr-2">
-            <Form {...form}>
-              <form id="evento-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField control={form.control} name="parcelaId" render={({ field }) => ( <FormItem> <FormLabel>Parcela</FormLabel> <Select onValueChange={field.onChange} value={field.value || ''}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una parcela" /></SelectTrigger></FormControl> <SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                <FormField control={form.control} name="tipo" render={({ field }) => ( <FormItem> <FormLabel>Tipo de Evento</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl> <SelectContent> <SelectItem value="aplicacion">Aplicación</SelectItem> <SelectItem value="fertilizacion">Fertilización</SelectItem> <SelectItem value="monitoreo">Monitoreo</SelectItem> <SelectItem value="siembra">Siembra</SelectItem> <SelectItem value="labores">Labores</SelectItem> <SelectItem value="cosecha">Cosecha</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                
-                {renderDynamicFields()}
-                
-                <FormField control={form.control} name="observacion" render={({ field }) => ( <FormItem> <FormLabel>Observaciones</FormLabel> <FormControl><Textarea placeholder="Detalles adicionales..." {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-              </form>
-            </Form>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" form="evento-form">Guardar Evento</Button>
+        <ScrollArea className="flex-grow">
+            <div className="p-4 sm:p-6">
+                <Form {...form}>
+                  <form id="evento-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <FormField control={form.control} name="parcelaId" render={({ field }) => ( <FormItem> <FormLabel>Parcela</FormLabel> <Select onValueChange={field.onChange} value={field.value || ''}> <FormControl><SelectTrigger className="py-3 px-4 text-base sm:text-sm h-auto"><SelectValue placeholder="Seleccione una parcela" /></SelectTrigger></FormControl> <SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="tipo" render={({ field }) => ( <FormItem> <FormLabel>Tipo de Evento</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger className="py-3 px-4 text-base sm:text-sm h-auto"><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl> <SelectContent> <SelectItem value="aplicacion">Aplicación</SelectItem> <SelectItem value="fertilizacion">Fertilización</SelectItem> <SelectItem value="monitoreo">Monitoreo</SelectItem> <SelectItem value="siembra">Siembra</SelectItem> <SelectItem value="labores">Labores</SelectItem> <SelectItem value="cosecha">Cosecha</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                    
+                    {renderDynamicFields()}
+                    
+                    <FormField control={form.control} name="observacion" render={({ field }) => ( <FormItem> <FormLabel>Observaciones</FormLabel> <FormControl><Textarea placeholder="Detalles adicionales..." {...field} className="text-base sm:text-sm" /></FormControl> <FormMessage /> </FormItem> )} />
+                  </form>
+                </Form>
+            </div>
+        </ScrollArea>
+        <DialogFooter className="border-t p-4 sm:p-6">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto h-12 text-base sm:h-10 sm:text-sm">Cancelar</Button>
+          <Button type="submit" form="evento-form" className="w-full sm:w-auto h-12 text-lg font-bold sm:h-10 sm:text-sm sm:font-medium">Guardar Evento</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
