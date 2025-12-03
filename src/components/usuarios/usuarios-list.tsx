@@ -23,7 +23,7 @@ export function UsuariosList({ initialUsuarios, roles, onAdd, onUpdate }: Usuari
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const { user } = useAuth();
-  const canModify = user && user.rol === "admin";
+  const canModify = user && (user.rol === "admin" || user.rol === "supervisor");
 
   const handleSave = (usuarioData: Omit<Usuario, 'id'>) => {
     if (selectedUsuario) {
@@ -57,7 +57,7 @@ export function UsuariosList({ initialUsuarios, roles, onAdd, onUpdate }: Usuari
       {!canModify && (
         <Card className="mb-4 bg-amber-50 border-amber-200">
             <CardContent className="p-4">
-                <p className="text-amber-800 font-medium">Solo los administradores pueden gestionar usuarios.</p>
+                <p className="text-amber-800 font-medium">Solo los administradores o supervisores pueden gestionar usuarios.</p>
             </CardContent>
         </Card>
       )}

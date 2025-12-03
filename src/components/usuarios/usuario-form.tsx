@@ -13,7 +13,7 @@ import type { Usuario, Rol, UserRole } from "@/lib/types";
 const formSchema = z.object({
   nombre: z.string().min(2, "El nombre es muy corto."),
   email: z.string().email("Email inválido."),
-  rol: z.enum(["admin", "operador", "consulta", "gerente", "tecnicoCampo", "auditor"]),
+  rol: z.enum(["admin", "operador", "consulta", "gerente", "tecnicoCampo", "auditor", "supervisor"]),
   activo: z.boolean(),
 });
 

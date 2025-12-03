@@ -52,6 +52,9 @@ export function UserNav() {
           <DropdownMenuItem onClick={() => handleRoleChange('admin')} disabled={role === 'admin'}>
             Administrador
           </DropdownMenuItem>
+           <DropdownMenuItem onClick={() => handleRoleChange('supervisor')} disabled={role === 'supervisor'}>
+            Supervisor
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleRoleChange('gerente')} disabled={role === 'gerente'}>
             Gerente
           </DropdownMenuItem>

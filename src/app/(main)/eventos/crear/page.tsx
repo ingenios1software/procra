@@ -5,7 +5,7 @@ import { EventoForm } from "@/components/eventos/evento-form";
 import { useRouter } from "next/navigation";
 import type { Evento } from "@/lib/types";
 import { useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query, orderBy, getCountFromServer } from 'firebase/firestore';
+import { collection, query, orderBy, getCountFromServer, serverTimestamp } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { procesarConsumoDeStockDesdeEvento } from "@/lib/stock/consumo-desde-evento";
 
@@ -38,12 +38,17 @@ export default function CrearEventoPage() {
         fecha: (data.fecha as Date).toISOString(),
         numeroLanzamiento: (maxLanzamiento || 0) + 1,
         numeroItem,
+        estado: 'pendiente' as const,
+        creadoPor: user.uid,
+        creadoEn: serverTimestamp(),
     };
 
     const docRef = await addDocumentNonBlocking(eventosCol, dataToSave);
     
     if (docRef) {
       const eventoGuardado = { ...dataToSave, id: docRef.id };
+      // El consumo de stock ahora debería ser condicional al estado 'aprobado'
+      // Por ahora, lo dejamos así hasta refactorizarlo.
       const { success, errors } = await procesarConsumoDeStockDesdeEvento(eventoGuardado, firestore, user.uid);
       if (!success) {
         toast({
@@ -56,7 +61,7 @@ export default function CrearEventoPage() {
     
     toast({
         title: `Evento #${dataToSave.numeroLanzamiento} (Item Nº ${numeroItem}) creado`,
-        description: `El evento "${data.descripcion}" ha sido guardado y el stock actualizado.`,
+        description: `El evento "${data.descripcion}" ha sido guardado y está pendiente de aprobación.`,
     });
     router.push('/eventos');
   }

@@ -44,6 +44,16 @@ export type Evento = {
   resultado?: string;
   numeroItem?: number;
   
+  // Workflow & Audit
+  estado: 'pendiente' | 'aprobado' | 'rechazado';
+  creadoPor?: string;
+  creadoEn?: Date | string;
+  aprobadoPor?: string | null;
+  aprobadoEn?: Date | string | null;
+  rechazadoPor?: string | null;
+  rechazadoEn?: Date | string | null;
+  motivoRechazo?: string | null;
+  
   // Campos climáticos
   temperatura?: number;
   humedad?: number;
@@ -93,7 +103,7 @@ export type Rol = {
   descripcion: string;
 };
 
-export type UserRole = 'admin' | 'operador' | 'consulta' | 'tecnicoCampo' | 'gerente' | 'auditor';
+export type UserRole = 'admin' | 'operador' | 'consulta' | 'tecnicoCampo' | 'gerente' | 'auditor' | 'supervisor';
 
 export type StatCard = {
   label: string;

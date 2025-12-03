@@ -60,6 +60,7 @@ import { collection, doc } from "firebase/firestore";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
+import { cn } from "@/lib/utils";
 
 
 export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: { eventos: Evento[], parcelas: Parcela[], zafras: Zafra[], cultivos: Cultivo[], isLoading: boolean }) {
@@ -74,7 +75,8 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     tipo: "",
     parcelaId: "",
     zafraId: "",
-    numeroLanzamiento: ""
+    numeroLanzamiento: "",
+    estado: "",
   });
 
   const handleFilterChange = (
@@ -92,7 +94,8 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
         numeroMatch &&
         (filters.tipo ? evento.tipo === filters.tipo : true) &&
         (filters.parcelaId ? evento.parcelaId === filters.parcelaId : true) &&
-        (filters.zafraId ? evento.zafraId === filters.zafraId : true)
+        (filters.zafraId ? evento.zafraId === filters.zafraId : true) &&
+        (filters.estado ? evento.estado === filters.estado : true)
       );
     });
   }, [eventos, filters]);
@@ -214,22 +217,20 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                 ))}
               </SelectContent>
             </Select>
-            <Select
-              value={filters.zafraId}
+             <Select
+              value={filters.estado}
               onValueChange={(value) =>
-                handleFilterChange("zafraId", value === "all" ? "" : value)
+                handleFilterChange("estado", value === "all" ? "" : value)
               }
             >
               <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Filtrar por zafra" />
+                <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas las zafras</SelectItem>
-                {zafras?.map((z) => (
-                  <SelectItem key={z.id} value={z.id}>
-                    {z.nombre}
-                  </SelectItem>
-                ))}
+                <SelectItem value="all">Todos los estados</SelectItem>
+                <SelectItem value="pendiente">Pendiente</SelectItem>
+                <SelectItem value="aprobado">Aprobado</SelectItem>
+                <SelectItem value="rechazado">Rechazado</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -242,7 +243,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                   <TableHead>Fecha</TableHead>
                   <TableHead>Parcela</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Cultivo</TableHead>
+                  <TableHead>Estado</TableHead>
                   <TableHead>Descripción</TableHead>
                   {user && (
                     <TableHead className="text-right">Acciones</TableHead>
@@ -253,9 +254,6 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                 {isLoading && <TableRow><TableCell colSpan={8} className="text-center">Cargando...</TableCell></TableRow>}
                 {filteredEventos.map((evento) => {
                   const parcela = parcelas?.find((p) => p.id === evento.parcelaId);
-                  const cultivo = cultivos?.find((c) => c.id === evento.cultivoId);
-                  const showAlert =
-                    evento.productos && evento.productos.length > 0 && !evento.costoTotal;
 
                   return (
                     <TableRow key={evento.id}>
@@ -272,39 +270,23 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                           {evento.tipo}
                         </Badge>
                       </TableCell>
-                      <TableCell>{cultivo?.nombre || "N/A"}</TableCell>
+                      <TableCell>
+                         <Badge
+                            variant={
+                              evento.estado === "aprobado" ? "default" :
+                              evento.estado === "rechazado" ? "destructive" :
+                              "secondary"
+                            }
+                            className={cn({
+                              "bg-green-600 text-white": evento.estado === "aprobado",
+                              "bg-yellow-500 text-black": evento.estado === "pendiente",
+                            })}
+                          >
+                            {evento.estado}
+                          </Badge>
+                      </TableCell>
                       <TableCell className="flex items-center gap-2">
                         {evento.descripcion}
-                        {showAlert && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <TriangleAlert className="h-4 w-4 text-amber-500" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  Falta información de cantidad o unidad para
-                                  los insumos.
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                        {evento.tipo === "plagas" && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Badge variant="destructive">Alerta</Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  Este evento de plagas genera una alerta en el
-                                  dashboard.
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
                       </TableCell>
                       {user && (
                         <TableCell className="text-right">
@@ -318,7 +300,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                               <DropdownMenuItem onClick={() => openForm(evento)}>
-                                Editar
+                                Ver / Aprobar
                               </DropdownMenuItem>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
@@ -363,7 +345,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{selectedEvento ? `Editar Evento #${selectedEvento.numeroLanzamiento}` : 'Registrar Nuevo Evento'}</DialogTitle>
+            <DialogTitle>{selectedEvento ? `Revisar Evento #${selectedEvento.numeroLanzamiento}` : 'Registrar Nuevo Evento'}</DialogTitle>
             <DialogDescription>
                 Complete los detalles de la actividad agrícola. El panel superior le dará contexto agronómico.
             </DialogDescription>

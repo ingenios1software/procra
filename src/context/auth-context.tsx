@@ -15,6 +15,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const mockUsuarios: Omit<Usuario, 'id' | 'email'>[] = [
     { nombre: 'Usuario Admin', rol: 'admin', activo: true },
+    { nombre: 'Usuario Supervisor', rol: 'supervisor', activo: true },
     { nombre: 'Usuario Gerente', rol: 'gerente', activo: true },
     { nombre: 'Usuario Operador', rol: 'operador', activo: true },
     { nombre: 'Usuario Técnico', rol: 'tecnicoCampo', activo: true },
