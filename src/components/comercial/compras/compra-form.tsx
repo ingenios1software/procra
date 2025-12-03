@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { Compra, Proveedor, Insumo } from "@/lib/types";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
+import { InsumoSelector } from "@/components/insumos/InsumoSelector";
+
 
 const itemSchema = z.object({
   insumoId: z.string().nonempty("Debe seleccionar un insumo."),
@@ -65,14 +67,13 @@ export function CompraForm({ compra }: CompraFormProps) {
   const proveedoresQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'proveedores'), orderBy('nombre')) : null, [firestore]);
   const { data: proveedores } = useCollection<Proveedor>(proveedoresQuery);
 
-  const insumosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos'), orderBy('nombre')) : null, [firestore]);
-  const { data: insumos } = useCollection<Insumo>(insumosQuery);
+  const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, "insumos"), orderBy("nombre")) : null, [firestore]));
   
   const form = useForm<CompraFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: compra ? {
       ...compra,
-      fecha: new Date(compra.fecha),
+      fecha: new Date(compra.fecha as string),
     } : {
       tipoDocumento: 'Factura',
       condicion: 'Contado',
@@ -128,8 +129,23 @@ export function CompraForm({ compra }: CompraFormProps) {
                 <CardContent>
                     <div className="space-y-4">
                         {fields.map((field, index) => (
-                            <div key={field.id} className="flex items-end gap-4 p-4 border rounded-md">
-                                <FormField name={`items.${index}.insumoId`} control={form.control} render={({ field }) => (<FormItem className="flex-1"><FormLabel>Insumo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl><SelectContent>{insumos?.map(i => <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                            <div key={field.id} className="flex flex-col md:flex-row items-end gap-4 p-4 border rounded-md">
+                                <Controller
+                                    name={`items.${index}.insumoId`}
+                                    control={form.control}
+                                    render={({ field: controllerField, fieldState }) => (
+                                        <FormItem className="flex-1">
+                                            <FormLabel>Insumo</FormLabel>
+                                            <InsumoSelector
+                                                value={insumos?.find(insumo => insumo.id === controllerField.value)}
+                                                onChange={(insumo) => {
+                                                    controllerField.onChange(insumo?.id || '');
+                                                }}
+                                            />
+                                            {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
+                                        </FormItem>
+                                    )}
+                                />
                                 <FormField name={`items.${index}.cantidad`} control={form.control} render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField name={`items.${index}.precioUnitario`} control={form.control} render={({ field }) => (<FormItem><FormLabel>Precio Unitario</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField name={`items.${index}.porcentajeIva`} control={form.control} render={({ field }) => (<FormItem><FormLabel>IVA</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="10">10%</SelectItem><SelectItem value="5">5%</SelectItem><SelectItem value="0">Exento</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
