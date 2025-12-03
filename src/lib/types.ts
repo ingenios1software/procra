@@ -48,6 +48,7 @@ export type Evento = {
   categoria?: 'Desecación' | 'Siembra' | 'Fertilizante' | 'Herbicida' | 'Fungicida' | 'Insecticida' | 'Cosecha' | 'Otros';
   productos?: {
     insumoId: string;
+    insumo?: Insumo; // Objeto completo del insumo para fácil acceso
     cantidad: number;
     dosis: number;
   }[];
@@ -97,7 +98,7 @@ export type StatCard = {
 export type Insumo = {
   id: string;
   nombre: string;
-  categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'otros';
+  categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'biologico' | 'otros';
   principioActivo?: string;
   unidad: 'kg' | 'lt' | 'unidad' | 'ton';
   dosisRecomendada?: number;

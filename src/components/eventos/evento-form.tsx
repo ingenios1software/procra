@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -11,22 +11,22 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Compra } from "@/lib/types";
+import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser, ChevronsUpDown, Check } from "lucide-react";
+import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useDraftStore } from "@/store/draft-store";
 import isEqual from 'lodash.isequal';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { InsumoSelector } from "../insumos/InsumoSelector";
 
 
 const productoSchema = z.object({
-  insumoId: z.string().nonempty("Debe seleccionar un insumo."),
+  insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar un insumo válido." }),
   dosis: z.coerce.number().positive("La dosis debe ser mayor a 0."),
   cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
 });
@@ -72,7 +72,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
   const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
   const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
-  const { data: insumos, isLoading: isLoadingInsumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos'), orderBy('nombre')) : null, [firestore]));
   
   const getInitialValues = () => {
     const base = evento 
@@ -86,7 +85,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
             descripcion: "",
           };
 
-    // Ensure optional number fields are not undefined
     return {
       ...base,
       hectareasAplicadas: base.hectareasAplicadas ?? '',
@@ -113,7 +111,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedValues = form.watch();
   const watchedValuesRef = useRef(watchedValues);
 
-  // Solo actualiza la ref si los valores han cambiado realmente
   if (!isEqual(watchedValuesRef.current, watchedValues)) {
     watchedValuesRef.current = watchedValues;
   }
@@ -123,7 +120,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
     const intervalId = setInterval(() => {
         setDraft(watchedValuesRef.current as EventoBorrador);
-    }, 1000); // Save every second
+    }, 1000);
 
     return () => clearInterval(intervalId);
   }, [evento, setDraft]);
@@ -138,7 +135,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedFecha = form.watch('fecha');
 
 
-  // Effect for auto-calculation of `cantidad`
   useEffect(() => {
     const subscription = form.watch((value, { name, type }) => {
         if (name && (name.startsWith('productos') || name === 'hectareasAplicadas')) {
@@ -161,17 +157,17 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   
   const totalCostoEvento = useMemo(() => {
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
-        if (!prod || !prod.insumoId || !prod.cantidad) {
+        if (!prod || !prod.insumo || !prod.cantidad) {
             return acc;
         }
-        const costoUnitario = insumos?.find(i => i.id === prod.insumoId)?.costoUnitario || 0;
+        const costoUnitario = prod.insumo.precioPromedioCalculado || prod.insumo.costoUnitario || 0;
         return acc + (prod.cantidad * costoUnitario);
     }, 0) || 0;
 
     const costoServicio = (Number(watchedHectareas) || 0) * (Number(watchedCostoServicio) || 0);
     
     return costoProductos + costoServicio;
-  }, [watchedProductos, watchedHectareas, watchedCostoServicio, insumos]);
+  }, [watchedProductos, watchedHectareas, watchedCostoServicio]);
 
   const analisisProps = useMemo(() => ({
     eventoActual: { ...form.getValues(), fecha: watchedFecha, parcelaId: watchedParcelaId, zafraId: watchedZafraId } as Evento,
@@ -187,7 +183,13 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     );
     const dataConCostoTotal = {
       ...cleanData,
-      costoTotal: totalCostoEvento
+      costoTotal: totalCostoEvento,
+      // Mapear solo el ID del insumo para guardarlo en Firestore
+      productos: data.productos?.map(p => ({
+        insumoId: p.insumo.id,
+        dosis: p.dosis,
+        cantidad: p.cantidad
+      }))
     };
     onSave(dataConCostoTotal);
     clearDraft();
@@ -214,32 +216,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         description: 'El formulario se ha limpiado.',
     })
   }
-
-    // --- Searchable Insumo Logic ---
-    const [searchQuery, setSearchQuery] = useState('');
-    const [openPopover, setOpenPopover] = useState(-1);
-
-    const insumosFiltrados = useMemo(() => {
-        if (!insumos) return [];
-        if (!searchQuery) return insumos;
-    
-        const q = searchQuery.toLowerCase();
-        const isNumeric = /^\d+$/.test(q);
-
-        return insumos.filter(ins => {
-            const numeroItemStr = ins.numeroItem?.toString() || '';
-
-            if (isNumeric) {
-                return numeroItemStr.includes(q);
-            }
-
-            const nombreMatch = ins.nombre.toLowerCase().includes(q);
-            const principioActivoMatch = ins.principioActivo ? ins.principioActivo.toLowerCase().includes(q) : false;
-        
-            return nombreMatch || principioActivoMatch;
-        });
-    }, [insumos, searchQuery]);
-    // --- End Searchable Insumo Logic ---
 
   if (!parcelas || !cultivos || !zafras || !etapasCultivo) {
     return <p>Cargando datos maestros...</p>;
@@ -279,7 +255,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                 <Card className="bg-muted/30 p-4">
                   <CardHeader className="p-2 flex flex-row items-center justify-between">
                     <CardTitle className="text-lg">Productos/Insumos</CardTitle>
-                    <Button type="button" variant="outline" size="sm" onClick={() => append({ insumoId: '', dosis: 0, cantidad: 0 })}>
+                    <Button type="button" variant="outline" size="sm" onClick={() => append({ insumo: undefined, dosis: 0, cantidad: 0 })}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Agregar Producto
                     </Button>
                   </CardHeader>
@@ -287,48 +263,20 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                      {fields.map((field, index) => {
                        return (
                         <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4 p-4 border rounded-md bg-background">
-                            <FormField name={`productos.${index}.insumoId`} control={form.control} render={({ field }) => ( 
-                                <FormItem className="flex flex-col flex-grow">
-                                    <FormLabel>Insumo</FormLabel>
-                                    <Popover open={openPopover === index} onOpenChange={(open) => setOpenPopover(open ? index : -1)}>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                                                    {field.value ? insumos?.find((insumo) => insumo.id === field.value)?.nombre : "Seleccionar insumo"}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[400px] p-0">
-                                            <Command>
-                                                <CommandInput placeholder="Buscar por nombre, principio activo o Nº de ítem..." onValueChange={setSearchQuery}/>
-                                                <CommandList>
-                                                    <CommandEmpty>{isLoadingInsumos ? "Cargando..." : "No se encontraron insumos."}</CommandEmpty>
-                                                    <CommandGroup>
-                                                        {insumosFiltrados.map((insumo) => (
-                                                            <CommandItem
-                                                                value={insumo.id}
-                                                                key={insumo.id}
-                                                                onSelect={() => {
-                                                                    form.setValue(`productos.${index}.insumoId`, insumo.id);
-                                                                    setOpenPopover(-1);
-                                                                }}
-                                                            >
-                                                                <Check className={cn("mr-2 h-4 w-4", insumo.id === field.value ? "opacity-100" : "opacity-0")} />
-                                                                <div className="flex flex-col">
-                                                                    <p className="font-semibold">#{insumo.numeroItem} — {insumo.nombre}</p>
-                                                                    <p className="text-xs text-muted-foreground">Unidad: {insumo.unidad} | Categoría: {insumo.categoria}</p>
-                                                                </div>
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                </FormItem> 
-                            )}/>
+                            <Controller
+                                control={form.control}
+                                name={`productos.${index}.insumo`}
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-col flex-grow">
+                                        <FormLabel>Insumo</FormLabel>
+                                        <InsumoSelector
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                        />
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <FormField name={`productos.${index}.dosis`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Dosis/ha</FormLabel><FormControl><Input className="w-28" type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                             <FormField name={`productos.${index}.cantidad`} control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cant. Total</FormLabel><FormControl><Input className="w-28 bg-muted/70" type="number" placeholder="0" {...field} readOnly /></FormControl><FormMessage /></FormItem> )}/>
                             <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
