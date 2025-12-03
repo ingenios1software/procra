@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Zap } from "lucide-react";
 
 export default function AcercaDePage() {
   return (
@@ -63,6 +63,18 @@ export default function AcercaDePage() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="bg-accent/10 border-accent/50">
+            <CardHeader className="flex-row items-center gap-4">
+                <Zap className="w-8 h-8 text-accent" />
+                <CardTitle className="font-headline text-xl text-accent-foreground">Un Desarrollo Único</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-accent-foreground/80">
+                    CRApro95 se distingue por ser un sistema ERP co-creado en colaboración directa entre un experto del sector agrícola y una inteligencia artificial. Esta sinergia nos permite construir una herramienta a medida, ágil y perfectamente adaptada a las necesidades reales del campo.
+                </p>
+            </CardContent>
+        </Card>
 
         <div className="text-center text-sm text-muted-foreground pt-4">
             <p>Versión instalada: <strong>CRApro95 Enterprise Edition</strong>.</p>
