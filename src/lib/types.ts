@@ -27,6 +27,11 @@ export type Zafra = {
   numeroItem?: number;
 };
 
+export type Foto = {
+  url: string;
+  storagePath: string;
+};
+
 export type Evento = {
   id: string;
   numeroLanzamiento?: number;
@@ -53,6 +58,7 @@ export type Evento = {
     dosis: number;
     consumoCalculado?: number;
   }[];
+  fotos?: Foto[];
   costoTotal?: number;
   hectareasAplicadas?: number;
   costoServicioPorHa?: number;

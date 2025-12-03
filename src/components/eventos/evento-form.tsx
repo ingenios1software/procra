@@ -11,25 +11,32 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador } from "@/lib/types";
+import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Foto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Cloud, Thermometer, Wind, PlusCircle, Trash2, DollarSign, Eraser } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useDraftStore } from "@/store/draft-store";
 import isEqual from 'lodash.isequal';
 import { InsumoSelector } from "../insumos/InsumoSelector";
-import { procesarConsumoDeStockDesdeEvento } from "@/lib/stock/consumo-desde-evento";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { v4 as uuidv4 } from 'uuid';
+import { ImageUpload } from "./ImageUpload";
 
 
 const productoSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar un insumo válido." }),
   dosis: z.coerce.number().positive("La dosis debe ser mayor a 0."),
   cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
+});
+
+const fotoSchema = z.object({
+  url: z.string(),
+  storagePath: z.string(),
 });
 
 const formSchema = z.object({
@@ -44,6 +51,7 @@ const formSchema = z.object({
   costoServicioPorHa: z.coerce.number().optional(),
 
   productos: z.array(productoSchema).optional(),
+  fotos: z.array(fotoSchema).optional(),
 
   temperatura: z.coerce.number().optional(),
   humedad: z.coerce.number().optional(),
@@ -68,6 +76,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { draft, setDraft, clearDraft } = useDraftStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
   const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
@@ -84,6 +93,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
             fecha: new Date(),
             tipo: 'aplicacion',
             productos: [],
+            fotos: [],
             descripcion: "",
           };
 
@@ -179,25 +189,30 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   }), [watchedParcelaId, watchedZafraId, watchedFecha, form, todosLosEventos, zafras, etapasCultivo]);
 
 
-  const handleSubmit = (data: EventoFormValues) => {
+  const handleSubmit = async (data: EventoFormValues) => {
     if (!firestore || !user) return;
     
+    setIsSubmitting(true);
+    toast({ title: "Guardando evento...", description: "Por favor espere." });
+
     const productosFinal = data.productos?.map(p => {
         const consumoCalculado = (p.dosis || 0) * (data.hectareasAplicadas || 0);
         return {
             insumoId: p.insumo.id,
             dosis: p.dosis,
-            cantidad: consumoCalculado, // Usar el consumo calculado final
+            cantidad: consumoCalculado,
         };
     });
 
     const dataConCostoTotal = {
       ...data,
+      fotos: data.fotos || [],
       costoTotal: totalCostoEvento,
       productos: productosFinal,
     };
     onSave(dataConCostoTotal);
     clearDraft();
+    setIsSubmitting(false);
   };
 
   const handleDiscard = () => {
@@ -206,6 +221,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         fecha: new Date(),
         tipo: 'aplicacion',
         productos: [],
+        fotos: [],
         descripcion: "",
         hectareasAplicadas: '' as any,
         costoServicioPorHa: '' as any,
@@ -334,6 +350,19 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
               
               <FormField control={form.control} name="resultado" render={({ field }) => (<FormItem><FormLabel>Resultado/Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones sobre el resultado de la labor..." {...field} /></FormControl><FormMessage /></FormItem>)} />
 
+              <Controller
+                control={form.control}
+                name="fotos"
+                render={({ field }) => (
+                  <ImageUpload
+                    onFileChange={(urls) => field.onChange(urls)}
+                    eventoId="temp-id" // Esto será reemplazado por el ID real del evento al guardar
+                    parcelaId={watchedParcelaId}
+                  />
+                )}
+              />
+
+
               <div className="flex justify-between items-center pt-4">
                 <Button type="button" variant="ghost" onClick={handleDiscard} className="text-destructive hover:text-destructive">
                     <Eraser className="mr-2"/>
@@ -341,7 +370,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                 </Button>
                 <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-                    <Button type="submit">{evento ? "Guardar Cambios" : "Registrar Evento"}</Button>
+                    <Button type="submit" disabled={isSubmitting}>{evento ? "Guardar Cambios" : "Registrar Evento"}</Button>
                 </div>
               </div>
             </form>
