@@ -63,7 +63,16 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
     defaultValues: {
       fecha: new Date(),
       tipo: 'aplicacion',
-      insumos: []
+      insumos: [],
+      observacion: '',
+      hectareas: 0,
+      plaga: '',
+      variedad: '',
+      densidad: 0,
+      tipoLabor: '',
+      horasTrabajo: 0,
+      rindeEsperado: 0,
+      rindeReal: 0,
     },
   });
 
@@ -165,6 +174,7 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
     // 2. Actualizar stock de insumos
     if (data.insumos && data.hectareas) {
       data.insumos.forEach(item => {
+        if (!item.insumo || !item.insumo.id) return;
         const consumoTotal = item.dosis * (data.hectareas || 0);
         const insumoRef = doc(firestore, "insumos", item.insumo.id);
         // OJO: Esta no es una operación atómica. Idealmente se usaría una transacción o Cloud Function.
@@ -195,7 +205,7 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
         <div className="flex-grow overflow-y-auto pr-2">
             <Form {...form}>
               <form id="evento-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField control={form.control} name="parcelaId" render={({ field }) => ( <FormItem> <FormLabel>Parcela</FormLabel> <Select onValueChange={field.onChange} value={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una parcela" /></SelectTrigger></FormControl> <SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                <FormField control={form.control} name="parcelaId" render={({ field }) => ( <FormItem> <FormLabel>Parcela</FormLabel> <Select onValueChange={field.onChange} value={field.value || ''}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una parcela" /></SelectTrigger></FormControl> <SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                 <FormField control={form.control} name="tipo" render={({ field }) => ( <FormItem> <FormLabel>Tipo de Evento</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl> <SelectContent> <SelectItem value="aplicacion">Aplicación</SelectItem> <SelectItem value="fertilizacion">Fertilización</SelectItem> <SelectItem value="monitoreo">Monitoreo</SelectItem> <SelectItem value="siembra">Siembra</SelectItem> <SelectItem value="labores">Labores</SelectItem> <SelectItem value="cosecha">Cosecha</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )} />
                 
                 {renderDynamicFields()}
