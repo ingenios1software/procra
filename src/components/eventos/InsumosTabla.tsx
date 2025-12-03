@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InsumoSelector } from "../insumos/InsumoSelector";
-import { Trash2 } from "lucide-react";
+import { Trash2, PlusCircle } from "lucide-react";
 import type { Insumo } from "@/lib/types";
 
 interface ProductoField {
