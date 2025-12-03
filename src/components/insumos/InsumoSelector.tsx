@@ -22,6 +22,8 @@ import {
 import {
     Dialog,
     DialogContent,
+    DialogHeader,
+    DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Popover,
@@ -230,10 +232,10 @@ export function InsumoSelector({
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="h-screen w-screen max-w-full rounded-none p-0 flex flex-col sm:h-auto sm:w-auto sm:max-w-2xl sm:rounded-lg">
-            <div className="flex items-center justify-between border-b p-4">
-                 <h2 className="text-lg font-semibold">Seleccionar Insumo</h2>
+            <DialogHeader className="flex-row items-center justify-between border-b p-4">
+                 <DialogTitle className="text-lg font-semibold">Seleccionar Insumo</DialogTitle>
                  <Button variant="ghost" size="icon" onClick={() => setOpen(false)}><X className="h-5 w-5"/></Button>
-            </div>
+            </DialogHeader>
             <div className="flex-grow overflow-hidden p-2">
                 {selectorContent}
             </div>
