@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InsumoSelector } from "@/components/insumos/InsumoSelector";
-import { Trash2, PlusCircle } from "lucide-react";
+import { Trash2, PlusCircle, AlertTriangle } from "lucide-react";
 import type { Insumo } from "@/lib/types";
 import { UseFormReturn, useFieldArray } from "react-hook-form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -36,7 +36,7 @@ export function TablaItemsCompra({ fields, append, remove, form }: TablaItemsCom
           <TableHeader>
             <TableRow>
               <TableHead className="w-12 py-2 px-4">Ítem</TableHead>
-              <TableHead className="min-w-[300px] py-2 px-4">Insumo</TableHead>
+              <TableHead className="min-w-[400px] py-2 px-4">Insumo</TableHead>
               <TableHead className="w-[120px] py-2 px-4">Cantidad</TableHead>
               <TableHead className="w-[150px] py-2 px-4">Precio Unitario</TableHead>
               <TableHead className="w-[120px] py-2 px-4">IVA</TableHead>

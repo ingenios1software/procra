@@ -60,7 +60,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
           <TableHeader>
             <TableRow>
               <TableHead className="w-12 py-2 px-4">Ítem</TableHead>
-              <TableHead className="min-w-[300px] py-2 px-4">Nombre del Insumo</TableHead>
+              <TableHead className="min-w-[400px] py-2 px-4">Nombre del Insumo</TableHead>
               <TableHead className="py-2 px-4">Unidad</TableHead>
               <TableHead className="py-2 px-4">Dosis/ha</TableHead>
               <TableHead className="py-2 px-4">Cantidad Total</TableHead>
