@@ -196,7 +196,7 @@ export function SelectorUniversal<T extends { id: string }>({
         <Input
           type="text"
           placeholder="Cod."
-          className="w-20 h-9"
+          className="w-16 h-9"
           value={codeQuery || ''}
           onChange={(e) => setCodeQuery(e.target.value)}
           onKeyDown={handleCodeSearch}
