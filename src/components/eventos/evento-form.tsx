@@ -266,7 +266,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   </CardHeader>
                   <CardContent className="p-2 space-y-4">
                      <InsumosTabla
-                        fields={fields as any}
+                        fields={fields}
                         hectareas={watchedHectareas || 0}
                         append={append}
                         remove={remove}

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useCallback } from "react";
@@ -8,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { InsumoSelector } from "../insumos/InsumoSelector";
 import { Trash2, PlusCircle, AlertTriangle } from "lucide-react";
 import type { Insumo } from "@/lib/types";
+import { UseFormReturn } from "react-hook-form";
+import { FormField, FormMessage, FormItem } from "../ui/form";
+
 
 interface ProductoField {
   id: string; // from useFieldArray
@@ -20,7 +22,7 @@ interface InsumosTablaProps {
   hectareas: number;
   append: (value: Partial<ProductoField>) => void;
   remove: (index: number) => void;
-  update: (index: number, value: Partial<ProductoField>) => void;
+  form: UseFormReturn<any>
 }
 
 const StockAlert = ({ insumo, cantidadNecesaria }: { insumo: Insumo, cantidadNecesaria: number }) => {
@@ -49,17 +51,8 @@ const StockAlert = ({ insumo, cantidadNecesaria }: { insumo: Insumo, cantidadNec
 }
 
 
-export function InsumosTabla({ fields, hectareas, append, remove, update }: InsumosTablaProps) {
-
-  const handleInsumoChange = useCallback((index: number, insumo: Insumo | undefined) => {
-    update(index, { insumo });
-  }, [update]);
-
-  const handleDosisChange = useCallback((index: number, event: React.ChangeEvent<HTMLInputElement>) => {
-    const newDosis = parseFloat(event.target.value) || 0;
-    update(index, { dosis: newDosis });
-  }, [update]);
-
+export function InsumosTabla({ fields, hectareas, append, remove, form }: InsumosTablaProps) {
+  
   return (
     <>
       <div className="overflow-x-auto border rounded-md">
@@ -78,30 +71,47 @@ export function InsumosTabla({ fields, hectareas, append, remove, update }: Insu
           </TableHeader>
           <TableBody>
             {fields.map((field, index) => {
-              const cantidadTotal = (hectareas || 0) * (field.dosis || 0);
-              const precioUnitario = field.insumo?.precioPromedioCalculado || field.insumo?.costoUnitario || 0;
+              const insumo = form.watch(`productos.${index}.insumo`);
+              const dosis = form.watch(`productos.${index}.dosis`) || 0;
+              const cantidadTotal = (hectareas || 0) * dosis;
+              const precioUnitario = insumo?.precioPromedioCalculado || insumo?.costoUnitario || 0;
               const valorTotal = cantidadTotal * precioUnitario;
 
               return (
                 <TableRow key={field.id}>
                   <TableCell className="font-medium text-muted-foreground py-1 px-4">{index + 1}</TableCell>
                   <TableCell className="py-1 px-4 align-top">
-                    <InsumoSelector
-                      value={field.insumo}
-                      onChange={(insumo) => handleInsumoChange(index, insumo)}
+                    <FormField
+                      control={form.control}
+                      name={`productos.${index}.insumo`}
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <InsumoSelector
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                           {fieldState.error && <FormMessage />}
+                           {field.value && <StockAlert insumo={field.value} cantidadNecesaria={cantidadTotal} />}
+                        </FormItem>
+                      )}
                     />
-                    {field.insumo && (
-                        <StockAlert insumo={field.insumo} cantidadNecesaria={cantidadTotal} />
-                    )}
                   </TableCell>
-                  <TableCell className="py-1 px-4 align-top">{field.insumo?.unidad || 'N/A'}</TableCell>
+                  <TableCell className="py-1 px-4 align-top">{insumo?.unidad || 'N/A'}</TableCell>
                   <TableCell className="py-1 px-4 align-top">
-                    <Input
-                      type="number"
-                      value={field.dosis || ''}
-                      onChange={(e) => handleDosisChange(index, e)}
-                      placeholder="0"
-                      className="w-24 h-9"
+                    <FormField
+                      control={form.control}
+                      name={`productos.${index}.dosis`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            className="w-24 h-9"
+                            {...field}
+                          />
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </TableCell>
                   <TableCell className="font-mono py-1 px-4 align-top">{cantidadTotal.toFixed(2)}</TableCell>

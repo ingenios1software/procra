@@ -133,10 +133,11 @@ export function InsumoSelector({
                 {insumosGrupo.map((insumo) => (
                   <CommandItem
                     key={insumo.id}
-                    value={insumo.nombre}
+                    value={`${insumo.numeroItem} ${insumo.nombre} ${insumo.principioActivo}`}
                     onSelect={() => {
                       onChange(insumo);
                       setOpen(false);
+                      setSearchQuery("");
                     }}
                     className="cursor-pointer"
                   >
@@ -150,7 +151,7 @@ export function InsumoSelector({
                             <span>Precio: ${insumo.precioPromedioCalculado?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || 0}</span>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                            Principio Activo: {insumo.principioActivo || '----'}
+                            P.A: {insumo.principioActivo || '----'}
                         </div>
                     </div>
                   </CommandItem>
@@ -219,7 +220,7 @@ export function InsumoSelector({
         <DialogContent className="h-screen w-screen max-w-full rounded-none p-0 flex flex-col sm:h-auto sm:w-auto sm:max-w-2xl sm:rounded-lg">
             <DialogHeader className="flex-row items-center justify-between border-b p-4">
                  <DialogTitle className="text-lg font-semibold">Seleccionar Insumo</DialogTitle>
-                 <Button variant="ghost" size="icon" onClick={() => setOpen(false)}><X className="h-5 w-5"/></Button>
+                 <Button variant="ghost" size="icon" onClick={() => {setOpen(false); setSearchQuery("")}}><X className="h-5 w-5"/></Button>
             </DialogHeader>
             <div className="flex-grow overflow-hidden p-2">
                 {selectorContent}
