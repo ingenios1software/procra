@@ -7,7 +7,7 @@ export default function CrearCompraPage() {
   return (
     <>
       <PageHeader
-        title="Crear Nueva Compra"
+        title="Registrar Nueva Compra"
         description="Complete los detalles de la nueva compra de productos o insumos."
       />
       <CompraForm />

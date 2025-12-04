@@ -77,13 +77,14 @@ export default function ComprasPage() {
                 <TableHead>Documento</TableHead>
                 <TableHead>Proveedor</TableHead>
                 <TableHead>Condición</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(isLoadingCompras || isLoadingProveedores) && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
+              {(isLoadingCompras || isLoadingProveedores) && <TableRow><TableCell colSpan={8} className="text-center">Cargando...</TableCell></TableRow>}
               {compras?.map((compra) => (
                 <TableRow key={compra.id}>
                   <TableCell>{format(new Date(compra.fecha as string), "dd/MM/yyyy")}</TableCell>
@@ -97,6 +98,11 @@ export default function ComprasPage() {
                   <TableCell>
                     <Badge variant={compra.condicion === 'Contado' ? 'secondary' : 'outline'}>
                       {compra.condicion}
+                    </Badge>
+                  </TableCell>
+                   <TableCell>
+                    <Badge variant={compra.tipoCompra === 'Externa' ? 'default' : 'outline'}>
+                      {compra.tipoCompra}
                     </Badge>
                   </TableCell>
                   <TableCell>

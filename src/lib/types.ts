@@ -255,6 +255,7 @@ export type Cliente = {
 export type Compra = {
   id: string;
   proveedorId: string;
+  zafraId: string;
   fecha: Date | string;
   numeroDocumento: string;
   tipoDocumento: 'Factura' | 'Nota de Crédito' | 'Remisión';
