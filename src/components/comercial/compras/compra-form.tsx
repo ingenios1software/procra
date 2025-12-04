@@ -12,15 +12,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import type { Compra, Proveedor, Insumo, MovimientoStock, Zafra } from "@/lib/types";
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { InsumoSelector } from "@/components/insumos/InsumoSelector";
 import { useMemo } from "react";
+import { TablaItemsCompra } from "./TablaItemsCompra";
 
 const itemSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar un insumo válido." }),
@@ -72,7 +72,7 @@ export function CompraForm({ compra }: CompraFormProps) {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "items",
   });
@@ -197,43 +197,13 @@ export function CompraForm({ compra }: CompraFormProps) {
                     <CardTitle>Ítems de la Compra</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-4">
-                        {fields.map((field, index) => {
-                            const item = watchedItems[index];
-                            const totalItem = (item?.cantidad || 0) * (item?.precioUnitario || 0);
-
-                            return (
-                                <div key={field.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end p-4 border rounded-md relative">
-                                    <div className="md:col-span-4">
-                                        <FormField
-                                            name={`items.${index}.insumo`}
-                                            control={form.control}
-                                            render={({ field: controllerField, fieldState }) => (
-                                                <FormItem>
-                                                    <FormLabel>Insumo</FormLabel>
-                                                    <InsumoSelector
-                                                        value={controllerField.value}
-                                                        onChange={(insumo) => controllerField.onChange(insumo)}
-                                                    />
-                                                    {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2"><FormField name={`items.${index}.cantidad`} control={form.control} render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} /></div>
-                                    <div className="md:col-span-2"><FormField name={`items.${index}.precioUnitario`} control={form.control} render={({ field }) => (<FormItem><FormLabel>Precio Unitario</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>)} /></div>
-                                    <div className="md:col-span-2"><FormField name={`items.${index}.porcentajeIva`} control={form.control} render={({ field }) => (<FormItem><FormLabel>IVA</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="10">10%</SelectItem><SelectItem value="5">5%</SelectItem><SelectItem value="0">Exento</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} /></div>
-                                    <div className="md:col-span-1 flex items-center">
-                                      <p className="font-mono font-semibold text-lg text-right w-full">${totalItem.toLocaleString('en-US')}</p>
-                                    </div>
-                                    <div className="md:col-span-1 flex justify-end">
-                                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive"><Trash2 className="h-5 w-5" /></Button>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                    <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0, porcentajeIva: '10' })}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem</Button>
+                    <TablaItemsCompra
+                        fields={fields}
+                        append={append}
+                        remove={remove}
+                        update={update}
+                        form={form}
+                    />
                 </CardContent>
                 <CardFooter className="flex justify-end bg-muted/50 p-4">
                     <div className="flex items-center gap-4">
