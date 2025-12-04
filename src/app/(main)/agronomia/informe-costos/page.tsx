@@ -17,7 +17,7 @@ export default function InformeCostosPage() {
     const isLoading = l1 || l2 || l3 || l4 || l5;
 
     if (isLoading) {
-        return <p>Cargando datos para el informe de costos...</p>;
+        return <div className="flex items-center justify-center h-64"><p>Cargando datos para el informe de costos...</p></div>;
     }
     
     return (
