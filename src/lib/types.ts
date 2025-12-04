@@ -120,11 +120,12 @@ export type Insumo = {
   unidad: 'kg' | 'lt' | 'unidad' | 'ton';
   dosisRecomendada?: number;
   costoUnitario: number; // Costo de la última compra o manual
-  precioPromedioCalculado?: number; // Calculado a partir de todas las compras
+  precioPromedioCalculado: number; // Calculado a partir de todas las compras
   stockMinimo: number;
   stockActual: number; // Este es el valor que se ajusta con entradas/salidas
   proveedor?: string;
   numeroItem?: number;
+  ultimaCompra?: Date | string;
 };
 
 export type MovimientoInsumo = {
@@ -260,6 +261,10 @@ export type Compra = {
   condicion: 'Contado' | 'Crédito';
   total: number;
   estado: 'Registrado' | 'Aprobado' | 'Pagado';
+  observacion?: string;
+  tipoCompra: 'Externa' | 'Interna';
+  creadoPor?: string;
+  creadoEn?: Date | string;
   items: {
     insumoId: string;
     cantidad: number;
