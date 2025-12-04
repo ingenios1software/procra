@@ -46,6 +46,7 @@ interface SelectorUniversalProps<T> {
   width?: string;
   extraInfoFields?: { label: string; field: keyof T; format?: (value: any) => string }[];
   searchFields: (keyof T)[];
+  disabled?: boolean;
 }
 
 export function SelectorUniversal<T extends { id: string }>({
@@ -58,6 +59,7 @@ export function SelectorUniversal<T extends { id: string }>({
   width = "w-full",
   extraInfoFields = [],
   searchFields = [],
+  disabled = false,
 }: SelectorUniversalProps<T>) {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -90,40 +92,40 @@ export function SelectorUniversal<T extends { id: string }>({
   }, [allItems, debouncedSearchQuery, searchFields]);
 
 
-  const handleCodeSearch = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (!codeQuery.trim()) {
-        onSelect(undefined);
-        return;
-      }
-      if (!firestore) return;
+  const handleCodeSearch = async (e?: React.KeyboardEvent<HTMLInputElement> | React.FocusEvent<HTMLInputElement>) => {
+    if (e && 'key' in e && e.key !== 'Enter') return;
+    
+    e?.preventDefault();
+    if (!codeQuery.trim()) {
+      onSelect(undefined);
+      return;
+    }
+    if (!firestore) return;
 
-      const q = query(
-        collection(firestore, collectionName),
-        where(codeField as string, "==", isNaN(Number(codeQuery)) ? codeQuery : Number(codeQuery) ),
-        limit(1)
-      );
-      const querySnapshot = await getDocs(q);
+    const q = query(
+      collection(firestore, collectionName),
+      where(codeField as string, "==", isNaN(Number(codeQuery)) ? codeQuery : Number(codeQuery) ),
+      limit(1)
+    );
+    const querySnapshot = await getDocs(q);
 
-      if (!querySnapshot.empty) {
-        const foundDoc = querySnapshot.docs[0];
-        const foundItem = { id: foundDoc.id, ...foundDoc.data() } as T;
-        onSelect(foundItem);
-        setOpen(false);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Registro no encontrado",
-          description: `No se encontró un registro con el código "${codeQuery}".`,
-        });
-        onSelect(undefined);
-      }
+    if (!querySnapshot.empty) {
+      const foundDoc = querySnapshot.docs[0];
+      const foundItem = { id: foundDoc.id, ...foundDoc.data() } as T;
+      onSelect(foundItem);
+      setOpen(false);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Registro no encontrado",
+        description: `No se encontró un registro con el código "${codeQuery}".`,
+      });
+      onSelect(undefined);
     }
   };
 
   React.useEffect(() => {
-    setCodeQuery((value?.[codeField] as string) || "");
+    setCodeQuery(value?.[codeField] as string || "");
   }, [value, codeField]);
 
   const selectorContent = (
@@ -179,7 +181,7 @@ export function SelectorUniversal<T extends { id: string }>({
         role="combobox"
         aria-expanded={open}
         className={cn("justify-between h-9 text-base sm:text-sm", width)}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
       >
         <span className="truncate">
           {isLoading ? "Cargando..." : value ? (value[displayField] as string) : `Seleccionar ${label}...`}
@@ -193,12 +195,13 @@ export function SelectorUniversal<T extends { id: string }>({
       <div className="flex items-center gap-2">
         <Input
           type="text"
-          placeholder="Cód."
+          placeholder="Cod."
           className="w-20 h-9"
-          value={codeQuery}
+          value={codeQuery || ''}
           onChange={(e) => setCodeQuery(e.target.value)}
           onKeyDown={handleCodeSearch}
-          disabled={isLoading}
+          onBlur={handleCodeSearch}
+          disabled={isLoading || disabled}
         />
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild className="flex-grow">
@@ -217,8 +220,8 @@ export function SelectorUniversal<T extends { id: string }>({
     <>
       <div className="space-y-2">
          <div className="flex items-center gap-2">
-            <Input type="text" placeholder="Código" className="w-24 h-12 text-base" value={codeQuery} onChange={(e) => setCodeQuery(e.target.value)} onKeyDown={handleCodeSearch} disabled={isLoading} />
-            <div onClick={() => setOpen(true)} className="flex-grow">{triggerButton}</div>
+            <Input type="text" placeholder="Código" className="w-24 h-12 text-base" value={codeQuery || ''} onChange={(e) => setCodeQuery(e.target.value)} onKeyDown={handleCodeSearch} onBlur={handleCodeSearch} disabled={isLoading || disabled} />
+            <div onClick={() => !disabled && setOpen(true)} className="flex-grow">{triggerButton}</div>
         </div>
       </div>
       <Dialog open={open && !isDesktop} onOpenChange={setOpen}>
