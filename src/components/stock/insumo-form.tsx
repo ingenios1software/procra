@@ -31,8 +31,6 @@ const formSchema = z.object({
   principioActivo: z.string().optional(),
   unidad: z.enum(['kg', 'lt', 'unidad', 'ton']),
   dosisRecomendada: z.coerce.number().optional(),
-  // costoUnitario is removed from the form as it's now calculated
-  stockActual: z.coerce.number().min(0, "El stock no puede ser negativo.").describe("Este es el stock inicial o de entrada."),
   stockMinimo: z.coerce.number().min(0, "El stock mínimo no puede ser negativo."),
   proveedor: z.string().optional(),
 });
@@ -41,35 +39,32 @@ type InsumoFormValues = z.infer<typeof formSchema>;
 
 interface InsumoFormProps {
   insumo?: Partial<Insumo> | null;
-  onSubmit: (data: Omit<InsumoFormValues, 'costoUnitario'> & { costoUnitario: number }) => void;
+  onSubmit: (data: InsumoFormValues) => void;
   onCancel: () => void;
 }
 
 export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoFormProps) => {
   const form = useForm<InsumoFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: insumo || {
+    defaultValues: insumo ? {
+        ...insumo,
+        dosisRecomendada: insumo.dosisRecomendada || undefined,
+        stockMinimo: insumo.stockMinimo || 0,
+        proveedor: insumo.proveedor || ""
+    } : {
       nombre: "",
       categoria: "otros",
       principioActivo: "",
       unidad: "unidad",
       dosisRecomendada: 0,
-      stockActual: 0,
       stockMinimo: 0,
       proveedor: "",
     },
   });
 
-  const handleSubmit = (data: InsumoFormValues) => {
-    onSubmit({
-      ...data,
-      costoUnitario: insumo?.costoUnitario || 0, // Pass 0 as it will be calculated
-    });
-  };
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="nombre"
@@ -167,20 +162,6 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
-              name="stockActual"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Stock Inicial / Entrada Total</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="1500" {...field} />
-                  </FormControl>
-                  <FormDescription>Se ajustará con compras y consumos.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="stockMinimo"
               render={({ field }) => (
                 <FormItem>
@@ -192,10 +173,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
                 </FormItem>
               )}
             />
-        </div>
-        
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
+             <FormField
               control={form.control}
               name="proveedor"
               render={({ field }) => (
@@ -209,7 +187,6 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
               )}
             />
         </div>
-
 
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>

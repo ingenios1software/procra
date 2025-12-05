@@ -150,7 +150,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
   
   const categoriasUnicas = useMemo(() => [...new Set(insumos.map(i => i.categoria))], [insumos]);
 
-  const handleSaveInsumo = useCallback(async (insumoData: Omit<Insumo, 'id' | 'precioPromedioCalculado'>) => {
+  const handleSaveInsumo = useCallback(async (insumoData: Omit<Insumo, 'id' | 'precioPromedioCalculado' | 'stockActual' | 'costoUnitario'>) => {
     if (!firestore) return;
 
     const dataToSave = {
@@ -174,7 +174,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
       }
       const numeroItem = maxNumeroItem + 1;
 
-      addDocumentNonBlocking(insumosCol, { ...dataToSave, numeroItem });
+      addDocumentNonBlocking(insumosCol, { ...dataToSave, numeroItem, stockActual: 0, costoUnitario: 0, precioPromedioCalculado: 0 });
       toast({ title: "Insumo creado", description: `Item Nº ${numeroItem}` });
     }
     setDialogOpen(false);
