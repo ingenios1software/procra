@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InsumoSelector } from "@/components/insumos/InsumoSelector";
-import { Trash2, PlusCircle, AlertTriangle } from "lucide-react";
+import { Trash2, PlusCircle } from "lucide-react";
 import type { Insumo } from "@/lib/types";
 import { UseFormReturn } from "react-hook-form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 
 
 interface ItemField {
@@ -24,20 +24,10 @@ interface TablaItemsCompraProps {
   fields: ItemField[];
   append: (value: Partial<ItemField>) => void;
   remove: (index: number) => void;
-  update: (index: number, value: Partial<ItemField>) => void;
   form: UseFormReturn<any>;
 }
 
-export function TablaItemsCompra({ fields, append, remove, update, form }: TablaItemsCompraProps) {
-
-  const handleInsumoChange = useCallback((index: number, insumo: Insumo | undefined) => {
-    update(index, { insumo });
-  }, [update]);
-
-  const handleFieldChange = useCallback((index: number, fieldName: keyof ItemField, value: any) => {
-    update(index, { [fieldName]: value });
-  }, [update]);
-
+export function TablaItemsCompra({ fields, append, remove, form }: TablaItemsCompraProps) {
 
   return (
     <>
@@ -46,7 +36,7 @@ export function TablaItemsCompra({ fields, append, remove, update, form }: Tabla
           <TableHeader>
             <TableRow>
               <TableHead className="w-12 py-2 px-4">Ítem</TableHead>
-              <TableHead className="min-w-[300px] py-2 px-4">Insumo</TableHead>
+              <TableHead className="min-w-[400px] py-2 px-4">Insumo</TableHead>
               <TableHead className="w-[120px] py-2 px-4">Cantidad</TableHead>
               <TableHead className="w-[150px] py-2 px-4">Precio Unitario</TableHead>
               <TableHead className="w-[120px] py-2 px-4">IVA</TableHead>

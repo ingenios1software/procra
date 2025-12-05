@@ -72,7 +72,7 @@ export function CompraForm({ compra }: CompraFormProps) {
     },
   });
 
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "items",
   });
@@ -201,7 +201,6 @@ export function CompraForm({ compra }: CompraFormProps) {
                         fields={fields}
                         append={append}
                         remove={remove}
-                        update={update}
                         form={form}
                     />
                 </CardContent>

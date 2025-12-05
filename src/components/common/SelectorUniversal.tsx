@@ -185,7 +185,7 @@ export function SelectorUniversal<T extends { id: string }>({
         variant="outline"
         role="combobox"
         aria-expanded={open}
-        className={cn("justify-between h-9 text-base sm:text-sm", width)}
+        className={cn("justify-between h-9 text-base sm:text-sm", width, "flex-grow")}
         disabled={isLoading || disabled}
       >
         <span className="truncate">
@@ -230,7 +230,7 @@ export function SelectorUniversal<T extends { id: string }>({
         </div>
       </div>
       <Dialog open={open && !isDesktop} onOpenChange={setOpen}>
-        <DialogContent className="h-screen w-screen max-w-full rounded-none p-0 flex flex-col sm:h-auto sm:w-auto sm:max-w-2xl sm:rounded-lg">
+        <DialogContent className="h-screen w-screen max-w-full rounded-none p-0 flex flex-col sm:h-[80vh] sm:w-auto sm:max-w-2xl sm:rounded-lg">
             <DialogHeader className="flex-row items-center justify-between border-b p-4"><DialogTitle className="text-lg font-semibold">Seleccionar {label}</DialogTitle><Button variant="ghost" size="icon" onClick={() => setOpen(false)}><X className="h-5 w-5"/></Button></DialogHeader>
             <div className="flex-grow overflow-hidden p-2">{selectorContent}</div>
         </DialogContent>
