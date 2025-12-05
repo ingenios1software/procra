@@ -27,7 +27,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc, getCountFromServer } from "firebase/firestore";
+import { collection, doc, getDocs, query, orderBy, limit } from "firebase/firestore";
 import Link from "next/link";
 
 interface ZafrasListProps {
@@ -58,8 +58,13 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
       toast({ title: "Zafra actualizada" });
     } else {
       const zafrasCol = collection(firestore, 'zafras');
-      const snapshot = await getCountFromServer(zafrasCol);
-      const numeroItem = snapshot.data().count + 1;
+      const q = query(zafrasCol, orderBy("numeroItem", "desc"), limit(1));
+      const querySnapshot = await getDocs(q);
+      let maxNumeroItem = 0;
+      if (!querySnapshot.empty) {
+          maxNumeroItem = querySnapshot.docs[0].data().numeroItem || 0;
+      }
+      const numeroItem = maxNumeroItem + 1;
 
       addDocumentNonBlocking(zafrasCol, { ...dataToSave, numeroItem });
       toast({ title: "Zafra creada", description: `Item Nº ${numeroItem}` });
@@ -137,9 +142,9 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando zafras...</TableCell></TableRow>}
-              {initialZafras.map((zafra) => (
+              {initialZafras.map((zafra, index) => (
                 <TableRow key={zafra.id}>
-                  <TableCell className="font-medium text-muted-foreground">{zafra.numeroItem}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground">{zafra.numeroItem || index + 1}</TableCell>
                   <TableCell className="font-medium">
                      <Link href={`/zafras/${zafra.id}`} className="hover:underline text-primary">
                       {zafra.nombre}

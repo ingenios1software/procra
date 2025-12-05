@@ -33,7 +33,6 @@ export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) 
     if (!firestore) return;
     const cultivosCol = collection(firestore, 'cultivos');
     
-    // Get the highest numeroItem
     const q = query(cultivosCol, orderBy("numeroItem", "desc"), limit(1));
     const querySnapshot = await getDocs(q);
     let maxNumeroItem = 0;

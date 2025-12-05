@@ -22,7 +22,7 @@ import { PageHeader } from "../shared/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { collection, doc, getCountFromServer, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, query, orderBy, limit, writeBatch } from "firebase/firestore";
 import { ImportButton } from "./import-button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
 import * as XLSX from 'xlsx';
@@ -166,8 +166,13 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
       toast({ title: "Insumo actualizado" });
     } else {
       const insumosCol = collection(firestore, 'insumos');
-      const snapshot = await getCountFromServer(insumosCol);
-      const numeroItem = snapshot.data().count + 1;
+      const q = query(insumosCol, orderBy("numeroItem", "desc"), limit(1));
+      const querySnapshot = await getDocs(q);
+      let maxNumeroItem = 0;
+      if (!querySnapshot.empty) {
+          maxNumeroItem = querySnapshot.docs[0].data().numeroItem || 0;
+      }
+      const numeroItem = maxNumeroItem + 1;
 
       addDocumentNonBlocking(insumosCol, { ...dataToSave, numeroItem });
       toast({ title: "Insumo creado", description: `Item Nº ${numeroItem}` });
