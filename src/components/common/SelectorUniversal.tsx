@@ -99,9 +99,19 @@ export function SelectorUniversal<T extends { id: string }>({
     }
     if (!firestore) return;
 
+    const numericCode = Number(codeQuery);
+    if (isNaN(numericCode)) {
+      toast({
+        variant: "destructive",
+        title: "Código inválido",
+        description: `El código "${codeQuery}" no es un número válido.`,
+      });
+      return;
+    }
+
     const q = query(
       collection(firestore, collectionName),
-      where(codeField as string, "==", codeQuery),
+      where(codeField as string, "==", numericCode),
       limit(1)
     );
     const querySnapshot = await getDocs(q);
