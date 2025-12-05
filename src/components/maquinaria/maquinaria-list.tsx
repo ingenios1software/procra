@@ -36,7 +36,7 @@ import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlockin
 import { cn } from "@/lib/utils";
 import { MaquinariaForm } from "./maquinaria-form";
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc, getCountFromServer } from "firebase/firestore";
+import { collection, doc, getDocs, query, orderBy, limit } from "firebase/firestore";
 
 interface MaquinariaListProps {
   maquinaria: Maquinaria[];
@@ -58,8 +58,14 @@ export function MaquinariaList({ maquinaria, isLoading }: MaquinariaListProps) {
       toast({ title: "Maquinaria actualizada", description: `Los datos de "${maquinariaData.nombre}" han sido actualizados.` });
     } else {
       const maquinariaCol = collection(firestore, 'maquinaria');
-      const snapshot = await getCountFromServer(maquinariaCol);
-      const numeroItem = snapshot.data().count + 1;
+      const q = query(maquinariaCol, orderBy("numeroItem", "desc"), limit(1));
+      const querySnapshot = await getDocs(q);
+      let maxNumeroItem = 0;
+      if (!querySnapshot.empty) {
+          maxNumeroItem = querySnapshot.docs[0].data().numeroItem || 0;
+      }
+      const numeroItem = maxNumeroItem + 1;
+
       addDocumentNonBlocking(maquinariaCol, { ...maquinariaData, numeroItem });
       toast({ title: "Maquinaria creada", description: `La maquinaria "${maquinariaData.nombre}" (Item Nº ${numeroItem}) ha sido registrada.` });
     }
@@ -106,9 +112,9 @@ export function MaquinariaList({ maquinaria, isLoading }: MaquinariaListProps) {
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando maquinaria...</TableCell></TableRow>}
-              {maquinaria.map((item) => (
+              {maquinaria.map((item, index) => (
                 <TableRow key={item.id}>
-                  <TableCell className="font-medium text-muted-foreground">{item.numeroItem}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground">{item.numeroItem || index + 1}</TableCell>
                   <TableCell className="font-medium">{item.nombre}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="capitalize">{item.tipo}</Badge>

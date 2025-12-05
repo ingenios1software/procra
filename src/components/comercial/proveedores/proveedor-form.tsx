@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { Proveedor } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { collection, doc, getCountFromServer } from "firebase/firestore";
+import { collection, doc, getDocs, query, orderBy, limit } from "firebase/firestore";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre es muy corto."),
@@ -64,8 +64,14 @@ export function ProveedorForm({ proveedor }: ProveedorFormProps) {
       });
     } else {
       const proveedoresCol = collection(firestore, 'proveedores');
-      const snapshot = await getCountFromServer(proveedoresCol);
-      const numeroItem = snapshot.data().count + 1;
+      const q = query(proveedoresCol, orderBy("numeroItem", "desc"), limit(1));
+      const querySnapshot = await getDocs(q);
+      let maxNumeroItem = 0;
+      if (!querySnapshot.empty) {
+          maxNumeroItem = querySnapshot.docs[0].data().numeroItem || 0;
+      }
+      const numeroItem = maxNumeroItem + 1;
+
       addDocumentNonBlocking(proveedoresCol, { ...data, numeroItem });
       toast({
         title: `Proveedor creado`,

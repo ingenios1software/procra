@@ -20,7 +20,7 @@ import type { Cliente } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { collection, doc, getCountFromServer } from "firebase/firestore";
+import { collection, doc, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 
 const formSchema = z.object({
@@ -68,8 +68,14 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
       });
     } else {
       const clientesCol = collection(firestore, 'clientes');
-      const snapshot = await getCountFromServer(clientesCol);
-      const numeroItem = snapshot.data().count + 1;
+      const q = query(clientesCol, orderBy("numeroItem", "desc"), limit(1));
+      const querySnapshot = await getDocs(q);
+      let maxNumeroItem = 0;
+      if (!querySnapshot.empty) {
+          maxNumeroItem = querySnapshot.docs[0].data().numeroItem || 0;
+      }
+      const numeroItem = maxNumeroItem + 1;
+      
       addDocumentNonBlocking(clientesCol, { ...data, numeroItem });
       toast({
         title: `Cliente creado`,
