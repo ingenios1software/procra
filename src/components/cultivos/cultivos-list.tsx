@@ -93,9 +93,9 @@ export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) 
                     <TableCell colSpan={4} className="text-center">Cargando cultivos...</TableCell>
                 </TableRow>
               )}
-              {!isLoading && initialCultivos.map((cultivo) => (
+              {!isLoading && initialCultivos.map((cultivo, index) => (
                 <TableRow key={cultivo.id}>
-                  <TableCell className="font-medium text-muted-foreground">{cultivo.numeroItem}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground">{cultivo.numeroItem || index + 1}</TableCell>
                   <TableCell className="font-medium">{cultivo.nombre}</TableCell>
                   <TableCell>{cultivo.descripcion}</TableCell>
                   {user && (
