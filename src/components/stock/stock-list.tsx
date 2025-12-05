@@ -415,9 +415,9 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
               </TableHeader>
               <TableBody>
                 {isLoading && <TableRow><TableCell colSpan={13} className="text-center h-24">Cargando...</TableCell></TableRow>}
-                {filteredStockData.map((insumo) => (
+                {filteredStockData.map((insumo, index) => (
                   <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
-                    <TableCell className="font-medium text-muted-foreground py-2 px-4">{insumo.numeroItem}</TableCell>
+                    <TableCell className="font-medium text-muted-foreground py-2 px-4">{insumo.numeroItem || index + 1}</TableCell>
                     <TableCell className="font-medium py-2 px-4">
                        <div className="flex items-center gap-2">
                           {insumo.stockFinal < insumo.stockMinimo && (
