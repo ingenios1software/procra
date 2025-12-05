@@ -28,6 +28,7 @@ import { ImageUpload } from "./ImageUpload";
 import { InsumosTabla } from "./InsumosTabla";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
 import { useAuth } from "@/hooks/use-auth";
+import { SelectorUniversal } from "../common";
 
 
 const productoSchema = z.object({
@@ -318,9 +319,74 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
               <fieldset disabled={isAprobado && !puedeAprobar}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField name="parcelaId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Parcela</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una parcela" /></SelectTrigger></FormControl><SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                  <FormField name="cultivoId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cultivo / Variedad</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cultivo" /></SelectTrigger></FormControl><SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                  <FormField name="zafraId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Zafra</FormLabel><Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl><SelectContent>{zafras.filter(z => z.estado === 'en curso' || z.estado === 'planificada').map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                  <FormField
+                    control={form.control}
+                    name="parcelaId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Parcela</FormLabel>
+                        <FormControl>
+                          <SelectorUniversal<Parcela>
+                            collectionName="parcelas"
+                            displayField="nombre"
+                            codeField="numeroItem"
+                            value={parcelas?.find(p => p.id === field.value)}
+                            onSelect={(p) => field.onChange(p?.id)}
+                            searchFields={['nombre', 'codigo', 'numeroItem']}
+                            extraInfoFields={[
+                              { label: 'Sup.', field: 'superficie', format: (val) => `${val} ha` },
+                              { label: 'Estado', field: 'estado' },
+                            ]}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="cultivoId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cultivo / Variedad</FormLabel>
+                        <FormControl>
+                          <SelectorUniversal<Cultivo>
+                            collectionName="cultivos"
+                            displayField="nombre"
+                            codeField="numeroItem"
+                            value={cultivos?.find(c => c.id === field.value)}
+                            onSelect={(c) => field.onChange(c?.id)}
+                            searchFields={['nombre', 'numeroItem']}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="zafraId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Zafra</FormLabel>
+                        <FormControl>
+                          <SelectorUniversal<Zafra>
+                            collectionName="zafras"
+                            displayField="nombre"
+                            codeField="numeroItem"
+                            value={zafras?.find(z => z.id === field.value)}
+                            onSelect={(z) => field.onChange(z?.id)}
+                            searchFields={['nombre', 'numeroItem']}
+                            extraInfoFields={[
+                              { label: 'Estado', field: 'estado'},
+                              { label: 'Inicio', field: 'fechaInicio', format: (val) => format(new Date(val), 'dd/MM/yyyy') },
+                            ]}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField name="tipo" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tipo de Evento</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl><SelectContent><SelectItem value="siembra">Siembra</SelectItem><SelectItem value="aplicacion">Aplicación</SelectItem><SelectItem value="fertilización">Fertilización</SelectItem><SelectItem value="riego">Riego</SelectItem><SelectItem value="cosecha">Cosecha</SelectItem><SelectItem value="rendimiento">Rendimiento</SelectItem><SelectItem value="mantenimiento">Mantenimiento</SelectItem><SelectItem value="plagas">Control de Plagas</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
