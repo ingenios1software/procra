@@ -98,7 +98,7 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
               {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
               {parcelas.map((parcela) => (
                 <TableRow key={parcela.id}>
-                  <TableCell className="font-medium text-muted-foreground">{parcela.numeroItem}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground">{parcela.numeroItem || 'N/A'}</TableCell>
                   <TableCell className="font-medium">
                      <Link href={`/parcelas/${parcela.id}`} className="hover:underline text-primary">
                       {parcela.nombre}
