@@ -13,7 +13,7 @@ import type { Cultivo } from "@/lib/types";
 import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc, getCountFromServer } from 'firebase/firestore';
+import { collection, doc, getDocs, query, orderBy, limit } from 'firebase/firestore';
 
 
 interface CultivosListProps {
@@ -32,8 +32,15 @@ export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) 
   const handleCreate = async (cultivoData: Omit<Cultivo, 'id'>) => {
     if (!firestore) return;
     const cultivosCol = collection(firestore, 'cultivos');
-    const snapshot = await getCountFromServer(cultivosCol);
-    const numeroItem = snapshot.data().count + 1;
+    
+    // Get the highest numeroItem
+    const q = query(cultivosCol, orderBy("numeroItem", "desc"), limit(1));
+    const querySnapshot = await getDocs(q);
+    let maxNumeroItem = 0;
+    if (!querySnapshot.empty) {
+        maxNumeroItem = querySnapshot.docs[0].data().numeroItem || 0;
+    }
+    const numeroItem = maxNumeroItem + 1;
 
     addDocumentNonBlocking(cultivosCol, { ...cultivoData, numeroItem });
     toast({ title: "Cultivo creado", description: `El cultivo "${cultivoData.nombre}" (Item Nº ${numeroItem}) ha sido creado.` });
@@ -93,9 +100,9 @@ export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) 
                     <TableCell colSpan={4} className="text-center">Cargando cultivos...</TableCell>
                 </TableRow>
               )}
-              {!isLoading && initialCultivos.map((cultivo, index) => (
+              {!isLoading && initialCultivos.map((cultivo) => (
                 <TableRow key={cultivo.id}>
-                  <TableCell className="font-medium text-muted-foreground">{cultivo.numeroItem || index + 1}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground">{cultivo.numeroItem}</TableCell>
                   <TableCell className="font-medium">{cultivo.nombre}</TableCell>
                   <TableCell>{cultivo.descripcion}</TableCell>
                   {user && (
