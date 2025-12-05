@@ -59,10 +59,12 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const handleSelectInsumo = (index: number, insumo: Insumo) => {
-    form.setValue(`productos.${index}.insumo`, insumo, { shouldDirty: true });
-    form.setValue(`productos.${index}.codigo`, insumo.numeroItem?.toString() || "", { shouldDirty: true });
-    form.trigger(`productos.${index}.insumo`); // Re-validar el campo del insumo
+  const handleSelectInsumo = (index: number, insumo: Insumo | undefined) => {
+    if (insumo) {
+      form.setValue(`productos.${index}.insumo`, insumo, { shouldDirty: true });
+      form.setValue(`productos.${index}.codigo`, insumo.numeroItem?.toString() || "", { shouldDirty: true });
+      form.trigger(`productos.${index}.insumo`);
+    }
   };
   
   const handleBuscarPorCodigo = async (index: number) => {
@@ -122,13 +124,13 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
                       name={`productos.${index}.insumo`}
                       render={({ field: controllerField, fieldState }) => (
                         <FormItem>
-                           <SelectorUniversal
+                           <SelectorUniversal<Insumo>
                             label="Insumo"
                             collectionName="insumos"
                             displayField="nombre"
                             codeField="numeroItem"
                             value={controllerField.value}
-                            onSelect={(selectedInsumo) => handleSelectInsumo(index, selectedInsumo as Insumo)}
+                            onSelect={(selectedInsumo) => handleSelectInsumo(index, selectedInsumo)}
                             searchFields={['nombre', 'numeroItem', 'principioActivo']}
                             extraInfoFields={[
                               { label: 'Stock', field: 'stockActual', format: (val) => (val || 0).toLocaleString('de-DE') },
@@ -185,7 +187,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
         variant="outline"
         size="sm"
         className="mt-4"
-        onClick={() => append({ insumo: undefined, dosis: 0 })}
+        onClick={() => append({ insumo: undefined, dosis: 0, codigo: "" })}
       >
         <PlusCircle className="mr-2 h-4 w-4" /> Agregar Producto
       </Button>
