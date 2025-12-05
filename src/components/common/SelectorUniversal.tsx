@@ -101,7 +101,7 @@ export function SelectorUniversal<T extends { id: string }>({
 
     const q = query(
       collection(firestore, collectionName),
-      where(codeField as string, "==", isNaN(Number(codeQuery)) ? codeQuery : Number(codeQuery) ),
+      where(codeField as string, "==", codeQuery),
       limit(1)
     );
     const querySnapshot = await getDocs(q);
