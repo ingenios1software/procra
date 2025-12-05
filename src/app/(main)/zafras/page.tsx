@@ -10,7 +10,7 @@ export default function ZafrasPage() {
   const firestore = useFirestore();
 
   const zafrasQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'zafras'), orderBy('fechaInicio', 'desc')) : null
+    firestore ? query(collection(firestore, 'zafras'), orderBy('numeroItem', 'asc')) : null
   , [firestore]);
   const { data: zafras, isLoading } = useCollection<Zafra>(zafrasQuery);
 

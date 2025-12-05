@@ -104,6 +104,9 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
 
+  const sortedZafras = [...initialZafras].sort((a, b) => (a.numeroItem || 0) - (b.numeroItem || 0));
+
+
   return (
     <>
       <PageHeader
@@ -142,7 +145,7 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando zafras...</TableCell></TableRow>}
-              {initialZafras.map((zafra, index) => (
+              {sortedZafras.map((zafra, index) => (
                 <TableRow key={zafra.id}>
                   <TableCell className="font-medium text-muted-foreground">{zafra.numeroItem || index + 1}</TableCell>
                   <TableCell className="font-medium">
