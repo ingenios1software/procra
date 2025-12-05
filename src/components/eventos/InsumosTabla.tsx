@@ -4,15 +4,19 @@ import React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { InsumoSelector } from "../insumos/InsumoSelector";
+import { SelectorUniversal } from "@/components/common";
 import { Trash2, PlusCircle, AlertTriangle } from "lucide-react";
 import type { Insumo } from "@/lib/types";
 import { UseFormReturn } from "react-hook-form";
 import { FormField, FormMessage, FormItem } from "../ui/form";
+import { query, collection, where, getDocs } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+import { useToast } from "@/hooks/use-toast";
 
 
 interface ProductoField {
-  id: string; // from useFieldArray
+  id: string;
+  codigo?: string;     // NUEVO
   insumo?: Insumo;
   dosis: number;
 }
@@ -52,6 +56,43 @@ const StockAlert = ({ insumo, cantidadNecesaria }: { insumo: Insumo, cantidadNec
 
 
 export function InsumosTabla({ fields, hectareas, append, remove, form }: InsumosTablaProps) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const handleCodigoChange = (index: number, value: string) => {
+    form.setValue(`productos.${index}.codigo`, value, { shouldDirty: true });
+  };
+
+  const handleBuscarPorCodigo = async (index: number) => {
+    const codigo = form.getValues(`productos.${index}.codigo`);
+    if (!codigo || !firestore) return;
+
+    const q = query(
+      collection(firestore, "insumos"),
+      where("numeroItem", "==", Number(codigo))
+    );
+
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+      const insumoDoc = snap.docs[0];
+      const insumo = { id: insumoDoc.id, ...insumoDoc.data() } as Insumo;
+      handleSelectInsumo(index, insumo);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Código no encontrado",
+        description: `No se encontró un insumo con el código "${codigo}"`,
+      });
+    }
+  };
+
+  const handleSelectInsumo = (index: number, insumo: Insumo) => {
+    form.setValue(`productos.${index}.insumo`, insumo, { shouldDirty: true });
+    form.setValue(`productos.${index}.codigo`, insumo.numeroItem?.toString() || "", { shouldDirty: true });
+    // También podrías querer actualizar otros campos dependientes aquí
+    form.trigger(`productos.${index}.insumo`); // Re-validar el campo del insumo
+  };
   
   return (
     <>
@@ -84,14 +125,25 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
                     <FormField
                       control={form.control}
                       name={`productos.${index}.insumo`}
-                      render={({ field, fieldState }) => (
+                      render={({ field: controllerField, fieldState }) => (
                         <FormItem>
-                          <InsumoSelector
-                            value={field.value}
-                            onChange={field.onChange}
+                          <SelectorUniversal
+                            label="Insumo"
+                            collectionName="insumos"
+                            displayField="nombre"
+                            codeField="numeroItem"
+                            value={controllerField.value}
+                            onSelect={(selectedInsumo) => handleSelectInsumo(index, selectedInsumo as Insumo)}
+                            searchFields={['nombre', 'numeroItem', 'principioActivo']}
+                            extraInfoFields={[
+                              { label: 'Stock', field: 'stockActual', format: (val) => (val || 0).toLocaleString('de-DE') },
+                              { label: 'Unidad', field: 'unidad'},
+                              { label: 'Precio Prom.', field: 'precioPromedioCalculado', format: (val) => `$${(val || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}`},
+                              { label: 'P.A.', field: 'principioActivo' },
+                            ]}
                           />
                            {fieldState.error && <FormMessage />}
-                           {field.value && <StockAlert insumo={field.value} cantidadNecesaria={cantidadTotal} />}
+                           {controllerField.value && <StockAlert insumo={controllerField.value} cantidadNecesaria={cantidadTotal} />}
                         </FormItem>
                       )}
                     />
@@ -101,13 +153,13 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
                     <FormField
                       control={form.control}
                       name={`productos.${index}.dosis`}
-                      render={({ field }) => (
+                      render={({ field: dosisField }) => (
                         <FormItem>
                           <Input
                             type="number"
                             placeholder="0"
                             className="w-24 h-9"
-                            {...field}
+                            {...dosisField}
                           />
                           <FormMessage />
                         </FormItem>
