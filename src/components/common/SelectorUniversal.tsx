@@ -192,7 +192,7 @@ export function SelectorUniversal<T extends { id: string }>({
 
   if (isDesktop) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 w-full">
         <Input
           type="text"
           placeholder="Cod."
