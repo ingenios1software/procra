@@ -75,8 +75,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
     const snap = await getDocs(q);
 
     if (!snap.empty) {
-      const insumoDoc = snap.docs[0];
-      const insumo = { id: insumoDoc.id, ...insumoDoc.data() } as Insumo;
+      const insumo = { id: snap.docs[0].id, ...snap.docs[0].data() } as Insumo;
       handleSelectInsumo(index, insumo);
     } else {
       toast({
@@ -90,7 +89,6 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
   const handleSelectInsumo = (index: number, insumo: Insumo) => {
     form.setValue(`productos.${index}.insumo`, insumo, { shouldDirty: true });
     form.setValue(`productos.${index}.codigo`, insumo.numeroItem?.toString() || "", { shouldDirty: true });
-    // También podrías querer actualizar otros campos dependientes aquí
     form.trigger(`productos.${index}.insumo`); // Re-validar el campo del insumo
   };
   
