@@ -59,10 +59,12 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const handleCodigoChange = (index: number, value: string) => {
-    form.setValue(`productos.${index}.codigo`, value, { shouldDirty: true });
+  const handleSelectInsumo = (index: number, insumo: Insumo) => {
+    form.setValue(`productos.${index}.insumo`, insumo, { shouldDirty: true });
+    form.setValue(`productos.${index}.codigo`, insumo.numeroItem?.toString() || "", { shouldDirty: true });
+    form.trigger(`productos.${index}.insumo`); // Re-validar el campo del insumo
   };
-
+  
   const handleBuscarPorCodigo = async (index: number) => {
     const codigo = form.getValues(`productos.${index}.codigo`);
     if (!codigo || !firestore) return;
@@ -84,12 +86,6 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
         description: `No se encontró un insumo con el código "${codigo}"`,
       });
     }
-  };
-
-  const handleSelectInsumo = (index: number, insumo: Insumo) => {
-    form.setValue(`productos.${index}.insumo`, insumo, { shouldDirty: true });
-    form.setValue(`productos.${index}.codigo`, insumo.numeroItem?.toString() || "", { shouldDirty: true });
-    form.trigger(`productos.${index}.insumo`); // Re-validar el campo del insumo
   };
   
   return (
@@ -115,6 +111,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
               const cantidadTotal = (hectareas || 0) * dosis;
               const precioUnitario = insumo?.precioPromedioCalculado || insumo?.costoUnitario || 0;
               const valorTotal = cantidadTotal * precioUnitario;
+              const codigoValue = form.watch(`productos.${index}.codigo`);
 
               return (
                 <TableRow key={field.id}>
@@ -125,7 +122,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
                       name={`productos.${index}.insumo`}
                       render={({ field: controllerField, fieldState }) => (
                         <FormItem>
-                          <SelectorUniversal
+                           <SelectorUniversal
                             label="Insumo"
                             collectionName="insumos"
                             displayField="nombre"
