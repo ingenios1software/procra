@@ -92,10 +92,7 @@ export function SelectorUniversal<T extends { id: string }>({
   }, [allItems, debouncedSearchQuery, searchFields]);
 
 
-  const handleCodeSearch = async (e?: React.KeyboardEvent<HTMLInputElement> | React.FocusEvent<HTMLInputElement>) => {
-    if (e && 'key' in e && e.key !== 'Enter') return;
-    
-    e?.preventDefault();
+  const handleCodeSearch = async () => {
     if (!codeQuery.trim()) {
       onSelect(undefined);
       return;
@@ -123,6 +120,14 @@ export function SelectorUniversal<T extends { id: string }>({
       onSelect(undefined);
     }
   };
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCodeSearch();
+    }
+  }
+
 
   React.useEffect(() => {
     setCodeQuery(value?.[codeField] as string || "");
@@ -199,7 +204,7 @@ export function SelectorUniversal<T extends { id: string }>({
           className="w-16 h-9"
           value={codeQuery || ''}
           onChange={(e) => setCodeQuery(e.target.value)}
-          onKeyDown={handleCodeSearch}
+          onKeyDown={handleKeyDown}
           onBlur={handleCodeSearch}
           disabled={isLoading || disabled}
         />
@@ -220,7 +225,7 @@ export function SelectorUniversal<T extends { id: string }>({
     <>
       <div className="space-y-2">
          <div className="flex items-center gap-2">
-            <Input type="text" placeholder="Código" className="w-24 h-12 text-base" value={codeQuery || ''} onChange={(e) => setCodeQuery(e.target.value)} onKeyDown={handleCodeSearch} onBlur={handleCodeSearch} disabled={isLoading || disabled} />
+            <Input type="text" placeholder="Código" className="w-24 h-12 text-base" value={codeQuery || ''} onChange={(e) => setCodeQuery(e.target.value)} onKeyDown={handleKeyDown} onBlur={handleCodeSearch} disabled={isLoading || disabled} />
             <div onClick={() => !disabled && setOpen(true)} className="flex-grow">{triggerButton}</div>
         </div>
       </div>
