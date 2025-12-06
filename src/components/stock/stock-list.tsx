@@ -196,18 +196,19 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
   const handleDeleteAll = async () => {
     if (!firestore || insumos.length === 0) return;
 
-    const batch = writeBatch(firestore);
-    insumos.forEach(insumo => {
-        const docRef = doc(firestore, "insumos", insumo.id);
-        batch.delete(docRef);
-    });
-
     try {
+        const insumosCollection = collection(firestore, 'insumos');
+        const insumosSnapshot = await getDocs(insumosCollection);
+        const batch = writeBatch(firestore);
+        insumosSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
         await batch.commit();
+
         toast({
             variant: "destructive",
             title: "Todos los insumos eliminados",
-            description: `Se han eliminado ${insumos.length} registros de insumos.`,
+            description: `Se han eliminado ${insumosSnapshot.size} registros de insumos.`,
         });
     } catch (error) {
         console.error("Error al eliminar todos los insumos: ", error);
@@ -216,9 +217,10 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
             title: "Error",
             description: "No se pudieron eliminar todos los insumos.",
         });
+    } finally {
+        setDeleteAllOpen(false);
+        setDeleteConfirmationText("");
     }
-    setDeleteAllOpen(false);
-    setDeleteConfirmationText("");
   };
 
 
