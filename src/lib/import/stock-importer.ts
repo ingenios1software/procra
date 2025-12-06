@@ -98,8 +98,17 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
 
         for (const item of mappedData) {
             const stockActual = item.entradaTotal - item.salidaTotal;
-
             const existing = existingInsumos.get(item.nombre);
+
+            let numeroItemAsignado;
+            if (existing && existing.numeroItem) {
+                numeroItemAsignado = existing.numeroItem;
+            } else if (item.numeroItem > 0 && !Array.from(existingInsumos.values()).some(ins => ins.numeroItem === item.numeroItem)) {
+                numeroItemAsignado = item.numeroItem;
+            } else {
+                maxNumeroItem++;
+                numeroItemAsignado = maxNumeroItem;
+            }
 
             const finalItemData = {
                 nombre: item.nombre,
@@ -110,7 +119,7 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
                 stockActual: stockActual,
                 stockMinimo: item.stockMinimo,
                 costoUnitario: existing?.costoUnitario || 0,
-                numeroItem: existing?.numeroItem || item.numeroItem || ++maxNumeroItem,
+                numeroItem: numeroItemAsignado,
             };
 
             if (existing) {
