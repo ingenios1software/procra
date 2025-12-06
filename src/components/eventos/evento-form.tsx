@@ -93,28 +93,43 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
   
   const getInitialValues = () => {
-    const base = evento 
-      ? { ...evento, fecha: new Date(evento.fecha as string) } 
-      : draft && Object.keys(draft).length > 0
-        ? { ...draft, fecha: draft.fecha ? new Date(draft.fecha) : new Date() }
-        : {
-            fecha: new Date(),
-            tipo: 'aplicacion',
-            productos: [],
-            fotos: [],
-            descripcion: "",
-          };
-
+    // Si estamos editando un evento existente, usamos sus datos.
+    if (evento) {
+      return {
+        ...evento,
+        fecha: new Date(evento.fecha as string),
+        hectareasAplicadas: evento.hectareasAplicadas ?? '',
+        costoServicioPorHa: evento.costoServicioPorHa ?? '',
+        temperatura: evento.temperatura ?? '',
+        humedad: evento.humedad ?? '',
+        viento: evento.viento ?? '',
+        toneladas: evento.toneladas ?? '',
+        precioTonelada: evento.precioTonelada ?? '',
+        resultado: evento.resultado ?? '',
+      };
+    }
+    // Si no hay evento y existe un borrador, usamos el borrador.
+    if (draft && Object.keys(draft).length > 0) {
+      return { 
+        ...draft, 
+        fecha: draft.fecha ? new Date(draft.fecha) : new Date() 
+      };
+    }
+    // Si no hay nada, valores por defecto para un evento nuevo.
     return {
-      ...base,
-      hectareasAplicadas: base.hectareasAplicadas ?? '',
-      costoServicioPorHa: base.costoServicioPorHa ?? '',
-      temperatura: base.temperatura ?? '',
-      humedad: base.humedad ?? '',
-      viento: base.viento ?? '',
-      toneladas: base.toneladas ?? '',
-      precioTonelada: base.precioTonelada ?? '',
-      resultado: base.resultado ?? '',
+      fecha: new Date(),
+      tipo: 'aplicacion',
+      productos: [],
+      fotos: [],
+      descripcion: "",
+      hectareasAplicadas: '' as any,
+      costoServicioPorHa: '' as any,
+      temperatura: '' as any,
+      humedad: '' as any,
+      viento: '' as any,
+      toneladas: '' as any,
+      precioTonelada: '' as any,
+      resultado: '',
     };
   }
 
@@ -127,34 +142,31 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     control: form.control,
     name: "productos",
   });
-
+  
   const watchedValues = form.watch();
-  const watchedValuesRef = useRef(watchedValues);
   
   const puedeAprobar = role === 'admin' || role === 'supervisor';
   const isFinalizado = evento?.estado === 'aprobado' || evento?.estado === 'rechazado';
 
 
   useEffect(() => {
-    if (evento) {
-      form.reset(getInitialValues() as any);
-    }
-  }, [evento, form]);
+    // Cuando el `evento` que viene de las props cambia, reseteamos el formulario
+    // con los valores correctos, sea un evento existente o un formulario nuevo/borrador.
+    form.reset(getInitialValues() as any);
+  }, [evento]);
 
-
-  if (!isEqual(watchedValuesRef.current, watchedValues)) {
-    watchedValuesRef.current = watchedValues;
-  }
 
   useEffect(() => {
+    // Esta lógica de guardado de borrador solo se aplica si NO estamos editando un evento existente.
     if (evento) return;
 
     const intervalId = setInterval(() => {
-        setDraft(watchedValuesRef.current as EventoBorrador);
+        const currentValues = form.getValues();
+        setDraft(currentValues as EventoBorrador);
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [evento, setDraft]);
+  }, [evento, form, setDraft]);
 
 
   const tipoEvento = form.watch('tipo');
@@ -560,3 +572,5 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     </>
   );
 }
+
+    
