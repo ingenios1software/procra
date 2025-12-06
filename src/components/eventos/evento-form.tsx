@@ -132,16 +132,14 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedValuesRef = useRef(watchedValues);
   
   const puedeAprobar = role === 'admin' || role === 'supervisor';
-  const isAprobado = evento?.estado === 'aprobado';
+  const isFinalizado = evento?.estado === 'aprobado' || evento?.estado === 'rechazado';
+
 
   useEffect(() => {
-    if (isAprobado) {
+    if (evento) {
       form.reset(getInitialValues() as any);
-      Object.keys(form.getValues()).forEach(key => {
-        form.control.getFieldState(key as keyof EventoFormValues).isDirty = false;
-      });
     }
-  }, [isAprobado, form, evento]);
+  }, [evento, form]);
 
 
   if (!isEqual(watchedValuesRef.current, watchedValues)) {
@@ -285,7 +283,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     <>
       <EventoAnalisisPanel {...analisisProps} />
 
-      {isAprobado && (
+      {evento?.estado === 'aprobado' && (
           <Card className="mb-6 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700">
               <CardHeader className="flex-row items-center gap-4 p-4">
                   <Check className="w-6 h-6 text-green-600 dark:text-green-400"/>
@@ -317,7 +315,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         <CardContent className="p-6 mt-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-              <fieldset disabled={isAprobado && !puedeAprobar}>
+              <fieldset disabled={isFinalizado}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <FormField
                     control={form.control}

@@ -256,7 +256,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                   const parcela = parcelas?.find((p) => p.id === evento.parcelaId);
 
                   return (
-                    <TableRow key={evento.id}>
+                    <TableRow key={evento.id} onClick={() => openForm(evento)} className="cursor-pointer">
                        <TableCell className="font-medium text-muted-foreground">{evento.numeroItem}</TableCell>
                        <TableCell className="font-bold text-muted-foreground">{evento.numeroLanzamiento}</TableCell>
                       <TableCell>
@@ -292,7 +292,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
+                              <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
                                 <span className="sr-only">Abrir menú</span>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
