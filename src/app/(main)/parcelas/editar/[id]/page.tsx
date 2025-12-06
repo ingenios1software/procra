@@ -43,7 +43,7 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <p>Esta parcela ya no existe o fue eliminada.</p>
+                    <p>La parcela que intenta editar no existe o fue eliminada.</p>
                     <Button onClick={() => router.push('/parcelas')}>
                         Volver a la lista
                     </Button>

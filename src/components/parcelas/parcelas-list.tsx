@@ -130,7 +130,7 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                        <DropdownMenuItem asChild>
+                         <DropdownMenuItem asChild>
                            <Link href={`/parcelas/${parcela.id}`}>Ver Reporte de Costos</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>

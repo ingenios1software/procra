@@ -100,15 +100,9 @@ export function EtapaCultivoForm({
     form.setValue("diasDesdeSiembraFin", plantilla.diasFin);
   }
 
-  const handleSubmit = (data: EtapaCultivoFormValues) => {
-    onSubmit({
-      ...data
-    })
-  }
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="cultivoId"
