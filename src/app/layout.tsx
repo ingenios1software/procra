@@ -1,4 +1,4 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/context/auth-context';
@@ -11,8 +11,11 @@ export const metadata: Metadata = {
   title: 'CRApro95 - Gestión Agrícola Integral',
   description: 'Sistema Integral de Gestión Agrícola by Firebase Studio',
   manifest: '/manifest.json',
-  themeColor: '#f7f5f1',
 };
+
+export const viewport: Viewport = {
+  themeColor: '#f7f5f1',
+}
 
 export default function RootLayout({
   children,
