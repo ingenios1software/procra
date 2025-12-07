@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { UsuarioForm } from "./usuario-form";
@@ -15,11 +17,12 @@ import { Badge } from "@/components/ui/badge";
 interface UsuariosListProps {
   initialUsuarios: Usuario[];
   roles: Rol[];
-  onAdd: (data: Omit<Usuario, 'id'>) => void;
-  onUpdate: (data: Usuario) => void;
+  onSave: (data: Omit<Usuario, 'id'>, id?: string) => void;
+  onDelete: (id: string) => void;
+  isLoading: boolean;
 }
 
-export function UsuariosList({ initialUsuarios, roles, onAdd, onUpdate }: UsuariosListProps) {
+export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoading }: UsuariosListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const { user } = useAuth();
@@ -27,9 +30,9 @@ export function UsuariosList({ initialUsuarios, roles, onAdd, onUpdate }: Usuari
 
   const handleSave = (usuarioData: Omit<Usuario, 'id'>) => {
     if (selectedUsuario) {
-      onUpdate({ ...selectedUsuario, ...usuarioData });
+      onSave(usuarioData, selectedUsuario.id);
     } else {
-      onAdd(usuarioData);
+      onSave(usuarioData);
     }
     setDialogOpen(false);
     setSelectedUsuario(null);
@@ -78,6 +81,7 @@ export function UsuariosList({ initialUsuarios, roles, onAdd, onUpdate }: Usuari
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading && <TableRow><TableCell colSpan={5} className="text-center h-24">Cargando usuarios...</TableCell></TableRow>}
               {initialUsuarios.map((usuario) => (
                 <TableRow key={usuario.id}>
                   <TableCell className="font-medium">{usuario.nombre}</TableCell>
@@ -88,14 +92,56 @@ export function UsuariosList({ initialUsuarios, roles, onAdd, onUpdate }: Usuari
                   </TableCell>
                   {canModify && (
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(usuario)}>
-                        <span className="sr-only">Editar</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                       <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                           <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+                            <span className="sr-only">Editar</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => openDialog(usuario)}>
+                            Editar
+                          </DropdownMenuItem>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                                className="text-destructive"
+                              >
+                                Eliminar
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta acción eliminará al usuario permanentemente.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => onDelete(usuario.id)}
+                                  className="bg-destructive hover:bg-destructive/90"
+                                >
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   )}
                 </TableRow>
               ))}
+              {!isLoading && initialUsuarios.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center h-24">No hay usuarios registrados.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
