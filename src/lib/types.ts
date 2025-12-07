@@ -1,3 +1,5 @@
+import type { FieldValue } from 'firebase/firestore';
+
 export type Parcela = {
   id: string;
   nombre: string;
@@ -47,11 +49,11 @@ export type Evento = {
   // Workflow & Audit
   estado: 'pendiente' | 'aprobado' | 'rechazado';
   creadoPor?: string;
-  creadoEn?: Date | string;
+  creadoEn?: Date | string | FieldValue;
   aprobadoPor?: string | null;
-  aprobadoEn?: Date | string | null;
+  aprobadoEn?: Date | string | FieldValue | null;
   rechazadoPor?: string | null;
-  rechazadoEn?: Date | string | null;
+  rechazadoEn?: Date | string | FieldValue | null;
   motivoRechazo?: string | null;
   
   // Campos climáticos

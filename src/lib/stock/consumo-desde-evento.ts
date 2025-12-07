@@ -62,7 +62,7 @@ export async function procesarConsumoDeStockDesdeEvento(evento: Evento & { id: s
                 precioUnitario: precioUnitario,
                 costoTotal: consumoCalculado * precioUnitario,
                 creadoPor: userId,
-                creadoEn: new Date(),
+                creadoEn: new Date(), // Usar fecha del cliente para el registro de movimiento
             };
             batch.set(movimientoRef, nuevoMovimiento);
 

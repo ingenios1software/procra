@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EventoForm } from "@/components/eventos/evento-form";
 import { useRouter } from "next/navigation";
 import type { Evento } from "@/lib/types";
-import { useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase, useUser } from "@/firebase";
+import { useFirestore, addDocumentNonBlocking, useUser } from "@/firebase";
 import { collection, query, orderBy, getDocs, limit, serverTimestamp } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { procesarConsumoDeStockDesdeEvento } from "@/lib/stock/consumo-desde-evento";
@@ -53,12 +53,13 @@ export default function CrearEventoPage() {
     const docRef = await addDocumentNonBlocking(eventosCol, dataToSave);
     
     if (docRef) {
-      const eventoGuardado = { 
-        ...data, 
-        ...dataToSave, 
+      const eventoGuardado: Evento & { id: string } = {
+        ...(data as Evento),
+        ...dataToSave,
         id: docRef.id,
         creadoEn: new Date(), // Usamos new Date() para el objeto local que pasamos a la función
       };
+      
       // El consumo de stock ahora debería ser condicional al estado 'aprobado'
       // Por ahora, lo dejamos así hasta refactorizarlo.
       const { success, errors } = await procesarConsumoDeStockDesdeEvento(eventoGuardado, firestore, user.uid);
