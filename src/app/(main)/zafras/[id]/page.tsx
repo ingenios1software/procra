@@ -44,7 +44,16 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
     actividadPorTipo,
     insumosMasUsados
   } = useMemo(() => {
-    if (!zafra || !todasParcelas || !eventos || !cultivos) return { parcelasEnZafra: [], kpis: {}, actividadPorTipo: [] };
+    if (!zafra || !todasParcelas || !eventos || !cultivos) {
+      return { 
+        parcelasEnZafra: [], 
+        cultivoPrincipal: null,
+        superficieTotal: 0,
+        kpis: { parcelas: 0, superficie: 0, eventos: 0, aplicaciones: 0, fertilizaciones: 0, monitoreos: 0, labores: 0, cosechas: 0, ultimaActividad: null },
+        actividadPorTipo: [],
+        insumosMasUsados: []
+      };
+    }
     
     const idParcelasEnZafra = new Set(eventos.map(e => e.parcelaId));
     const parcelasEnZafra = todasParcelas.filter(p => idParcelasEnZafra.has(p.id));
