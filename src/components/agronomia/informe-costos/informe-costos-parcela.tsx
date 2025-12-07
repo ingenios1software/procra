@@ -196,7 +196,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                     <BarChart data={data} layout="vertical" stackOffset="expand">
                         <XAxis type="number" hide domain={[0, 1]} tickFormatter={(value) => `${value * 100}%`} />
                         <YAxis type="category" dataKey="parcela.nombre" />
-                        <Tooltip formatter={(value, name, props) => `${(value * 100).toFixed(2)}%`}/>
+                        <Tooltip formatter={(value) => `${(Number(value) * 100).toFixed(2)}%`}/>
                         <Legend />
                         <Bar dataKey="costoProductos" name="Insumos" stackId="a" fill="hsl(var(--chart-1))" />
                         <Bar dataKey="costoServicios" name="Servicios" stackId="a" fill="hsl(var(--chart-2))" />
