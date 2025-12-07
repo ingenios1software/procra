@@ -53,7 +53,12 @@ export default function CrearEventoPage() {
     const docRef = await addDocumentNonBlocking(eventosCol, dataToSave);
     
     if (docRef) {
-      const eventoGuardado = { ...data, ...dataToSave, id: docRef.id };
+      const eventoGuardado = { 
+        ...data, 
+        ...dataToSave, 
+        id: docRef.id,
+        creadoEn: new Date(), // Usamos new Date() para el objeto local que pasamos a la función
+      };
       // El consumo de stock ahora debería ser condicional al estado 'aprobado'
       // Por ahora, lo dejamos así hasta refactorizarlo.
       const { success, errors } = await procesarConsumoDeStockDesdeEvento(eventoGuardado, firestore, user.uid);
