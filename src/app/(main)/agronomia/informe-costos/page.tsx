@@ -24,7 +24,7 @@ export default function InformeCostosPage() {
       zafras={zafras || []}
       eventos={eventos || []}
       insumos={insumos || []}
-      ventas={ventas || []}
+      ventas={Array.isArray(ventas) ? ventas : []}
       isLoading={isLoading}
     />
   );
