@@ -93,7 +93,7 @@ export function SelectorUniversal<T extends { id: string }>({
 
 
   const handleCodeSearch = async () => {
-    if (!codeQuery.trim()) {
+    if (!String(codeQuery).trim()) {
       onSelect(undefined);
       return;
     }
