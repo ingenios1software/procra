@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { InsumoSelector } from "@/components/insumos/InsumoSelector";
 import { Trash2, PlusCircle } from "lucide-react";
 import type { Insumo } from "@/lib/types";
-import { UseFormReturn } from "react-hook-form";
+import { UseFormReturn, UseFieldArrayAppend } from "react-hook-form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 
@@ -22,7 +22,7 @@ interface ItemField {
 
 interface TablaItemsCompraProps {
   fields: ItemField[];
-  append: (value: Partial<ItemField>) => void;
+  append: UseFieldArrayAppend<any, "items">;
   remove: (index: number) => void;
   form: UseFormReturn<any>;
 }
