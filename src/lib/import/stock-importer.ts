@@ -1,5 +1,5 @@
 import { collection, doc, getDocs, writeBatch, query, orderBy, limit } from "firebase/firestore";
-import { getFirestore } from "@/firebase";
+import { initializeFirebase } from "@/firebase";
 import type { Insumo } from "@/lib/types";
 
 // --- Mapeo de columnas flexibles ---
@@ -32,7 +32,7 @@ function hasAnyColumn(headers: string[], aliases: string[]): boolean {
 export async function importarStockDesdeExcel(file: File): Promise<{ success: boolean; errors: string[] }> {
     const XLSX = await import("xlsx");
     const errors: string[] = [];
-    const db = getFirestore();
+    const { firestore: db } = initializeFirebase();
 
     // 1. Leer el archivo
     const data = await file.arrayBuffer();
