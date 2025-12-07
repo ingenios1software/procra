@@ -267,7 +267,7 @@ export type Compra = {
   observacion?: string;
   tipoCompra: 'Externa' | 'Interna';
   creadoPor?: string;
-  creadoEn?: Date | string;
+  creadoEn?: Date | string | FieldValue;
   items: {
     insumoId: string;
     cantidad: number;
