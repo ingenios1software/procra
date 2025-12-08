@@ -58,7 +58,7 @@ export default function ComprasPage() {
                 Exportar PDF
             </Button>
             {user && (
-              <Button onClick={() => router.push('/comercial/compras/crear')}>
+              <Button onClick={() => alert('Formulario de creación en mantenimiento.')}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Nueva Compra
               </Button>
