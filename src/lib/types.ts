@@ -97,6 +97,7 @@ export type Usuario = {
   email: string;
   rol: UserRole;
   activo: boolean;
+  rolId?: string; // Mantener por compatibilidad con datos existentes
 };
 
 export type Rol = {
