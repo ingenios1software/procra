@@ -1,27 +1,31 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Logo } from "@/components/icons";
+
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.push('/login');
+    }, 2000); // Espera 2 segundos antes de redirigir
+
+    return () => clearTimeout(timer); // Limpia el temporizador si el componente se desmonta
+  }, [router]);
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#F8F5EF] p-4 text-center">
       <div className="w-full max-w-md space-y-4">
         {/* Ícono */}
-        <div className="mx-auto h-14 w-14">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-green-800/70"
-          >
-            <path d="M4 20s4-6 8-6 8 6 8 6" />
-            <path d="M12 4v10" />
-            <path d="M12 8c-2 0-4-2-4-4s2-4 4-4 4 2 4 4-2 4-4 4z" />
-          </svg>
+        <div className="mx-auto h-16 w-16 text-primary">
+          <Logo />
         </div>
 
         {/* Título y Subtítulo */}
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-gray-800 sm:text-5xl">
+          <h1 className="text-4xl font-extrabold tracking-tight text-gray-800 font-headline sm:text-5xl">
             CRApro95
           </h1>
           <p className="mt-2 text-lg text-gray-600">
