@@ -56,6 +56,7 @@ import { Badge } from "@/components/ui/badge"
 import { useSidebar } from "@/hooks/use-mobile-sidebar"
 import { Logo } from "../icons"
 import React from "react"
+import { ScrollArea } from "../ui/scroll-area"
 
 const navItems = [
     { 
@@ -138,7 +139,7 @@ const navItems = [
     }
 ];
 
-const NavLink = ({ link, isCollapsed, pathname }: { link: { href: string, icon: React.ElementType, label: string, isComingSoon?: boolean }, isCollapsed: boolean, pathname: string }) => {
+const NavLink = ({ link, isCollapsed, pathname, onLinkClick }: { link: { href: string, icon: React.ElementType, label: string, isComingSoon?: boolean }, isCollapsed: boolean, pathname: string, onLinkClick?: () => void }) => {
   const isActive = pathname.startsWith(link.href) && !link.isComingSoon;
   const isComingSoon = link.isComingSoon;
 
@@ -155,6 +156,7 @@ const NavLink = ({ link, isCollapsed, pathname }: { link: { href: string, icon: 
                 isComingSoon && "cursor-not-allowed opacity-50"
               )}
               disabled={isComingSoon}
+              onClick={onLinkClick}
             >
               <Link href={isComingSoon ? "#" : link.href}>
                 <link.icon className="h-5 w-5" />
@@ -174,7 +176,7 @@ const NavLink = ({ link, isCollapsed, pathname }: { link: { href: string, icon: 
   )
 }
 
-export function Sidebar({ isMobile }: { isMobile?: boolean }) {
+export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkClick?: () => void }) {
   const pathname = usePathname();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [openSections, setOpenSections] = React.useState<string[]>(
@@ -185,36 +187,39 @@ export function Sidebar({ isMobile }: { isMobile?: boolean }) {
 
   if (isMobile) {
     return (
-        <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
-             <Button
-                asChild
-                variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-                className={cn("w-full justify-start")}
-              >
-                <Link href="/dashboard">
-                  <LayoutDashboard className="h-5 w-5" />
-                  <span className="ml-4">Dashboard Monitoreo</span>
-                </Link>
-              </Button>
+        <ScrollArea className="flex-1">
+            <nav className="flex-1 space-y-1 p-2">
+                <Button
+                    asChild
+                    variant={pathname === "/dashboard" ? "secondary" : "ghost"}
+                    className={cn("w-full justify-start")}
+                    onClick={onLinkClick}
+                >
+                    <Link href="/dashboard">
+                    <LayoutDashboard className="h-5 w-5" />
+                    <span className="ml-4">Dashboard Monitoreo</span>
+                    </Link>
+                </Button>
 
-            <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="w-full">
-                {navItems.map(section => (
-                    <AccordionItem value={section.title} key={section.title} className="border-b-0">
-                        <AccordionTrigger className="py-2 px-3 text-sm font-medium hover:bg-sidebar-accent rounded-md [&[data-state=open]>svg]:rotate-180">
-                           <div className="flex items-center gap-4">
-                             <section.icon className="h-5 w-5" />
-                             {section.title}
-                           </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="pt-1 pb-0 pl-2">
-                            {section.links.map(link => (
-                                <NavLink key={link.href + link.label} link={link} isCollapsed={false} pathname={pathname} />
-                            ))}
-                        </AccordionContent>
-                    </AccordionItem>
-                ))}
-            </Accordion>
-      </nav>
+                <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="w-full">
+                    {navItems.map(section => (
+                        <AccordionItem value={section.title} key={section.title} className="border-b-0">
+                            <AccordionTrigger className="py-2 px-3 text-sm font-medium hover:bg-sidebar-accent rounded-md [&[data-state=open]>svg]:rotate-180">
+                            <div className="flex items-center gap-4">
+                                <section.icon className="h-5 w-5" />
+                                {section.title}
+                            </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pt-1 pb-0 pl-2">
+                                {section.links.map(link => (
+                                    <NavLink key={link.href + link.label} link={link} isCollapsed={false} pathname={pathname} onLinkClick={onLinkClick} />
+                                ))}
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            </nav>
+        </ScrollArea>
     )
   }
 
