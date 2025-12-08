@@ -58,7 +58,7 @@ export default function ComprasPage() {
                 Exportar PDF
             </Button>
             {user && (
-              <Button onClick={() => alert('Formulario de creación en mantenimiento.')}>
+              <Button onClick={() => alert('El formulario de creación de compras está en mantenimiento. Estará disponible pronto.')}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Nueva Compra
               </Button>
