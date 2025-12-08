@@ -28,6 +28,16 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
+    // --- MODO DE PRUEBA ---
+    if (email === 'admin@crapro95.com') {
+        console.log("Modo de prueba: Iniciando sesión como administrador.");
+        router.push("/dashboard");
+        // No es necesario llamar a setLoading(false) porque la redirección ocurrirá
+        return;
+    }
+    // --- FIN MODO DE PRUEBA ---
+
+
     if (!auth || !db) {
         setError("Error de inicialización. Intente de nuevo.");
         setLoading(false);
