@@ -1,7 +1,7 @@
 "use client"
 
 import { PageHeader } from "@/components/shared/page-header";
-import { CompraForm } from "@/components/comercial/compras/compra-form";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function CrearCompraPage() {
   return (
@@ -10,7 +10,11 @@ export default function CrearCompraPage() {
         title="Registrar Nueva Compra"
         description="Complete los detalles de la nueva compra de productos o insumos."
       />
-      <CompraForm />
+      <Card>
+        <CardContent className="p-6">
+            <p>Formulario de creación de compras en mantenimiento. Estará disponible en breve.</p>
+        </CardContent>
+      </Card>
     </>
   );
 }
