@@ -1,5 +1,10 @@
-import { redirect } from 'next/navigation';
-
 export default function Home() {
-  redirect('/dashboard');
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <h1 className="text-4xl font-bold">CRApro95</h1>
+      <p className="mt-4 text-lg text-muted-foreground">
+        Sistema de Gestión Agrícola. Reconstruyendo...
+      </p>
+    </main>
+  );
 }
