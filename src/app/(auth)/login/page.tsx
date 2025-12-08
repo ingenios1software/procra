@@ -29,7 +29,7 @@ export default function LoginPage() {
     setLoading(true);
 
     // --- MODO DE PRUEBA ---
-    if (email === 'admin@crapro95.com') {
+    if (email === 'admin@crapro95.com' && password === 'cra5274') {
         console.log("Modo de prueba: Iniciando sesión como administrador.");
         router.push("/dashboard");
         // No es necesario llamar a setLoading(false) porque la redirección ocurrirá
