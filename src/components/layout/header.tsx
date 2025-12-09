@@ -23,16 +23,14 @@ export function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[300px] p-0 flex flex-col">
-             <SheetHeader className="sr-only">
-                <SheetTitle>Menú Principal</SheetTitle>
-                <SheetDescription>Navegación principal de la aplicación CRApro95</SheetDescription>
+             <SheetHeader className="p-4 border-b">
+                <SheetTitle className="text-lg font-bold">
+                    <Link href="/dashboard" className="flex items-center gap-2" onClick={() => setIsSheetOpen(false)}>
+                        <Logo className="h-8 w-8" />
+                        <span>CRApro95</span>
+                    </Link>
+                </SheetTitle>
              </SheetHeader>
-             <div className="flex h-16 items-center border-b px-4 shrink-0 bg-sidebar text-sidebar-foreground">
-                <Link href="/dashboard" className="flex items-center gap-2 font-headline text-lg font-bold text-primary" onClick={() => setIsSheetOpen(false)}>
-                    <Logo className="h-8 w-8" />
-                    <span className="text-sidebar-foreground font-bold">CRApro95</span>
-                </Link>
-            </div>
             <Sidebar isMobile={true} onLinkClick={() => setIsSheetOpen(false)} />
           </SheetContent>
         </Sheet>

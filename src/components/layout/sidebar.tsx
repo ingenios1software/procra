@@ -143,6 +143,8 @@ const NavLink = ({ link, isCollapsed, pathname, onLinkClick }: { link: { href: s
   const isActive = pathname.startsWith(link.href) && !link.isComingSoon;
   const isComingSoon = link.isComingSoon;
 
+  const Comp = isComingSoon ? 'div' : Link;
+
   return (
     <TooltipProvider delayDuration={0}>
         <Tooltip>
@@ -158,12 +160,12 @@ const NavLink = ({ link, isCollapsed, pathname, onLinkClick }: { link: { href: s
               disabled={isComingSoon}
               onClick={onLinkClick}
             >
-              <Link href={isComingSoon ? "#" : link.href}>
+              <Comp href={isComingSoon ? "#" : link.href}>
                 <link.icon className="h-5 w-5" />
                 {!isCollapsed && <span className="ml-4">{link.label}</span>}
                 {isComingSoon && !isCollapsed && <Badge variant="outline" className="ml-auto text-xs">Próximamente</Badge>}
                 <span className="sr-only">{link.label}</span>
-              </Link>
+              </Comp>
             </Button>
           </TooltipTrigger>
           {(isCollapsed || isComingSoon) && (
@@ -185,39 +187,44 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkC
 
   const finalIsCollapsed = isMobile ? false : isCollapsed;
 
+  const navContent = (
+    <>
+      <Button
+          asChild
+          variant={pathname === "/dashboard" ? "secondary" : "ghost"}
+          className={cn("w-full justify-start", finalIsCollapsed && "justify-center")}
+          onClick={onLinkClick}
+      >
+          <Link href="/dashboard">
+          <LayoutDashboard className="h-5 w-5" />
+          {!finalIsCollapsed && <span className="ml-4">Dashboard</span>}
+          </Link>
+      </Button>
+      <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="w-full">
+          {navItems.map(section => (
+              <AccordionItem value={section.title} key={section.title} className="border-b-0">
+                  <AccordionTrigger className="py-2 px-3 text-sm font-medium hover:bg-sidebar-accent rounded-md [&[data-state=open]>svg]:rotate-180">
+                  <div className="flex items-center gap-4">
+                      <section.icon className="h-5 w-5" />
+                      {!finalIsCollapsed && section.title}
+                  </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-1 pb-0 pl-2">
+                      {section.links.map(link => (
+                          <NavLink key={link.href + link.label} link={link} isCollapsed={finalIsCollapsed} pathname={pathname} onLinkClick={onLinkClick}/>
+                      ))}
+                  </AccordionContent>
+              </AccordionItem>
+          ))}
+      </Accordion>
+    </>
+  );
+
   if (isMobile) {
     return (
         <ScrollArea className="flex-1">
             <nav className="flex-1 space-y-1 p-2">
-                <Button
-                    asChild
-                    variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-                    className={cn("w-full justify-start")}
-                    onClick={onLinkClick}
-                >
-                    <Link href="/dashboard">
-                    <LayoutDashboard className="h-5 w-5" />
-                    <span className="ml-4">Dashboard Monitoreo</span>
-                    </Link>
-                </Button>
-
-                <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="w-full">
-                    {navItems.map(section => (
-                        <AccordionItem value={section.title} key={section.title} className="border-b-0">
-                            <AccordionTrigger className="py-2 px-3 text-sm font-medium hover:bg-sidebar-accent rounded-md [&[data-state=open]>svg]:rotate-180">
-                            <div className="flex items-center gap-4">
-                                <section.icon className="h-5 w-5" />
-                                {section.title}
-                            </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="pt-1 pb-0 pl-2">
-                                {section.links.map(link => (
-                                    <NavLink key={link.href + link.label} link={link} isCollapsed={false} pathname={pathname} onLinkClick={onLinkClick} />
-                                ))}
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
-                </Accordion>
+                {navContent}
             </nav>
         </ScrollArea>
     )
@@ -242,54 +249,19 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkC
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
-         <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  asChild
-                  variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-                  className={cn("w-full justify-start", finalIsCollapsed && "justify-center")}
-                >
-                  <Link href="/dashboard">
-                    <LayoutDashboard className="h-5 w-5" />
-                    {!finalIsCollapsed && <span className="ml-4">Dashboard</span>}
-                    <span className="sr-only">Dashboard</span>
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              {finalIsCollapsed && (
-                <TooltipContent side="right">
-                  Dashboard
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-
-        {finalIsCollapsed ? (
-            navItems.map(section => section.links.map(link => (
-                <NavLink key={link.href + link.label} link={link} isCollapsed={finalIsCollapsed} pathname={pathname} />
-            )))
-        ) : (
-            <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="w-full">
-                {navItems.map(section => (
-                    <AccordionItem value={section.title} key={section.title} className="border-b-0">
-                        <AccordionTrigger className="py-2 px-3 text-sm font-medium hover:bg-sidebar-accent rounded-md [&[data-state=open]>svg]:rotate-180">
-                           <div className="flex items-center gap-4">
-                             <section.icon className="h-5 w-5" />
-                             {section.title}
-                           </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="pt-1 pb-0 pl-2">
-                            {section.links.map(link => (
-                                <NavLink key={link.href + link.label} link={link} isCollapsed={finalIsCollapsed} pathname={pathname} />
-                            ))}
-                        </AccordionContent>
-                    </AccordionItem>
-                ))}
-            </Accordion>
-        )}
-      </nav>
+      <ScrollArea className="flex-1">
+        <nav className="flex-1 space-y-1 p-2">
+          {finalIsCollapsed ? (
+            <TooltipProvider>
+              {navItems.flatMap(section => section.links.map(link => (
+                <NavLink key={link.href + link.label} link={link} isCollapsed={true} pathname={pathname} />
+              )))}
+            </TooltipProvider>
+          ) : (
+            navContent
+          )}
+        </nav>
+      </ScrollArea>
       
       <div className="mt-auto p-2 border-t">
          <TooltipProvider delayDuration={0}>
