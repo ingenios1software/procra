@@ -98,7 +98,7 @@ export type Evento = {
   costoPorHa?: number;
   hectareasAplicadas?: number;
   costoServicioPorHa?: number;
-  cuentaContableCosto?: string | null;
+  cuentaContableId?: string | null;
 
 
   // Campos de rendimiento y cosecha
