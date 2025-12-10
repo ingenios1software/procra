@@ -7,9 +7,6 @@ import { SidebarProvider } from '@/context/sidebar-context';
 import { PWALifecycle } from '@/components/pwa-lifecycle';
 import { FirebaseClientProvider } from '@/firebase';
 
-// Import Leaflet CSS
-import 'leaflet/dist/leaflet.css';
-
 
 export const metadata: Metadata = {
   title: 'CRApro95 - Gestión Agrícola Integral',
