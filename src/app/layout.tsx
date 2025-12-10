@@ -6,7 +6,6 @@ import { ThemeProvider } from '@/context/theme-provider';
 import { SidebarProvider } from '@/context/sidebar-context';
 import { PWALifecycle } from '@/components/pwa-lifecycle';
 import { FirebaseClientProvider } from '@/firebase';
-import 'leaflet/dist/leaflet.css';
 
 
 export const metadata: Metadata = {
