@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 const profileFormSchema = z.object({
   nombre: z.string().min(3, {
@@ -36,7 +37,7 @@ const profileFormSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export function ProfileForm() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<ProfileFormValues>({
@@ -47,15 +48,24 @@ export function ProfileForm() {
     },
     mode: "onChange",
   });
-
-  function onSubmit(data: ProfileFormValues) {
+  
+  useEffect(() => {
     if (user) {
-      setUser({ ...user, ...data });
-      toast({
-        title: "Perfil actualizado",
-        description: "Tus datos de perfil han sido guardados.",
+      form.reset({
+        nombre: user.nombre,
+        email: user.email,
       });
     }
+  }, [user, form]);
+
+
+  function onSubmit(data: ProfileFormValues) {
+    // La lógica de actualización del usuario en Firebase no está implementada aún.
+    // Por ahora, solo mostramos una notificación.
+    toast({
+      title: "Perfil actualizado (simulación)",
+      description: "Tus datos de perfil han sido guardados.",
+    });
   }
 
   return (
@@ -92,10 +102,10 @@ export function ProfileForm() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="Tu email" {...field} />
+                    <Input placeholder="Tu email" {...field} disabled />
                   </FormControl>
                   <FormDescription>
-                    No podrás cambiar tu email después. (Esto es solo una demo)
+                    El email no se puede cambiar.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

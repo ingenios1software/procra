@@ -5,7 +5,7 @@ import { Usuario, UserRole } from '@/lib/types';
 import { useUser, useAuth as useFirebaseAuth } from '@/firebase';
 
 interface AuthContextType {
-  user: Usuario | null;
+  user: Usuario;
   role: UserRole;
   setRole: (role: UserRole) => void;
   isAuthLoading: boolean;
@@ -41,16 +41,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [firebaseUser, role]);
 
-  const handleSetRole = (newRole: UserRole) => {
-    setRole(newRole);
-  }
+  const value = useMemo(() => {
+    // Si el usuario aún está cargando o no existe, proporcionamos un usuario "dummy" para evitar errores
+    const currentUser = user || {
+      id: '',
+      nombre: 'Cargando...',
+      email: '',
+      rol: 'consulta',
+      activo: false
+    };
 
-  const value = useMemo(() => ({
-    user,
-    role,
-    setRole: handleSetRole,
-    isAuthLoading: isUserLoading,
-  }), [user, role, isUserLoading]);
+    return {
+      user: currentUser,
+      role,
+      setRole: (newRole: UserRole) => setRole(newRole),
+      isAuthLoading: isUserLoading || !user,
+    };
+  }, [user, role, isUserLoading]);
+
+  if (value.isAuthLoading) {
+    // Puedes mostrar un loader global aquí si lo deseas
+    // o simplemente esperar a que el contexto tenga el usuario real
+  }
 
   return (
     <AuthContext.Provider value={value}>
