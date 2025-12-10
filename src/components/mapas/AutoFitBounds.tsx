@@ -5,20 +5,17 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 
 interface AutoFitBoundsProps {
-  bounds: L.LatLngBoundsExpression;
+  bounds: L.LatLngBounds;
 }
 
 export const AutoFitBounds = ({ bounds }: AutoFitBoundsProps) => {
   const map = useMap();
   
   useEffect(() => {
-    if (!bounds || (Array.isArray(bounds) && bounds.length === 0)) return;
+    if (!bounds || !bounds.isValid()) return;
     
     try {
-      const latLngBounds = L.latLngBounds(bounds);
-      if (latLngBounds.isValid()) {
-        map.fitBounds(latLngBounds, { padding: [50, 50] });
-      }
+      map.fitBounds(bounds, { padding: [50, 50] });
     } catch (error) {
       console.error("Error fitting bounds:", error);
     }
