@@ -7,27 +7,8 @@ import { Input } from "@/components/ui/input";
 import { SelectorUniversal } from "@/components/common";
 import { Trash2, PlusCircle, AlertTriangle } from "lucide-react";
 import type { Insumo } from "@/lib/types";
-import { UseFormReturn } from "react-hook-form";
+import { UseFormReturn, UseFieldArrayAppend, UseFieldArrayRemove } from "react-hook-form";
 import { FormField, FormMessage, FormItem } from "../ui/form";
-import { query, collection, where, getDocs } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
-import { useToast } from "@/hooks/use-toast";
-
-
-interface ProductoField {
-  id: string;
-  codigo?: string;
-  insumo?: Insumo;
-  dosis?: number;
-}
-
-interface InsumosTablaProps {
-  fields: ProductoField[];
-  hectareas: number;
-  append: (value: Partial<ProductoField>) => void;
-  remove: (index: number) => void;
-  form: UseFormReturn<any>
-}
 
 const StockAlert = ({ insumo, cantidadNecesaria }: { insumo: Insumo, cantidadNecesaria: number }) => {
     const stockActual = insumo.stockActual || 0;
@@ -54,39 +35,22 @@ const StockAlert = ({ insumo, cantidadNecesaria }: { insumo: Insumo, cantidadNec
     return null;
 }
 
+interface InsumosTablaProps {
+  fields: Record<"id", string>[];
+  hectareas: number;
+  append: UseFieldArrayAppend<any, "productos">;
+  remove: UseFieldArrayRemove;
+  form: UseFormReturn<any>;
+}
+
 
 export function InsumosTabla({ fields, hectareas, append, remove, form }: InsumosTablaProps) {
-  const firestore = useFirestore();
-  const { toast } = useToast();
-
+  
   const handleSelectInsumo = (index: number, insumo: Insumo | undefined) => {
     if (insumo) {
       form.setValue(`productos.${index}.insumo`, insumo, { shouldDirty: true });
       form.setValue(`productos.${index}.codigo`, insumo.numeroItem?.toString() || "", { shouldDirty: true });
       form.trigger(`productos.${index}.insumo`);
-    }
-  };
-  
-  const handleBuscarPorCodigo = async (index: number) => {
-    const codigo = form.getValues(`productos.${index}.codigo`);
-    if (!codigo || !firestore) return;
-
-    const q = query(
-      collection(firestore, "insumos"),
-      where("numeroItem", "==", Number(codigo))
-    );
-
-    const snap = await getDocs(q);
-
-    if (!snap.empty) {
-      const insumo = { id: snap.docs[0].id, ...snap.docs[0].data() } as Insumo;
-      handleSelectInsumo(index, insumo);
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Código no encontrado",
-        description: `No se encontró un insumo con el código "${codigo}"`,
-      });
     }
   };
   
@@ -113,7 +77,6 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
               const cantidadTotal = (hectareas || 0) * dosis;
               const precioUnitario = insumo?.precioPromedioCalculado || insumo?.costoUnitario || 0;
               const valorTotal = cantidadTotal * precioUnitario;
-              const codigoValue = form.watch(`productos.${index}.codigo`);
 
               return (
                 <TableRow key={field.id}>
