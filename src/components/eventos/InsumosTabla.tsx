@@ -16,9 +16,9 @@ import { useToast } from "@/hooks/use-toast";
 
 interface ProductoField {
   id: string;
-  codigo?: string;     // NUEVO
+  codigo?: string;
   insumo?: Insumo;
-  dosis: number;
+  dosis?: number;
 }
 
 interface InsumosTablaProps {
