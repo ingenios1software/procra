@@ -5,41 +5,62 @@ import { MapContainer, TileLayer } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import type { Parcela } from '@/lib/types';
+import type { Parcela, Zafra } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ParcelasLayer } from './ParcelasLayer';
 import { Skeleton } from '../ui/skeleton';
 
 export default function MapaZafras() {
-  const [selectedZafra, setSelectedZafra] = useState('z2024_25');
+  const [selectedZafra, setSelectedZafra] = useState<string | undefined>(undefined);
   const firestore = useFirestore();
 
   const parcelasQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, 'parcelas')) : null
   , [firestore]);
-  const { data: parcelas, isLoading } = useCollection<Parcela>(parcelasQuery);
+  const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(parcelasQuery);
 
-  const zafrasDisponibles = ['z2023_24', 'z2024_25', 'z2025_26'];
+  const zafrasQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'zafras')) : null
+  , [firestore]);
+  const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(zafrasQuery);
 
+  // Set default zafra once loaded
+  useState(() => {
+    if (!selectedZafra && zafras && zafras.length > 0) {
+      setSelectedZafra(zafras[0].id);
+    }
+  });
+  
   const parcelasParaZafra = useMemo(() => {
-    if (!parcelas) return [];
-    return parcelas.filter(p => p.zafras && p.zafras[selectedZafra]);
-  }, [parcelas, selectedZafra]);
+    if (!parcelas || !selectedZafra) return [];
+    // Key de zafra para el objeto anidado en parcela es el nombre, no el id. Ej: "z2024_25"
+    const zafraSeleccionada = zafras?.find(z => z.id === selectedZafra);
+    if (!zafraSeleccionada) return [];
+    const zafraKey = zafraSeleccionada.nombre.replace(' - ', '_');
+    
+    return parcelas.filter(p => p.zafras && p.zafras[zafraKey]);
+  }, [parcelas, selectedZafra, zafras]);
 
-  if (isLoading) {
+  const zafraKey = useMemo(() => {
+      const zafraSeleccionada = zafras?.find(z => z.id === selectedZafra);
+      if (!zafraSeleccionada) return '';
+      return zafraSeleccionada.nombre.replace(' - ', '_');
+  }, [selectedZafra, zafras]);
+
+  if (isLoadingParcelas || isLoadingZafras) {
     return <Skeleton className="w-full h-[85vh] rounded-lg border" />
   }
 
   return (
     <div className="relative">
       <div className="absolute top-3 left-3 z-[1000] bg-background/80 p-2 rounded-lg shadow-lg border backdrop-blur-sm">
-        <Select onValueChange={setSelectedZafra} defaultValue={selectedZafra}>
+        <Select onValueChange={setSelectedZafra} value={selectedZafra}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Seleccionar Zafra" />
           </SelectTrigger>
           <SelectContent>
-            {zafrasDisponibles.map(zafra => (
-              <SelectItem key={zafra} value={zafra}>{zafra.replace('_', ' - ')}</SelectItem>
+            {zafras?.map(zafra => (
+              <SelectItem key={zafra.id} value={zafra.id}>{zafra.nombre}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -56,7 +77,7 @@ export default function MapaZafras() {
           attribution='&copy; <a href="https://maps.google.com">Google Maps</a>'
           maxZoom={20}
         />
-        <ParcelasLayer parcelas={parcelasParaZafra} zafraKey={selectedZafra} />
+        <ParcelasLayer parcelas={parcelasParaZafra} zafraKey={zafraKey} />
       </MapContainer>
     </div>
   );
