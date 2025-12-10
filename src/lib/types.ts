@@ -33,9 +33,6 @@ export type Parcela = {
   numeroItem?: number;
   cultivoActual?: string;
   geometry?: GeoJSONPolygon | GeoJSONMultiPolygon;
-  zafras?: {
-    [key: string]: ZafraData;
-  }
 };
 
 export type Cultivo = {
