@@ -139,11 +139,8 @@ const navItems = [
     }
 ];
 
-const NavLink = ({ link, isCollapsed, pathname, onLinkClick }: { link: { href: string, icon: React.ElementType, label: string, isComingSoon?: boolean }, isCollapsed: boolean, pathname: string, onLinkClick?: () => void }) => {
-  const isActive = pathname.startsWith(link.href) && !link.isComingSoon;
-  const isComingSoon = link.isComingSoon;
-
-  const Comp = isComingSoon ? 'div' : Link;
+const NavLink = ({ link, isCollapsed, pathname, onLinkClick }: { link: { href: string, icon: React.ElementType, label: string }, isCollapsed: boolean, pathname: string, onLinkClick?: () => void }) => {
+  const isActive = pathname.startsWith(link.href);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -154,23 +151,20 @@ const NavLink = ({ link, isCollapsed, pathname, onLinkClick }: { link: { href: s
               variant={isActive ? "secondary" : "ghost"}
               className={cn(
                 "w-full justify-start",
-                isCollapsed ? "justify-center" : "pl-10",
-                isComingSoon && "cursor-not-allowed opacity-50"
+                isCollapsed ? "justify-center" : "pl-10"
               )}
-              disabled={isComingSoon}
               onClick={onLinkClick}
             >
-              <Comp href={isComingSoon ? "#" : link.href}>
+              <Link href={link.href}>
                 <link.icon className="h-5 w-5" />
                 {!isCollapsed && <span className="ml-4">{link.label}</span>}
-                {isComingSoon && !isCollapsed && <Badge variant="outline" className="ml-auto text-xs">Próximamente</Badge>}
                 <span className="sr-only">{link.label}</span>
-              </Comp>
+              </Link>
             </Button>
           </TooltipTrigger>
-          {(isCollapsed || isComingSoon) && (
+          {isCollapsed && (
             <TooltipContent side="right">
-              {link.label} {isComingSoon && "(Próximamente)"}
+              {link.label}
             </TooltipContent>
           )}
         </Tooltip>
@@ -182,7 +176,7 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkC
   const pathname = usePathname();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [openSections, setOpenSections] = React.useState<string[]>(
-    navItems.filter(section => section.links.some(link => pathname.startsWith(link.href) && !link.isComingSoon)).map(s => s.title)
+    navItems.filter(section => section.links.some(link => pathname.startsWith(link.href))).map(s => s.title)
   );
 
   const finalIsCollapsed = isMobile ? false : isCollapsed;
