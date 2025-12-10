@@ -6,64 +6,64 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    match /parcelas/{plotId} {
+    match /parcelas/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /cultivos/{cropId} {
+    match /cultivos/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /zafras/{seasonId} {
+    match /zafras/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /eventos/{eventId} {
+    match /eventos/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /roles/{roleId} {
+    match /roles/{document=**} {
       allow read, write: if request.auth != null;
     }
-     match /insumos/{insumoId} {
+     match /insumos/{document=**} {
       allow read, write: if request.auth != null;
     }
-     match /MovimientosStock/{movimientoId} {
+     match /MovimientosStock/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /compras/{compraId} {
+    match /compras/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /ventas/{ventaId} {
+    match /ventas/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /maquinaria/{maquinariaId} {
+    match /maquinaria/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /clientes/{clienteId} {
+    match /clientes/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /proveedores/{proveedorId} {
+    match /proveedores/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /plagas/{plagaId} {
+    match /plagas/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /etapasCultivo/{etapaId} {
+    match /etapasCultivo/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /empleados/{empleadoId} {
+    match /empleados/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /asistencias/{asistenciaId} {
+    match /asistencias/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /planDeCuentas/{cuentaId} {
+    match /planDeCuentas/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /centrosDeCosto/{centroId} {
+    match /centrosDeCosto/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /asientosDiario/{asientoId} {
+    match /asientosDiario/{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /costos/{costoId} {
+    match /costos/{document=**} {
       allow read, write: if request.auth != null;
     }
   }
