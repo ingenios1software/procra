@@ -33,11 +33,13 @@ export default function MapaTest({ parcela }: MapaTestProps) {
 
   const { polygons, bounds } = useMemo(() => {
     if (!parcela?.geometry) return { polygons: [], bounds: null };
+    console.log("COORDS NORMALIZADAS:", parcela.geometry.coordinates[0].slice(0,3));
 
     const coordinates = parcela.geometry.coordinates;
     let allLatLngs: LatLngExpression[] = [];
 
     const PolygonsToDraw = (coords: any): LatLngExpression[][] => {
+      // Leaflet's Polygon component expects [lat, lng], and our GeoJSON is already in that format. No swap needed.
         if (parcela.geometry?.type === 'Polygon') {
             return [coords[0].map((p: number[]) => [p[1], p[0]])];
         }
