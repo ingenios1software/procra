@@ -2,11 +2,6 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regla global predeterminada: denegar todo por seguridad.
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // Un usuario solo puede leer su propio perfil.
     // Un usuario solo puede crear o actualizar su propio perfil.
     match /users/{userId} {
