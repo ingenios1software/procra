@@ -27,7 +27,7 @@ import { Textarea } from "../ui/textarea";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
-  categoria: z.enum(['fertilizante', 'herbicida', 'fungicida', 'semilla', 'insecticida', 'otros']),
+  categoria: z.enum(['fertilizante', 'herbicida', 'fungicida', 'semilla', 'insecticida', 'biologico', 'otros']),
   principioActivo: z.string().optional(),
   unidad: z.enum(['kg', 'lt', 'unidad', 'ton']),
   dosisRecomendada: z.coerce.number().optional(),
@@ -98,6 +98,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
                     <SelectItem value="herbicida">Herbicida</SelectItem>
                     <SelectItem value="fungicida">Fungicida</SelectItem>
                     <SelectItem value="insecticida">Insecticida</SelectItem>
+                    <SelectItem value="biologico">Biológico</SelectItem>
                     <SelectItem value="otros">Otros</SelectItem>
                   </SelectContent>
                 </Select>
