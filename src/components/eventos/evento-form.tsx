@@ -224,6 +224,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
     const dataConCostoTotal = {
       ...data,
+      estado: data.estado || 'pendiente',
       fotos: data.fotos || [],
       costoTotal: totalEvento,
       costoPorHa: costoPorHa,
