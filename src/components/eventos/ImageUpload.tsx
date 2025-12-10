@@ -12,7 +12,9 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Foto } from '@/lib/types';
 
 interface ImageUploadProps {
-  onFileChange: (files: Foto[]) => void;
+  onFileAdd: (file: Foto) => void;
+  onFileRemove: (storagePath: string) => void;
+  existingFiles: Foto[];
   eventoId: string;
   parcelaId: string;
 }
@@ -23,9 +25,10 @@ interface UploadingFile {
   preview: string;
   progress: number;
   error?: string;
+  storagePath?: string;
 }
 
-export function ImageUpload({ onFileChange, eventoId, parcelaId }: ImageUploadProps) {
+export function ImageUpload({ onFileAdd, onFileRemove, existingFiles, eventoId, parcelaId }: ImageUploadProps) {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const { user } = useUser();
   const firebaseApp = useFirebaseApp();
@@ -44,19 +47,17 @@ export function ImageUpload({ onFileChange, eventoId, parcelaId }: ImageUploadPr
     setUploadingFiles(prev => [...prev, ...newFiles]);
     event.target.value = ''; // Reset input
 
-    const uploadedUrls: Foto[] = [];
-    
     for (const uf of newFiles) {
       try {
         const compressedFile = await compressImage(uf.file);
-        const url = await uploadFile(compressedFile, uf.id);
-        uploadedUrls.push(url);
-        onFileChange(prev => [...prev, url]);
+        const uploadedFoto = await uploadFile(compressedFile, uf.id);
+        onFileAdd(uploadedFoto);
+        setUploadingFiles(prev => prev.map(f => f.id === uf.id ? { ...f, storagePath: uploadedFoto.storagePath } : f));
       } catch (error: any) {
         setUploadingFiles(prev => prev.map(f => f.id === uf.id ? { ...f, error: error.message } : f));
       }
     }
-  }, [onFileChange]);
+  }, [onFileAdd, eventoId, parcelaId, user, firebaseApp]);
 
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
@@ -101,17 +102,17 @@ export function ImageUpload({ onFileChange, eventoId, parcelaId }: ImageUploadPr
   
   const uploadFile = (file: File, id: string): Promise<Foto> => {
     return new Promise((resolve, reject) => {
-      if (!user) return reject('Usuario no autenticado');
+      if (!user || !firebaseApp) return reject('Usuario o Firebase no inicializado');
       
       const storage = getStorage(firebaseApp);
       const fileId = uuidv4();
-      const storagePath = `events/${eventoId}/${fileId}-${file.name}`;
+      const storagePath = `events/${eventoId || 'temp-id'}/${fileId}-${file.name}`;
       const storageRef = ref(storage, storagePath);
       
       const uploadTask = uploadBytesResumable(storageRef, file, {
         customMetadata: {
-          eventoId: eventoId,
-          parcelaId: parcelaId,
+          eventoId: eventoId || 'temp-id',
+          parcelaId: parcelaId || 'temp-id',
           tecnico: user.uid,
         }
       });
@@ -134,11 +135,14 @@ export function ImageUpload({ onFileChange, eventoId, parcelaId }: ImageUploadPr
     });
   };
 
-  const removeFile = (id: string) => {
-    setUploadingFiles(prev => prev.filter(f => f.id !== id));
-    // Here you would also call onFileChange to remove it from parent state
-    // And if it was already uploaded, delete from storage
+  const handleRemoveFile = (storagePath: string) => {
+    // This function will be called for both uploading and existing files
+    setUploadingFiles(prev => prev.filter(f => f.storagePath !== storagePath));
+    onFileRemove(storagePath);
+    // TODO: Add logic to delete from Firebase Storage if needed
   };
+
+  const allFiles = [...existingFiles, ...uploadingFiles.filter(uf => uf.storagePath).map(uf => ({ url: uf.preview, storagePath: uf.storagePath! }))]
 
   return (
     <div className="space-y-4">
@@ -159,15 +163,25 @@ export function ImageUpload({ onFileChange, eventoId, parcelaId }: ImageUploadPr
         </Button>
       </div>
 
-      {uploadingFiles.length > 0 && (
+      {(existingFiles.length + uploadingFiles.length) > 0 && (
         <ScrollArea>
           <div className="flex space-x-4 pb-4">
+            {existingFiles.map(file => (
+               <div key={file.storagePath} className="relative w-32 h-32 shrink-0">
+                 <Image src={file.url} alt="preview" layout="fill" objectFit="cover" className="rounded-md" />
+                 <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full" onClick={() => handleRemoveFile(file.storagePath)}>
+                   <Trash2 className="h-4 w-4" />
+                 </Button>
+               </div>
+            ))}
             {uploadingFiles.map(uf => (
               <div key={uf.id} className="relative w-32 h-32 shrink-0">
                 <Image src={uf.preview} alt="preview" layout="fill" objectFit="cover" className="rounded-md" />
-                <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full" onClick={() => removeFile(uf.id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {uf.storagePath && (
+                  <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full" onClick={() => handleRemoveFile(uf.storagePath!)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-md">
                   {uf.progress < 100 && !uf.error && <Loader2 className="h-8 w-8 text-white animate-spin" />}
                   {uf.progress === 100 && <div className="text-white text-xs font-bold">OK</div>}

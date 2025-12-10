@@ -287,6 +287,15 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     onCancel();
   };
 
+  const handleFileAdd = (newFile: Foto) => {
+    form.setValue('fotos', [...(form.getValues('fotos') || []), newFile], { shouldDirty: true });
+  };
+
+  const handleFileRemove = (storagePath: string) => {
+    form.setValue('fotos', (form.getValues('fotos') || []).filter(f => f.storagePath !== storagePath), { shouldDirty: true });
+  };
+
+
   if (!parcelas || !cultivos || !zafras || !etapasCultivo) {
     return <p>Cargando datos maestros...</p>;
   }
@@ -465,16 +474,12 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                 
                 <FormField control={form.control} name="resultado" render={({ field }) => (<FormItem><FormLabel>Resultado/Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones sobre el resultado de la labor..." {...field} /></FormControl><FormMessage /></FormItem>)} />
 
-                <Controller
-                  control={form.control}
-                  name="fotos"
-                  render={({ field }) => (
-                    <ImageUpload
-                      onFileChange={(urls) => field.onChange(urls)}
-                      eventoId="temp-id" // Esto será reemplazado por el ID real del evento al guardar
-                      parcelaId={watchedParcelaId}
-                    />
-                  )}
+                <ImageUpload
+                  onFileAdd={handleFileAdd}
+                  onFileRemove={handleFileRemove}
+                  existingFiles={form.watch('fotos') || []}
+                  eventoId={evento?.id || 'temp'}
+                  parcelaId={watchedParcelaId}
                 />
               </fieldset>
 
@@ -572,5 +577,3 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     </>
   );
 }
-
-    
