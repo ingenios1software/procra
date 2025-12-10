@@ -64,9 +64,12 @@ const formSchema = z.object({
   toneladas: z.coerce.number().optional(),
   precioTonelada: z.coerce.number().optional(),
   
-  // Campos de workflow
+  // Workflow
   estado: z.enum(['pendiente', 'aprobado', 'rechazado']).optional(),
   motivoRechazo: z.string().optional(),
+
+  // Nuevo campo de contabilidad
+  cuentaContableCosto: z.string().optional().nullable().default(""),
 });
 
 type EventoFormValues = z.infer<typeof formSchema>;
@@ -106,6 +109,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         toneladas: evento.toneladas ?? '',
         precioTonelada: evento.precioTonelada ?? '',
         resultado: evento.resultado ?? '',
+        cuentaContableCosto: evento.cuentaContableCosto || "",
       };
     }
     // Si no hay evento y existe un borrador, usamos el borrador.
@@ -130,6 +134,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       toneladas: '' as any,
       precioTonelada: '' as any,
       resultado: '',
+      cuentaContableCosto: "",
     };
   }
 
@@ -413,6 +418,34 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha del Evento</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
                 </div>
                 <FormField name="descripcion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea placeholder="Describa el evento..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+
+                {/* Nuevo Campo de Cuenta Contable */}
+                <FormField
+                  control={form.control}
+                  name="cuentaContableCosto"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cuenta Contable de Costo (Opcional)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Asociar a una cuenta de costo..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">Sin asociar</SelectItem>
+                          <SelectItem value="Costo Producción Soja">Costo Producción Soja</SelectItem>
+                          <SelectItem value="Costo Producción Maíz">Costo Producción Maíz</SelectItem>
+                          <SelectItem value="Costo Producción Chía">Costo Producción Chía</SelectItem>
+                          <SelectItem value="Costo Producción General">Costo Producción General</SelectItem>
+                          <SelectItem value="Otro">Otro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Asocia este evento a una cuenta contable para el análisis de costos.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEvento) && (
                   <Card className="border-border/60">
