@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -25,11 +25,11 @@ export default function MapaZafras() {
   const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(zafrasQuery);
 
   // Set default zafra once loaded
-  useState(() => {
+  useEffect(() => {
     if (!selectedZafra && zafras && zafras.length > 0) {
       setSelectedZafra(zafras[0].id);
     }
-  });
+  }, [zafras, selectedZafra]);
   
   const parcelasParaZafra = useMemo(() => {
     if (!parcelas || !selectedZafra) return [];
