@@ -1,84 +1,49 @@
-"use client"
+import type {Metadata, Viewport} from 'next';
+import './globals.css';
+import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from '@/context/auth-context';
+import { ThemeProvider } from '@/context/theme-provider';
+import { SidebarProvider } from '@/context/sidebar-context';
+import { PWALifecycle } from '@/components/pwa-lifecycle';
+import { FirebaseClientProvider } from '@/firebase';
 
-import { useState, useMemo, useEffect } from 'react';
-import { MapContainer, TileLayer } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
-import type { Parcela, Zafra } from '@/lib/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ParcelasLayer } from './ParcelasLayer';
-import { Skeleton } from '../ui/skeleton';
 
-export default function MapaZafras() {
-  const [selectedZafra, setSelectedZafra] = useState<string | undefined>(undefined);
-  const firestore = useFirestore();
+export const metadata: Metadata = {
+  title: 'CRApro95 - Gestión Agrícola Integral',
+  description: 'Sistema Integral de Gestión Agrícola by Firebase Studio',
+  manifest: '/manifest.json',
+};
 
-  const parcelasQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'parcelas')) : null
-  , [firestore]);
-  const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(parcelasQuery);
+export const viewport: Viewport = {
+  themeColor: '#F8F5EF',
+}
 
-  const zafrasQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'zafras')) : null
-  , [firestore]);
-  const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(zafrasQuery);
-
-  // Set default zafra once loaded
-  useEffect(() => {
-    if (!selectedZafra && zafras && zafras.length > 0) {
-      setSelectedZafra(zafras[0].id);
-    }
-  }, [zafras, selectedZafra]);
-  
-  const parcelasParaZafra = useMemo(() => {
-    if (!parcelas || !selectedZafra) return [];
-    // Key de zafra para el objeto anidado en parcela es el nombre, no el id. Ej: "z2024_25"
-    const zafraSeleccionada = zafras?.find(z => z.id === selectedZafra);
-    if (!zafraSeleccionada) return [];
-    const zafraKey = zafraSeleccionada.nombre.replace(' - ', '_');
-    
-    return parcelas.filter(p => p.zafras && p.zafras[zafraKey]);
-  }, [parcelas, selectedZafra, zafras]);
-
-  const zafraKey = useMemo(() => {
-      const zafraSeleccionada = zafras?.find(z => z.id === selectedZafra);
-      if (!zafraSeleccionada) return '';
-      return zafraSeleccionada.nombre.replace(' - ', '_');
-  }, [selectedZafra, zafras]);
-
-  if (isLoadingParcelas || isLoadingZafras) {
-    return <Skeleton className="w-full h-[85vh] rounded-lg border" />
-  }
-
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <div className="relative">
-      <div className="absolute top-3 left-3 z-[1000] bg-background/80 p-2 rounded-lg shadow-lg border backdrop-blur-sm">
-        <Select onValueChange={setSelectedZafra} value={selectedZafra}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Seleccionar Zafra" />
-          </SelectTrigger>
-          <SelectContent>
-            {zafras?.map(zafra => (
-              <SelectItem key={zafra.id} value={zafra.id}>{zafra.nombre}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <MapContainer 
-        center={[-24.5049, -55.7073]} 
-        zoom={13} 
-        className="w-full h-[85vh] rounded-lg border"
-      >
-        <TileLayer
-          url="https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
-          subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
-          attribution='&copy; <a href="https://maps.google.com">Google Maps</a>'
-          maxZoom={20}
-        />
-        <ParcelasLayer parcelas={parcelasParaZafra} zafraKey={zafraKey} />
-      </MapContainer>
-    </div>
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+      </head>
+      <body>
+        <ThemeProvider>
+          <FirebaseClientProvider>
+            <AuthProvider>
+              <SidebarProvider>
+                {children}
+              </SidebarProvider>
+              <Toaster />
+            </AuthProvider>
+          </FirebaseClientProvider>
+        </ThemeProvider>
+        <PWALifecycle />
+      </body>
+    </html>
   );
 }

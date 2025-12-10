@@ -1,61 +1,49 @@
-"use client";
+import type {Metadata, Viewport} from 'next';
+import './globals.css';
+import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from '@/context/auth-context';
+import { ThemeProvider } from '@/context/theme-provider';
+import { SidebarProvider } from '@/context/sidebar-context';
+import { PWALifecycle } from '@/components/pwa-lifecycle';
+import { FirebaseClientProvider } from '@/firebase';
 
-import { Polygon, Tooltip } from 'react-leaflet';
-import { LatLngExpression } from 'leaflet';
-import type { Parcela } from '@/lib/types';
-import { AutoFitBounds } from './AutoFitBounds';
 
-interface ParcelasLayerProps {
-  parcelas: Parcela[];
-  zafraKey: string;
-}
-
-const CULTIVO_COLORS: { [key: string]: string } = {
-  soja: "#6BCB77",
-  maíz: "#FFD93D",
-  trigo: "#A3B18A",
-  default: "#999999",
+export const metadata: Metadata = {
+  title: 'CRApro95 - Gestión Agrícola Integral',
+  description: 'Sistema Integral de Gestión Agrícola by Firebase Studio',
+  manifest: '/manifest.json',
 };
 
-export function ParcelasLayer({ parcelas, zafraKey }: ParcelasLayerProps) {
-  const allPolygons: LatLngExpression[][] = [];
+export const viewport: Viewport = {
+  themeColor: '#F8F5EF',
+}
 
-  const parcelasParaMostrar = parcelas.map(parcela => {
-    if (!parcela.geometry?.coordinates) return null;
-    
-    // Invertir coordenadas de [lng, lat] a [lat, lng]
-    const leafletCoords: LatLngExpression[] = parcela.geometry.coordinates[0].map(p => [p[1], p[0]]);
-    allPolygons.push(leafletCoords);
-
-    const zafraData = parcela.zafras?.[zafraKey];
-    if (!zafraData) return null;
-
-    const cultivoKey = zafraData.cultivo.toLowerCase();
-    const color = CULTIVO_COLORS[cultivoKey] || CULTIVO_COLORS.default;
-
-    return (
-      <Polygon
-        key={parcela.id}
-        positions={leafletCoords}
-        pathOptions={{
-          color: '#000000',
-          weight: 1,
-          fillColor: color,
-          fillOpacity: 0.6,
-        }}
-      >
-        <Tooltip direction="center" permanent className="bg-transparent border-none shadow-none text-white font-bold">
-          <div>{parcela.nombre}</div>
-          <div className="text-xs">{zafraData.cultivo}</div>
-        </Tooltip>
-      </Polygon>
-    );
-  }).filter(Boolean);
-
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <>
-      {parcelasParaMostrar}
-      <AutoFitBounds polygons={allPolygons} />
-    </>
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+      </head>
+      <body>
+        <ThemeProvider>
+          <FirebaseClientProvider>
+            <AuthProvider>
+              <SidebarProvider>
+                {children}
+              </SidebarProvider>
+              <Toaster />
+            </AuthProvider>
+          </FirebaseClientProvider>
+        </ThemeProvider>
+        <PWALifecycle />
+      </body>
+    </html>
   );
 }
