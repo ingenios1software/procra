@@ -1,49 +1,28 @@
-import type {Metadata, Viewport} from 'next';
-import './globals.css';
-import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from '@/context/auth-context';
-import { ThemeProvider } from '@/context/theme-provider';
-import { SidebarProvider } from '@/context/sidebar-context';
-import { PWALifecycle } from '@/components/pwa-lifecycle';
-import { FirebaseClientProvider } from '@/firebase';
+"use client";
 
+import dynamic from 'next/dynamic';
+import { useMemo } from 'react';
+import { PageHeader } from "@/components/shared/page-header";
+import { Skeleton } from '@/components/ui/skeleton';
 
-export const metadata: Metadata = {
-  title: 'CRApro95 - Gestión Agrícola Integral',
-  description: 'Sistema Integral de Gestión Agrícola by Firebase Studio',
-  manifest: '/manifest.json',
-};
+const MapaZafras = dynamic(
+  () => import('@/components/mapas/MapaZafras').then((mod) => mod.MapaZafras),
+  { 
+    loading: () => <Skeleton className="w-full h-[85vh]" />,
+    ssr: false 
+  }
+);
 
-export const viewport: Viewport = {
-  themeColor: '#F8F5EF',
-}
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function MapaZafrasPage() {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-      </head>
-      <body>
-        <ThemeProvider>
-          <FirebaseClientProvider>
-            <AuthProvider>
-              <SidebarProvider>
-                {children}
-              </SidebarProvider>
-              <Toaster />
-            </AuthProvider>
-          </FirebaseClientProvider>
-        </ThemeProvider>
-        <PWALifecycle />
-      </body>
-    </html>
+    <>
+      <PageHeader
+        title="Mapa de Zafras"
+        description="Visualización de todas las parcelas y sus cultivos por campaña."
+      />
+      <div className="w-full h-[85vh] rounded-lg border">
+        <MapaZafras />
+      </div>
+    </>
   );
 }
