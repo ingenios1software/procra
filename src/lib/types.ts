@@ -15,6 +15,13 @@ export type GeoJSONMultiPolygon = {
   coordinates: number[][][][];
 };
 
+export type ZafraData = {
+  cultivo: string;
+  color: string;
+  variedad: string;
+  superficie: number;
+};
+
 export type Parcela = {
   id: string;
   nombre: string;
@@ -26,6 +33,9 @@ export type Parcela = {
   numeroItem?: number;
   cultivoActual?: string;
   geometry?: GeoJSONPolygon | GeoJSONMultiPolygon;
+  zafras?: {
+    [key: string]: ZafraData;
+  }
 };
 
 export type Cultivo = {

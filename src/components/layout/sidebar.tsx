@@ -87,7 +87,7 @@ const navItems = [
             { href: "/agronomia/informe-costos", icon: FileText, label: "Informe de Costos" },
             { href: "/agronomia/plagas", icon: Bug, label: "Plagas" },
             { href: "/agronomia/etapas-cultivo", icon: ListTree, label: "Etapas del Cultivo" },
-            { href: "/agronomia/mapa-test", icon: Map, label: "Mapa de Parcelas" },
+            { href: "/agronomia/mapa-zafras", icon: MapIcon, label: "Mapa de Zafras" },
         ]
     },
     {
