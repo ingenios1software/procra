@@ -7,45 +7,59 @@ import { Input } from "@/components/ui/input";
 import { SelectorUniversal } from "@/components/common";
 import { Trash2, PlusCircle, AlertTriangle } from "lucide-react";
 import type { Insumo } from "@/lib/types";
-import { UseFormReturn, UseFieldArrayAppend, UseFieldArrayRemove } from "react-hook-form";
+import { UseFormReturn, UseFieldArrayRemove } from "react-hook-form";
 import { FormField, FormMessage, FormItem } from "../ui/form";
 
-const StockAlert = ({ insumo, cantidadNecesaria }: { insumo: Insumo, cantidadNecesaria: number }) => {
-    const stockActual = insumo.stockActual || 0;
-    const stockMinimo = insumo.stockMinimo || 0;
-
-    if (cantidadNecesaria > stockActual) {
-        return (
-            <div className="flex items-center gap-1.5 mt-1.5 text-red-600 font-medium text-xs">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                <span>Stock insuficiente: necesita {cantidadNecesaria.toFixed(2)} y hay {stockActual.toFixed(2)}</span>
-            </div>
-        );
-    }
-    
-    if (stockActual <= stockMinimo) {
-        return (
-            <div className="flex items-center gap-1.5 mt-1.5 text-amber-600 text-xs">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                <span>Stock bajo (quedan {stockActual.toFixed(2)} {insumo.unidad})</span>
-            </div>
-        );
-    }
-
-    return null;
+// -------------------------
+// 🔥 TIPO CORREGIDO
+// -------------------------
+interface ProductoField {
+  insumo?: Insumo;
+  dosis: number;
+  codigo: string;
 }
 
+// -------------------------
+// 🔥 PROPS CORREGIDOS
+// -------------------------
 interface InsumosTablaProps {
   fields: Record<"id", string>[];
   hectareas: number;
-  append: UseFieldArrayAppend<any, "productos">;
+  append: (value: ProductoField) => void;      // <-- TIPO DEFINITIVO
   remove: UseFieldArrayRemove;
   form: UseFormReturn<any>;
 }
 
+const StockAlert = ({ insumo, cantidadNecesaria }: { insumo: Insumo, cantidadNecesaria: number }) => {
+  const stockActual = insumo.stockActual || 0;
+  const stockMinimo = insumo.stockMinimo || 0;
 
+  if (cantidadNecesaria > stockActual) {
+    return (
+      <div className="flex items-center gap-1.5 mt-1.5 text-red-600 font-medium text-xs">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        <span>Stock insuficiente: necesita {cantidadNecesaria.toFixed(2)} y hay {stockActual.toFixed(2)}</span>
+      </div>
+    );
+  }
+
+  if (stockActual <= stockMinimo) {
+    return (
+      <div className="flex items-center gap-1.5 mt-1.5 text-amber-600 text-xs">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        <span>Stock bajo (quedan {stockActual.toFixed(2)} {insumo.unidad})</span>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+// -------------------------
+// 🔥 COMPONENTE PRINCIPAL CORREGIDO
+// -------------------------
 export function InsumosTabla({ fields, hectareas, append, remove, form }: InsumosTablaProps) {
-  
+
   const handleSelectInsumo = (index: number, insumo: Insumo | undefined) => {
     if (insumo) {
       form.setValue(`productos.${index}.insumo`, insumo, { shouldDirty: true });
@@ -53,7 +67,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
       form.trigger(`productos.${index}.insumo`);
     }
   };
-  
+
   return (
     <>
       <div className="overflow-x-auto border rounded-md">
@@ -70,6 +84,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
               <TableHead className="text-right py-2 px-4">Acción</TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
             {fields.map((field, index) => {
               const insumo = form.watch(`productos.${index}.insumo`);
@@ -81,54 +96,66 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
               return (
                 <TableRow key={field.id}>
                   <TableCell className="font-medium text-muted-foreground py-1 px-4">{index + 1}</TableCell>
+
                   <TableCell className="py-1 px-4 align-top">
                     <FormField
                       control={form.control}
                       name={`productos.${index}.insumo`}
                       render={({ field: controllerField, fieldState }) => (
                         <FormItem>
-                           <SelectorUniversal<Insumo>
+                          <SelectorUniversal<Insumo>
                             label="Insumo"
                             collectionName="insumos"
                             displayField="nombre"
                             codeField="numeroItem"
                             value={controllerField.value}
                             onSelect={(selectedInsumo) => handleSelectInsumo(index, selectedInsumo)}
-                            searchFields={['nombre', 'numeroItem', 'principioActivo']}
+                            searchFields={["nombre", "numeroItem", "principioActivo"]}
                             extraInfoFields={[
-                              { label: 'Stock', field: 'stockActual', format: (val) => (val || 0).toLocaleString('de-DE') },
-                              { label: 'Unidad', field: 'unidad'},
-                              { label: 'Precio Prom.', field: 'precioPromedioCalculado', format: (val) => `$${(val || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}`},
-                              { label: 'P.A.', field: 'principioActivo' },
+                              { label: "Stock", field: "stockActual", format: (val) => (val || 0).toLocaleString("de-DE") },
+                              { label: "Unidad", field: "unidad" },
+                              {
+                                label: "Precio Prom.",
+                                field: "precioPromedioCalculado",
+                                format: (val) =>
+                                  `$${(val || 0).toLocaleString("de-DE", { minimumFractionDigits: 2 })}`,
+                              },
+                              { label: "P.A.", field: "principioActivo" },
                             ]}
                           />
-                           {fieldState.error && <FormMessage />}
-                           {controllerField.value && <StockAlert insumo={controllerField.value} cantidadNecesaria={cantidadTotal} />}
+
+                          {fieldState.error && <FormMessage />}
+                          {controllerField.value && (
+                            <StockAlert insumo={controllerField.value} cantidadNecesaria={cantidadTotal} />
+                          )}
                         </FormItem>
                       )}
                     />
                   </TableCell>
-                  <TableCell className="py-1 px-4 align-top">{insumo?.unidad || 'N/A'}</TableCell>
+
+                  <TableCell className="py-1 px-4 align-top">{insumo?.unidad || "N/A"}</TableCell>
+
                   <TableCell className="py-1 px-4 align-top">
                     <FormField
                       control={form.control}
                       name={`productos.${index}.dosis`}
                       render={({ field: dosisField }) => (
                         <FormItem>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            className="w-24 h-9"
-                            {...dosisField}
-                          />
+                          <Input type="number" placeholder="0" className="w-24 h-9" {...dosisField} />
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </TableCell>
+
                   <TableCell className="font-mono py-1 px-4 align-top">{cantidadTotal.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono py-1 px-4 align-top">${precioUnitario.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold py-1 px-4 align-top">${valorTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right font-mono py-1 px-4 align-top">
+                    ${precioUnitario.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-semibold py-1 px-4 align-top">
+                    {valorTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </TableCell>
+
                   <TableCell className="text-right py-1 px-4 align-top">
                     <Button variant="ghost" size="icon" onClick={() => remove(index)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -137,14 +164,18 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
                 </TableRow>
               );
             })}
-             {fields.length === 0 && (
-                <TableRow>
-                    <TableCell colSpan={8} className="text-center h-24">No se han agregado productos.</TableCell>
-                </TableRow>
-             )}
+
+            {fields.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center h-24">
+                  No se han agregado productos.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
+
       <Button
         type="button"
         variant="outline"
