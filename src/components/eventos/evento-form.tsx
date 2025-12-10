@@ -433,7 +433,6 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Sin asociar</SelectItem>
                           <SelectItem value="Costo Producción Soja">Costo Producción Soja</SelectItem>
                           <SelectItem value="Costo Producción Maíz">Costo Producción Maíz</SelectItem>
                           <SelectItem value="Costo Producción Chía">Costo Producción Chía</SelectItem>
