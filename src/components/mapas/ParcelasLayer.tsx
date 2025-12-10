@@ -1,49 +1,75 @@
-import type {Metadata, Viewport} from 'next';
-import './globals.css';
-import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from '@/context/auth-context';
-import { ThemeProvider } from '@/context/theme-provider';
-import { SidebarProvider } from '@/context/sidebar-context';
-import { PWALifecycle } from '@/components/pwa-lifecycle';
-import { FirebaseClientProvider } from '@/firebase';
+"use client";
 
+import { useMemo } from 'react';
+import { Polygon, Tooltip } from 'react-leaflet';
+import L from 'leaflet';
+import type { Parcela } from '@/lib/types';
+import { AutoFitBounds } from './AutoFitBounds';
 
-export const metadata: Metadata = {
-  title: 'CRApro95 - Gestión Agrícola Integral',
-  description: 'Sistema Integral de Gestión Agrícola by Firebase Studio',
-  manifest: '/manifest.json',
+const CULTIVO_COLORS: Record<string, string> = {
+  soja: "#6BCB77",
+  maíz: "#FFD93D",
+  trigo: "#A3B18A",
+  default: "#999999",
 };
 
-export const viewport: Viewport = {
-  themeColor: '#F8F5EF',
+interface ParcelasLayerProps {
+  parcelas: Parcela[];
+  selectedZafraId?: string;
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export const ParcelasLayer = ({ parcelas, selectedZafraId }: ParcelasLayerProps) => {
+  const zafraKey = selectedZafraId?.replace(/-/g, '_') || '';
+  
+  const parcelasParaMostrar = useMemo(() => {
+    if (!selectedZafraId || !parcelas) return [];
+    return parcelas.filter(p => p.zafras && p.zafras[zafraKey] && p.geometria);
+  }, [parcelas, selectedZafraId, zafraKey]);
+  
+  const allBounds = useMemo(() => {
+    if (parcelasParaMostrar.length === 0) return [];
+    
+    const bounds = L.latLngBounds([]);
+    parcelasParaMostrar.forEach(p => {
+      const coords = p.geometria?.coordinates[0].map(point => [point[1], point[0]] as L.LatLngExpression);
+      bounds.extend(coords);
+    });
+    
+    return bounds.isValid() ? bounds : [];
+  }, [parcelasParaMostrar]);
+  
+
   return (
-    <html lang="es" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-      </head>
-      <body>
-        <ThemeProvider>
-          <FirebaseClientProvider>
-            <AuthProvider>
-              <SidebarProvider>
-                {children}
-              </SidebarProvider>
-              <Toaster />
-            </AuthProvider>
-          </FirebaseClientProvider>
-        </ThemeProvider>
-        <PWALifecycle />
-      </body>
-    </html>
+    <>
+      <AutoFitBounds bounds={allBounds} />
+      {parcelasParaMostrar.map((parcela) => {
+        const zafraData = parcela.zafras[zafraKey];
+        const cultivo = zafraData.cultivo.toLowerCase();
+        const color = CULTIVO_COLORS[cultivo] || CULTIVO_COLORS.default;
+        
+        // Correctamente invirtiendo [lng, lat] a [lat, lng]
+        const positions = parcela.geometria.coordinates[0].map(p => [p[1], p[0]] as L.LatLngExpression);
+
+        return (
+          <Polygon
+            key={parcela.id}
+            positions={positions}
+            pathOptions={{
+              color: '#000000',
+              weight: 1,
+              fillColor: color,
+              fillOpacity: 0.5,
+            }}
+          >
+            <Tooltip sticky>
+              <strong>{parcela.nombre}</strong><br />
+              Cultivo: {zafraData.cultivo}<br />
+              Variedad: {zafraData.variedad}<br />
+              Superficie: {zafraData.superficie} ha
+            </Tooltip>
+          </Polygon>
+        );
+      })}
+    </>
   );
-}
+};

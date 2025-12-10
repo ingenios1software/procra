@@ -1,49 +1,28 @@
-import type {Metadata, Viewport} from 'next';
-import './globals.css';
-import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from '@/context/auth-context';
-import { ThemeProvider } from '@/context/theme-provider';
-import { SidebarProvider } from '@/context/sidebar-context';
-import { PWALifecycle } from '@/components/pwa-lifecycle';
-import { FirebaseClientProvider } from '@/firebase';
+"use client";
 
+import { useEffect } from 'react';
+import { useMap } from 'react-leaflet';
+import L from 'leaflet';
 
-export const metadata: Metadata = {
-  title: 'CRApro95 - Gestión Agrícola Integral',
-  description: 'Sistema Integral de Gestión Agrícola by Firebase Studio',
-  manifest: '/manifest.json',
+interface AutoFitBoundsProps {
+  bounds: L.LatLngBoundsExpression;
+}
+
+export const AutoFitBounds = ({ bounds }: AutoFitBoundsProps) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!bounds || (Array.isArray(bounds) && bounds.length === 0)) return;
+    
+    try {
+      const latLngBounds = L.latLngBounds(bounds);
+      if (latLngBounds.isValid()) {
+        map.fitBounds(latLngBounds, { padding: [50, 50] });
+      }
+    } catch (error) {
+      console.error("Error fitting bounds:", error);
+    }
+  }, [map, bounds]);
+
+  return null;
 };
-
-export const viewport: Viewport = {
-  themeColor: '#F8F5EF',
-}
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="es" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-      </head>
-      <body>
-        <ThemeProvider>
-          <FirebaseClientProvider>
-            <AuthProvider>
-              <SidebarProvider>
-                {children}
-              </SidebarProvider>
-              <Toaster />
-            </AuthProvider>
-          </FirebaseClientProvider>
-        </ThemeProvider>
-        <PWALifecycle />
-      </body>
-    </html>
-  );
-}

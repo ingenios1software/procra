@@ -1,49 +1,73 @@
-import type {Metadata, Viewport} from 'next';
-import './globals.css';
-import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from '@/context/auth-context';
-import { ThemeProvider } from '@/context/theme-provider';
-import { SidebarProvider } from '@/context/sidebar-context';
-import { PWALifecycle } from '@/components/pwa-lifecycle';
-import { FirebaseClientProvider } from '@/firebase';
+"use client";
+
+import { useState, useMemo, useEffect } from 'react';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import type { Parcela, Zafra } from '@/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageHeader } from '@/components/shared/page-header';
+import { ParcelasLayer } from './ParcelasLayer';
+
+export function MapaZafras() {
+  const firestore = useFirestore();
+  const [selectedZafra, setSelectedZafra] = useState<string | undefined>(undefined);
+
+  const { data: parcelas, isLoading: loadingParcelas } = useCollection<Parcela>(
+    useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore])
+  );
+  
+  const { data: zafras, isLoading: loadingZafras } = useCollection<Zafra>(
+    useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore])
+  );
+  
+  useEffect(() => {
+    if (!selectedZafra && zafras && zafras.length > 0) {
+      setSelectedZafra(zafras[0].id);
+    }
+  }, [zafras, selectedZafra]);
 
 
-export const metadata: Metadata = {
-  title: 'CRApro95 - Gestión Agrícola Integral',
-  description: 'Sistema Integral de Gestión Agrícola by Firebase Studio',
-  manifest: '/manifest.json',
-};
-
-export const viewport: Viewport = {
-  themeColor: '#F8F5EF',
-}
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-      </head>
-      <body>
-        <ThemeProvider>
-          <FirebaseClientProvider>
-            <AuthProvider>
-              <SidebarProvider>
-                {children}
-              </SidebarProvider>
-              <Toaster />
-            </AuthProvider>
-          </FirebaseClientProvider>
-        </ThemeProvider>
-        <PWALifecycle />
-      </body>
-    </html>
+    <>
+      <PageHeader
+        title="Mapa de Zafras"
+        description="Visualización de todas las parcelas y sus cultivos por campaña."
+      >
+        <div className="w-[200px]">
+          <Select onValueChange={setSelectedZafra} value={selectedZafra}>
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccione una zafra..." />
+            </SelectTrigger>
+            <SelectContent>
+              {loadingZafras ? (
+                <SelectItem value="loading" disabled>Cargando zafras...</SelectItem>
+              ) : (
+                zafras?.map((zafra) => (
+                  <SelectItem key={zafra.id} value={zafra.id}>
+                    {zafra.nombre}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      </PageHeader>
+      
+      <div className="w-full h-[85vh] rounded-lg border">
+        <MapContainer center={[-24.5049, -55.7073]} zoom={8} scrollWheelZoom={true} className="w-full h-full">
+          <TileLayer
+            attribution='&copy; <a href="https://www.google.com/maps">Google Maps</a>'
+            url="https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
+            subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+          />
+          {loadingParcelas ? (
+             <p>Cargando parcelas...</p>
+          ) : (
+             <ParcelasLayer parcelas={parcelas || []} selectedZafraId={selectedZafra} />
+          )}
+        </MapContainer>
+      </div>
+    </>
   );
 }
