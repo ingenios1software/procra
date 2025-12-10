@@ -1,14 +1,31 @@
 import type { FieldValue } from 'firebase/firestore';
 
+export type GeoJSONPoint = {
+  type: "Point";
+  coordinates: [number, number];
+};
+
+export type GeoJSONPolygon = {
+  type: "Polygon";
+  coordinates: number[][][];
+};
+
+export type GeoJSONMultiPolygon = {
+  type: "MultiPolygon";
+  coordinates: number[][][][];
+};
+
 export type Parcela = {
   id: string;
   nombre: string;
   codigo: string;
-  superficie: number;
+  superficie: number; // Esto es lo mismo que hectareas
   ubicacion: string;
   estado: 'activa' | 'inactiva' | 'en barbecho';
   sector?: string;
   numeroItem?: number;
+  cultivoActual?: string;
+  geometry?: GeoJSONPolygon | GeoJSONMultiPolygon;
 };
 
 export type Cultivo = {
