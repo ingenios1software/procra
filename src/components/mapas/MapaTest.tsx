@@ -19,7 +19,7 @@ const FitBounds = ({ bounds }: { bounds: LatLngBounds | null }) => {
   const map = useMap();
   useEffect(() => {
     if (bounds) {
-      map.fitBounds(bounds, { padding: [20, 20] });
+      map.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [map, bounds]);
   return null;
@@ -32,43 +32,47 @@ interface MapaTestProps {
 export default function MapaTest({ parcela }: MapaTestProps) {
 
   const { polygons, bounds } = useMemo(() => {
-    if (!parcela?.geometry) return { polygons: [], bounds: null };
-    console.log("COORDS NORMALIZADAS:", parcela.geometry.coordinates[0].slice(0,3));
-
-    const coordinates = parcela.geometry.coordinates;
-    let allLatLngs: LatLngExpression[] = [];
-
-    const PolygonsToDraw = (coords: any): LatLngExpression[][] => {
-      // Leaflet's Polygon component expects [lat, lng], and our GeoJSON is already in that format. No swap needed.
-        if (parcela.geometry?.type === 'Polygon') {
-            return [coords[0].map((p: number[]) => [p[1], p[0]])];
-        }
-        if (parcela.geometry?.type === 'MultiPolygon') {
-            return coords.map((poly: any) => poly[0].map((p: number[]) => [p[1], p[0]]));
-        }
-        return [];
+    if (!parcela?.geometry?.coordinates) {
+      return { polygons: [], bounds: null };
     }
 
-    const drawnPolygons = PolygonsToDraw(coordinates);
-    
-    drawnPolygons.forEach(poly => {
-        allLatLngs = [...allLatLngs, ...poly];
-    });
+    const processCoordinates = (coords: any[]): LatLngExpression[][] => {
+      // GeoJSON es [lng, lat], Leaflet espera [lat, lng]. Siempre invertimos.
+      if (typeof coords[0][0] === 'number') {
+        // Es un simple array de puntos: [lng, lat]
+        const inverted = [coords.map(([lng, lat]) => [lat, lng] as LatLngExpression)];
+        console.log("COORDS NORMALIZADAS (Polygon):", inverted[0].slice(0,3));
+        return inverted;
+      }
+      // Es un array de polígonos (MultiPolygon)
+      const invertedMulti = coords.map(poly => poly.map(([lng, lat]: [number, number]) => [lat, lng] as LatLngExpression));
+      console.log("COORDS NORMALIZADAS (MultiPolygon):", invertedMulti[0].slice(0,3));
+      return invertedMulti;
+    };
 
+    let polygonsToDraw: LatLngExpression[][] = [];
+    if (parcela.geometry.type === 'Polygon') {
+        polygonsToDraw = processCoordinates(parcela.geometry.coordinates[0]);
+    } else if (parcela.geometry.type === 'MultiPolygon') {
+        polygonsToDraw = parcela.geometry.coordinates.flatMap(polygonCoords => processCoordinates(polygonCoords[0]));
+    }
+    
+    const allLatLngs = polygonsToDraw.flat();
     const leafletBounds = allLatLngs.length > 0 ? new LatLngBounds(allLatLngs as [number, number][]) : null;
 
-    return { polygons: drawnPolygons, bounds: leafletBounds };
+    return { polygons: polygonsToDraw, bounds: leafletBounds };
   }, [parcela]);
 
 
-  const center: LatLngExpression = [-25.30066, -57.63591]; // Default center if no data
+  const center: LatLngExpression = [-24.318, -55.729]; // Centro aproximado de Canindeyú
 
   return (
     <MapContainer center={center} zoom={13} style={{ height: '80vh', width: '100%', borderRadius: '0.5rem' }}>
       <TileLayer
-        url="http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
+        url="https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
         subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
         attribution='&copy; <a href="https://maps.google.com">Google Maps</a>'
+        maxZoom={20}
       />
 
       {polygons.map((poly, index) => (
