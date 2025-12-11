@@ -7,13 +7,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    match /{collection}/{docId} {
-      allow list, get: if isAuthenticated();
+    match /planDeCuentas/{cuentaId} {
+      allow read, write: if isAuthenticated();
     }
 
-    match /planDeCuentas/{cuentaId} {
-      allow get, list: if isAuthenticated();
-      allow create, update, delete: if false;
+    match /{collection}/{docId} {
+      allow list, get: if isAuthenticated();
     }
 
     match /zafras/{zafraId} {
