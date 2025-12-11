@@ -182,6 +182,16 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedZafraId = form.watch('zafraId');
   const watchedFecha = form.watch('fecha');
   
+  const mostrarCuentaContable = useMemo(() => {
+    return ['aplicacion', 'fertilización', 'plagas', 'siembra', 'cosecha', 'mantenimiento'].includes(tipoEvento);
+  }, [tipoEvento]);
+
+  useEffect(() => {
+    if (!mostrarCuentaContable) {
+      form.setValue('cuentaContableId', null);
+    }
+  }, [mostrarCuentaContable, form]);
+
   const { totalInsumos, totalServicio, totalEvento, costoPorHa } = useMemo(() => {
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
         if (!prod || !prod.insumo || !prod.dosis) {
@@ -419,22 +429,24 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                 </div>
                 <FormField name="descripcion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea placeholder="Describa el evento..." {...field} /></FormControl><FormMessage /></FormItem> )} />
 
-                <FormField
-                  control={form.control}
-                  name="cuentaContableId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cuenta Contable de Costo (Opcional)</FormLabel>
-                        <SelectorPlanDeCuentas
-                            value={field.value}
-                            onChange={field.onChange}
-                            filter="gasto"
-                        />
-                      <FormDescription>Asocia este evento a una cuenta contable para el análisis de costos.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {mostrarCuentaContable && (
+                  <FormField
+                    control={form.control}
+                    name="cuentaContableId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cuenta Contable de Costo (Opcional)</FormLabel>
+                          <SelectorPlanDeCuentas
+                              value={field.value}
+                              onChange={field.onChange}
+                              filter="gasto"
+                          />
+                        <FormDescription>Asocia este evento a una cuenta contable para el análisis de costos.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEvento) && (
                   <Card className="border-border/60">
