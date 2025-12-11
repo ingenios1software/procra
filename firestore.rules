@@ -8,11 +8,8 @@ service cloud.firestore {
     }
 
     match /planDeCuentas/{cuentaId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /{collection}/{docId} {
       allow list, get: if isAuthenticated();
+      allow create, update, delete: if false;
     }
 
     match /zafras/{zafraId} {
