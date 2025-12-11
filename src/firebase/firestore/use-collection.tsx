@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Query,
-  onSnapshot,
   DocumentData,
   FirestoreError,
   QuerySnapshot,
   CollectionReference,
+  getDocs,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -39,12 +39,11 @@ export interface InternalQuery extends Query<DocumentData> {
 }
 
 /**
- * React hook to subscribe to a Firestore collection or query in real-time.
+ * React hook to fetch a Firestore collection or query once.
  * Handles nullable references/queries.
  * 
- *
  * IMPORTANT! YOU MUST MEMOIZE the inputted memoizedTargetRefOrQuery or BAD THINGS WILL HAPPEN
- * use useMemo to memoize it per React guidence.  Also make sure that it's dependencies are stable
+ * use useMemoFirebase to memoize it per React guidence. Also make sure that it's dependencies are stable
  * references
  *  
  * @template T Optional type for document data. Defaults to any.
@@ -75,49 +74,40 @@ export function useCollection<T = any>(
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
-    // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
-    const unsubscribe = onSnapshot(
-      memoizedTargetRefOrQuery,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = [];
-        for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
-        }
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const snapshot = await getDocs(memoizedTargetRefOrQuery);
+        const results: ResultItemType[] = snapshot.docs.map(doc => ({ ...(doc.data() as T), id: doc.id }));
         setData(results);
-        setError(null);
-        setIsLoading(false);
-      },
-      (error: FirestoreError) => {
+      } catch (error: any) {
         let path = 'unknown_path';
         try {
-            // This logic extracts the path from either a ref or a query
-            path =
+          path =
             memoizedTargetRefOrQuery.type === 'collection'
-                ? (memoizedTargetRefOrQuery as CollectionReference).path
-                : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.toString()
+              ? (memoizedTargetRefOrQuery as CollectionReference).path
+              : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.toString();
         } catch (e) {
-            console.error("Could not determine path for useCollection error", e)
+          console.error("Could not determine path for useCollection error", e);
         }
 
         const contextualError = new FirestorePermissionError({
           operation: 'list',
           path,
-        })
+        });
 
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
-
-        // trigger global error propagation
+        setError(contextualError);
+        setData(null);
         errorEmitter.emit('permission-error', contextualError);
+      } finally {
+        setIsLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery, refetchTrigger]); // Re-run if the target query/reference or refetch trigger changes.
+    fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memoizedTargetRefOrQuery, refetchTrigger]);
   
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
     throw new Error('useCollection query was not properly memoized using useMemoFirebase. This will cause infinite re-renders.');
