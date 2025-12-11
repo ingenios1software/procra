@@ -5,7 +5,6 @@ import {
   Query,
   DocumentData,
   FirestoreError,
-  QuerySnapshot,
   CollectionReference,
   getDocs,
 } from 'firebase/firestore';
