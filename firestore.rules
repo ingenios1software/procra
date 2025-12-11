@@ -7,103 +7,103 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    match /plots/{document=**} {
+    match /plots/{plotId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /crops/{document=**} {
+    match /crops/{cropId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /seasons/{document=**} {
+    match /seasons/{seasonId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /events/{document=**} {
+    match /events/{eventId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /users/{document=**} {
+    match /users/{userId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /roles/{document=**} {
+    match /roles/{roleId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /planDeCuentas/{document=**} {
+    match /planDeCuentas/{cuentaId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /centrosDeCosto/{document=**} {
+    match /centrosDeCosto/{centroId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /asientosDiario/{document=**} {
+    match /asientosDiario/{asientoId} {
       allow read, write: if isAuthenticated();
     }
     
-    match /cultivos/{document=**} {
+    match /cultivos/{cultivoId} {
         allow read, write: if isAuthenticated();
     }
 
-    match /parcelas/{document=**} {
+    match /parcelas/{parcelaId} {
         allow read, write: if isAuthenticated();
     }
 
-    match /zafras/{document=**} {
+    match /zafras/{zafraId} {
         allow read, write: if isAuthenticated();
     }
     
-    match /eventos/{document=**} {
+    match /eventos/{eventoId} {
         allow read, write: if isAuthenticated();
     }
 
-    match /insumos/{document=**} {
+    match /insumos/{insumoId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /MovimientosStock/{document=**} {
+    match /MovimientosStock/{movimientoId} {
       allow read, write: if isAuthenticated();
     }
     
-    match /compras/{document=**} {
+    match /compras/{compraId} {
       allow read, write: if isAuthenticated();
     }
     
-    match /ventas/{document=**} {
+    match /ventas/{ventaId} {
       allow read, write: if isAuthenticated();
     }
     
-    match /maquinaria/{document=**} {
+    match /maquinaria/{maquinariaId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /clientes/{document=**} {
+    match /clientes/{clienteId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /proveedores/{document=**} {
+    match /proveedores/{proveedorId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /plagas/{document=**} {
+    match /plagas/{plagaId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /etapasCultivo/{document=**} {
+    match /etapasCultivo/{etapaId} {
       allow read, write: if isAuthenticated();
     }
 
-    match /empleados/{document=**} {
+    match /empleados/{empleadoId} {
       allow read, write: if isAuthenticated();
     }
     
-    match /asistencias/{document=**} {
+    match /asistencias/{asistenciaId} {
       allow read, write: if isAuthenticated();
     }
     
-    match /costos/{document=**} {
+    match /costos/{costoId} {
         allow read, write: if isAuthenticated();
     }
   }
