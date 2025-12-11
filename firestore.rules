@@ -12,5 +12,10 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /zafras/{zafraId} {
+        allow get, list: if isAuthenticated();
+        allow create, update, delete: if isAuthenticated();
+    }
+
   }
 }
