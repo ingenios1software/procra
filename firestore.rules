@@ -30,6 +30,18 @@ service cloud.firestore {
     match /roles/{roleId} {
       allow read, write: if isAuthenticated();
     }
+
+    match /planDeCuentas/{cuentaId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /centrosDeCosto/{centroId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /asientosDiario/{asientoId} {
+      allow read, write: if isAuthenticated();
+    }
     
     match /cultivos/{cultivoId} {
         allow read, write: if isAuthenticated();
@@ -88,18 +100,6 @@ service cloud.firestore {
     }
     
     match /asistencias/{asistenciaId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /planDeCuentas/{cuentaId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /centrosDeCosto/{centroId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /asientosDiario/{asientoId} {
       allow read, write: if isAuthenticated();
     }
     

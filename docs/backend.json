@@ -145,43 +145,14 @@
     "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/plots/{plotId}",
-        "definition": { "schema": { "$ref": "#/entities/Plot" }, "description": "Stores plot information." }
-      },
-      {
-        "path": "/crops/{cropId}",
-        "definition": { "schema": { "$ref": "#/entities/Crop" }, "description": "Stores crop information." }
-      },
-      {
-        "path": "/seasons/{seasonId}",
-        "definition": { "schema": { "$ref": "#/entities/Season" }, "description": "Stores season information." }
-      },
-      {
-        "path": "/events/{eventId}",
-        "definition": { "schema": { "$ref": "#/entities/Event" }, "description": "Stores event information related to plots." }
-      },
-      {
-        "path": "/users/{userId}",
-        "definition": { "schema": { "$ref": "#/entities/User" }, "description": "Stores user information." }
-      },
-      {
-        "path": "/roles/{roleId}",
-        "definition": { "schema": { "$ref": "#/entities/Role" }, "description": "Stores role information." }
-      },
-      {
-        "path": "/planDeCuentas/{cuentaId}",
-        "definition": { "schema": { "$ref": "#/entities/PlanDeCuenta" }, "description": "Stores the chart of accounts." }
-      },
-      {
-        "path": "/centrosDeCosto/{centroId}",
-        "definition": { "schema": { "$ref": "#/entities/CentroDeCosto" }, "description": "Stores cost centers." }
-      },
-      {
-        "path": "/asientosDiario/{asientoId}",
-        "definition": { "schema": { "$ref": "#/entities/AsientoDiario" }, "description": "Stores journal entries." }
-      }
-    ]
+    "/plots/{plotId}": { "schema": { "$ref": "#/entities/Plot" }, "description": "Stores plot information." },
+    "/crops/{cropId}": { "schema": { "$ref": "#/entities/Crop" }, "description": "Stores crop information." },
+    "/seasons/{seasonId}": { "schema": { "$ref": "#/entities/Season" }, "description": "Stores season information." },
+    "/events/{eventId}": { "schema": { "$ref": "#/entities/Event" }, "description": "Stores event information related to plots." },
+    "/users/{userId}": { "schema": { "$ref": "#/entities/User" }, "description": "Stores user information." },
+    "/roles/{roleId}": { "schema": { "$ref": "#/entities/Role" }, "description": "Stores role information." },
+    "/planDeCuentas/{cuentaId}": { "schema": { "$ref": "#/entities/PlanDeCuenta" }, "description": "Stores the chart of accounts." },
+    "/centrosDeCosto/{centroId}": { "schema": { "$ref": "#/entities/CentroDeCosto" }, "description": "Stores cost centers." },
+    "/asientosDiario/{asientoId}": { "schema": { "$ref": "#/entities/AsientoDiario" }, "description": "Stores journal entries." }
   }
 }
