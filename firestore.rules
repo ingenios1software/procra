@@ -29,5 +29,9 @@ service cloud.firestore {
         allow read, write: if isAuthenticated();
     }
 
+    match /parcelas/{parcelaId} {
+        allow read, write: if isAuthenticated();
+    }
+
   }
 }
