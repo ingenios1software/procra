@@ -17,5 +17,9 @@ service cloud.firestore {
         allow create, update, delete: if isAuthenticated();
     }
 
+    match /etapasCultivo/{etapaId} {
+        allow read, write: if isAuthenticated();
+    }
+
   }
 }
