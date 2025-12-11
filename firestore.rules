@@ -31,12 +31,8 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    match /planDeCuentas {
-      allow list: if isAuthenticated();
-    }
-    match /planDeCuentas/{id} {
-      allow get: if isAuthenticated();
-      allow write: if false;
+    match /planDeCuentas/{cuentaId} {
+      allow read, write: if isAuthenticated();
     }
 
     match /centrosDeCosto/{centroId} {
