@@ -38,9 +38,10 @@
     "embla-carousel-react": "^8.1.7",
     "firebase": "^10.12.4",
     "html2canvas": "^1.4.1",
+    "js-cookie": "^3.0.5",
     "jspdf": "^2.5.1",
     "lodash.isequal": "^4.5.0",
-    "lucide-react": "^0.417.0",
+    "lucide-react": "0.417.0",
     "next": "14.2.6",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",
@@ -56,6 +57,7 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
+    "@types/js-cookie": "^3.0.6",
     "@types/lodash.isequal": "^4.5.8",
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",

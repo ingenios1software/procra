@@ -32,8 +32,8 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={`https://avatar.vercel.sh/${user.email}.png`} alt={user.nombre} />
-            <AvatarFallback>{user.nombre.charAt(0)}</AvatarFallback>
+            <AvatarImage src={`https://avatar.vercel.sh/${user.email || 'anonymous'}.png`} alt={user.nombre} />
+            <AvatarFallback>{user.nombre?.charAt(0) || 'A'}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>

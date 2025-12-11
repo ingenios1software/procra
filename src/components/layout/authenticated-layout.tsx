@@ -6,6 +6,7 @@ import { ConnectionStatusIndicator } from '@/components/shared/connection-status
 import { useAuth, useUser, initiateAnonymousSignIn } from '@/firebase';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
 
 export function AuthenticatedLayout({
   children,
@@ -17,8 +18,10 @@ export function AuthenticatedLayout({
   const router = useRouter();
 
   useEffect(() => {
+    // Si la carga ha terminado y no hay un usuario autenticado
     if (!isUserLoading && !user) {
-      initiateAnonymousSignIn(auth);
+        // Primero, intentamos la autenticación anónima para cubrir sesiones nuevas
+        initiateAnonymousSignIn(auth);
     }
   }, [isUserLoading, user, auth, router]);
 
