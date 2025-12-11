@@ -6,39 +6,14 @@
       "type": "object",
       "description": "Represents a plot of land for agricultural purposes.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Plot entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the plot."
-        },
-        "code": {
-          "type": "string",
-          "description": "Code or identifier for the plot."
-        },
-        "area": {
-          "type": "number",
-          "description": "Area of the plot in a specific unit (e.g., hectares, acres)."
-        },
-        "location": {
-          "type": "string",
-          "description": "Geographic location of the plot."
-        },
-        "status": {
-          "type": "string",
-          "description": "Current status of the plot (e.g., active, inactive, fallow)."
-        }
+        "id": { "type": "string", "description": "Unique identifier for the Plot entity." },
+        "name": { "type": "string", "description": "Name of the plot." },
+        "code": { "type": "string", "description": "Code or identifier for the plot." },
+        "area": { "type": "number", "description": "Area of the plot in a specific unit (e.g., hectares, acres)." },
+        "location": { "type": "string", "description": "Geographic location of the plot." },
+        "status": { "type": "string", "description": "Current status of the plot (e.g., active, inactive, fallow)." }
       },
-      "required": [
-        "id",
-        "name",
-        "code",
-        "area",
-        "location",
-        "status"
-      ]
+      "required": ["id", "name", "code", "area", "location", "status"]
     },
     "Crop": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -46,24 +21,11 @@
       "type": "object",
       "description": "Represents a type of crop.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Crop entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the crop."
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the crop."
-        }
+        "id": { "type": "string", "description": "Unique identifier for the Crop entity." },
+        "name": { "type": "string", "description": "Name of the crop." },
+        "description": { "type": "string", "description": "Description of the crop." }
       },
-      "required": [
-        "id",
-        "name",
-        "description"
-      ]
+      "required": ["id", "name", "description"]
     },
     "Season": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -71,36 +33,13 @@
       "type": "object",
       "description": "Represents an agricultural season (zafra).",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Season entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the season."
-        },
-        "startDate": {
-          "type": "string",
-          "description": "Start date of the season.",
-          "format": "date-time"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "End date of the season.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "Current status of the season (e.g., active, closed)."
-        }
+        "id": { "type": "string", "description": "Unique identifier for the Season entity." },
+        "name": { "type": "string", "description": "Name of the season." },
+        "startDate": { "type": "string", "description": "Start date of the season.", "format": "date-time" },
+        "endDate": { "type": "string", "description": "End date of the season.", "format": "date-time" },
+        "status": { "type": "string", "description": "Current status of the season (e.g., active, closed)." }
       },
-      "required": [
-        "id",
-        "name",
-        "startDate",
-        "endDate",
-        "status"
-      ]
+      "required": ["id", "name", "startDate", "endDate", "status"]
     },
     "Event": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -108,69 +47,20 @@
       "type": "object",
       "description": "Represents an agricultural event that occurs on a plot during a season.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Event entity."
-        },
-        "numeroLanzamiento": {
-          "type": "number",
-          "description": "Sequential launch number for the event."
-        },
-        "plotId": {
-          "type": "string",
-          "description": "Reference to Plot. (Relationship: Plot 1:N Event)"
-        },
-        "cropId": {
-          "type": "string",
-          "description": "Reference to Crop. (Relationship: Crop 1:N Event)"
-        },
-        "seasonId": {
-          "type": "string",
-          "description": "Reference to Season. (Relationship: Season 1:N Event)"
-        },
-        "type": {
-          "type": "string",
-          "description": "Type of event (e.g., planting, harvesting, fertilization)."
-        },
-        "date": {
-          "type": "string",
-          "description": "Date of the event.",
-          "format": "date-time"
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the event."
-        },
-        "inputs": {
-          "type": "string",
-          "description": "Inputs used during the event (e.g., fertilizer, pesticides)."
-        },
-        "quantity": {
-          "type": "number",
-          "description": "Quantity of inputs used."
-        },
-        "unit": {
-          "type": "string",
-          "description": "Unit of measurement for the quantity of inputs."
-        },
-        "result": {
-          "type": "string",
-          "description": "Result of the event."
-        }
+        "id": { "type": "string", "description": "Unique identifier for the Event entity." },
+        "numeroLanzamiento": { "type": "number", "description": "Sequential launch number for the event." },
+        "plotId": { "type": "string", "description": "Reference to Plot. (Relationship: Plot 1:N Event)" },
+        "cropId": { "type": "string", "description": "Reference to Crop. (Relationship: Crop 1:N Event)" },
+        "seasonId": { "type": "string", "description": "Reference to Season. (Relationship: Season 1:N Event)" },
+        "type": { "type": "string", "description": "Type of event (e.g., planting, harvesting, fertilization)." },
+        "date": { "type": "string", "description": "Date of the event.", "format": "date-time" },
+        "description": { "type": "string", "description": "Description of the event." },
+        "inputs": { "type": "string", "description": "Inputs used during the event (e.g., fertilizer, pesticides)." },
+        "quantity": { "type": "number", "description": "Quantity of inputs used." },
+        "unit": { "type": "string", "description": "Unit of measurement for the quantity of inputs." },
+        "result": { "type": "string", "description": "Result of the event." }
       },
-      "required": [
-        "id",
-        "plotId",
-        "cropId",
-        "seasonId",
-        "type",
-        "date",
-        "description",
-        "inputs",
-        "quantity",
-        "unit",
-        "result"
-      ]
+      "required": ["id", "plotId", "cropId", "seasonId", "type", "date", "description", "inputs", "quantity", "unit", "result"]
     },
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -178,35 +68,13 @@
       "type": "object",
       "description": "Represents a user of the application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the User entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the user."
-        },
-        "email": {
-          "type": "string",
-          "description": "Email address of the user.",
-          "format": "email"
-        },
-        "roleId": {
-          "type": "string",
-          "description": "Reference to Role. (Relationship: Role 1:N User)"
-        },
-        "active": {
-          "type": "boolean",
-          "description": "Indicates whether the user account is active."
-        }
+        "id": { "type": "string", "description": "Unique identifier for the User entity." },
+        "name": { "type": "string", "description": "Name of the user." },
+        "email": { "type": "string", "description": "Email address of the user.", "format": "email" },
+        "roleId": { "type": "string", "description": "Reference to Role. (Relationship: Role 1:N User)" },
+        "active": { "type": "boolean", "description": "Indicates whether the user account is active." }
       },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "roleId",
-        "active"
-      ]
+      "required": ["id", "name", "email", "roleId", "active"]
     },
     "Role": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -214,135 +82,106 @@
       "type": "object",
       "description": "Represents a user role within the application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Role entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the role."
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the role and its permissions."
+        "id": { "type": "string", "description": "Unique identifier for the Role entity." },
+        "name": { "type": "string", "description": "Name of the role." },
+        "description": { "type": "string", "description": "Description of the role and its permissions." }
+      },
+      "required": ["id", "name", "description"]
+    },
+    "PlanDeCuenta": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlanDeCuenta",
+      "type": "object",
+      "description": "Represents an account in the chart of accounts.",
+      "properties": {
+        "id": { "type": "string" },
+        "codigo": { "type": "string" },
+        "nombre": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["activo", "pasivo", "patrimonio", "ingreso", "costo", "gasto"] },
+        "naturaleza": { "type": "string", "enum": ["deudora", "acreedora"] }
+      },
+      "required": ["id", "codigo", "nombre", "tipo", "naturaleza"]
+    },
+    "CentroDeCosto": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CentroDeCosto",
+      "type": "object",
+      "description": "Represents a cost center for accounting.",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "categoria": { "type": "string", "enum": ["campo", "parcela", "cultivo", "maquinaria", "general"] }
+      },
+      "required": ["id", "nombre", "descripcion", "categoria"]
+    },
+    "AsientoDiario": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AsientoDiario",
+      "type": "object",
+      "description": "Represents a journal entry in accounting.",
+      "properties": {
+        "id": { "type": "string" },
+        "fecha": { "type": "string", "format": "date-time" },
+        "descripcion": { "type": "string" },
+        "movimientos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cuentaId": { "type": "string" },
+              "tipo": { "type": "string", "enum": ["debe", "haber"] },
+              "monto": { "type": "number" },
+              "centroCostoId": { "type": "string" }
+            },
+            "required": ["cuentaId", "tipo", "monto"]
+          }
         }
       },
-      "required": [
-        "id",
-        "name",
-        "description"
-      ]
+      "required": ["id", "fecha", "descripcion", "movimientos"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
       {
         "path": "/plots/{plotId}",
-        "definition": {
-          "entityName": "Plot",
-          "schema": {
-            "$ref": "#/backend/entities/Plot"
-          },
-          "description": "Stores plot information. Includes standard plot attributes (name, code, area, location, status).",
-          "params": [
-            {
-              "name": "plotId",
-              "description": "Unique identifier for the plot."
-            }
-          ]
-        }
+        "definition": { "schema": { "$ref": "#/entities/Plot" }, "description": "Stores plot information." }
       },
       {
         "path": "/crops/{cropId}",
-        "definition": {
-          "entityName": "Crop",
-          "schema": {
-            "$ref": "#/backend/entities/Crop"
-          },
-          "description": "Stores crop information. Includes standard crop attributes (name, description).",
-          "params": [
-            {
-              "name": "cropId",
-              "description": "Unique identifier for the crop."
-            }
-          ]
-        }
+        "definition": { "schema": { "$ref": "#/entities/Crop" }, "description": "Stores crop information." }
       },
       {
         "path": "/seasons/{seasonId}",
-        "definition": {
-          "entityName": "Season",
-          "schema": {
-            "$ref": "#/backend/entities/Season"
-          },
-          "description": "Stores season (zafra) information. Includes standard season attributes (name, startDate, endDate, status).",
-          "params": [
-            {
-              "name": "seasonId",
-              "description": "Unique identifier for the season."
-            }
-          ]
-        }
+        "definition": { "schema": { "$ref": "#/entities/Season" }, "description": "Stores season information." }
       },
       {
-        "path": "/plots/{plotId}/events/{eventId}",
-        "definition": {
-          "entityName": "Event",
-          "schema": {
-            "$ref": "#/backend/entities/Event"
-          },
-          "description": "Stores event information related to a specific plot. Includes denormalized plot data for authorization independence.",
-          "params": [
-            {
-              "name": "plotId",
-              "description": "Unique identifier for the plot."
-            },
-            {
-              "name": "eventId",
-              "description": "Unique identifier for the event."
-            }
-          ]
-        }
+        "path": "/events/{eventId}",
+        "definition": { "schema": { "$ref": "#/entities/Event" }, "description": "Stores event information related to plots." }
       },
       {
         "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user information. Includes user attributes (name, email, roleId, active).",
-          "params": [
-            {
-              "name": "userId",
-              "description": "Unique identifier for the user."
-            }
-          ]
-        }
+        "definition": { "schema": { "$ref": "#/entities/User" }, "description": "Stores user information." }
       },
       {
         "path": "/roles/{roleId}",
-        "definition": {
-          "entityName": "Role",
-          "schema": {
-            "$ref": "#/backend/entities/Role"
-          },
-          "description": "Stores role information. Includes role attributes (name, description).",
-          "params": [
-            {
-              "name": "roleId",
-              "description": "Unique identifier for the role."
-            }
-          ]
-        }
+        "definition": { "schema": { "$ref": "#/entities/Role" }, "description": "Stores role information." }
+      },
+      {
+        "path": "/planDeCuentas/{cuentaId}",
+        "definition": { "schema": { "$ref": "#/entities/PlanDeCuenta" }, "description": "Stores the chart of accounts." }
+      },
+      {
+        "path": "/centrosDeCosto/{centroId}",
+        "definition": { "schema": { "$ref": "#/entities/CentroDeCosto" }, "description": "Stores cost centers." }
+      },
+      {
+        "path": "/asientosDiario/{asientoId}",
+        "definition": { "schema": { "$ref": "#/entities/AsientoDiario" }, "description": "Stores journal entries." }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, support the required QAPs, and maintain data integrity. User roles are managed through a dedicated 'roles' collection, and user assignments to roles are stored within the user documents. Plots, Crops, Seasons, and Events are organized in collections. Events are nested within Plots to represent the 1:N relationship, with relevant plot data denormalized into the Event documents to achieve Authorization Independence, eliminating the need for `get()` calls in security rules and enabling atomic operations. This approach also supports QAPs by allowing secure list operations based on the denormalized plot data within the Event documents. The structure enforces a homogeneous security posture within each collection."
+    ]
   }
 }

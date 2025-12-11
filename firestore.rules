@@ -3,15 +3,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- Regla de Autenticación ---
-    // El usuario debe estar autenticado para realizar cualquier operación.
     function isAuthenticated() {
       return request.auth != null;
     }
-
-    // --- Colecciones Principales ---
-    // Cada colección tiene una regla explícita que permite leer y escribir
-    // si el usuario está autenticado. Este es un enfoque seguro para desarrollo.
 
     match /plots/{plotId} {
       allow read, write: if isAuthenticated();
@@ -36,9 +30,6 @@ service cloud.firestore {
     match /roles/{roleId} {
       allow read, write: if isAuthenticated();
     }
-    
-    // --- Colecciones de la aplicación (anteriormente faltantes o incorrectas) ---
-    // Estas reglas estaban ausentes o eran incorrectas en intentos anteriores.
     
     match /cultivos/{cultivoId} {
         allow read, write: if isAuthenticated();
