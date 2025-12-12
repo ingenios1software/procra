@@ -56,6 +56,10 @@ service cloud.firestore {
     match /clientes/{clienteId} {
         allow read, write: if isAuthenticated();
     }
+    
+    match /plagas/{plagaId} {
+        allow read, write: if isAuthenticated();
+    }
 
   }
 }
