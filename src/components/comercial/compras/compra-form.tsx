@@ -74,27 +74,28 @@ export function CompraForm() {
   const { subtotal, iva5, iva10, totalIva, totalGeneral } = useMemo(() => {
     const totals = watchedItems.reduce(
       (acc, item) => {
-        const cantidad = item.cantidad || 0;
-        const precio = item.precioUnitario || 0;
+        const cantidad = Number(item.cantidad) || 0;
+        const precio = Number(item.precioUnitario) || 0;
         const base = cantidad * precio;
 
-        acc.subtotal += base;
-        
         if (item.porcentajeIva === '5') {
-          acc.iva5 += base * 0.05;
+          acc.baseIva5 += base;
         } else if (item.porcentajeIva === '10') {
-          acc.iva10 += base * 0.10;
+          acc.baseIva10 += base;
         }
         
+        acc.subtotal += base;
         return acc;
       },
-      { subtotal: 0, iva5: 0, iva10: 0 }
+      { subtotal: 0, baseIva5: 0, baseIva10: 0 }
     );
 
-    const totalIva = totals.iva5 + totals.iva10;
+    const iva5 = totals.baseIva5 * 0.05;
+    const iva10 = totals.baseIva10 * 0.10;
+    const totalIva = iva5 + iva10;
     const totalGeneral = totals.subtotal + totalIva;
 
-    return { ...totals, totalIva, totalGeneral };
+    return { subtotal: totals.subtotal, iva5, iva10, totalIva, totalGeneral };
   }, [watchedItems]);
 
 
@@ -108,7 +109,7 @@ export function CompraForm() {
     
     // Limpiar datos antes de guardar
     const cleanData = Object.fromEntries(
-      Object.entries(data).filter(([, value]) => value !== undefined)
+      Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== '')
     );
 
     const compraData = {
