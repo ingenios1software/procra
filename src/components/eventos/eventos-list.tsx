@@ -56,11 +56,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { EventoForm } from "./evento-form";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, getDocs, limit, orderBy, query, serverTimestamp } from "firebase/firestore";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { cn } from "@/lib/utils";
+import { procesarConsumoDeStockDesdeEvento } from "@/lib/stock/consumo-desde-evento";
 
 
 export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: { eventos: Evento[], parcelas: Parcela[], zafras: Zafra[], cultivos: Cultivo[], isLoading: boolean }) {
@@ -110,21 +111,75 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
 
-  const handleSave = (eventoData: Omit<Evento, 'id'>) => {
-    if (!firestore) return;
-    const dataToSave = {...eventoData, fecha: (eventoData.fecha as Date).toISOString() };
-
+  const handleSave = async (eventoData: Omit<Evento, 'id'>) => {
+    if (!firestore || !user) return;
+    
+    // Si estamos editando
     if (selectedEvento) {
+        const dataToSave = {...eventoData, fecha: (eventoData.fecha as Date).toISOString() };
         const eventoRef = doc(firestore, 'eventos', selectedEvento.id);
         updateDocumentNonBlocking(eventoRef, dataToSave);
         toast({ title: "Evento actualizado" });
-    } else {
+    } else { // Si estamos creando
+        // Lógica de creación que estaba en crear/page.tsx
         const eventosCol = collection(firestore, 'eventos');
-        addDocumentNonBlocking(eventosCol, dataToSave);
-        toast({ title: "Evento creado" });
+        const qLanzamiento = query(eventosCol, orderBy("numeroLanzamiento", "desc"), limit(1));
+        const lanzSnapshot = await getDocs(qLanzamiento);
+        let maxLanzamiento = 0;
+        if (!lanzSnapshot.empty) {
+            maxLanzamiento = lanzSnapshot.docs[0].data().numeroLanzamiento || 0;
+        }
+
+        const qItem = query(eventosCol, orderBy("numeroItem", "desc"), limit(1));
+        const itemSnapshot = await getDocs(qItem);
+        let maxNumeroItem = 0;
+        if (!itemSnapshot.empty) {
+            maxNumeroItem = itemSnapshot.docs[0].data().numeroItem || 0;
+        }
+
+        const cleanData = Object.fromEntries(
+          Object.entries(eventoData).filter(([, value]) => value !== undefined)
+        );
+
+        const dataToSave = { 
+            ...cleanData, 
+            fecha: (eventoData.fecha as Date).toISOString(),
+            numeroLanzamiento: maxLanzamiento + 1,
+            numeroItem: maxNumeroItem + 1,
+            estado: 'pendiente' as const,
+            creadoPor: user.uid,
+            creadoEn: serverTimestamp(),
+        };
+
+        const docRef = await addDocumentNonBlocking(eventosCol, dataToSave);
+        
+        if (docRef) {
+          const eventoGuardado: Evento & { id: string } = {
+            ...(eventoData as Evento),
+            ...dataToSave,
+            id: docRef.id,
+            creadoEn: new Date(),
+          };
+          
+          const { success, errors } = await procesarConsumoDeStockDesdeEvento(eventoGuardado, firestore, user.uid);
+          if (!success) {
+            toast({
+              variant: "destructive",
+              title: "Error en el consumo de stock",
+              description: errors.join('. '),
+            });
+          }
+        }
+        
+        toast({
+            title: `Evento #${dataToSave.numeroLanzamiento} (Item Nº ${dataToSave.numeroItem}) creado`,
+            description: `El evento "${eventoData.descripcion}" ha sido guardado y está pendiente de aprobación.`,
+        });
     }
+
     closeForm();
   };
+
 
   const handleDelete = (id: string) => {
     if (!firestore) return;
@@ -159,11 +214,9 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
             Exportar PDF
           </Button>
           {user && (
-            <Button asChild>
-              <Link href="/eventos/crear">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Registrar Evento
-              </Link>
+            <Button onClick={() => openForm()}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Registrar Evento
             </Button>
           )}
         </div>
