@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { notFound, useRouter } from "next/navigation";
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { Parcela } from '@/lib/types';
 import { PageHeader } from "@/components/shared/page-header";
@@ -10,11 +10,13 @@ import { ParcelaForm } from "@/components/parcelas/parcela-form";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 
 export default function EditarParcelaPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const firestore = useFirestore();
+  const { toast } = useToast();
   const { id } = params;
   
   const parcelaRef = useMemoFirebase(() => {
@@ -23,6 +25,21 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
   }, [firestore, id]);
 
   const { data: parcela, isLoading } = useDoc<Parcela>(parcelaRef);
+
+  const handleSave = (data: Omit<Parcela, 'id' | 'numeroItem'>) => {
+    if (!firestore || !parcela) return;
+    const parcelaRef = doc(firestore, 'parcelas', parcela.id);
+    updateDocumentNonBlocking(parcelaRef, data);
+    toast({
+        title: "Parcela actualizada",
+        description: `La parcela "${data.nombre}" ha sido actualizada correctamente.`,
+    });
+    router.push('/parcelas');
+  };
+
+  const handleCancel = () => {
+    router.back();
+  };
 
   if (isLoading) {
     return (
@@ -59,7 +76,15 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
         title="Editar Parcela"
         description={`Editando los detalles de ${parcela.nombre}.`}
       />
-      <ParcelaForm parcela={{...parcela, id: id}} />
+      <Card>
+        <CardContent className="p-6">
+            <ParcelaForm 
+                parcela={{...parcela, id: id}}
+                onSubmit={handleSave}
+                onCancel={handleCancel}
+            />
+        </CardContent>
+      </Card>
     </>
   );
 }
