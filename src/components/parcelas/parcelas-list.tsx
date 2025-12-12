@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { collection, doc, getCountFromServer } from 'firebase/firestore';
-import { ParcelaForm } from "./parcela-form";
+import { ParcelaForm } from "@/components/parcelas/parcela-form";
 
 
 interface ParcelasListProps {
