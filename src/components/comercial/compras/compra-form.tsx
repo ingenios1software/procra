@@ -72,29 +72,29 @@ export function CompraForm() {
   const watchedItems = form.watch('items');
 
   const totales = useMemo(() => {
-    const result = watchedItems.reduce(
-      (acc, item) => {
+    let subtotal = 0;
+    let iva5 = 0;
+    let iva10 = 0;
+
+    for (const item of watchedItems) {
         const cantidad = item.cantidad || 0;
         const precio = item.precioUnitario || 0;
-        const itemSubtotal = cantidad * precio;
-
-        acc.subtotal += itemSubtotal;
+        const base = cantidad * precio;
+        
+        subtotal += base;
 
         if (item.porcentajeIva === '5') {
-          acc.iva5 += itemSubtotal * 0.05;
+            iva5 += base * 0.05;
         } else if (item.porcentajeIva === '10') {
-          acc.iva10 += itemSubtotal * 0.1;
+            iva10 += base * 0.10;
         }
+    }
 
-        return acc;
-      },
-      { subtotal: 0, iva5: 0, iva10: 0 }
-    );
-    const totalIva = result.iva5 + result.iva10;
-    const total = result.subtotal + totalIva;
+    const totalIva = iva5 + iva10;
+    const total = subtotal + totalIva;
 
-    return { ...result, totalIva, total };
-  }, [watchedItems]);
+    return { subtotal, iva5, iva10, totalIva, total };
+}, [watchedItems]);
 
 
   const handleSubmit = async (data: CompraFormValues) => {
