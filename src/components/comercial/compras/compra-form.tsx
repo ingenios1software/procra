@@ -72,29 +72,28 @@ export function CompraForm() {
   const watchedItems = form.watch('items');
 
   const totales = useMemo(() => {
-    const result = watchedItems.reduce(
+    return watchedItems.reduce(
       (acc, item) => {
         const cantidad = item.cantidad || 0;
         const precio = item.precioUnitario || 0;
         const base = cantidad * precio;
 
         acc.subtotal += base;
-
+        
         if (item.porcentajeIva === '5') {
           acc.iva5 += base * 0.05;
         } else if (item.porcentajeIva === '10') {
           acc.iva10 += base * 0.10;
         }
+        
         return acc;
       },
-      { subtotal: 0, iva5: 0, iva10: 0 }
+      { subtotal: 0, iva5: 0, iva10: 0, totalIva: 0, total: 0 }
     );
-
-    const totalIva = result.iva5 + result.iva10;
-    const total = result.subtotal + totalIva;
-
-    return { ...result, totalIva, total };
   }, [watchedItems]);
+
+  const totalIva = totales.iva5 + totales.iva10;
+  const totalGeneral = totales.subtotal + totalIva;
 
 
   const handleSubmit = async (data: CompraFormValues) => {
@@ -102,12 +101,16 @@ export function CompraForm() {
     
     const batch = writeBatch(firestore);
 
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([, value]) => value !== undefined)
+    );
+
     // 1. Crear el documento de Compra
     const compraRef = doc(collection(firestore, "compras"));
     const compraData = {
-        ...data,
+        ...cleanData,
         fecha: (data.fecha as Date).toISOString(),
-        total: totales.total,
+        total: totalGeneral,
         estado: 'Registrado',
         creadoPor: user.uid,
         creadoEn: new Date(),
@@ -229,7 +232,7 @@ export function CompraForm() {
                         <TableRow><TableCell colSpan={4} className="text-right font-bold">Subtotal</TableCell><TableCell className="text-right font-mono">${totales.subtotal.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
                         <TableRow><TableCell colSpan={4} className="text-right">IVA (5%)</TableCell><TableCell className="text-right font-mono">${totales.iva5.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
                         <TableRow><TableCell colSpan={4} className="text-right">IVA (10%)</TableCell><TableCell className="text-right font-mono">${totales.iva10.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono">${totales.total.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono">${totalGeneral.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
                     </TableFooter>
                 </Table>
                 <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0, porcentajeIva: '10' })}>
