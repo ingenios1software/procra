@@ -18,7 +18,7 @@ import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { Compra, Proveedor, Zafra, Insumo, MovimientoStock } from "@/lib/types";
-import { useCollection, useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
+import { useCollection, useFirestore, useUser, addDocumentNonBlocking, useMemoFirebase } from "@/firebase";
 import { collection, doc, writeBatch } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from '@/components/common';
