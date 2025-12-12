@@ -37,5 +37,9 @@ service cloud.firestore {
         allow read, write: if isAuthenticated();
     }
 
+    match /compras/{compraId} {
+        allow read, write: if isAuthenticated();
+    }
+
   }
 }
