@@ -28,6 +28,7 @@ const formSchema = z.object({
   pais: z.string().optional(),
   contacto: z.string().optional(),
   observaciones: z.string().optional(),
+  activo: z.boolean().default(true),
 });
 
 type ProveedorFormValues = z.infer<typeof formSchema>;
@@ -44,6 +45,7 @@ export function ProveedorForm({ proveedor, onSubmit, onCancel }: ProveedorFormPr
     defaultValues: proveedor || {
       nombre: "",
       ruc: "",
+      activo: true,
     },
   });
 
