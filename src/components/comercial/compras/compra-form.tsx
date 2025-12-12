@@ -72,30 +72,30 @@ export function CompraForm() {
   const watchedItems = form.watch('items');
 
   const { subtotal, iva5, iva10, totalIva, totalGeneral } = useMemo(() => {
-    const totals = watchedItems.reduce(
-      (acc, item) => {
-        const cantidad = Number(item.cantidad) || 0;
-        const precio = Number(item.precioUnitario) || 0;
-        const base = cantidad * precio;
+    let subtotal = 0;
+    let baseIva5 = 0;
+    let baseIva10 = 0;
 
-        if (item.porcentajeIva === '5') {
-          acc.baseIva5 += base;
-        } else if (item.porcentajeIva === '10') {
-          acc.baseIva10 += base;
-        }
-        
-        acc.subtotal += base;
-        return acc;
-      },
-      { subtotal: 0, baseIva5: 0, baseIva10: 0 }
-    );
+    for (const item of watchedItems) {
+      const cantidad = Number(item.cantidad) || 0;
+      const precio = Number(item.precioUnitario) || 0;
+      const base = cantidad * precio;
 
-    const iva5 = totals.baseIva5 * 0.05;
-    const iva10 = totals.baseIva10 * 0.10;
+      subtotal += base;
+
+      if (item.porcentajeIva === '5') {
+        baseIva5 += base;
+      } else if (item.porcentajeIva === '10') {
+        baseIva10 += base;
+      }
+    }
+    
+    const iva5 = baseIva5 * 0.05;
+    const iva10 = baseIva10 * 0.1;
     const totalIva = iva5 + iva10;
-    const totalGeneral = totals.subtotal + totalIva;
-
-    return { subtotal: totals.subtotal, iva5, iva10, totalIva, totalGeneral };
+    const totalGeneral = subtotal + totalIva;
+    
+    return { subtotal, iva5, iva10, totalIva, totalGeneral };
   }, [watchedItems]);
 
 
@@ -107,20 +107,21 @@ export function CompraForm() {
     // 1. Crear el documento de Compra
     const compraRef = doc(collection(firestore, "compras"));
     
-    // Limpiar datos antes de guardar
-    const cleanData = Object.fromEntries(
-      Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== '')
-    );
-
     const compraData = {
-        ...cleanData,
+        proveedorId: data.proveedorId,
+        zafraId: data.zafraId,
         fecha: (data.fecha as Date).toISOString(),
+        numeroDocumento: data.numeroDocumento,
+        tipoDocumento: data.tipoDocumento,
+        condicion: data.condicion,
+        tipoCompra: data.tipoCompra,
+        observacion: data.observacion || null,
         total: totalGeneral,
         estado: 'Registrado',
         creadoPor: user.uid,
         creadoEn: new Date(),
         items: data.items.map(item => ({
-            insumoId: item.insumo.id, // Guardar solo el ID
+            insumoId: item.insumo.id,
             cantidad: item.cantidad,
             precioUnitario: item.precioUnitario,
             porcentajeIva: item.porcentajeIva,
