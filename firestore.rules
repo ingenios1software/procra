@@ -41,5 +41,9 @@ service cloud.firestore {
         allow read, write: if isAuthenticated();
     }
 
+    match /proveedores/{proveedorId} {
+        allow read, write: if isAuthenticated();
+    }
+
   }
 }
