@@ -27,7 +27,7 @@ const itemSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar un insumo válido." }),
   cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
   precioUnitario: z.coerce.number().positive("El precio debe ser mayor a 0."),
-  porcentajeIva: z.enum(['0', '5', '10']),
+  porcentajeIva: z.enum(['0', '5', '10']).default('10'),
 });
 
 const formSchema = z.object({
@@ -245,3 +245,4 @@ export function CompraForm() {
   );
 }
  
+    
