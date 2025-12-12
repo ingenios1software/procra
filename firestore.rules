@@ -44,6 +44,10 @@ service cloud.firestore {
     match /proveedores/{proveedorId} {
         allow read, write: if isAuthenticated();
     }
+    
+    match /ventas/{ventaId} {
+        allow read, write: if isAuthenticated();
+    }
 
     match /MovimientosStock/{movimientoId} {
         allow read, write: if isAuthenticated();
