@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MoreHorizontal, PlusCircle, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Parcela } from "@/lib/types";
-import { useUser, useFirestore, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, deleteDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -24,7 +25,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { doc } from 'firebase/firestore';
+import { collection, doc, getCountFromServer } from 'firebase/firestore';
+import { ParcelaForm } from "./parcela-form";
 
 
 interface ParcelasListProps {
@@ -36,6 +38,20 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [isDialogOpen, setDialogOpen] = useState(false);
+
+  const handleSave = async (data: Omit<Parcela, 'id' | 'numeroItem'>) => {
+    if(!firestore) return;
+
+    const parcelasCol = collection(firestore, 'parcelas');
+    const snapshot = await getCountFromServer(parcelasCol);
+    const numeroItem = snapshot.data().count + 1;
+    
+    addDocumentNonBlocking(parcelasCol, { ...data, numeroItem });
+    toast({ title: "Parcela creada", description: `La parcela ${data.nombre} (Item Nº ${numeroItem}) ha sido creada.` });
+    
+    setDialogOpen(false);
+  }
 
   const handleDelete = (id: string) => {
     if (!firestore) return;
@@ -65,14 +81,10 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
             Exportar PDF
           </Button>
            {user && (
-            <>
-              <Button asChild>
-                <Link href="/parcelas/crear">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Crear Parcela
-                </Link>
+              <Button onClick={() => setDialogOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Crear Parcela
               </Button>
-            </>
           )}
         </div>
       </PageHeader>
@@ -168,6 +180,21 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crear Nueva Parcela</DialogTitle>
+            <DialogDescription>
+              Complete los detalles de la nueva parcela.
+            </DialogDescription>
+          </DialogHeader>
+          <ParcelaForm 
+            onSubmit={handleSave}
+            onCancel={() => setDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
