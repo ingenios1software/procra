@@ -139,6 +139,43 @@
         }
       },
       "required": ["id", "fecha", "descripcion", "movimientos"]
+    },
+    "MovimientoStock": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MovimientoStock",
+      "description": "Represents a stock movement for an 'insumo' (supply).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fecha": { "type": "string", "format": "date-time" },
+        "tipo": { "type": "string", "enum": ["salida", "entrada", "ajuste"] },
+        "origen": { "type": "string", "enum": ["evento", "compra", "ajuste manual"] },
+        "eventoId": { "type": "string", "description": "Reference to Event if origin is 'evento'." },
+        "compraId": { "type": "string", "description": "Reference to Compra if origin is 'compra'." },
+        "ajusteId": { "type": "string", "description": "Reference to an adjustment document if origin is 'ajuste manual'." },
+        "insumoId": { "type": "string" },
+        "insumoNombre": { "type": "string" },
+        "cantidad": { "type": "number" },
+        "stockAntes": { "type": "number" },
+        "stockDespues": { "type": "number" },
+        "precioUnitario": { "type": "number" },
+        "costoTotal": { "type": "number" },
+        "creadoPor": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "fecha",
+        "tipo",
+        "origen",
+        "insumoId",
+        "insumoNombre",
+        "cantidad",
+        "stockAntes",
+        "stockDespues",
+        "precioUnitario",
+        "costoTotal",
+        "creadoPor"
+      ]
     }
   },
   "auth": {
@@ -153,6 +190,7 @@
     "/roles/{roleId}": { "schema": { "$ref": "#/entities/Role" }, "description": "Stores role information." },
     "/planDeCuentas/{cuentaId}": { "schema": { "$ref": "#/entities/PlanDeCuenta" }, "description": "Stores the chart of accounts." },
     "/centrosDeCosto/{centroId}": { "schema": { "$ref": "#/entities/CentroDeCosto" }, "description": "Stores cost centers." },
-    "/asientosDiario/{asientoId}": { "schema": { "$ref": "#/entities/AsientoDiario" }, "description": "Stores journal entries." }
+    "/asientosDiario/{asientoId}": { "schema": { "$ref": "#/entities/AsientoDiario" }, "description": "Stores journal entries." },
+    "/MovimientosStock/{movimientoId}": { "schema": { "$ref": "#/entities/MovimientoStock"}, "description": "Logs all stock movements."}
   }
 }
