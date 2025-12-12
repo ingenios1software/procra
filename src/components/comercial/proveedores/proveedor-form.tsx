@@ -36,7 +36,7 @@ const formSchema = z.object({
 type ProveedorFormValues = z.infer<typeof formSchema>;
 
 interface ProveedorFormProps {
-  proveedor?: Proveedor;
+  proveedor?: Proveedor | null;
 }
 
 export function ProveedorForm({ proveedor }: ProveedorFormProps) {
