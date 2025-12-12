@@ -71,8 +71,8 @@ export function CompraForm() {
 
   const watchedItems = form.watch('items');
 
-  const totales = useMemo(() => {
-    return watchedItems.reduce(
+  const { subtotal, iva5, iva10, totalIva, totalGeneral } = useMemo(() => {
+    const totals = watchedItems.reduce(
       (acc, item) => {
         const cantidad = item.cantidad || 0;
         const precio = item.precioUnitario || 0;
@@ -88,12 +88,14 @@ export function CompraForm() {
         
         return acc;
       },
-      { subtotal: 0, iva5: 0, iva10: 0, totalIva: 0, total: 0 }
+      { subtotal: 0, iva5: 0, iva10: 0 }
     );
-  }, [watchedItems]);
 
-  const totalIva = totales.iva5 + totales.iva10;
-  const totalGeneral = totales.subtotal + totalIva;
+    const totalIva = totals.iva5 + totals.iva10;
+    const totalGeneral = totals.subtotal + totalIva;
+
+    return { ...totals, totalIva, totalGeneral };
+  }, [watchedItems]);
 
 
   const handleSubmit = async (data: CompraFormValues) => {
@@ -101,12 +103,14 @@ export function CompraForm() {
     
     const batch = writeBatch(firestore);
 
+    // 1. Crear el documento de Compra
+    const compraRef = doc(collection(firestore, "compras"));
+    
+    // Limpiar datos antes de guardar
     const cleanData = Object.fromEntries(
       Object.entries(data).filter(([, value]) => value !== undefined)
     );
 
-    // 1. Crear el documento de Compra
-    const compraRef = doc(collection(firestore, "compras"));
     const compraData = {
         ...cleanData,
         fecha: (data.fecha as Date).toISOString(),
@@ -114,7 +118,12 @@ export function CompraForm() {
         estado: 'Registrado',
         creadoPor: user.uid,
         creadoEn: new Date(),
-        items: data.items.map(item => ({...item, insumoId: item.insumo.id, insumo: undefined})),
+        items: data.items.map(item => ({
+            insumoId: item.insumo.id, // Guardar solo el ID
+            cantidad: item.cantidad,
+            precioUnitario: item.precioUnitario,
+            porcentajeIva: item.porcentajeIva,
+        })),
     };
     batch.set(compraRef, compraData);
 
@@ -229,9 +238,9 @@ export function CompraForm() {
                         ))}
                     </TableBody>
                     <TableFooter>
-                        <TableRow><TableCell colSpan={4} className="text-right font-bold">Subtotal</TableCell><TableCell className="text-right font-mono">${totales.subtotal.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={4} className="text-right">IVA (5%)</TableCell><TableCell className="text-right font-mono">${totales.iva5.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={4} className="text-right">IVA (10%)</TableCell><TableCell className="text-right font-mono">${totales.iva10.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-right font-bold">Subtotal</TableCell><TableCell className="text-right font-mono">${subtotal.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-right">IVA (5%)</TableCell><TableCell className="text-right font-mono">${iva5.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-right">IVA (10%)</TableCell><TableCell className="text-right font-mono">${iva10.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
                         <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono">${totalGeneral.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
                     </TableFooter>
                 </Table>
