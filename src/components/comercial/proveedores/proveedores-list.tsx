@@ -120,7 +120,9 @@ export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openForm(proveedor)}>Editar</DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/comercial/proveedores/editar/${proveedor.id}`}>Editar</Link>
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
