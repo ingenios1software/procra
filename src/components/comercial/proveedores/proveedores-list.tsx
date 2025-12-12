@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,6 +10,12 @@ import { MoreHorizontal, PlusCircle, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import type { Proveedor } from "@/lib/types";
 import { useUser } from "@/firebase";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ProveedorForm } from "./proveedor-form";
+import { useToast } from "@/hooks/use-toast";
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { collection, doc, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
 
 interface ProveedoresListProps {
   proveedores: Proveedor[];
@@ -17,10 +24,45 @@ interface ProveedoresListProps {
 
 export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps) {
   const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [isFormOpen, setFormOpen] = useState(false);
+  const [selectedProveedor, setSelectedProveedor] = useState<Proveedor | null>(null);
   
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
+
+  const handleSave = async (proveedorData: Omit<Proveedor, 'id'>) => {
+    if(!firestore) return;
+    
+    if (selectedProveedor) {
+      updateDocumentNonBlocking(doc(firestore, 'proveedores', selectedProveedor.id), proveedorData);
+      toast({title: "Proveedor actualizado"});
+    } else {
+      const proveedoresCol = collection(firestore, 'proveedores');
+      const q = query(proveedoresCol, orderBy("numeroItem", "desc"), limit(1));
+      const querySnapshot = await getDocs(q);
+      let maxNumeroItem = 0;
+      if (!querySnapshot.empty) {
+          maxNumeroItem = querySnapshot.docs[0].data().numeroItem || 0;
+      }
+      const numeroItem = maxNumeroItem + 1;
+      addDocumentNonBlocking(proveedoresCol, { ...proveedorData, numeroItem });
+      toast({title: "Proveedor creado"});
+    }
+    closeForm();
+  };
+
+  const openForm = (proveedor?: Proveedor) => {
+    setSelectedProveedor(proveedor || null);
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setSelectedProveedor(null);
+  }
 
   return (
     <>
@@ -34,11 +76,9 @@ export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps
             Exportar PDF
           </Button>
           {user && (
-            <Button asChild>
-              <Link href="/comercial/proveedores/crear">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Nuevo Proveedor
-              </Link>
+            <Button onClick={() => openForm()}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nuevo Proveedor
             </Button>
           )}
         </div>
@@ -80,9 +120,7 @@ export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/comercial/proveedores/editar/${proveedor.id}`}>Editar</Link>
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openForm(proveedor)}>Editar</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -93,6 +131,16 @@ export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+        <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{selectedProveedor ? 'Editar Proveedor' : 'Crear Nuevo Proveedor'}</DialogTitle>
+              <DialogDescription>Complete los detalles del nuevo proveedor.</DialogDescription>
+            </DialogHeader>
+            <ProveedorForm proveedor={selectedProveedor} onSubmit={handleSave} onCancel={closeForm} />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

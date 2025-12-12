@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Download } from "lucide-react";
@@ -17,15 +17,18 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { CompraForm } from "@/components/comercial/compras/compra-form";
 import { MoreHorizontal } from "lucide-react";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 
 
 export default function ComprasPage() {
-  const router = useRouter();
   const firestore = useFirestore();
   const { user } = useUser();
+  const [isFormOpen, setFormOpen] = useState(false);
+  const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
 
   const comprasQuery = useMemoFirebase(() =>
     firestore ? query(collection(firestore, 'compras'), orderBy('fecha', 'desc')) : null
@@ -46,6 +49,16 @@ export default function ComprasPage() {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
 
+  const openForm = (compra?: Compra) => {
+    setSelectedCompra(compra || null);
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setSelectedCompra(null);
+  }
+
   return (
     <>
       <PageHeader
@@ -58,7 +71,7 @@ export default function ComprasPage() {
                 Exportar PDF
             </Button>
             {user && (
-              <Button onClick={() => router.push('/comercial/compras/crear')}>
+              <Button onClick={() => openForm()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Nueva Compra
               </Button>
@@ -127,8 +140,8 @@ export default function ComprasPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                        <DropdownMenuItem>Ver Detalle</DropdownMenuItem>
-                        <DropdownMenuItem>Editar</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openForm(compra)}>Ver Detalle</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openForm(compra)}>Editar</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive">Anular</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -139,6 +152,20 @@ export default function ComprasPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+        <DialogContent className="max-w-4xl h-screen md:h-auto">
+           <DialogHeader>
+             <DialogTitle>{selectedCompra ? `Editar Compra N° ${selectedCompra.numeroDocumento}`: 'Registrar Nueva Compra'}</DialogTitle>
+             <DialogDescription>
+                Complete los detalles de la factura o documento de compra.
+             </DialogDescription>
+           </DialogHeader>
+            <div className="overflow-y-auto max-h-[85vh]">
+              <CompraForm compra={selectedCompra} onCancel={closeForm} />
+            </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

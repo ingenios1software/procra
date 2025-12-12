@@ -18,7 +18,7 @@ import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { Compra, Proveedor, Zafra, Insumo, MovimientoStock } from "@/lib/types";
-import { useCollection, useFirestore, useUser, addDocumentNonBlocking, useMemoFirebase } from "@/firebase";
+import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from "@/firebase";
 import { collection, doc, writeBatch } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from '@/components/common';
@@ -44,7 +44,12 @@ const formSchema = z.object({
 
 type CompraFormValues = z.infer<typeof formSchema>;
 
-export function CompraForm() {
+interface CompraFormProps {
+    compra?: Compra | null;
+    onCancel: () => void;
+}
+
+export function CompraForm({ compra, onCancel }: CompraFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -55,7 +60,10 @@ export function CompraForm() {
 
   const form = useForm<CompraFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: compra ? {
+        ...compra,
+        fecha: new Date(compra.fecha as string),
+    } : {
       fecha: new Date(),
       tipoDocumento: 'Factura',
       condicion: 'Contado',
@@ -72,30 +80,37 @@ export function CompraForm() {
   const watchedItems = form.watch('items');
 
   const { subtotal, iva5, iva10, totalIva, totalGeneral } = useMemo(() => {
-    let subtotal = 0;
-    let baseIva5 = 0;
-    let baseIva10 = 0;
+    const totals = watchedItems.reduce(
+      (acc, item) => {
+        const cantidad = Number(item.cantidad) || 0;
+        const precio = Number(item.precioUnitario) || 0;
+        const base = cantidad * precio;
 
-    for (const item of watchedItems) {
-      const cantidad = Number(item.cantidad) || 0;
-      const precio = Number(item.precioUnitario) || 0;
-      const base = cantidad * precio;
+        acc.subtotal += base;
 
-      subtotal += base;
+        if (item.porcentajeIva === '5') {
+          acc.baseIva5 += base;
+        } else if (item.porcentajeIva === '10') {
+          acc.baseIva10 += base;
+        }
+        
+        return acc;
+      },
+      { subtotal: 0, baseIva5: 0, baseIva10: 0 }
+    );
 
-      if (item.porcentajeIva === '5') {
-        baseIva5 += base;
-      } else if (item.porcentajeIva === '10') {
-        baseIva10 += base;
-      }
-    }
-    
-    const iva5 = baseIva5 * 0.05;
-    const iva10 = baseIva10 * 0.1;
+    const iva5 = totals.baseIva5 * 0.05;
+    const iva10 = totals.baseIva10 * 0.1;
     const totalIva = iva5 + iva10;
-    const totalGeneral = subtotal + totalIva;
-    
-    return { subtotal, iva5, iva10, totalIva, totalGeneral };
+    const totalGeneral = totals.subtotal + totalIva;
+
+    return {
+      subtotal: totals.subtotal,
+      iva5,
+      iva10,
+      totalIva,
+      totalGeneral,
+    };
   }, [watchedItems]);
 
 
@@ -103,10 +118,14 @@ export function CompraForm() {
     if (!firestore || !user) return;
     
     const batch = writeBatch(firestore);
-
-    // 1. Crear el documento de Compra
-    const compraRef = doc(collection(firestore, "compras"));
     
+    const itemsSanitized = data.items.map(item => ({
+        insumoId: item.insumo.id,
+        cantidad: item.cantidad,
+        precioUnitario: item.precioUnitario,
+        porcentajeIva: item.porcentajeIva,
+    }));
+
     const compraData = {
         proveedorId: data.proveedorId,
         zafraId: data.zafraId,
@@ -120,54 +139,59 @@ export function CompraForm() {
         estado: 'Registrado',
         creadoPor: user.uid,
         creadoEn: new Date(),
-        items: data.items.map(item => ({
-            insumoId: item.insumo.id,
-            cantidad: item.cantidad,
-            precioUnitario: item.precioUnitario,
-            porcentajeIva: item.porcentajeIva,
-        })),
+        items: itemsSanitized,
     };
-    batch.set(compraRef, compraData);
+    
+    // Si estamos editando
+    if (compra) {
+        const compraRef = doc(firestore, "compras", compra.id);
+        // Aquí faltaría la lógica para revertir movimientos de stock anteriores
+        // y aplicar los nuevos. Por ahora solo actualizamos el documento.
+        updateDocumentNonBlocking(compraRef, compraData);
 
-    // 2. Crear movimientos de stock y actualizar stock de insumos
-    for (const item of data.items) {
-        const insumo = item.insumo as Insumo;
-        
-        // Crear movimiento
-        const movimientoRef = doc(collection(firestore, "MovimientosStock"));
-        const stockAntes = insumo.stockActual || 0;
-        const nuevoStock = stockAntes + item.cantidad;
-        const nuevoMovimiento: Omit<MovimientoStock, 'id'> = {
-            fecha: data.fecha,
-            tipo: "entrada",
-            origen: "compra",
-            compraId: compraRef.id,
-            insumoId: insumo.id,
-            insumoNombre: insumo.nombre,
-            unidad: insumo.unidad,
-            categoria: insumo.categoria,
-            cantidad: item.cantidad,
-            stockAntes,
-            stockDespues: nuevoStock,
-            precioUnitario: item.precioUnitario,
-            costoTotal: item.cantidad * item.precioUnitario,
-            creadoPor: user.uid,
-            creadoEn: new Date(),
-        };
-        batch.set(movimientoRef, nuevoMovimiento);
+    } else { // Si estamos creando
+        const compraRef = doc(collection(firestore, "compras"));
+        batch.set(compraRef, compraData);
 
-        // Actualizar stock del insumo
-        const insumoRef = doc(firestore, "insumos", insumo.id);
-        batch.update(insumoRef, { stockActual: nuevoStock });
+        for (const item of data.items) {
+            const insumo = item.insumo as Insumo;
+            
+            const movimientoRef = doc(collection(firestore, "MovimientosStock"));
+            const stockAntes = insumo.stockActual || 0;
+            const nuevoStock = stockAntes + item.cantidad;
+            const nuevoMovimiento: Omit<MovimientoStock, 'id'> = {
+                fecha: data.fecha,
+                tipo: "entrada",
+                origen: "compra",
+                compraId: compraRef.id,
+                insumoId: insumo.id,
+                insumoNombre: insumo.nombre,
+                unidad: insumo.unidad,
+                categoria: insumo.categoria,
+                cantidad: item.cantidad,
+                stockAntes,
+                stockDespues: nuevoStock,
+                precioUnitario: item.precioUnitario,
+                costoTotal: item.cantidad * item.precioUnitario,
+                creadoPor: user.uid,
+                creadoEn: new Date(),
+            };
+            batch.set(movimientoRef, nuevoMovimiento);
+
+            const insumoRef = doc(firestore, "insumos", insumo.id);
+            batch.update(insumoRef, { stockActual: nuevoStock });
+        }
     }
     
     try {
-        await batch.commit();
+        if (!compra) {
+            await batch.commit();
+        }
         toast({
-            title: `Compra registrada`,
+            title: compra ? "Compra actualizada" : "Compra registrada",
             description: `La compra con N° ${data.numeroDocumento} ha sido guardada.`,
         });
-        router.push("/comercial/compras");
+        onCancel();
     } catch (error) {
         console.error("Error al guardar la compra: ", error);
         toast({
@@ -180,7 +204,7 @@ export function CompraForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8 p-1">
         <Card>
           <CardHeader>
             <CardTitle>Datos del Documento</CardTitle>
@@ -253,14 +277,12 @@ export function CompraForm() {
         </Card>
 
         <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="outline" onClick={() => router.back()}>
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button type="submit">Guardar Compra</Button>
+          <Button type="submit">{compra ? "Guardar Cambios" : "Guardar Compra"}</Button>
         </div>
       </form>
     </Form>
   );
 }
- 
-    
