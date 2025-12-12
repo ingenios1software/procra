@@ -33,5 +33,9 @@ service cloud.firestore {
         allow read, write: if isAuthenticated();
     }
 
+    match /insumos/{insumoId} {
+        allow read, write: if isAuthenticated();
+    }
+
   }
 }
