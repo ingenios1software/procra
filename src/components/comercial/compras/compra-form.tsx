@@ -79,36 +79,39 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
   const watchedItems = form.watch('items');
 
   const { baseIva10, baseIva5, exento, totalIva10, totalIva5, totalGeneral } = useMemo(() => {
-    const bases = watchedItems.reduce((acc, item) => {
-        const cantidad = Number(item.cantidad) || 0;
-        const precio = Number(item.precioUnitario) || 0;
-        const valor = cantidad * precio;
-        
-        switch (item.insumo?.iva) {
-            case '10':
-                acc.base10 += valor;
-                break;
-            case '5':
-                acc.base5 += valor;
-                break;
-            default: // '0' o exento
-                acc.exento += valor;
-                break;
-        }
-        return acc;
-    }, { base10: 0, base5: 0, exento: 0 });
+    let base10 = 0;
+    let base5 = 0;
+    let exentoTotal = 0;
 
-    const iva10 = bases.base10 * 0.10;
-    const iva5 = bases.base5 * 0.05;
-    const total = bases.base10 + bases.base5 + bases.exento + iva10 + iva5;
+    for (const item of watchedItems) {
+      const cantidad = Number(item.cantidad) || 0;
+      const precio = Number(item.precioUnitario) || 0;
+      const valor = cantidad * precio;
+
+      switch (item.insumo?.iva) {
+        case '10':
+          base10 += valor;
+          break;
+        case '5':
+          base5 += valor;
+          break;
+        default:
+          exentoTotal += valor;
+          break;
+      }
+    }
+    
+    const iva10 = base10 * 0.10;
+    const iva5 = base5 * 0.05;
+    const total = base10 + base5 + exentoTotal + iva10 + iva5;
     
     return {
-        baseIva10: bases.base10,
-        baseIva5: bases.base5,
-        exento: bases.exento,
-        totalIva10: iva10,
-        totalIva5: iva5,
-        totalGeneral: total,
+      baseIva10: base10,
+      baseIva5: base5,
+      exento: exentoTotal,
+      totalIva10: iva10,
+      totalIva5: iva5,
+      totalGeneral: total,
     };
   }, [watchedItems]);
 
@@ -264,9 +267,9 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                             <TableCell className="text-right font-mono">${formatCurrency(exento)}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>
-                        <TableRow><TableCell colSpan={5} className="text-right">Liquidación IVA 10%</TableCell><TableCell className="text-right font-mono">${formatCurrency(totalIva10)}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={5} className="text-right">Liquidación IVA 5%</TableCell><TableCell className="text-right font-mono">${formatCurrency(totalIva5)}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={5} className="text-right font-bold">TOTAL GENERAL</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totalGeneral)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={6} className="text-right">Liquidación IVA 10%</TableCell><TableCell className="text-right font-mono">${formatCurrency(totalIva10)}</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={6} className="text-right">Liquidación IVA 5%</TableCell><TableCell className="text-right font-mono">${formatCurrency(totalIva5)}</TableCell></TableRow>
+                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={6} className="text-right font-bold">TOTAL GENERAL</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totalGeneral)}</TableCell></TableRow>
                     </TableFooter>
                 </Table>
                 <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0 })}>
@@ -285,5 +288,3 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
     </Form>
   );
 }
-
-    
