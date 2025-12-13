@@ -82,32 +82,35 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
   const { subtotal, iva5, iva10, totalIva, totalGeneral } = useMemo(() => {
     let baseIva5 = 0;
     let baseIva10 = 0;
-    let subtotalCalculado = 0;
+    let exento = 0;
 
     watchedItems.forEach((item) => {
         const cantidad = Number(item.cantidad) || 0;
         const precio = Number(item.precioUnitario) || 0;
         const baseItem = cantidad * precio;
         
-        subtotalCalculado += baseItem;
-
         if (item.porcentajeIva === '5') {
             baseIva5 += baseItem;
         } else if (item.porcentajeIva === '10') {
             baseIva10 += baseItem;
+        } else {
+            exento += baseItem;
         }
     });
 
     const iva5Calculado = baseIva5 / 21;
     const iva10Calculado = baseIva10 / 11;
     const totalIvaCalculado = iva5Calculado + iva10Calculado;
+    const subtotalCalculado = (baseIva5 - iva5Calculado) + (baseIva10 - iva10Calculado) + exento;
+    const totalGeneralCalculado = subtotalCalculado + totalIvaCalculado;
+
 
     return {
-        subtotal: subtotalCalculado - totalIvaCalculado,
+        subtotal: subtotalCalculado,
         iva5: iva5Calculado,
         iva10: iva10Calculado,
         totalIva: totalIvaCalculado,
-        totalGeneral: subtotalCalculado,
+        totalGeneral: totalGeneralCalculado,
     };
 }, [watchedItems]);
 
@@ -233,7 +236,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                     <TableBody>
                         {fields.map((field, index) => (
                             <TableRow key={field.id} className="align-top">
-                                <TableCell className="font-medium">
+                                <TableCell className="font-medium p-1">
                                     <FormField control={form.control} name={`items.${index}.insumo`} render={({ field, fieldState }) => (
                                         <FormItem>
                                             <SelectorUniversal<Insumo> label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={field.value} onSelect={field.onChange} searchFields={['nombre', 'numeroItem']} />
@@ -241,20 +244,20 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                                         </FormItem>
                                     )} />
                                 </TableCell>
-                                <TableCell>
-                                    <FormField control={form.control} name={`items.${index}.cantidad`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <TableCell className="p-1">
+                                    <FormField control={form.control} name={`items.${index}.cantidad`} render={({ field }) => ( <Input type="number" placeholder="0" {...field} /> )} />
                                 </TableCell>
-                                <TableCell>
-                                     <FormField control={form.control} name={`items.${index}.precioUnitario`} render={({ field }) => ( <FormItem><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <TableCell className="p-1">
+                                    <FormField control={form.control} name={`items.${index}.precioUnitario`} render={({ field }) => ( <Input type="number" placeholder="0" {...field} /> )} />
                                 </TableCell>
-                                <TableCell>
-                                     <FormField control={form.control} name={`items.${index}.porcentajeIva`} render={({ field }) => ( <FormItem><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="0">0%</SelectItem><SelectItem value="5">5%</SelectItem><SelectItem value="10">10%</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                                <TableCell className="p-1">
+                                    <FormField control={form.control} name={`items.${index}.porcentajeIva`} render={({ field }) => ( <Select onValueChange={field.onChange} defaultValue={field.value}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">0%</SelectItem><SelectItem value="5">5%</SelectItem><SelectItem value="10">10%</SelectItem></SelectContent></Select> )} />
                                 </TableCell>
-                                <TableCell className="text-right font-mono">
+                                <TableCell className="text-right font-mono p-1 align-middle">
                                     ${formatCurrency((form.watch(`items.${index}.cantidad`) || 0) * (form.watch(`items.${index}.precioUnitario`) || 0))}
                                 </TableCell>
-                                <TableCell>
-                                    <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                                <TableCell className="p-1">
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
                                         <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
                                 </TableCell>
