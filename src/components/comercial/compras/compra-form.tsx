@@ -230,7 +230,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
             </CardHeader>
             <CardContent>
                 <Table>
-                    <TableHeader><TableRow><TableHead className="w-[300px]">Insumo</TableHead><TableHead>Cantidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead>IVA (%)</TableHead><TableHead className="text-right">Valor 10%</TableHead><TableHead className="text-right">Valor 5%</TableHead><TableHead className="text-right">Exento</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead className="w-[300px]">Insumo</TableHead><TableHead>Cantidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead className="text-right">Valor 10%</TableHead><TableHead className="text-right">Valor 5%</TableHead><TableHead className="text-right">Exento</TableHead><TableHead></TableHead></TableRow></TableHeader>
                     <TableBody>
                         {fields.map((field, index) => {
                             const item = watchedItems[index];
@@ -241,7 +241,6 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                                     <TableCell className="font-medium p-1"><FormField control={form.control} name={`items.${index}.insumo`} render={({ field: formField, fieldState }) => (<FormItem><SelectorUniversal<Insumo> label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={formField.value} onSelect={formField.onChange} searchFields={['nombre', 'numeroItem']} /><FormMessage /></FormItem> )} /></TableCell>
                                     <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.cantidad`} render={({ field: formField }) => <Input type="number" placeholder="0" {...formField} />} /></TableCell>
                                     <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.precioUnitario`} render={({ field: formField }) => <Input type="number" placeholder="0" {...formField} />} /></TableCell>
-                                    <TableCell className="p-1 font-mono text-center align-middle">{ivaTipo}%</TableCell>
                                     <TableCell className="text-right font-mono p-1 align-middle">${ivaTipo === '10' ? formatCurrency(totalItem) : '0,00'}</TableCell>
                                     <TableCell className="text-right font-mono p-1 align-middle">${ivaTipo === '5' ? formatCurrency(totalItem) : '0,00'}</TableCell>
                                     <TableCell className="text-right font-mono p-1 align-middle">${ivaTipo === '0' ? formatCurrency(totalItem) : '0,00'}</TableCell>
@@ -251,10 +250,10 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                         })}
                     </TableBody>
                     <TableFooter>
-                        <TableRow><TableCell colSpan={4} className="text-right font-bold">Subtotal</TableCell><TableCell className="text-right font-mono">${formatCurrency(baseIva10)}</TableCell><TableCell className="text-right font-mono">${formatCurrency(baseIva5)}</TableCell><TableCell className="text-right font-mono">${formatCurrency(exento)}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={4} className="text-right">IVA (10%)</TableCell><TableCell className="text-right font-mono" colSpan={3}>${formatCurrency(iva10)}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={4} className="text-right">IVA (5%)</TableCell><TableCell className="text-right font-mono" colSpan={3}>${formatCurrency(iva5)}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono" colSpan={3}>${formatCurrency(totalGeneral)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={3} className="text-right font-bold">Subtotal</TableCell><TableCell className="text-right font-mono">${formatCurrency(baseIva10)}</TableCell><TableCell className="text-right font-mono">${formatCurrency(baseIva5)}</TableCell><TableCell className="text-right font-mono">${formatCurrency(exento)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={3} className="text-right">IVA (10%)</TableCell><TableCell className="text-right font-mono" colSpan={3}>${formatCurrency(iva10)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={3} className="text-right">IVA (5%)</TableCell><TableCell className="text-right font-mono" colSpan={3}>${formatCurrency(iva5)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={3} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono" colSpan={3}>${formatCurrency(totalGeneral)}</TableCell><TableCell></TableCell></TableRow>
                     </TableFooter>
                 </Table>
                 <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0 })}>
