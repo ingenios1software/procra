@@ -20,10 +20,13 @@ export default function EditarProveedorPage({ params }: { params: { id: string }
 
   const { data: proveedor, isLoading } = useDoc<Proveedor>(proveedorRef);
 
-  const handleSave = (data: Omit<Proveedor, "id">) => {
-    if (!firestore) return;
+  const handleSave = (data: Omit<Proveedor, "id" | "activo">) => {
+    if (!firestore || !proveedor) return;
     const proveedorRef = doc(firestore, 'proveedores', params.id);
-    updateDocumentNonBlocking(proveedorRef, data);
+    updateDocumentNonBlocking(proveedorRef, {
+        ...data,
+        activo: proveedor.activo ?? true
+    });
     toast({
       title: "Proveedor actualizado",
       description: `Los datos de "${data.nombre}" han sido actualizados.`,
