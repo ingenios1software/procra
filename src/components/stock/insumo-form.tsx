@@ -30,6 +30,7 @@ const formSchema = z.object({
   categoria: z.enum(['fertilizante', 'herbicida', 'fungicida', 'semilla', 'insecticida', 'biologico', 'otros']),
   principioActivo: z.string().optional(),
   unidad: z.enum(['kg', 'lt', 'unidad', 'ton']),
+  iva: z.enum(['0', '5', '10']),
   dosisRecomendada: z.coerce.number().optional(),
   stockMinimo: z.coerce.number().min(0, "El stock mínimo no puede ser negativo."),
   proveedor: z.string().optional(),
@@ -50,12 +51,14 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
         ...insumo,
         dosisRecomendada: insumo.dosisRecomendada || undefined,
         stockMinimo: insumo.stockMinimo || 0,
-        proveedor: insumo.proveedor || ""
+        proveedor: insumo.proveedor || "",
+        iva: insumo.iva || '10',
     } : {
       nombre: "",
       categoria: "otros",
       principioActivo: "",
       unidad: "unidad",
+      iva: "10",
       dosisRecomendada: 0,
       stockMinimo: 0,
       proveedor: "",
@@ -121,7 +124,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <FormField
             control={form.control}
             name="unidad"
@@ -139,6 +142,28 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
                     <SelectItem value="lt">Litro (lt)</SelectItem>
                     <SelectItem value="ton">Tonelada (ton)</SelectItem>
                     <SelectItem value="unidad">Unidad</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="iva"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tipo de IVA</FormLabel>
+                 <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione IVA" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="10">10%</SelectItem>
+                    <SelectItem value="5">5%</SelectItem>
+                    <SelectItem value="0">Exento (0%)</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

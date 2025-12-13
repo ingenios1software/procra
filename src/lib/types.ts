@@ -146,6 +146,7 @@ export type Insumo = {
   categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'biologico' | 'otros';
   principioActivo?: string;
   unidad: 'kg' | 'lt' | 'unidad' | 'ton';
+  iva: '0' | '5' | '10';
   dosisRecomendada?: number;
   costoUnitario: number; // Costo de la última compra o manual
   precioPromedioCalculado: number; // Calculado a partir de todas las compras

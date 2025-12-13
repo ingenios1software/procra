@@ -27,7 +27,6 @@ const itemSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar un insumo válido." }),
   cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
   precioUnitario: z.coerce.number().positive("El precio debe ser mayor a 0."),
-  porcentajeIva: z.enum(['0', '5', '10']).default('10'),
 });
 
 const formSchema = z.object({
@@ -88,10 +87,11 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
         const cantidad = Number(item.cantidad) || 0;
         const precio = Number(item.precioUnitario) || 0;
         const totalItem = cantidad * precio;
+        const ivaTipo = item.insumo?.iva || '10';
         
-        if (item.porcentajeIva === '10') {
+        if (ivaTipo === '10') {
             base10 += totalItem;
-        } else if (item.porcentajeIva === '5') {
+        } else if (ivaTipo === '5') {
             base5 += totalItem;
         } else {
             base0 += totalItem;
@@ -122,7 +122,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
         insumoId: item.insumo.id,
         cantidad: item.cantidad,
         precioUnitario: item.precioUnitario,
-        porcentajeIva: item.porcentajeIva,
+        porcentajeIva: item.insumo.iva,
     }));
 
     const compraData = {
@@ -235,15 +235,16 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                         {fields.map((field, index) => {
                             const item = watchedItems[index];
                             const totalItem = (item.cantidad || 0) * (item.precioUnitario || 0);
+                            const ivaTipo = item.insumo?.iva || '10';
                             return (
                                 <TableRow key={field.id} className="align-top">
                                     <TableCell className="font-medium p-1"><FormField control={form.control} name={`items.${index}.insumo`} render={({ field: formField, fieldState }) => (<FormItem><SelectorUniversal<Insumo> label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={formField.value} onSelect={formField.onChange} searchFields={['nombre', 'numeroItem']} /><FormMessage /></FormItem> )} /></TableCell>
                                     <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.cantidad`} render={({ field: formField }) => <Input type="number" placeholder="0" {...formField} />} /></TableCell>
                                     <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.precioUnitario`} render={({ field: formField }) => <Input type="number" placeholder="0" {...formField} />} /></TableCell>
-                                    <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.porcentajeIva`} render={({ field: formField }) => (<Select onValueChange={formField.onChange} defaultValue={formField.value}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="10">10%</SelectItem><SelectItem value="5">5%</SelectItem><SelectItem value="0">0%</SelectItem></SelectContent></Select>)}/></TableCell>
-                                    <TableCell className="text-right font-mono p-1 align-middle">${item.porcentajeIva === '10' ? formatCurrency(totalItem) : '0,00'}</TableCell>
-                                    <TableCell className="text-right font-mono p-1 align-middle">${item.porcentajeIva === '5' ? formatCurrency(totalItem) : '0,00'}</TableCell>
-                                    <TableCell className="text-right font-mono p-1 align-middle">${item.porcentajeIva === '0' ? formatCurrency(totalItem) : '0,00'}</TableCell>
+                                    <TableCell className="p-1 font-mono text-center align-middle">{ivaTipo}%</TableCell>
+                                    <TableCell className="text-right font-mono p-1 align-middle">${ivaTipo === '10' ? formatCurrency(totalItem) : '0,00'}</TableCell>
+                                    <TableCell className="text-right font-mono p-1 align-middle">${ivaTipo === '5' ? formatCurrency(totalItem) : '0,00'}</TableCell>
+                                    <TableCell className="text-right font-mono p-1 align-middle">${ivaTipo === '0' ? formatCurrency(totalItem) : '0,00'}</TableCell>
                                     <TableCell className="p-1"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                                 </TableRow>
                             );
@@ -256,7 +257,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                         <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono" colSpan={3}>${formatCurrency(totalGeneral)}</TableCell><TableCell></TableCell></TableRow>
                     </TableFooter>
                 </Table>
-                <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0, porcentajeIva: '10' })}>
+                <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0 })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem
                 </Button>
             </CardContent>
