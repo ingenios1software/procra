@@ -80,31 +80,30 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
   const watchedItems = form.watch('items');
 
   const { subtotal, iva5, iva10, totalIva, totalGeneral } = useMemo(() => {
-    const totals = watchedItems.reduce(
-      (acc, item) => {
-        const cantidad = Number(item.cantidad) || 0;
-        const precio = Number(item.precioUnitario) || 0;
-        const base = cantidad * precio;
-
-        if (item.porcentajeIva === '5') {
-          acc.baseIva5 += base;
-        } else if (item.porcentajeIva === '10') {
-          acc.baseIva10 += base;
-        }
-        
-        return acc;
-      },
-      { baseIva5: 0, baseIva10: 0 }
-    );
-
-    const subtotal = totals.baseIva5 + totals.baseIva10;
-    const iva5 = totals.baseIva5 * 0.05;
-    const iva10 = totals.baseIva10 * 0.1;
+    let sub = 0;
+    let baseIva5 = 0;
+    let baseIva10 = 0;
+  
+    for (const item of watchedItems) {
+      const cantidad = Number(item.cantidad) || 0;
+      const precio = Number(item.precioUnitario) || 0;
+      const baseItem = cantidad * precio;
+      sub += baseItem;
+  
+      if (item.porcentajeIva === '5') {
+        baseIva5 += baseItem;
+      } else if (item.porcentajeIva === '10') {
+        baseIva10 += baseItem;
+      }
+    }
+  
+    const iva5 = baseIva5 * 0.05;
+    const iva10 = baseIva10 * 0.1;
     const totalIva = iva5 + iva10;
-    const totalGeneral = subtotal + totalIva;
-
+    const totalGeneral = sub + totalIva;
+  
     return {
-      subtotal,
+      subtotal: sub,
       iva5,
       iva10,
       totalIva,
