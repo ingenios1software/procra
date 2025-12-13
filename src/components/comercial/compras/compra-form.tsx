@@ -78,25 +78,34 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
 
   const watchedItems = form.watch('items');
 
-  const { baseIva10, baseIva5, exento, totalIva10, totalIva5, totalGeneral } = useMemo(() => {
+  const {
+    baseIva10,
+    baseIva5,
+    exento,
+    totalIva10,
+    totalIva5,
+    totalGeneral,
+  } = useMemo(() => {
     let base10 = 0;
     let base5 = 0;
     let exentoTotal = 0;
 
-    if (watchedItems) {
+    if (watchedItems && Array.isArray(watchedItems)) {
       for (const item of watchedItems) {
-        if (item && item.insumo) {
-          const cantidad = Number(item.cantidad) || 0;
-          const precio = Number(item.precioUnitario) || 0;
-          const valor = cantidad * precio;
+        if (!item || !item.insumo) {
+            continue;
+        }
 
-          if (item.insumo.iva === '10') {
+        const cantidad = Number(item.cantidad) || 0;
+        const precio = Number(item.precioUnitario) || 0;
+        const valor = cantidad * precio;
+
+        if (item.insumo.iva === '10') {
             base10 += valor;
-          } else if (item.insumo.iva === '5') {
+        } else if (item.insumo.iva === '5') {
             base5 += valor;
-          } else if (item.insumo.iva === '0') {
+        } else if (item.insumo.iva === '0') {
             exentoTotal += valor;
-          }
         }
       }
     }
@@ -104,7 +113,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
     const iva10 = base10 * 0.10;
     const iva5 = base5 * 0.05;
     const total = base10 + base5 + exentoTotal + iva10 + iva5;
-    
+
     return {
       baseIva10: base10,
       baseIva5: base5,
@@ -113,7 +122,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
       totalIva5: iva5,
       totalGeneral: total,
     };
-  }, [watchedItems]);
+  }, [JSON.stringify(watchedItems)]);
 
 
   const handleSubmit = async (data: CompraFormValues) => {
@@ -147,7 +156,6 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
     if (compra) {
         const compraRef = doc(firestore, "compras", compra.id);
         updateDocumentNonBlocking(compraRef, compraData);
-
     } else {
         const compraRef = doc(collection(firestore, "compras"));
         batch.set(compraRef, compraData);
