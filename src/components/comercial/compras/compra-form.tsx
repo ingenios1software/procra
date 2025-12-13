@@ -80,34 +80,33 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
   const watchedItems = form.watch('items');
 
   const { subtotal, iva5, iva10, totalIva, totalGeneral } = useMemo(() => {
-    let sub = 0;
     let baseIva5 = 0;
     let baseIva10 = 0;
 
-    watchedItems.forEach(item => {
+    const subtotalCalculado = watchedItems.reduce((acc, item) => {
         const cantidad = Number(item.cantidad) || 0;
         const precio = Number(item.precioUnitario) || 0;
         const baseItem = cantidad * precio;
-        sub += baseItem;
 
         if (item.porcentajeIva === '5') {
             baseIva5 += baseItem;
         } else if (item.porcentajeIva === '10') {
             baseIva10 += baseItem;
         }
-    });
 
-    const iva5 = baseIva5 * 0.05;
-    const iva10 = baseIva10 * 0.1;
-    const totalIva = iva5 + iva10;
-    const totalGeneral = sub; // El total general es el subtotal antes de impuestos.
+        return acc + baseItem;
+    }, 0);
+
+    const iva5Calculado = baseIva5 / 21;
+    const iva10Calculado = baseIva10 / 11;
+    const totalIvaCalculado = iva5Calculado + iva10Calculado;
 
     return {
-        subtotal: sub,
-        iva5,
-        iva10,
-        totalIva,
-        totalGeneral: sub,
+        subtotal: subtotalCalculado,
+        iva5: iva5Calculado,
+        iva10: iva10Calculado,
+        totalIva: totalIvaCalculado,
+        totalGeneral: subtotalCalculado,
     };
 }, [watchedItems]);
 
@@ -265,7 +264,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                         <TableRow><TableCell colSpan={4} className="text-right font-bold">Subtotal</TableCell><TableCell className="text-right font-mono">${subtotal.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
                         <TableRow><TableCell colSpan={4} className="text-right">IVA (5%)</TableCell><TableCell className="text-right font-mono">${iva5.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
                         <TableRow><TableCell colSpan={4} className="text-right">IVA (10%)</TableCell><TableCell className="text-right font-mono">${iva10.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono">${(subtotal + iva5 + iva10).toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono">${(totalGeneral).toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
                     </TableFooter>
                 </Table>
                 <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0, porcentajeIva: '10' })}>
