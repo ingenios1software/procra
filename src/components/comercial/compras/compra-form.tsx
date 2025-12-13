@@ -93,7 +93,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
     if (watchedItems && Array.isArray(watchedItems)) {
       for (const item of watchedItems) {
         if (!item || !item.insumo) {
-            continue;
+          continue; // Skip if no insumo is selected
         }
 
         const cantidad = Number(item.cantidad) || 0;
@@ -101,15 +101,15 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
         const valor = cantidad * precio;
 
         if (item.insumo.iva === '10') {
-            base10 += valor;
+          base10 += valor;
         } else if (item.insumo.iva === '5') {
-            base5 += valor;
+          base5 += valor;
         } else if (item.insumo.iva === '0') {
-            exentoTotal += valor;
+          exentoTotal += valor;
         }
       }
     }
-    
+
     const iva10 = base10 * 0.10;
     const iva5 = base5 * 0.05;
     const total = base10 + base5 + exentoTotal + iva10 + iva5;
@@ -296,5 +296,3 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
     </Form>
   );
 }
-
-    
