@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import type { Compra, Proveedor, Zafra, Insumo, MovimientoStock } from "@/lib/types";
 import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from "@/firebase";
 import { collection, doc, writeBatch } from "firebase/firestore";
@@ -80,10 +80,11 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
   const watchedItems = form.watch('items');
 
   const { subtotal, iva5, iva10, totalIva, totalGeneral } = useMemo(() => {
+    let baseIva0 = 0;
     let baseIva5 = 0;
     let baseIva10 = 0;
 
-    const subtotalCalculado = watchedItems.reduce((acc, item) => {
+    watchedItems.forEach((item) => {
         const cantidad = Number(item.cantidad) || 0;
         const precio = Number(item.precioUnitario) || 0;
         const baseItem = cantidad * precio;
@@ -92,11 +93,12 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
             baseIva5 += baseItem;
         } else if (item.porcentajeIva === '10') {
             baseIva10 += baseItem;
+        } else {
+            baseIva0 += baseItem;
         }
+    });
 
-        return acc + baseItem;
-    }, 0);
-
+    const subtotalCalculado = baseIva0 + baseIva5 + baseIva10;
     const iva5Calculado = baseIva5 / 21;
     const iva10Calculado = baseIva10 / 11;
     const totalIvaCalculado = iva5Calculado + iva10Calculado;
@@ -250,7 +252,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                                      <FormField control={form.control} name={`items.${index}.porcentajeIva`} render={({ field }) => ( <FormItem><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="0">0%</SelectItem><SelectItem value="5">5%</SelectItem><SelectItem value="10">10%</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                                 </TableCell>
                                 <TableCell className="text-right font-mono">
-                                    ${((form.watch(`items.${index}.cantidad`) || 0) * (form.watch(`items.${index}.precioUnitario`) || 0)).toLocaleString('en-US')}
+                                    ${formatCurrency((form.watch(`items.${index}.cantidad`) || 0) * (form.watch(`items.${index}.precioUnitario`) || 0))}
                                 </TableCell>
                                 <TableCell>
                                     <Button variant="ghost" size="icon" onClick={() => remove(index)}>
@@ -261,10 +263,10 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                         ))}
                     </TableBody>
                     <TableFooter>
-                        <TableRow><TableCell colSpan={4} className="text-right font-bold">Subtotal</TableCell><TableCell className="text-right font-mono">${subtotal.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={4} className="text-right">IVA (5%)</TableCell><TableCell className="text-right font-mono">${iva5.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={4} className="text-right">IVA (10%)</TableCell><TableCell className="text-right font-mono">${iva10.toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono">${(totalGeneral).toLocaleString('en-US')}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-right font-bold">Subtotal</TableCell><TableCell className="text-right font-mono">${formatCurrency(subtotal)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-right">IVA (5%)</TableCell><TableCell className="text-right font-mono">${formatCurrency(iva5)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-right">IVA (10%)</TableCell><TableCell className="text-right font-mono">${formatCurrency(iva10)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totalGeneral)}</TableCell><TableCell></TableCell></TableRow>
                     </TableFooter>
                 </Table>
                 <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0, porcentajeIva: '10' })}>

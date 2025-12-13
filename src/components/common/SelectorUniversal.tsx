@@ -7,7 +7,7 @@ import {
   PackageSearch,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Command,

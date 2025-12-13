@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
 import { differenceInDays, format } from "date-fns";
 import { Calendar, Leaf, Map, Ruler, Activity, Clock, BarChart2, DollarSign } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 interface PanelKpiCardsProps {
     parcela: Parcela;
@@ -58,8 +59,8 @@ export function PanelKpiCards({ parcela, cultivo, zafra, eventos }: PanelKpiCard
             <Card>
                 <CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Costo Total / Ha</CardTitle><DollarSign/></CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">${costoPorHa.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-                    <p className="text-xs text-muted-foreground">Total: ${costoTotal.toLocaleString('en-US')}</p>
+                    <div className="text-2xl font-bold">${formatCurrency(costoPorHa)}</div>
+                    <p className="text-xs text-muted-foreground">Total: ${formatCurrency(costoTotal)}</p>
                 </CardContent>
             </Card>
         </div>

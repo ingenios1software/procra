@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import type { Evento, Insumo } from "@/lib/types";
 import { DollarSign, Zap, Calendar, Hash } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 interface PanelAnalisisEconomicoProps {
     eventos: Evento[];
@@ -49,14 +50,14 @@ export function PanelAnalisisEconomico({ eventos, insumos }: PanelAnalisisEconom
                     <DollarSign />
                     <div className="flex-1 space-y-1">
                         <p className="text-sm font-medium leading-none">Total Acumulado</p>
-                        <p className="text-sm text-muted-foreground">${costoTotal.toLocaleString('en-US')}</p>
+                        <p className="text-sm text-muted-foreground">${formatCurrency(costoTotal)}</p>
                     </div>
                 </div>
                 <div className="flex items-center space-x-4 rounded-md border p-4">
                     <Zap />
                     <div className="flex-1 space-y-1">
                         <p className="text-sm font-medium leading-none">Evento más Costoso</p>
-                        <p className="text-sm text-muted-foreground">{eventoMasCostoso.nombre} (${eventoMasCostoso.costo.toLocaleString('en-US')})</p>
+                        <p className="text-sm text-muted-foreground">{eventoMasCostoso.nombre} (${formatCurrency(eventoMasCostoso.costo)})</p>
                     </div>
                 </div>
                 <div className="flex items-center space-x-4 rounded-md border p-4">

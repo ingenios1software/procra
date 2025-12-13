@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Parcela, Cultivo, Zafra, Evento, Insumo, Venta } from "@/lib/types";
 import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { formatCurrency } from "@/lib/utils";
 
 interface InformeCostosParcelaProps {
   parcelas: Parcela[];
@@ -95,11 +96,11 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
 
    const columns: ColumnDef<CostoParcelaData>[] = [
     { accessorKey: "parcela.nombre", header: "Parcela" },
-    { accessorKey: "parcela.superficie", header: "Superficie (ha)", cell: ({ getValue }) => <div className="text-right">{getValue<number>().toFixed(2)}</div> },
-    { accessorKey: "costoTotal", header: "Costo Total ($)", cell: ({ getValue }) => <div className="text-right font-semibold">${getValue<number>().toLocaleString('es-AR', {minimumFractionDigits: 2})}</div> },
-    { accessorKey: "costoHa", header: "Costo/ha ($)", cell: ({ getValue }) => <div className="text-right font-semibold">${getValue<number>().toLocaleString('es-AR', {minimumFractionDigits: 2})}</div> },
-    { accessorKey: "rendimiento", header: "Rendimiento (kg/ha)", cell: ({ getValue }) => <div className="text-right">{getValue<number>().toLocaleString('es-AR', {minimumFractionDigits: 2})}</div> },
-    { accessorKey: "costoPorTn", header: "Costo/tn ($)", cell: ({ getValue }) => <div className="text-right text-primary font-bold">${getValue<number>().toLocaleString('es-AR', {minimumFractionDigits: 2})}</div> },
+    { accessorKey: "parcela.superficie", header: "Superficie (ha)", cell: ({ getValue }) => <div className="text-right">{formatCurrency(getValue<number>())}</div> },
+    { accessorKey: "costoTotal", header: "Costo Total ($)", cell: ({ getValue }) => <div className="text-right font-semibold">${formatCurrency(getValue<number>())}</div> },
+    { accessorKey: "costoHa", header: "Costo/ha ($)", cell: ({ getValue }) => <div className="text-right font-semibold">${formatCurrency(getValue<number>())}</div> },
+    { accessorKey: "rendimiento", header: "Rendimiento (kg/ha)", cell: ({ getValue }) => <div className="text-right">{formatCurrency(getValue<number>())}</div> },
+    { accessorKey: "costoPorTn", header: "Costo/tn ($)", cell: ({ getValue }) => <div className="text-right text-primary font-bold">${formatCurrency(getValue<number>())}</div> },
     { accessorKey: "eventos", header: "N° Eventos", cell: ({ getValue }) => <div className="text-center">{getValue<number>()}</div> },
   ];
 
@@ -181,7 +182,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
                 <XAxis dataKey="parcela.nombre" />
                 <YAxis yAxisId="left" orientation="left" stroke="#8884d8" label={{ value: 'Costo/ha ($)', angle: -90, position: 'insideLeft' }} />
                 <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" label={{ value: 'Rendimiento (kg/ha)', angle: 90, position: 'insideRight' }}/>
-                <Tooltip formatter={(value, name) => [typeof value === 'number' ? value.toLocaleString('es-AR', {maximumFractionDigits: 2}) : value, name]}/>
+                <Tooltip formatter={(value, name) => [typeof value === 'number' ? formatCurrency(value) : value, name]}/>
                 <Legend />
                 <Bar yAxisId="left" dataKey="costoHa" name="Costo/ha" fill="#8884d8" />
                 <Line yAxisId="right" type="monotone" dataKey="rendimiento" name="Rendimiento" stroke="#82ca9d" />

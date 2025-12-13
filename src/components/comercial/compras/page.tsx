@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import type { Compra, Proveedor } from "@/lib/types";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,7 +116,7 @@ export default function ComprasPage() {
                       {compra.estado}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right font-mono">${compra.total.toLocaleString('en-US')}</TableCell>
+                  <TableCell className="text-right font-mono">${formatCurrency(compra.total)}</TableCell>
                    <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
