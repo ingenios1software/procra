@@ -86,8 +86,6 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
         const precio = Number(item.precioUnitario) || 0;
         const base = cantidad * precio;
 
-        acc.subtotal += base;
-
         if (item.porcentajeIva === '5') {
           acc.baseIva5 += base;
         } else if (item.porcentajeIva === '10') {
@@ -96,16 +94,17 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
         
         return acc;
       },
-      { subtotal: 0, baseIva5: 0, baseIva10: 0 }
+      { baseIva5: 0, baseIva10: 0 }
     );
 
+    const subtotal = totals.baseIva5 + totals.baseIva10;
     const iva5 = totals.baseIva5 * 0.05;
     const iva10 = totals.baseIva10 * 0.1;
     const totalIva = iva5 + iva10;
-    const totalGeneral = totals.subtotal + totalIva;
+    const totalGeneral = subtotal + totalIva;
 
     return {
-      subtotal: totals.subtotal,
+      subtotal,
       iva5,
       iva10,
       totalIva,
