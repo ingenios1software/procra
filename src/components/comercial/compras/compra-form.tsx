@@ -79,38 +79,36 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
 
   const watchedItems = form.watch('items');
 
-  const { subtotal, iva5, iva10, totalIva, totalGeneral } = useMemo(() => {
-    let baseIva5 = 0;
-    let baseIva10 = 0;
-    let exento = 0;
+  const { baseIva10, baseIva5, exento, iva10, iva5, totalGeneral } = useMemo(() => {
+    let base10 = 0;
+    let base5 = 0;
+    let base0 = 0;
 
     watchedItems.forEach((item) => {
         const cantidad = Number(item.cantidad) || 0;
         const precio = Number(item.precioUnitario) || 0;
-        const baseItem = cantidad * precio;
+        const totalItem = cantidad * precio;
         
-        if (item.porcentajeIva === '5') {
-            baseIva5 += baseItem;
-        } else if (item.porcentajeIva === '10') {
-            baseIva10 += baseItem;
+        if (item.porcentajeIva === '10') {
+            base10 += totalItem;
+        } else if (item.porcentajeIva === '5') {
+            base5 += totalItem;
         } else {
-            exento += baseItem;
+            base0 += totalItem;
         }
     });
 
-    const iva5Calculado = baseIva5 / 21;
-    const iva10Calculado = baseIva10 / 11;
-    const totalIvaCalculado = iva5Calculado + iva10Calculado;
-    const subtotalCalculado = (baseIva5 - iva5Calculado) + (baseIva10 - iva10Calculado) + exento;
-    const totalGeneralCalculado = subtotalCalculado + totalIvaCalculado;
-
+    const iva10Calculado = base10 / 11;
+    const iva5Calculado = base5 / 21;
+    const total = base10 + base5 + base0;
 
     return {
-        subtotal: subtotalCalculado,
-        iva5: iva5Calculado,
+        baseIva10: base10,
+        baseIva5: base5,
+        exento: base0,
         iva10: iva10Calculado,
-        totalIva: totalIvaCalculado,
-        totalGeneral: totalGeneralCalculado,
+        iva5: iva5Calculado,
+        totalGeneral: total,
     };
 }, [watchedItems]);
 
@@ -232,43 +230,30 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
             </CardHeader>
             <CardContent>
                 <Table>
-                    <TableHeader><TableRow><TableHead className="w-[350px]">Insumo</TableHead><TableHead>Cantidad</TableHead><TableHead>Precio Unitario</TableHead><TableHead>IVA (%)</TableHead><TableHead className="text-right">Subtotal</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead className="w-[300px]">Insumo</TableHead><TableHead>Cantidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead>IVA (%)</TableHead><TableHead className="text-right">Valor 10%</TableHead><TableHead className="text-right">Valor 5%</TableHead><TableHead className="text-right">Exento</TableHead><TableHead></TableHead></TableRow></TableHeader>
                     <TableBody>
-                        {fields.map((field, index) => (
-                            <TableRow key={field.id} className="align-top">
-                                <TableCell className="font-medium p-1">
-                                    <FormField control={form.control} name={`items.${index}.insumo`} render={({ field, fieldState }) => (
-                                        <FormItem>
-                                            <SelectorUniversal<Insumo> label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={field.value} onSelect={field.onChange} searchFields={['nombre', 'numeroItem']} />
-                                            {fieldState.error && <FormMessage />}
-                                        </FormItem>
-                                    )} />
-                                </TableCell>
-                                <TableCell className="p-1">
-                                    <FormField control={form.control} name={`items.${index}.cantidad`} render={({ field }) => ( <Input type="number" placeholder="0" {...field} /> )} />
-                                </TableCell>
-                                <TableCell className="p-1">
-                                    <FormField control={form.control} name={`items.${index}.precioUnitario`} render={({ field }) => ( <Input type="number" placeholder="0" {...field} /> )} />
-                                </TableCell>
-                                <TableCell className="p-1">
-                                    <FormField control={form.control} name={`items.${index}.porcentajeIva`} render={({ field }) => ( <Select onValueChange={field.onChange} defaultValue={field.value}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">0%</SelectItem><SelectItem value="5">5%</SelectItem><SelectItem value="10">10%</SelectItem></SelectContent></Select> )} />
-                                </TableCell>
-                                <TableCell className="text-right font-mono p-1 align-middle">
-                                    ${formatCurrency((form.watch(`items.${index}.cantidad`) || 0) * (form.watch(`items.${index}.precioUnitario`) || 0))}
-                                </TableCell>
-                                <TableCell className="p-1">
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                        {fields.map((field, index) => {
+                            const item = watchedItems[index];
+                            const totalItem = (item.cantidad || 0) * (item.precioUnitario || 0);
+                            return (
+                                <TableRow key={field.id} className="align-top">
+                                    <TableCell className="font-medium p-1"><FormField control={form.control} name={`items.${index}.insumo`} render={({ field: formField, fieldState }) => (<FormItem><SelectorUniversal<Insumo> label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={formField.value} onSelect={formField.onChange} searchFields={['nombre', 'numeroItem']} /><FormMessage /></FormItem> )} /></TableCell>
+                                    <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.cantidad`} render={({ field: formField }) => <Input type="number" placeholder="0" {...formField} />} /></TableCell>
+                                    <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.precioUnitario`} render={({ field: formField }) => <Input type="number" placeholder="0" {...formField} />} /></TableCell>
+                                    <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.porcentajeIva`} render={({ field: formField }) => (<Select onValueChange={formField.onChange} defaultValue={formField.value}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="10">10%</SelectItem><SelectItem value="5">5%</SelectItem><SelectItem value="0">0%</SelectItem></SelectContent></Select>)}/></TableCell>
+                                    <TableCell className="text-right font-mono p-1 align-middle">${item.porcentajeIva === '10' ? formatCurrency(totalItem) : '0,00'}</TableCell>
+                                    <TableCell className="text-right font-mono p-1 align-middle">${item.porcentajeIva === '5' ? formatCurrency(totalItem) : '0,00'}</TableCell>
+                                    <TableCell className="text-right font-mono p-1 align-middle">${item.porcentajeIva === '0' ? formatCurrency(totalItem) : '0,00'}</TableCell>
+                                    <TableCell className="p-1"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                     <TableFooter>
-                        <TableRow><TableCell colSpan={4} className="text-right font-bold">Subtotal</TableCell><TableCell className="text-right font-mono">${formatCurrency(subtotal)}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={4} className="text-right">IVA (5%)</TableCell><TableCell className="text-right font-mono">${formatCurrency(iva5)}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={4} className="text-right">IVA (10%)</TableCell><TableCell className="text-right font-mono">${formatCurrency(iva10)}</TableCell><TableCell></TableCell></TableRow>
-                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totalGeneral)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-right font-bold">Subtotal</TableCell><TableCell className="text-right font-mono">${formatCurrency(baseIva10)}</TableCell><TableCell className="text-right font-mono">${formatCurrency(baseIva5)}</TableCell><TableCell className="text-right font-mono">${formatCurrency(exento)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-right">IVA (10%)</TableCell><TableCell className="text-right font-mono" colSpan={3}>${formatCurrency(iva10)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-right">IVA (5%)</TableCell><TableCell className="text-right font-mono" colSpan={3}>${formatCurrency(iva5)}</TableCell><TableCell></TableCell></TableRow>
+                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold font-mono" colSpan={3}>${formatCurrency(totalGeneral)}</TableCell><TableCell></TableCell></TableRow>
                     </TableFooter>
                 </Table>
                 <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0, porcentajeIva: '10' })}>
