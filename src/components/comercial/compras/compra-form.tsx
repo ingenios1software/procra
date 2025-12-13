@@ -98,9 +98,9 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
         return acc;
     }, { base10: 0, base5: 0, exento: 0 });
 
-    const iva10 = bases.base10 / 11;
-    const iva5 = bases.base5 / 21;
-    const total = bases.base10 + bases.base5 + bases.exento;
+    const iva10 = bases.base10 * 0.10;
+    const iva5 = bases.base5 * 0.05;
+    const total = bases.base10 + bases.base5 + bases.exento + iva10 + iva5;
     
     return {
         baseIva10: bases.base10,
