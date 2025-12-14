@@ -77,15 +77,13 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
   });
 
   const watchedItems = form.watch('items');
-  const [totalGeneral, setTotalGeneral] = useState(0);
 
-  useEffect(() => {
-    const newTotal = watchedItems.reduce((acc, item) => {
+  const totalGeneral = useMemo(() => {
+    return watchedItems.reduce((acc, item) => {
       const cantidad = Number(item.cantidad) || 0;
       const precio = Number(item.precioUnitario) || 0;
       return acc + (cantidad * precio);
     }, 0);
-    setTotalGeneral(newTotal);
   }, [watchedItems]);
 
 
