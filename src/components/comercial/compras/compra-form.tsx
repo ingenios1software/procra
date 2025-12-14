@@ -78,13 +78,11 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
 
   const watchedItems = form.watch('items');
 
-  const totalGeneral = useMemo(() => {
-    return watchedItems.reduce((acc, item) => {
-      const cantidad = Number(item.cantidad) || 0;
-      const precio = Number(item.precioUnitario) || 0;
-      return acc + (cantidad * precio);
-    }, 0);
-  }, [watchedItems]);
+  const totalGeneral = watchedItems.reduce((acc, item) => {
+    const cantidad = Number(item.cantidad) || 0;
+    const precio = Number(item.precioUnitario) || 0;
+    return acc + (cantidad * precio);
+  }, 0);
 
 
   const handleSubmit = async (data: CompraFormValues) => {
@@ -96,7 +94,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
         insumoId: item.insumo.id,
         cantidad: item.cantidad,
         precioUnitario: item.precioUnitario,
-        porcentajeIva: item.insumo.iva,
+        porcentajeIva: (item.insumo as Insumo).iva,
     }));
 
     const compraData = {
