@@ -77,53 +77,15 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
   });
 
   const watchedItems = form.watch('items');
-
-  const [totals, setTotals] = useState({
-    baseIva10: 0,
-    baseIva5: 0,
-    exento: 0,
-    totalIva10: 0,
-    totalIva5: 0,
-    totalGeneral: 0,
-  });
+  const [totalGeneral, setTotalGeneral] = useState(0);
 
   useEffect(() => {
-    let base10 = 0;
-    let base5 = 0;
-    let exentoTotal = 0;
-
-    if (watchedItems && Array.isArray(watchedItems)) {
-      for (const item of watchedItems) {
-        if (!item || !item.insumo) {
-          continue;
-        }
-
-        const cantidad = Number(item.cantidad) || 0;
-        const precio = Number(item.precioUnitario) || 0;
-        const valor = cantidad * precio;
-
-        if (item.insumo.iva === '10') {
-          base10 += valor;
-        } else if (item.insumo.iva === '5') {
-          base5 += valor;
-        } else if (item.insumo.iva === '0') {
-          exentoTotal += valor;
-        }
-      }
-    }
-
-    const iva10 = base10 * 0.10;
-    const iva5 = base5 * 0.05;
-    const total = base10 + base5 + exentoTotal;
-
-    setTotals({
-      baseIva10: base10,
-      baseIva5: base5,
-      exento: exentoTotal,
-      totalIva10: iva10,
-      totalIva5: iva5,
-      totalGeneral: total,
-    });
+    const newTotal = watchedItems.reduce((acc, item) => {
+      const cantidad = Number(item.cantidad) || 0;
+      const precio = Number(item.precioUnitario) || 0;
+      return acc + (cantidad * precio);
+    }, 0);
+    setTotalGeneral(newTotal);
   }, [watchedItems]);
 
 
@@ -148,7 +110,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
         condicion: data.condicion,
         tipoCompra: data.tipoCompra,
         observacion: data.observacion || null,
-        total: totals.totalGeneral,
+        total: totalGeneral,
         estado: 'Registrado',
         creadoPor: user.uid,
         creadoEn: new Date(),
@@ -244,9 +206,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                         <TableHead className="w-[350px]">Insumo</TableHead>
                         <TableHead>Cantidad</TableHead>
                         <TableHead>Precio Unit.</TableHead>
-                        <TableHead className="text-right">Valor 10%</TableHead>
-                        <TableHead className="text-right">Valor 5%</TableHead>
-                        <TableHead className="text-right">Exento</TableHead>
+                        <TableHead className="text-right">Valor Total</TableHead>
                         <TableHead></TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
@@ -254,32 +214,25 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                             const item = watchedItems[index];
                             const cantidad = item?.cantidad || 0;
                             const precioUnitario = item?.precioUnitario || 0;
-                            const totalItem = cantidad * precioUnitario;
-                            const ivaTipo = item?.insumo?.iva;
+                            const valorTotal = cantidad * precioUnitario;
 
                             return (
                                 <TableRow key={field.id} className="align-top">
                                     <TableCell className="font-medium p-1"><FormField control={form.control} name={`items.${index}.insumo`} render={({ field: formField, fieldState }) => (<FormItem><SelectorUniversal<Insumo> label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={formField.value} onSelect={formField.onChange} searchFields={['nombre', 'numeroItem']} /><FormMessage /></FormItem> )} /></TableCell>
                                     <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.cantidad`} render={({ field: formField }) => <Input type="number" placeholder="0" {...formField} />} /></TableCell>
                                     <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.precioUnitario`} render={({ field: formField }) => <Input type="number" placeholder="0" {...formField} />} /></TableCell>
-                                    <TableCell className="text-right font-mono p-1 align-middle">{ivaTipo === '10' ? `$${formatCurrency(totalItem)}` : '-'}</TableCell>
-                                    <TableCell className="text-right font-mono p-1 align-middle">{ivaTipo === '5' ? `$${formatCurrency(totalItem)}` : '-'}</TableCell>
-                                    <TableCell className="text-right font-mono p-1 align-middle">{ivaTipo === '0' ? `$${formatCurrency(totalItem)}` : '-'}</TableCell>
+                                    <TableCell className="text-right font-mono p-1 align-middle">${formatCurrency(valorTotal)}</TableCell>
                                     <TableCell className="p-1"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                                 </TableRow>
                             );
                         })}
                     </TableBody>
                     <TableFooter>
-                        <TableRow className="font-bold"><TableCell colSpan={3}>Subtotales</TableCell>
-                            <TableCell className="text-right font-mono">${formatCurrency(totals.baseIva10)}</TableCell>
-                            <TableCell className="text-right font-mono">${formatCurrency(totals.baseIva5)}</TableCell>
-                            <TableCell className="text-right font-mono">${formatCurrency(totals.exento)}</TableCell>
-                            <TableCell></TableCell>
+                        <TableRow className="text-lg bg-muted/50">
+                          <TableCell colSpan={3} className="text-right font-bold">TOTAL GENERAL</TableCell>
+                          <TableCell className="text-right font-bold font-mono">${formatCurrency(totalGeneral)}</TableCell>
+                          <TableCell></TableCell>
                         </TableRow>
-                        <TableRow><TableCell colSpan={6} className="text-right">Liquidación IVA 10%</TableCell><TableCell className="text-right font-mono">${formatCurrency(totals.totalIva10)}</TableCell></TableRow>
-                        <TableRow><TableCell colSpan={6} className="text-right">Liquidación IVA 5%</TableCell><TableCell className="text-right font-mono">${formatCurrency(totals.totalIva5)}</TableCell></TableRow>
-                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={6} className="text-right font-bold">TOTAL GENERAL</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totals.totalGeneral)}</TableCell></TableRow>
                     </TableFooter>
                 </Table>
                 <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0 })}>
