@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
@@ -78,14 +78,16 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
 
   const watchedItems = form.watch('items');
 
-  const {
-    baseIva10,
-    baseIva5,
-    exento,
-    totalIva10,
-    totalIva5,
-    totalGeneral,
-  } = useMemo(() => {
+  const [totals, setTotals] = useState({
+    baseIva10: 0,
+    baseIva5: 0,
+    exento: 0,
+    totalIva10: 0,
+    totalIva5: 0,
+    totalGeneral: 0,
+  });
+
+  useEffect(() => {
     let base10 = 0;
     let base5 = 0;
     let exentoTotal = 0;
@@ -93,7 +95,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
     if (watchedItems && Array.isArray(watchedItems)) {
       for (const item of watchedItems) {
         if (!item || !item.insumo) {
-          continue; // Skip if no insumo is selected
+          continue;
         }
 
         const cantidad = Number(item.cantidad) || 0;
@@ -112,17 +114,17 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
 
     const iva10 = base10 * 0.10;
     const iva5 = base5 * 0.05;
-    const total = base10 + base5 + exentoTotal + iva10 + iva5;
+    const total = base10 + base5 + exentoTotal;
 
-    return {
+    setTotals({
       baseIva10: base10,
       baseIva5: base5,
       exento: exentoTotal,
       totalIva10: iva10,
       totalIva5: iva5,
       totalGeneral: total,
-    };
-  }, [JSON.stringify(watchedItems)]);
+    });
+  }, [watchedItems]);
 
 
   const handleSubmit = async (data: CompraFormValues) => {
@@ -146,7 +148,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
         condicion: data.condicion,
         tipoCompra: data.tipoCompra,
         observacion: data.observacion || null,
-        total: totalGeneral,
+        total: totals.totalGeneral,
         estado: 'Registrado',
         creadoPor: user.uid,
         creadoEn: new Date(),
@@ -270,14 +272,14 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                     </TableBody>
                     <TableFooter>
                         <TableRow className="font-bold"><TableCell colSpan={3}>Subtotales</TableCell>
-                            <TableCell className="text-right font-mono">${formatCurrency(baseIva10)}</TableCell>
-                            <TableCell className="text-right font-mono">${formatCurrency(baseIva5)}</TableCell>
-                            <TableCell className="text-right font-mono">${formatCurrency(exento)}</TableCell>
+                            <TableCell className="text-right font-mono">${formatCurrency(totals.baseIva10)}</TableCell>
+                            <TableCell className="text-right font-mono">${formatCurrency(totals.baseIva5)}</TableCell>
+                            <TableCell className="text-right font-mono">${formatCurrency(totals.exento)}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>
-                        <TableRow><TableCell colSpan={6} className="text-right">Liquidación IVA 10%</TableCell><TableCell className="text-right font-mono">${formatCurrency(totalIva10)}</TableCell></TableRow>
-                        <TableRow><TableCell colSpan={6} className="text-right">Liquidación IVA 5%</TableCell><TableCell className="text-right font-mono">${formatCurrency(totalIva5)}</TableCell></TableRow>
-                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={6} className="text-right font-bold">TOTAL GENERAL</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totalGeneral)}</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={6} className="text-right">Liquidación IVA 10%</TableCell><TableCell className="text-right font-mono">${formatCurrency(totals.totalIva10)}</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={6} className="text-right">Liquidación IVA 5%</TableCell><TableCell className="text-right font-mono">${formatCurrency(totals.totalIva5)}</TableCell></TableRow>
+                        <TableRow className="text-lg bg-muted/50"><TableCell colSpan={6} className="text-right font-bold">TOTAL GENERAL</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totals.totalGeneral)}</TableCell></TableRow>
                     </TableFooter>
                 </Table>
                 <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0 })}>
