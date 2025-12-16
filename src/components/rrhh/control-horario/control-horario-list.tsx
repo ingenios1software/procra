@@ -1,21 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Check, X, Clock, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useAuth, useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useAuth, useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { collection, doc, serverTimestamp } from "firebase/firestore";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import type { ControlHorario, Empleado } from "@/lib/types";
 import { ControlHorarioForm } from "./control-horario-form";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DateRangePicker } from "./date-range-picker";
+import type { DateRange } from "react-day-picker";
 
 interface ControlHorarioListProps {
   registros: ControlHorario[];
@@ -32,7 +36,29 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedRegistro, setSelectedRegistro] = useState<ControlHorario | null>(null);
 
+  const [filters, setFilters] = useState({
+    empleadoId: "",
+    estado: "",
+    dateRange: { from: undefined, to: undefined } as DateRange | undefined,
+  });
+
   const puedeAprobar = role === 'admin' || role === 'supervisor';
+
+  const filteredRegistros = useMemo(() => {
+    return registros.filter(registro => {
+      const fechaRegistro = new Date(registro.fecha as string);
+      const inDateRange = filters.dateRange?.from && filters.dateRange?.to 
+        ? fechaRegistro >= filters.dateRange.from && fechaRegistro <= filters.dateRange.to 
+        : true;
+      
+      return (
+        inDateRange &&
+        (filters.empleadoId ? registro.empleadoId === filters.empleadoId : true) &&
+        (filters.estado ? registro.estado === filters.estado : true)
+      );
+    });
+  }, [registros, filters]);
+
 
   const getEmpleadoNombre = (id: string) => {
     const empleado = empleados.find(e => e.id === id);
@@ -65,7 +91,7 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
     };
   }
 
-  const handleSave = async (data: Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado' | 'horasAm' | 'horasPm' | 'horasTotales'>) => {
+  const handleSave = async (data: Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado' | 'horasAm' | 'horasPm' | 'horasTotales' | 'aprobadoEn' | 'aprobadoPor'>) => {
     if (!firestore || !user) return;
     
     const { am, pm, total } = calculateHoras(data.horaEntrada, data.horaSalida);
@@ -101,7 +127,7 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
       aprobadoPor: user.uid,
       aprobadoEn: serverTimestamp()
     });
-    toast({ title: 'Registro Aprobado' });
+    toast({ title: 'Registro Aprobado', className: 'bg-green-100 text-green-800' });
   };
   
   const handleRechazar = (registro: ControlHorario) => {
@@ -126,11 +152,74 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
           Registrar Horas
         </Button>
       </PageHeader>
-      <Card>
+      
+      <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Registros de Horas</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-lg"><SlidersHorizontal/> Filtros</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+           <Select value={filters.empleadoId} onValueChange={v => setFilters({...filters, empleadoId: v === 'all' ? '' : v})}>
+              <SelectTrigger><SelectValue placeholder="Filtrar por empleado..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los empleados</SelectItem>
+                {empleados.map(e => <SelectItem key={e.id} value={e.id}>{e.apellido}, {e.nombre}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <DateRangePicker 
+                date={filters.dateRange}
+                onDateChange={(range) => setFilters({...filters, dateRange: range})}
+            />
+            <Select value={filters.estado} onValueChange={v => setFilters({...filters, estado: v === 'all' ? '' : v})}>
+              <SelectTrigger><SelectValue placeholder="Filtrar por estado..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                <SelectItem value="pendiente">Pendiente</SelectItem>
+                <SelectItem value="aprobado">Aprobado</SelectItem>
+                <SelectItem value="rechazado">Rechazado</SelectItem>
+              </SelectContent>
+            </Select>
+        </CardContent>
+      </Card>
+      
+      {/* Mobile View */}
+      <div className="md:hidden space-y-4">
+        {filteredRegistros.map(registro => (
+          <Card key={registro.id} className="w-full" onClick={() => openForm(registro)}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-base">{getEmpleadoNombre(registro.empleadoId)}</CardTitle>
+                <CardDescription>{isValid(new Date(registro.fecha as string)) ? format(new Date(registro.fecha as string), "PPP") : 'Fecha inválida'}</CardDescription>
+              </div>
+               <Badge
+                  className={cn("capitalize", {
+                    "bg-yellow-100 text-yellow-800 border-yellow-300": registro.estado === 'pendiente',
+                    "bg-green-100 text-green-800 border-green-300": registro.estado === 'aprobado',
+                    "bg-red-100 text-red-800 border-red-300": registro.estado === 'rechazado',
+                  })}
+                  variant="outline"
+                >{registro.estado}</Badge>
+            </CardHeader>
+            <CardContent className="grid grid-cols-3 gap-2 text-center text-sm">
+                <div className="flex flex-col items-center">
+                    <span className="font-bold text-lg">{registro.horaEntrada}</span>
+                    <span className="text-xs text-muted-foreground">Entrada</span>
+                </div>
+                 <div className="flex flex-col items-center">
+                    <span className="font-bold text-lg">{registro.horaSalida}</span>
+                    <span className="text-xs text-muted-foreground">Salida</span>
+                </div>
+                <div className="flex flex-col items-center rounded-lg bg-muted p-2">
+                    <span className="font-bold text-lg text-primary">{registro.horasTotales.toFixed(2)}</span>
+                    <span className="text-xs text-muted-foreground">Total Horas</span>
+                </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Desktop View */}
+      <Card className="hidden md:block">
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -147,9 +236,9 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={9} className="text-center">Cargando...</TableCell></TableRow>}
-              {registros.map(registro => (
-                <TableRow key={registro.id}>
-                  <TableCell>{format(new Date(registro.fecha as string), "dd/MM/yyyy")}</TableCell>
+              {filteredRegistros.map(registro => (
+                <TableRow key={registro.id} className="cursor-pointer" onClick={() => openForm(registro)}>
+                  <TableCell>{isValid(new Date(registro.fecha as string)) ? format(new Date(registro.fecha as string), "dd/MM/yyyy") : 'Fecha inválida'}</TableCell>
                   <TableCell className="font-medium">{getEmpleadoNombre(registro.empleadoId)}</TableCell>
                   <TableCell>{registro.horaEntrada}</TableCell>
                   <TableCell>{registro.horaSalida}</TableCell>
@@ -158,25 +247,25 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
                   <TableCell className="text-right font-mono font-bold">{registro.horasTotales.toFixed(2)}</TableCell>
                   <TableCell>
                     <Badge
-                      className={cn({
-                        "bg-yellow-500 text-black": registro.estado === 'pendiente',
-                        "bg-green-600 text-white": registro.estado === 'aprobado',
-                        "bg-red-600 text-white": registro.estado === 'rechazado',
+                      className={cn("capitalize", {
+                        "bg-yellow-500 hover:bg-yellow-500/80 text-black": registro.estado === 'pendiente',
+                        "bg-green-600 hover:bg-green-600/80 text-white": registro.estado === 'aprobado',
+                        "bg-red-600 hover:bg-red-600/80 text-white": registro.estado === 'rechazado',
                       })}
                     >{registro.estado}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
+                        <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
                         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => openForm(registro)} disabled={registro.estado !== 'pendiente'}>Editar</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openForm(registro)}>Ver / Editar</DropdownMenuItem>
                         {puedeAprobar && registro.estado === 'pendiente' && (
                           <>
-                            <DropdownMenuItem onClick={() => handleAprobar(registro)}>Aprobar</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleRechazar(registro)} className="text-destructive">Rechazar</DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleAprobar(registro); }} className="text-green-600 focus:text-green-700 focus:bg-green-50"><Check className="mr-2"/>Aprobar</DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRechazar(registro); }} className="text-red-600 focus:text-red-700 focus:bg-red-50"><X className="mr-2"/>Rechazar</DropdownMenuItem>
                           </>
                         )}
                       </DropdownMenuContent>
@@ -184,13 +273,18 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
                   </TableCell>
                 </TableRow>
               ))}
+              {!isLoading && filteredRegistros.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center h-24">No se encontraron registros para los filtros seleccionados.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{selectedRegistro ? 'Editar' : 'Registrar'} Horas</DialogTitle>
             <DialogDescription>Complete los datos del registro de trabajo.</DialogDescription>
