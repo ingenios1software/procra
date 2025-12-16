@@ -97,9 +97,8 @@ export function ControlHorarioList({ registros, empleados, parcelas, isLoading }
     
     const { am, pm, total } = calculateHoras(data.horaEntrada, data.horaSalida);
     const empleado = empleados.find(e => e.id === data.empleadoId);
-    const costoPorHora = (empleado?.salario || 0) / 220; // Asumiendo 220 horas laborales al mes
+    const costoPorHora = empleado ? empleado.salario / 220 : 0;
     const costoManoDeObra = total * costoPorHora;
-
 
     const dataToSave = {
         ...data,
@@ -108,11 +107,11 @@ export function ControlHorarioList({ registros, empleados, parcelas, isLoading }
         horasPm: pm,
         horasTotales: total,
         costoManoDeObra: costoManoDeObra,
-    }
+    };
 
     if (selectedRegistro) {
       const registroRef = doc(firestore, 'controlHorario', selectedRegistro.id);
-      updateDocumentNonBlocking(registroRef, dataToSave);
+      updateDocumentNonBlocking(registroRef, {...selectedRegistro, ...dataToSave});
       toast({ title: "Registro actualizado" });
     } else {
       addDocumentNonBlocking(collection(firestore, 'controlHorario'), {
