@@ -99,16 +99,16 @@ service cloud.firestore {
     match /plagas/{document=**} {
       allow read, write: if isAuthenticated();
     }
-
+    
+    match /asistencias/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    
     match /empleados/{document=**} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    match /asistencias/{document=**} {
-      allow read, write: if isAuthenticated();
-    }
-    
     match /controlHorario/{document=**} {
       allow read: if isAuthenticated();
       allow create, delete: if isAdmin() || isSupervisor();
