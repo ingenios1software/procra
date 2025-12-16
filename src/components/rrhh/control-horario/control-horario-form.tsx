@@ -31,7 +31,7 @@ const formSchema = z.object({
     path: ["horaSalida"],
 });
 
-type FormValues = Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado' | 'horasAm' | 'horasPm' | 'horasTotales'>;
+type FormValues = Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado' | 'horasAm' | 'horasPm' | 'horasTotales' | 'aprobadoEn' | 'aprobadoPor'>;
 
 interface ControlHorarioFormProps {
   registro?: ControlHorario | null;
@@ -150,7 +150,7 @@ export function ControlHorarioForm({ registro, empleados, onSubmit, onCancel }: 
         
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>
-            Cancelar
+            {isReadOnly ? "Cerrar" : "Cancelar"}
           </Button>
           {!isReadOnly && (
             <Button type="submit">

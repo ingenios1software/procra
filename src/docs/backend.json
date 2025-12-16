@@ -1,0 +1,232 @@
+{
+  "entities": {
+    "Plot": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Plot",
+      "type": "object",
+      "description": "Represents a plot of land for agricultural purposes.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the Plot entity." },
+        "name": { "type": "string", "description": "Name of the plot." },
+        "code": { "type": "string", "description": "Code or identifier for the plot." },
+        "area": { "type": "number", "description": "Area of the plot in a specific unit (e.g., hectares, acres)." },
+        "location": { "type": "string", "description": "Geographic location of the plot." },
+        "status": { "type": "string", "description": "Current status of the plot (e.g., active, inactive, fallow)." }
+      },
+      "required": ["id", "name", "code", "area", "location", "status"]
+    },
+    "Crop": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Crop",
+      "type": "object",
+      "description": "Represents a type of crop.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the Crop entity." },
+        "name": { "type": "string", "description": "Name of the crop." },
+        "description": { "type": "string", "description": "Description of the crop." }
+      },
+      "required": ["id", "name", "description"]
+    },
+    "Season": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Season",
+      "type": "object",
+      "description": "Represents an agricultural season (zafra).",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the Season entity." },
+        "name": { "type": "string", "description": "Name of the season." },
+        "startDate": { "type": "string", "description": "Start date of the season.", "format": "date-time" },
+        "endDate": { "type": "string", "description": "End date of the season.", "format": "date-time" },
+        "status": { "type": "string", "description": "Current status of the season (e.g., active, closed)." }
+      },
+      "required": ["id", "name", "startDate", "endDate", "status"]
+    },
+    "Event": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Event",
+      "type": "object",
+      "description": "Represents an agricultural event that occurs on a plot during a season.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the Event entity." },
+        "numeroLanzamiento": { "type": "number", "description": "Sequential launch number for the event." },
+        "plotId": { "type": "string", "description": "Reference to Plot. (Relationship: Plot 1:N Event)" },
+        "cropId": { "type": "string", "description": "Reference to Crop. (Relationship: Crop 1:N Event)" },
+        "seasonId": { "type": "string", "description": "Reference to Season. (Relationship: Season 1:N Event)" },
+        "type": { "type": "string", "description": "Type of event (e.g., planting, harvesting, fertilization)." },
+        "date": { "type": "string", "description": "Date of the event.", "format": "date-time" },
+        "description": { "type": "string", "description": "Description of the event." },
+        "inputs": { "type": "string", "description": "Inputs used during the event (e.g., fertilizer, pesticides)." },
+        "quantity": { "type": "number", "description": "Quantity of inputs used." },
+        "unit": { "type": "string", "description": "Unit of measurement for the quantity of inputs." },
+        "result": { "type": "string", "description": "Result of the event." }
+      },
+      "required": ["id", "plotId", "cropId", "seasonId", "type", "date", "description", "inputs", "quantity", "unit", "result"]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the application.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the User entity." },
+        "name": { "type": "string", "description": "Name of the user." },
+        "email": { "type": "string", "description": "Email address of the user.", "format": "email" },
+        "roleId": { "type": "string", "description": "Reference to Role. (Relationship: Role 1:N User)" },
+        "active": { "type": "boolean", "description": "Indicates whether the user account is active." }
+      },
+      "required": ["id", "name", "email", "roleId", "active"]
+    },
+    "Role": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Role",
+      "type": "object",
+      "description": "Represents a user role within the application.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the Role entity." },
+        "name": { "type": "string", "description": "Name of the role." },
+        "description": { "type": "string", "description": "Description of the role and its permissions." }
+      },
+      "required": ["id", "name", "description"]
+    },
+    "PlanDeCuenta": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlanDeCuenta",
+      "type": "object",
+      "description": "Represents an account in the chart of accounts.",
+      "properties": {
+        "id": { "type": "string" },
+        "codigo": { "type": "string" },
+        "nombre": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["activo", "pasivo", "patrimonio", "ingreso", "costo", "gasto"] },
+        "naturaleza": { "type": "string", "enum": ["deudora", "acreedora"] }
+      },
+      "required": ["id", "codigo", "nombre", "tipo", "naturaleza"]
+    },
+    "CentroDeCosto": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CentroDeCosto",
+      "type": "object",
+      "description": "Represents a cost center for accounting.",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "categoria": { "type": "string", "enum": ["campo", "parcela", "cultivo", "maquinaria", "general"] }
+      },
+      "required": ["id", "nombre", "descripcion", "categoria"]
+    },
+    "AsientoDiario": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AsientoDiario",
+      "type": "object",
+      "description": "Represents a journal entry in accounting.",
+      "properties": {
+        "id": { "type": "string" },
+        "fecha": { "type": "string", "format": "date-time" },
+        "descripcion": { "type": "string" },
+        "movimientos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cuentaId": { "type": "string" },
+              "tipo": { "type": "string", "enum": ["debe", "haber"] },
+              "monto": { "type": "number" },
+              "centroCostoId": { "type": "string" }
+            },
+            "required": ["cuentaId", "tipo", "monto"]
+          }
+        }
+      },
+      "required": ["id", "fecha", "descripcion", "movimientos"]
+    },
+    "MovimientoStock": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MovimientoStock",
+      "description": "Represents a stock movement for an 'insumo' (supply).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fecha": { "type": "string", "format": "date-time" },
+        "tipo": { "type": "string", "enum": ["salida", "entrada", "ajuste"] },
+        "origen": { "type": "string", "enum": ["evento", "compra", "ajuste manual"] },
+        "eventoId": { "type": "string", "description": "Reference to Event if origin is 'evento'." },
+        "compraId": { "type": "string", "description": "Reference to Compra if origin is 'compra'." },
+        "ajusteId": { "type": "string", "description": "Reference to an adjustment document if origin is 'ajuste manual'." },
+        "insumoId": { "type": "string" },
+        "insumoNombre": { "type": "string" },
+        "cantidad": { "type": "number" },
+        "stockAntes": { "type": "number" },
+        "stockDespues": { "type": "number" },
+        "precioUnitario": { "type": "number" },
+        "costoTotal": { "type": "number" },
+        "creadoPor": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "fecha",
+        "tipo",
+        "origen",
+        "insumoId",
+        "insumoNombre",
+        "cantidad",
+        "stockAntes",
+        "stockDespues",
+        "precioUnitario",
+        "costoTotal",
+        "creadoPor"
+      ]
+    },
+    "ControlHorario": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ControlHorario",
+      "description": "Represents a daily work time record for an employee.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "empleadoId": { "type": "string", "description": "Reference to the Empleado entity." },
+        "fecha": { "type": "string", "format": "date" },
+        "horaEntrada": { "type": "string", "format": "time" },
+        "horaSalida": { "type": "string", "format": "time" },
+        "horasAm": { "type": "number" },
+        "horasPm": { "type": "number" },
+        "horasTotales": { "type": "number" },
+        "estado": { "type": "string", "enum": ["pendiente", "aprobado", "rechazado"] },
+        "observacion": { "type": "string" },
+        "creadoPor": { "type": "string" },
+        "creadoEn": { "type": "string", "format": "date-time" },
+        "aprobadoPor": { "type": "string" },
+        "aprobadoEn": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "empleadoId",
+        "fecha",
+        "horaEntrada",
+        "horaSalida",
+        "horasAm",
+        "horasPm",
+        "horasTotales",
+        "estado",
+        "creadoPor",
+        "creadoEn"
+      ]
+    }
+  },
+  "auth": {
+    "providers": ["password", "anonymous"]
+  },
+  "firestore": {
+    "/plots/{plotId}": { "schema": { "$ref": "#/entities/Plot" }, "description": "Stores plot information." },
+    "/crops/{cropId}": { "schema": { "$ref": "#/entities/Crop" }, "description": "Stores crop information." },
+    "/seasons/{seasonId}": { "schema": { "$ref": "#/entities/Season" }, "description": "Stores season information." },
+    "/events/{eventId}": { "schema": { "$ref": "#/entities/Event" }, "description": "Stores event information related to plots." },
+    "/users/{userId}": { "schema": { "$ref": "#/entities/User" }, "description": "Stores user information." },
+    "/roles/{roleId}": { "schema": { "$ref": "#/entities/Role" }, "description": "Stores role information." },
+    "/planDeCuentas/{cuentaId}": { "schema": { "$ref": "#/entities/PlanDeCuenta" }, "description": "Stores the chart of accounts." },
+    "/centrosDeCosto/{centroId}": { "schema": { "$ref": "#/entities/CentroDeCosto" }, "description": "Stores cost centers." },
+    "/asientosDiario/{asientoId}": { "schema": { "$ref": "#/entities/AsientoDiario" }, "description": "Stores journal entries." },
+    "/MovimientosStock/{movimientoId}": { "schema": { "$ref": "#/entities/MovimientoStock"}, "description": "Logs all stock movements."},
+    "/ControlHorario/{controlId}": { "schema": { "$ref": "#/entities/ControlHorario"}, "description": "Stores daily work time records."}
+  }
+}
