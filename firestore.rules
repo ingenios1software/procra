@@ -8,7 +8,6 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      // Asume que el rol de admin se almacena en los custom claims del token de autenticación.
       return request.auth.token.role == 'admin';
     }
 
@@ -17,107 +16,105 @@ service cloud.firestore {
     }
 
     match /plots/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /crops/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /seasons/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /events/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /users/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /roles/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /planDeCuentas/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /centrosDeCosto/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /asientosDiario/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
     
     match /parcelas/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /cultivos/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /zafras/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /insumos/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /maquinaria/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
     
     match /proveedores/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /compras/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
     
     match /ventas/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /clientes/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /etapasCultivo/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /plagas/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
     
     match /asistencias/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
     
     match /empleados/{empleadoId} {
-      allow read, write: if isAuthenticated() && isAdmin();
-    }
-    match /empleados/{wildcard=**} {
-       allow read, list: if isAuthenticated();
+      allow get, update, delete: if isAuthenticated() && isAdmin();
+      allow create: if isAuthenticated() && isAdmin();
+      allow list, read: if isAuthenticated();
     }
 
     match /MovimientosStock/{document=**} {
-      allow read, write, list: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /controlHorario/{controlId} {
-        allow read: if isAuthenticated();
-        allow create, delete: if isAdmin() || isSupervisor();
-        allow update: if (isAdmin() || isSupervisor()) && resource.data.estado != 'aprobado';
+        allow get: if isAuthenticated();
+        allow create, update, delete: if isAdmin() || isSupervisor();
     }
     match /controlHorario/{documents=**} {
-        allow read, list: if isAuthenticated();
+        allow list, read: if isAuthenticated();
     }
   }
 }
