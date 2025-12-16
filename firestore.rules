@@ -109,15 +109,10 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
     
-    match /controlHorario/{controlId} {
+    match /controlHorario/{document=**} {
       allow read: if isAuthenticated();
-      // Allow create and delete for admin/supervisor
       allow create, delete: if isAdmin() || isSupervisor();
-      // Allow update for admin/supervisor only if the record is NOT approved
       allow update: if (isAdmin() || isSupervisor()) && resource.data.estado != 'aprobado';
-    }
-    match /controlHorario/{path=**} {
-       allow read: if isAuthenticated();
     }
   }
 }
