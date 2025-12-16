@@ -37,6 +37,7 @@ import {
     FileText,
     Monitor,
     AreaChart,
+    Clock,
 } from "lucide-react"
 import {
   Accordion,
@@ -123,6 +124,7 @@ const navItems = [
         links: [
             { href: "/rrhh/empleados", icon: Briefcase, label: "Empleados" },
             { href: "/rrhh/asistencias", icon: UserCheck, label: "Asistencias" },
+            { href: "/rrhh/control-horario", icon: Clock, label: "Control Horario" },
         ]
     },
     {

@@ -61,5 +61,9 @@ service cloud.firestore {
         allow read, write: if isAuthenticated();
     }
 
+    match /controlHorario/{controlId} {
+        allow read, write: if isAuthenticated();
+    }
+
   }
 }
