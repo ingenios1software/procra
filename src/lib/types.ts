@@ -345,26 +345,6 @@ export type Asistencia = {
   observaciones?: string;
 };
 
-export type ControlHorario = {
-  id: string;
-  empleadoId: string;
-  parcelaId?: string;
-  tipoTrabajo?: string;
-  fecha: Date | string;
-  horaEntrada: string;
-  horaSalida: string;
-  horasAm: number;
-  horasPm: number;
-  horasTotales: number;
-  costoManoDeObra: number;
-  estado: 'pendiente' | 'aprobado' | 'rechazado';
-  observacion?: string;
-  creadoPor?: string;
-  creadoEn?: Date | FieldValue;
-  aprobadoPor?: string;
-  aprobadoEn?: Date | FieldValue;
-};
-
 
 // --- CONTABILIDAD ---
 export type PlanDeCuenta = {

@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, Tractor, Sprout, TrendingDown, Package, FileText, Users } from "lucide-react";
-import type { Evento, Parcela, Zafra, Cultivo, ControlHorario } from "@/lib/types";
+import { DollarSign, FileText } from "lucide-react";
+import type { Evento, Parcela, Zafra } from "@/lib/types";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
 import { format } from "date-fns";
@@ -18,15 +18,13 @@ export default function CostosPage() {
   const { data: eventos, isLoading: l1 } = useCollection<Evento>(useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha', 'desc')) : null, [firestore]));
   const { data: parcelas, isLoading: l2 } = useCollection<Parcela>(useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]));
   const { data: zafras, isLoading: l3 } = useCollection<Zafra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]));
-  const { data: horas, isLoading: l4 } = useCollection<ControlHorario>(useMemoFirebase(() => firestore ? query(collection(firestore, 'controlHorario')) : null, [firestore]));
 
-  const isLoading = l1 || l2 || l3 || l4;
+  const isLoading = l1 || l2 || l3;
 
-  const { totalCostosEventos, totalCostosManoObra, costosPorZafra, costosCombinados } = useMemo(() => {
-    if (!eventos || !zafras || !horas) return { totalCostosEventos: 0, totalCostosManoObra: 0, costosPorZafra: [], costosCombinados: [] };
+  const { totalCostosEventos, costosPorZafra, costosCombinados } = useMemo(() => {
+    if (!eventos || !zafras) return { totalCostosEventos: 0, costosPorZafra: [], costosCombinados: [] };
     
     const costosEventos = eventos.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
-    const costosManoObra = horas.reduce((sum, h) => sum + (h.costoManoDeObra || 0), 0);
     
     const costosZafraData = zafras.map(zafra => {
         const costoEventos = eventos.filter(ev => ev.zafraId === zafra.id).reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
@@ -35,39 +33,33 @@ export default function CostosPage() {
 
     const todosLosCostos = [
         ...eventos.map(e => ({ fecha: e.fecha, descripcion: e.descripcion, tipo: 'Evento', monto: e.costoTotal || 0, parcelaId: e.parcelaId, zafraId: e.zafraId, categoria: e.categoria || e.tipo })),
-        ...horas.map(h => ({ fecha: h.fecha, descripcion: `Mano de obra: ${h.tipoTrabajo || 'General'}`, tipo: 'Mano de Obra', monto: h.costoManoDeObra || 0, parcelaId: h.parcelaId || '', zafraId: '', categoria: 'Mano de Obra' }))
     ].sort((a,b) => new Date(b.fecha as string).getTime() - new Date(a.fecha as string).getTime());
 
     return { 
         totalCostosEventos: costosEventos, 
-        totalCostosManoObra: costosManoObra, 
         costosPorZafra: costosZafraData,
         costosCombinados: todosLosCostos,
     };
-  }, [eventos, zafras, horas]);
+  }, [eventos, zafras]);
 
-  const totalGeneral = totalCostosEventos + totalCostosManoObra;
+  const totalGeneral = totalCostosEventos;
   const getNombre = (id: string, coleccion: any[] | null) => coleccion?.find(item => item.id === id)?.nombre || 'N/A';
 
   return (
     <>
       <PageHeader
         title="Gestión de Costos Operativos"
-        description="Análisis consolidado de costos de eventos de campo y mano de obra."
+        description="Análisis consolidado de costos de eventos de campo."
       />
       
-      <div className="grid gap-6 md:grid-cols-3 mb-6">
+      <div className="grid gap-6 md:grid-cols-2 mb-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costo Total (Eventos + MO)</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent><div className="text-2xl font-bold">${totalGeneral.toLocaleString('en-US')}</div><p className="text-xs text-muted-foreground">Suma de todos los costos</p></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costo Total de Eventos</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader>
+          <CardContent><div className="text-2xl font-bold">${totalGeneral.toLocaleString('en-US')}</div><p className="text-xs text-muted-foreground">Suma de todos los costos de eventos</p></CardContent>
         </Card>
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costo por Eventos</CardTitle><FileText className="h-4 w-4 text-muted-foreground" /></CardHeader>
             <CardContent><div className="text-2xl font-bold">${totalCostosEventos.toLocaleString('en-US')}</div><p className="text-xs text-muted-foreground">Total de actividades con costos</p></CardContent>
-        </Card>
-         <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costo Mano de Obra</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader>
-            <CardContent><div className="text-2xl font-bold">${totalCostosManoObra.toLocaleString('en-US')}</div><p className="text-xs text-muted-foreground">Total de horas aprobadas</p></CardContent>
         </Card>
       </div>
 
@@ -94,7 +86,7 @@ export default function CostosPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Listado Detallado de Costos (Eventos y Mano de Obra)</CardTitle>
+          <CardTitle>Listado Detallado de Costos de Eventos</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>

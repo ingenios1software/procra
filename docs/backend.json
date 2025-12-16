@@ -176,41 +176,6 @@
         "costoTotal",
         "creadoPor"
       ]
-    },
-    "ControlHorario": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ControlHorario",
-      "description": "Represents a daily work time record for an employee.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "empleadoId": { "type": "string", "description": "Reference to the Empleado entity." },
-        "fecha": { "type": "string", "format": "date" },
-        "horaEntrada": { "type": "string", "format": "time" },
-        "horaSalida": { "type": "string", "format": "time" },
-        "horasAm": { "type": "number" },
-        "horasPm": { "type": "number" },
-        "horasTotales": { "type": "number" },
-        "estado": { "type": "string", "enum": ["pendiente", "aprobado", "rechazado"] },
-        "observacion": { "type": "string" },
-        "creadoPor": { "type": "string" },
-        "creadoEn": { "type": "string", "format": "date-time" },
-        "aprobadoPor": { "type": "string" },
-        "aprobadoEn": { "type": "string", "format": "date-time" }
-      },
-      "required": [
-        "id",
-        "empleadoId",
-        "fecha",
-        "horaEntrada",
-        "horaSalida",
-        "horasAm",
-        "horasPm",
-        "horasTotales",
-        "estado",
-        "creadoPor",
-        "creadoEn"
-      ]
     }
   },
   "auth": {
@@ -226,7 +191,6 @@
     "/planDeCuentas/{cuentaId}": { "schema": { "$ref": "#/entities/PlanDeCuenta" }, "description": "Stores the chart of accounts." },
     "/centrosDeCosto/{centroId}": { "schema": { "$ref": "#/entities/CentroDeCosto" }, "description": "Stores cost centers." },
     "/asientosDiario/{asientoId}": { "schema": { "$ref": "#/entities/AsientoDiario" }, "description": "Stores journal entries." },
-    "/MovimientosStock/{movimientoId}": { "schema": { "$ref": "#/entities/MovimientoStock"}, "description": "Logs all stock movements."},
-    "/ControlHorario/{controlId}": { "schema": { "$ref": "#/entities/ControlHorario"}, "description": "Stores daily work time records."}
+    "/MovimientosStock/{movimientoId}": { "schema": { "$ref": "#/entities/MovimientoStock"}, "description": "Logs all stock movements."}
   }
 }

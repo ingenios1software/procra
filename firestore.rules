@@ -100,18 +100,12 @@ service cloud.firestore {
     }
     
     match /empleados/{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAuthenticated();
     }
     
     match /MovimientosStock/{document=**} {
       allow read, write: if isAuthenticated();
     }
 
-    match /controlHorario/{controlId} {
-      allow read: if isAuthenticated();
-      allow create, delete: if isAdmin() || isSupervisor();
-      allow update: if (isAdmin() || isSupervisor()) && resource.data.estado != "aprobado";
-    }
   }
 }
