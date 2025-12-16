@@ -99,8 +99,12 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
     
+    match /empleados/{empleadoId} {
+      allow read, write: if isAdmin();
+    }
+    
     match /empleados/{document=**} {
-      allow read, write: if isAuthenticated();
+       allow read: if isAuthenticated();
     }
     
     match /MovimientosStock/{document=**} {
