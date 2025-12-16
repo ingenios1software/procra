@@ -349,7 +349,11 @@ export type ControlHorario = {
   id: string;
   empleadoId: string;
   fecha: Date | string;
-  horasTrabajadas: number;
+  horaEntrada: string;
+  horaSalida: string;
+  horasAm: number;
+  horasPm: number;
+  horasTotales: number;
   estado: 'pendiente' | 'aprobado' | 'rechazado';
   observacion?: string;
   creadoPor?: string;

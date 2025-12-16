@@ -39,20 +39,52 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
     return empleado ? `${empleado.apellido}, ${empleado.nombre}` : "N/A";
   };
   
-  const handleSave = async (data: Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor'>) => {
+  const calculateHoras = (entrada: string, salida: string) => {
+    if (!entrada || !salida) return { am: 0, pm: 0, total: 0 };
+    
+    const [hEntrada, mEntrada] = entrada.split(":").map(Number);
+    const [hSalida, mSalida] = salida.split(":").map(Number);
+    
+    const entradaTotalMinutos = hEntrada * 60 + mEntrada;
+    const salidaTotalMinutos = hSalida * 60 + mSalida;
+    
+    if (salidaTotalMinutos <= entradaTotalMinutos) return { am: 0, pm: 0, total: 0 };
+    
+    const mediodiaMinutos = 12 * 60;
+    
+    const inicio = entradaTotalMinutos;
+    const fin = salidaTotalMinutos;
+    
+    const horasAm = Math.max(0, Math.min(fin, mediodiaMinutos) - inicio);
+    const horasPm = Math.max(0, fin - Math.max(inicio, mediodiaMinutos));
+    
+    return {
+        am: horasAm / 60,
+        pm: horasPm / 60,
+        total: (horasAm + horasPm) / 60
+    };
+  }
+
+  const handleSave = async (data: Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado' | 'horasAm' | 'horasPm' | 'horasTotales'>) => {
     if (!firestore || !user) return;
+    
+    const { am, pm, total } = calculateHoras(data.horaEntrada, data.horaSalida);
+
+    const dataToSave = {
+        ...data,
+        fecha: (data.fecha as Date).toISOString(),
+        horasAm: am,
+        horasPm: pm,
+        horasTotales: total,
+    }
 
     if (selectedRegistro) {
       const registroRef = doc(firestore, 'controlHorario', selectedRegistro.id);
-      updateDocumentNonBlocking(registroRef, {
-        ...data,
-        fecha: (data.fecha as Date).toISOString()
-      });
+      updateDocumentNonBlocking(registroRef, dataToSave);
       toast({ title: "Registro actualizado" });
     } else {
       addDocumentNonBlocking(collection(firestore, 'controlHorario'), {
-        ...data,
-        fecha: (data.fecha as Date).toISOString(),
+        ...dataToSave,
         estado: 'pendiente',
         creadoPor: user.uid,
         creadoEn: serverTimestamp()
@@ -104,19 +136,26 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
               <TableRow>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Empleado</TableHead>
-                <TableHead>Horas Trabajadas</TableHead>
+                <TableHead>Entrada</TableHead>
+                <TableHead>Salida</TableHead>
+                <TableHead className="text-right">Horas AM</TableHead>
+                <TableHead className="text-right">Horas PM</TableHead>
+                <TableHead className="text-right">Total Horas</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Observación</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={9} className="text-center">Cargando...</TableCell></TableRow>}
               {registros.map(registro => (
                 <TableRow key={registro.id}>
                   <TableCell>{format(new Date(registro.fecha as string), "dd/MM/yyyy")}</TableCell>
                   <TableCell className="font-medium">{getEmpleadoNombre(registro.empleadoId)}</TableCell>
-                  <TableCell className="font-mono">{registro.horasTrabajadas.toFixed(2)} hs</TableCell>
+                  <TableCell>{registro.horaEntrada}</TableCell>
+                  <TableCell>{registro.horaSalida}</TableCell>
+                  <TableCell className="text-right font-mono">{registro.horasAm.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono">{registro.horasPm.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono font-bold">{registro.horasTotales.toFixed(2)}</TableCell>
                   <TableCell>
                     <Badge
                       className={cn({
@@ -126,7 +165,6 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
                       })}
                     >{registro.estado}</Badge>
                   </TableCell>
-                  <TableCell>{registro.observacion}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

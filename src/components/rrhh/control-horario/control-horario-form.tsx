@@ -15,14 +15,23 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { ControlHorario, Empleado } from "@/lib/types";
 
+const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+
 const formSchema = z.object({
   empleadoId: z.string().nonempty("Debe seleccionar un empleado."),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
-  horasTrabajadas: z.coerce.number().positive("Las horas deben ser un número positivo."),
+  horaEntrada: z.string().regex(timeRegex, "Formato HH:mm"),
+  horaSalida: z.string().regex(timeRegex, "Formato HH:mm"),
   observacion: z.string().optional(),
+}).refine(data => {
+    if (!data.horaEntrada || !data.horaSalida) return true;
+    return data.horaSalida > data.horaEntrada;
+}, {
+    message: "La hora de salida debe ser posterior a la de entrada.",
+    path: ["horaSalida"],
 });
 
-type FormValues = Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado'>;
+type FormValues = Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado' | 'horasAm' | 'horasPm' | 'horasTotales'>;
 
 interface ControlHorarioFormProps {
   registro?: ControlHorario | null;
@@ -39,7 +48,8 @@ export function ControlHorarioForm({ registro, empleados, onSubmit, onCancel }: 
         fecha: new Date(registro.fecha as string),
     } : {
       fecha: new Date(),
-      horasTrabajadas: 8,
+      horaEntrada: "07:00",
+      horaSalida: "17:00",
     },
   });
 
@@ -69,46 +79,59 @@ export function ControlHorarioForm({ registro, empleados, onSubmit, onCancel }: 
               </FormItem>
             )}
           />
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="fecha"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Fecha</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                        >
-                          {field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="horasTrabajadas"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Horas Trabajadas</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="8.00" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <FormField
+            control={form.control}
+            name="fecha"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Fecha</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                      >
+                        {field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+           <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="horaEntrada"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Hora de Entrada</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="horaSalida"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Hora de Salida</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
           </div>
           <FormField
             control={form.control}
