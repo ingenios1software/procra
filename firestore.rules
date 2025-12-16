@@ -108,10 +108,14 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    match /controlHorario/{document=**} {
-      allow read: if isAuthenticated();
+    match /controlHorario/{controlId} {
+      allow get: if isAuthenticated();
       allow create, delete: if isAdmin() || isSupervisor();
       allow update: if (isAdmin() || isSupervisor()) && resource.data.estado != "aprobado";
+    }
+    
+    match /controlHorario {
+      allow list: if isAuthenticated();
     }
   }
 }
