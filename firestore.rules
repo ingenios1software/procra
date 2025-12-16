@@ -7,17 +7,51 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    match /plots/{plotId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /crops/{cropId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /seasons/{seasonId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /events/{eventId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /users/{userId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /roles/{roleId} {
+      allow read, write: if isAuthenticated();
+    }
+
     match /planDeCuentas/{cuentaId} {
-      allow list, get: if isAuthenticated();
-      allow create, update, delete: if false;
+      allow read, write: if isAuthenticated();
     }
 
-    match /zafras/{zafraId} {
-        allow get, list: if isAuthenticated();
-        allow create, update, delete: if isAuthenticated();
+    match /centrosDeCosto/{centroId} {
+      allow read, write: if isAuthenticated();
     }
 
-    match /etapasCultivo/{etapaId} {
+    match /asientosDiario/{asientoId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /MovimientosStock/{movimientoId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /ControlHorario/{controlId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /parcelas/{parcelaId} {
         allow read, write: if isAuthenticated();
     }
 
@@ -25,45 +59,48 @@ service cloud.firestore {
         allow read, write: if isAuthenticated();
     }
 
-    match /eventos/{eventoId} {
-        allow read, write: if isAuthenticated();
-    }
-
-    match /parcelas/{parcelaId} {
+    match /zafras/{zafraId} {
         allow read, write: if isAuthenticated();
     }
 
     match /insumos/{insumoId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
+    }
+
+    match /maquinaria/{maquinariaId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /proveedores/{proveedorId} {
+      allow read, write: if isAuthenticated();
     }
 
     match /compras/{compraId} {
-        allow read, write: if isAuthenticated();
-    }
-
-    match /proveedores/{proveedorId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
     
     match /ventas/{ventaId} {
         allow read, write: if isAuthenticated();
     }
 
-    match /MovimientosStock/{movimientoId} {
-        allow read, write: if isAuthenticated();
-    }
-
     match /clientes/{clienteId} {
         allow read, write: if isAuthenticated();
     }
-    
+
+    match /etapasCultivo/{etapaId} {
+        allow read, write: if isAuthenticated();
+    }
+
     match /plagas/{plagaId} {
         allow read, write: if isAuthenticated();
     }
 
-    match /controlHorario/{controlId} {
+    match /empleados/{empleadoId} {
         allow read, write: if isAuthenticated();
     }
 
+    match /asistencias/{asistenciaId} {
+        allow read, write: if isAuthenticated();
+    }
   }
 }
