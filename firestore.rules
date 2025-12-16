@@ -95,7 +95,7 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    match /empleados/{empleadoId} {
+    match /empleados/{document=**} {
       allow read, write: if isAuthenticated();
     }
 
