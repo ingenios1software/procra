@@ -109,13 +109,9 @@ service cloud.firestore {
     }
 
     match /controlHorario/{controlId} {
-      allow get: if isAuthenticated();
+      allow read: if isAuthenticated();
       allow create, delete: if isAdmin() || isSupervisor();
       allow update: if (isAdmin() || isSupervisor()) && resource.data.estado != "aprobado";
-    }
-    
-    match /controlHorario {
-      allow list: if isAuthenticated();
     }
   }
 }
