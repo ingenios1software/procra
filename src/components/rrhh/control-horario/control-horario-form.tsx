@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import type { ControlHorario, Empleado } from "@/lib/types";
+import type { ControlHorario, Empleado, Parcela } from "@/lib/types";
 
 const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -23,6 +23,8 @@ const formSchema = z.object({
   horaEntrada: z.string().regex(timeRegex, "Formato HH:mm"),
   horaSalida: z.string().regex(timeRegex, "Formato HH:mm"),
   observacion: z.string().optional(),
+  parcelaId: z.string().optional(),
+  tipoTrabajo: z.string().optional(),
 }).refine(data => {
     if (!data.horaEntrada || !data.horaSalida) return true;
     return data.horaSalida > data.horaEntrada;
@@ -31,16 +33,21 @@ const formSchema = z.object({
     path: ["horaSalida"],
 });
 
-type FormValues = Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado' | 'horasAm' | 'horasPm' | 'horasTotales' | 'aprobadoEn' | 'aprobadoPor'>;
+type FormValues = Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado' | 'horasAm' | 'horasPm' | 'horasTotales' | 'aprobadoEn' | 'aprobadoPor' | 'costoManoDeObra'>;
 
 interface ControlHorarioFormProps {
   registro?: ControlHorario | null;
   empleados: Empleado[];
+  parcelas: Parcela[];
   onSubmit: (data: FormValues) => void;
   onCancel: () => void;
 }
 
-export function ControlHorarioForm({ registro, empleados, onSubmit, onCancel }: ControlHorarioFormProps) {
+const tiposDeTrabajo = [
+    "Siembra", "Cosecha", "Aplicación", "Fertilización", "Mantenimiento", "Labores Generales", "Monitoreo", "Otro"
+];
+
+export function ControlHorarioForm({ registro, empleados, parcelas, onSubmit, onCancel }: ControlHorarioFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: registro ? {
@@ -79,6 +86,50 @@ export function ControlHorarioForm({ registro, empleados, onSubmit, onCancel }: 
               </FormItem>
             )}
           />
+          <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="parcelaId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Parcela</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccione una parcela (opcional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">Ninguna</SelectItem>
+                        {parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="tipoTrabajo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Trabajo</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccione un tipo (opcional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">Ninguno</SelectItem>
+                        {tiposDeTrabajo.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+          </div>
           <FormField
             control={form.control}
             name="fecha"

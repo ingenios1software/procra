@@ -38,6 +38,7 @@ import {
     Monitor,
     AreaChart,
     Clock,
+    Wallet,
 } from "lucide-react"
 import {
   Accordion,
@@ -123,8 +124,8 @@ const navItems = [
         icon: Users,
         links: [
             { href: "/rrhh/empleados", icon: Briefcase, label: "Empleados" },
-            { href: "/rrhh/asistencias", icon: UserCheck, label: "Asistencias" },
             { href: "/rrhh/control-horario", icon: Clock, label: "Control Horario" },
+            { href: "/rrhh/liquidacion", icon: Wallet, label: "Liquidación" },
         ]
     },
     {

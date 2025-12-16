@@ -13,7 +13,7 @@ import { useAuth, useUser, useFirestore, addDocumentNonBlocking, updateDocumentN
 import { useToast } from "@/hooks/use-toast";
 import { collection, doc, serverTimestamp } from "firebase/firestore";
 import { format, isValid } from "date-fns";
-import type { ControlHorario, Empleado } from "@/lib/types";
+import type { ControlHorario, Empleado, Parcela } from "@/lib/types";
 import { ControlHorarioForm } from "./control-horario-form";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -24,10 +24,11 @@ import type { DateRange } from "react-day-picker";
 interface ControlHorarioListProps {
   registros: ControlHorario[];
   empleados: Empleado[];
+  parcelas: Parcela[];
   isLoading: boolean;
 }
 
-export function ControlHorarioList({ registros, empleados, isLoading }: ControlHorarioListProps) {
+export function ControlHorarioList({ registros, empleados, parcelas, isLoading }: ControlHorarioListProps) {
   const { user } = useUser();
   const { role } = useAuth();
   const firestore = useFirestore();
@@ -91,10 +92,14 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
     };
   }
 
-  const handleSave = async (data: Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado' | 'horasAm' | 'horasPm' | 'horasTotales' | 'aprobadoEn' | 'aprobadoPor'>) => {
+  const handleSave = async (data: Omit<ControlHorario, 'id' | 'creadoEn' | 'creadoPor' | 'estado' | 'horasAm' | 'horasPm' | 'horasTotales' | 'aprobadoEn' | 'aprobadoPor' | 'costoManoDeObra'>) => {
     if (!firestore || !user) return;
     
     const { am, pm, total } = calculateHoras(data.horaEntrada, data.horaSalida);
+    const empleado = empleados.find(e => e.id === data.empleadoId);
+    const costoPorHora = (empleado?.salario || 0) / 220; // Asumiendo 220 horas laborales al mes
+    const costoManoDeObra = total * costoPorHora;
+
 
     const dataToSave = {
         ...data,
@@ -102,6 +107,7 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
         horasAm: am,
         horasPm: pm,
         horasTotales: total,
+        costoManoDeObra: costoManoDeObra,
     }
 
     if (selectedRegistro) {
@@ -292,6 +298,7 @@ export function ControlHorarioList({ registros, empleados, isLoading }: ControlH
           <ControlHorarioForm
             registro={selectedRegistro}
             empleados={empleados}
+            parcelas={parcelas}
             onSubmit={handleSave}
             onCancel={() => setFormOpen(false)}
           />

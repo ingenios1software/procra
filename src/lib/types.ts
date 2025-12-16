@@ -348,12 +348,15 @@ export type Asistencia = {
 export type ControlHorario = {
   id: string;
   empleadoId: string;
+  parcelaId?: string;
+  tipoTrabajo?: string;
   fecha: Date | string;
   horaEntrada: string;
   horaSalida: string;
   horasAm: number;
   horasPm: number;
   horasTotales: number;
+  costoManoDeObra: number;
   estado: 'pendiente' | 'aprobado' | 'rechazado';
   observacion?: string;
   creadoPor?: string;
