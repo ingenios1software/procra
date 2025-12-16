@@ -51,10 +51,6 @@ service cloud.firestore {
     match /asientosDiario/{document=**} {
       allow read, write: if isAuthenticated();
     }
-
-    match /MovimientosStock/{document=**} {
-      allow read, write: if isAuthenticated();
-    }
     
     match /parcelas/{document=**} {
       allow read, write: if isAuthenticated();
@@ -104,13 +100,19 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
     
-    match /empleados/{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+    match /empleados/{empleadoId} {
+      allow read, write: if isAuthenticated() && isAdmin();
+    }
+    match /empleados/{wildcard=**} {
+       allow read, list: if isAuthenticated();
+    }
+
+    match /MovimientosStock/{document=**} {
+      allow read, write: if isAuthenticated();
     }
 
     match /controlHorario/{document=**} {
-      allow read: if isAuthenticated();
+      allow read, list: if isAuthenticated();
       allow create, delete: if isAdmin() || isSupervisor();
       allow update: if (isAdmin() || isSupervisor()) && resource.data.estado != 'aprobado';
     }
