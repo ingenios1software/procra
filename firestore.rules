@@ -12,6 +12,10 @@ service cloud.firestore {
       return request.auth.token.role == 'admin';
     }
 
+    function isSupervisor() {
+      return request.auth.token.role == 'supervisor';
+    }
+
     match /plots/{document=**} {
       allow read, write: if isAuthenticated();
     }
@@ -106,7 +110,8 @@ service cloud.firestore {
     }
     
     match /controlHorario/{document=**} {
-        allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isSupervisor();
     }
   }
 }
