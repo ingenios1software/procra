@@ -99,22 +99,16 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
     
-    match /empleados/{empleadoId} {
-      allow get, update, delete: if isAuthenticated() && isAdmin();
-      allow create: if isAuthenticated() && isAdmin();
-      allow list, read: if isAuthenticated();
+    match /empleados/{document=**} {
+      allow read, write: if isAuthenticated();
     }
-
+    
     match /MovimientosStock/{document=**} {
       allow read, write: if isAuthenticated();
     }
 
-    match /controlHorario/{controlId} {
-        allow get: if isAuthenticated();
-        allow create, update, delete: if isAdmin() || isSupervisor();
-    }
-    match /controlHorario/{documents=**} {
-        allow list, read: if isAuthenticated();
+    match /controlHorario/{document=**} {
+      allow read, write: if isAuthenticated();
     }
   }
 }
