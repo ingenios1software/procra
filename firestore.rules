@@ -6,6 +6,11 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
+    
+    function isAdmin() {
+      // Asume que el rol de admin se almacena en los custom claims del token de autenticación.
+      return request.auth.token.role == 'admin';
+    }
 
     match /plots/{document=**} {
       allow read, write: if isAuthenticated();
@@ -44,10 +49,6 @@ service cloud.firestore {
     }
 
     match /MovimientosStock/{document=**} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /controlHorario/{document=**} {
       allow read, write: if isAuthenticated();
     }
     
@@ -96,11 +97,16 @@ service cloud.firestore {
     }
 
     match /empleados/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     match /asistencias/{document=**} {
       allow read, write: if isAuthenticated();
+    }
+    
+    match /controlHorario/{document=**} {
+        allow read, write: if isAuthenticated();
     }
   }
 }
