@@ -17,87 +17,87 @@ service cloud.firestore {
     }
 
     match /plots/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /crops/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /seasons/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /events/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /users/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /roles/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /planDeCuentas/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /centrosDeCosto/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /asientosDiario/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
     
     match /parcelas/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /cultivos/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /zafras/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /insumos/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /maquinaria/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
     
     match /proveedores/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /compras/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
     
     match /ventas/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /clientes/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /etapasCultivo/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
     match /plagas/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
     
     match /asistencias/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
     
     match /empleados/{empleadoId} {
@@ -108,13 +108,16 @@ service cloud.firestore {
     }
 
     match /MovimientosStock/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write, list: if isAuthenticated();
     }
 
-    match /controlHorario/{document=**} {
-      allow read, list: if isAuthenticated();
-      allow create, delete: if isAdmin() || isSupervisor();
-      allow update: if (isAdmin() || isSupervisor()) && resource.data.estado != 'aprobado';
+    match /controlHorario/{controlId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isAdmin() || isSupervisor();
+        allow update: if (isAdmin() || isSupervisor()) && resource.data.estado != 'aprobado';
+    }
+    match /controlHorario/{documents=**} {
+        allow read, list: if isAuthenticated();
     }
   }
 }
