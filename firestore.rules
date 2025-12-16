@@ -52,15 +52,15 @@ service cloud.firestore {
     }
 
     match /parcelas/{parcelaId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /cultivos/{cultivoId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /zafras/{zafraId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /insumos/{insumoId} {
@@ -80,27 +80,27 @@ service cloud.firestore {
     }
     
     match /ventas/{ventaId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /clientes/{clienteId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /etapasCultivo/{etapaId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /plagas/{plagaId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /empleados/{empleadoId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /asistencias/{asistenciaId} {
-        allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /controlHorario/{registroId} {
