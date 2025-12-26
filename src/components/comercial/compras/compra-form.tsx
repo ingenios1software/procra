@@ -130,7 +130,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                 fecha: data.fecha,
                 tipo: "entrada",
                 origen: "compra",
-                compraId: compraRef.id,
+                compraId: compraRef.id || null,
                 eventoId: null,
                 ajusteId: null,
                 parcelaId: null,
@@ -253,5 +253,3 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
     </Form>
   );
 }
-
-    
