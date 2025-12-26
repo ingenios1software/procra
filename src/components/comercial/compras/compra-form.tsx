@@ -131,6 +131,12 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                 tipo: "entrada",
                 origen: "compra",
                 compraId: compraRef.id,
+                eventoId: undefined,
+                ajusteId: undefined,
+                parcelaId: undefined,
+                parcelaNombre: undefined,
+                zafraId: data.zafraId,
+                cultivo: undefined,
                 insumoId: insumo.id,
                 insumoNombre: insumo.nombre,
                 unidad: insumo.unidad,
@@ -214,7 +220,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
 
                             return (
                                 <TableRow key={field.id} className="align-top">
-                                    <TableCell className="font-medium p-1"><FormField control={form.control} name={`items.${index}.insumo`} render={({ field: formField, fieldState }) => (<FormItem><SelectorUniversal<Insumo> label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={formField.value} onSelect={formField.onChange} searchFields={['nombre', 'numeroItem']} /><FormMessage /></FormItem> )} /></TableCell>
+                                    <TableCell className="font-medium p-1"><FormField control={form.control} name={`items.${index}.insumo`} render={({ field: formField, fieldState }) => (<FormItem><SelectorUniversal label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={formField.value} onSelect={formField.onChange} searchFields={['nombre', 'numeroItem']} /><FormMessage /></FormItem> )} /></TableCell>
                                     <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.cantidad`} render={({ field: formField }) => <Input type="number" placeholder="0" {...formField} />} /></TableCell>
                                     <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.precioUnitario`} render={({ field: formField }) => <Input type="number" placeholder="0" {...formField} />} /></TableCell>
                                     <TableCell className="text-right font-mono p-1 align-middle">${formatCurrency(valorTotal)}</TableCell>
@@ -247,3 +253,5 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
     </Form>
   );
 }
+
+    
