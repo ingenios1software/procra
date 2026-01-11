@@ -107,15 +107,15 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
         tipoCompra: data.tipoCompra,
         observacion: data.observacion || null,
         total: totalGeneral,
-        estado: 'Registrado',
+        estado: 'Registrado' as const,
         creadoPor: user.uid,
         creadoEn: new Date(),
         items: itemsSanitized,
     };
     
     if (compra) {
-        const compraRef = doc(firestore, "compras", compra.id);
-        updateDocumentNonBlocking(compraRef, compraData);
+      const compraRef = doc(firestore, "compras", compra.id);
+      batch.update(compraRef, compraData);
     } else {
         const compraRef = doc(collection(firestore, "compras"));
         batch.set(compraRef, compraData);
@@ -157,9 +157,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
     }
     
     try {
-        if (!compra) {
-            await batch.commit();
-        }
+        await batch.commit();
         toast({
             title: compra ? "Compra actualizada" : "Compra registrada",
             description: `La compra con N° ${data.numeroDocumento} ha sido guardada.`,
