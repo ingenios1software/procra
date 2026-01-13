@@ -126,16 +126,17 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
             const movimientoRef = doc(collection(firestore, "MovimientosStock"));
             const stockAntes = insumo.stockActual || 0;
             const nuevoStock = stockAntes + item.cantidad;
+            
             const nuevoMovimiento: Omit<MovimientoStock, 'id'> = {
                 fecha: data.fecha,
                 tipo: "entrada",
                 origen: "compra",
-                compraId: compraRef.id || null,
+                compraId: compraRef.id,
                 eventoId: null,
                 ajusteId: null,
                 parcelaId: null,
                 parcelaNombre: null,
-                zafraId: data.zafraId,
+                zafraId: data.zafraId || null,
                 cultivo: null,
                 insumoId: insumo.id,
                 insumoNombre: insumo.nombre,
@@ -152,7 +153,8 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
             batch.set(movimientoRef, nuevoMovimiento);
 
             const insumoRef = doc(firestore, "insumos", insumo.id);
-            batch.update(insumoRef, { stockActual: nuevoStock });
+            const stockActual = insumo.stockActual || 0;
+            batch.update(insumoRef, { stockActual: stockActual + item.cantidad });
         }
     }
     
