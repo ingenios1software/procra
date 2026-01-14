@@ -190,9 +190,8 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
         'Nombre': item.nombre,
         'Categoría': item.categoria,
         'Principio Activo': item.principioActivo || 'N/A',
-        'Dosis Rec.': item.dosisRecomendada ? `${item.dosisRecomendada} ${item.unidad}/ha` : 'N/A',
         'Stock Actual': item.stockFinal,
-        'Precio Prom. Calc. ($)': item.precioPromedioCalculado,
+        'Precio Promedio ($)': item.precioPromedioCalculado,
         'Valor en Stock ($)': item.valorStock,
     }));
 
@@ -338,17 +337,18 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
             <Table className="whitespace-nowrap">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item Nº</TableHead>
+                  <TableHead>Item N°</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Principio Activo</TableHead>
                   <TableHead className="text-right">Stock Actual</TableHead>
+                  <TableHead className="text-right">Precio Promedio</TableHead>
                   <TableHead className="text-right">Valor en Stock</TableHead>
                   {user && <TableHead className="text-right no-print">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={7} className="text-center h-24">Cargando...</TableCell></TableRow>}
+                {isLoading && <TableRow><TableCell colSpan={8} className="text-center h-24">Cargando...</TableCell></TableRow>}
                 {filteredStockData.map((insumo, index) => (
                   <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
                     <TableCell className="font-medium text-muted-foreground py-2 px-4">{insumo.numeroItem || index + 1}</TableCell>
@@ -361,7 +361,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                                   <AlertCircle className="h-4 w-4 text-destructive" />
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Stock por debajo del mínimo</p>
+                                  <p>Stock por debajo del mínimo ({insumo.stockMinimo} {insumo.unidad})</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -374,6 +374,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                     </TableCell>
                     <TableCell className="py-2 px-4">{insumo.principioActivo || 'N/A'}</TableCell>
                     <TableCell className="text-right font-mono font-bold py-2 px-4">{insumo.stockFinal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
+                    <TableCell className="text-right font-mono py-2 px-4">${insumo.precioPromedioCalculado.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-right font-mono font-bold text-primary py-2 px-4">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                     
                     {user && (
@@ -429,7 +430,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                   </TableRow>
                 ))}
                 {!isLoading && filteredStockData.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
