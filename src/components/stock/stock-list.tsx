@@ -60,71 +60,21 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
   };
 
   const stockData = useMemo(() => {
-    if (!insumos || !compras || !eventos) return [];
-    
-    const preciosCalculados: Record<string, number> = {};
-    insumos.forEach(insumo => {
-        const comprasDelInsumo = compras
-            .flatMap(c => c.items)
-            .filter(item => item.insumoId === insumo.id);
-        
-        const totalCantidadComprada = comprasDelInsumo.reduce((sum, item) => sum + item.cantidad, 0);
-        const totalValorComprado = comprasDelInsumo.reduce((sum, item) => sum + (item.cantidad * item.precioUnitario), 0);
+    if (!insumos) return [];
 
-        preciosCalculados[insumo.id] = totalCantidadComprada > 0 ? totalValorComprado / totalCantidadComprada : 0;
-    });
-
-    const allEvents: (
-      { type: 'entrada'; fecha: Date; insumoId: string; cantidad: number; } |
-      { type: 'salida'; fecha: Date; insumoId: string; cantidad: number; }
-    )[] = [];
-
-    compras.forEach(compra => {
-        compra.items.forEach(item => {
-            allEvents.push({ type: 'entrada', fecha: new Date(compra.fecha as string), insumoId: item.insumoId, cantidad: item.cantidad });
-        });
-    });
-
-    eventos.forEach(evento => {
-        evento.productos?.forEach(prod => {
-            allEvents.push({ type: 'salida', fecha: new Date(evento.fecha as string), insumoId: prod.insumoId, cantidad: prod.cantidad });
-        });
-    });
-    
-    allEvents.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
-
-    const calculatedInsumos = insumos.map(insumo => {
-        let currentStock = insumo.stockActual;
-        let entradaTotal = 0;
-        let salidaTotal = 0;
-        
-        const insumoMovements = allEvents.filter(e => e.insumoId === insumo.id);
-        
-        insumoMovements.forEach(mov => {
-            if (mov.type === 'entrada') {
-                entradaTotal += mov.cantidad;
-            } else if (mov.type === 'salida') {
-                salidaTotal += mov.cantidad;
-            }
-        });
-        
-        currentStock = (insumo.stockActual || 0) + entradaTotal - salidaTotal;
-        
-        const precioPromedioCalculado = preciosCalculados[insumo.id] || 0;
-        const valorStock = currentStock * precioPromedioCalculado;
+    return insumos.map(insumo => {
+        const precioPromedio = insumo.precioPromedioCalculado || insumo.costoUnitario || 0;
+        const stockFinal = insumo.stockActual || 0;
+        const valorStock = stockFinal * precioPromedio;
 
         return {
             ...insumo,
-            entradaTotal,
-            salidaTotal,
-            stockFinal: currentStock,
-            precioPromedioCalculado,
+            stockFinal: stockFinal,
+            precioPromedioCalculado: precioPromedio,
             valorStock,
         };
     });
-
-    return calculatedInsumos;
-  }, [insumos, compras, eventos]);
+  }, [insumos]);
   
   const filteredStockData = useMemo(() => {
     return stockData.filter(insumo => {
@@ -395,7 +345,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                   <TableHead>Dosis Rec.</TableHead>
                   <TableHead className="text-right">Stock Actual</TableHead>
                   <TableHead className="text-right">Precio Prom. Cal.</TableHead>
-                  <TableHead className="text-right">Valor en Stock</TableHead>
+                  <TableHead className="text-right">Valor Item</TableHead>
                   {user && <TableHead className="text-right no-print">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
