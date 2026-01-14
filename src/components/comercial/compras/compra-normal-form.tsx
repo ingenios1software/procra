@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from 'react';
@@ -117,7 +118,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
       formaPago: data.formaPago,
       condicionCompra: data.condicionCompra,
       totalizadora: data.totalizadora,
-      observacion: data.observacion,
+      observacion: data.observacion || null,
       totalMercaderias: totalMercaderias,
       totalFlete: data.flete_valor || 0,
       totalFactura: totalFactura,
@@ -143,7 +144,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
     
     if (compra) {
       const compraRef = doc(firestore, "comprasNormal", compra.id);
-      await updateDocumentNonBlocking(compraRef, compraData);
+      await updateDocumentNonBlocking(compraRef, compraData as any);
       toast({ title: "Compra actualizada" });
     } else {
         await addDocumentNonBlocking(comprasCol, compraData);
@@ -233,3 +234,4 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
     </Form>
   );
 }
+
