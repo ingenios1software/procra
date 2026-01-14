@@ -325,46 +325,38 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
             </div>
         )}
       </PageHeader>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Valor Total del Stock</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">${totalStockValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                <p className="text-xs text-muted-foreground">Valor estimado del inventario actual</p>
-            </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Items en Stock</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{filteredStockData.length}</div>
-                <p className="text-xs text-muted-foreground">Total de insumos únicos</p>
-            </CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Items con Stock Bajo</CardTitle>
-                <AlertCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold text-destructive">{itemsBajoMinimo}</div>
-                <p className="text-xs text-muted-foreground">Insumos por debajo del stock mínimo</p>
-            </CardContent>
-        </Card>
-      </div>
-
+      
     <div id="pdf-area" className="print-area">
       <Card>
         <CardHeader>
-          <div>
-            <CardTitle>Inventario Detallado</CardTitle>
-            <CardDescription>Análisis completo del movimiento de cada insumo.</CardDescription>
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+              <div>
+                  <CardTitle>Inventario Detallado</CardTitle>
+                  <CardDescription>Análisis completo del movimiento de cada insumo.</CardDescription>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border">
+                      <DollarSign className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                          <p className="text-xs text-muted-foreground">Valor Total del Stock</p>
+                          <p className="text-lg font-bold">${totalStockValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      </div>
+                  </div>
+                   <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border">
+                      <Package className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                          <p className="text-xs text-muted-foreground">Items en Stock</p>
+                          <p className="text-lg font-bold">{filteredStockData.length}</p>
+                      </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border">
+                      <AlertCircle className="h-5 w-5 text-destructive" />
+                      <div>
+                          <p className="text-xs text-muted-foreground">Items con Stock Bajo</p>
+                          <p className="text-lg font-bold text-destructive">{itemsBajoMinimo}</p>
+                      </div>
+                  </div>
+              </div>
           </div>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 no-print">
             <Input 
