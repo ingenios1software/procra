@@ -17,9 +17,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { CompraNormal, Proveedor, Insumo } from "@/lib/types";
-import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from "@/firebase";
-import { collection, doc, writeBatch, serverTimestamp, getDocs, query, orderBy, limit } from "firebase/firestore";
+import type { CompraNormal, Proveedor, Insumo, MovimientoStock } from "@/lib/types";
+import { useCollection, useFirestore, useUser, updateDocumentNonBlocking, useMemoFirebase } from "@/firebase";
+import { collection, doc, writeBatch, serverTimestamp, getDocs, query, orderBy, limit, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from '@/components/common';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -77,6 +77,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: compra ? {
       ...compra,
+      mercaderias: compra.mercaderias.map(m => ({...m, insumo: m.insumo || m})),
       fechaEmision: new Date(compra.fechaEmision as string),
     } : {
       fechaEmision: new Date(),
@@ -112,55 +113,113 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
   }, [totalMercaderias, watchedFlete]);
 
   const handleSubmit = async (data: CompraFormValues) => {
-    if (!firestore || !user) return;
-    
+    if (!firestore || !user) {
+        toast({ variant: "destructive", title: "Error de autenticación." });
+        return;
+    }
+
+    const batch = writeBatch(firestore);
+
+    // --- 1. PREPARAR DOCUMENTO DE COMPRA ---
     const comprasCol = collection(firestore, 'comprasNormal');
-    const q = query(comprasCol, orderBy("codigo", "desc"), limit(1));
-    const lastDoc = await getDocs(q);
-    const nuevoCodigo = lastDoc.empty ? 1 : (lastDoc.docs[0].data().codigo || 0) + 1;
+    const compraRef = compra ? doc(firestore, "comprasNormal", compra.id) : doc(comprasCol);
+    
+    let nuevoCodigo = compra?.codigo;
+    if (!nuevoCodigo) {
+        const q = query(comprasCol, orderBy("codigo", "desc"), limit(1));
+        const lastDoc = await getDocs(q);
+        nuevoCodigo = lastDoc.empty ? 1 : (lastDoc.docs[0].data().codigo || 0) + 1;
+    }
 
     const compraData: Omit<CompraNormal, 'id'> = {
-      codigo: nuevoCodigo,
-      fechaEmision: (data.fechaEmision as Date).toISOString(),
-      entidadId: data.entidadId,
-      moneda: data.moneda,
-      formaPago: data.formaPago,
-      condicionCompra: data.condicionCompra,
-      totalizadora: data.totalizadora,
-      observacion: data.observacion ?? undefined,
-      totalMercaderias: totalMercaderias,
-      totalFlete: data.flete_valor || 0,
-      totalFactura: totalFactura,
-      estado: 'abierto',
-      usuario: user.email || 'N/A',
-      timestamp: serverTimestamp(),
-      mercaderias: data.mercaderias.map(m => ({ ...m, insumoId: m.insumo.id, insumo: m.insumo })),
-      flete: {
-        transportadoraId: data.flete_transportadoraId,
-        datos: data.flete_datos,
-        valor: data.flete_valor || 0,
-      },
-      financiero: {
-        cuentaId: data.financiero_cuentaId,
-        vencimiento: data.financiero_vencimiento,
-        valor: totalFactura,
-      },
-      comprobante: {
-        documento: data.comprobante_documento,
-        timbre: data.comprobante_timbre,
-      }
+        codigo: nuevoCodigo,
+        fechaEmision: (data.fechaEmision as Date).toISOString(),
+        entidadId: data.entidadId,
+        moneda: data.moneda,
+        formaPago: data.formaPago,
+        condicionCompra: data.condicionCompra,
+        totalizadora: data.totalizadora,
+        observacion: data.observacion || null,
+        totalMercaderias: totalMercaderias,
+        totalFlete: data.flete_valor || 0,
+        totalFactura: totalFactura,
+        estado: compra?.estado || 'abierto',
+        usuario: user.email || 'N/A',
+        timestamp: serverTimestamp(),
+        mercaderias: data.mercaderias.map(m => ({ insumoId: m.insumo.id, cantidad: m.cantidad, valorUnitario: m.valorUnitario })),
+        flete: { valor: data.flete_valor || 0, transportadoraId: data.flete_transportadoraId, datos: data.flete_datos },
+        financiero: { valor: totalFactura, cuentaId: data.financiero_cuentaId, vencimiento: data.financiero_vencimiento },
+        comprobante: { documento: data.comprobante_documento, timbre: data.comprobante_timbre }
     };
     
     if (compra) {
-      const compraRef = doc(firestore, "comprasNormal", compra.id);
-      await updateDocumentNonBlocking(compraRef, compraData as any);
-      toast({ title: "Compra actualizada" });
+        batch.update(compraRef, compraData as any);
     } else {
-        await addDocumentNonBlocking(comprasCol, compraData);
-        toast({ title: "Compra registrada" });
+        batch.set(compraRef, compraData);
     }
-    
-    onCancel();
+
+    // --- 2. PROCESAR MOVIMIENTOS DE STOCK (SI APLICA) ---
+    if (!data.totalizadora) {
+        for (const item of data.mercaderias) {
+            const insumoComprado = item.insumo as Insumo;
+            const insumoRef = doc(firestore, "insumos", insumoComprado.id);
+            
+            // Leer el estado actual del insumo
+            const insumoDoc = await getDoc(insumoRef);
+            if (!insumoDoc.exists()) continue; 
+            const insumoActual = insumoDoc.data() as Insumo;
+
+            const stockAnterior = insumoActual.stockActual || 0;
+            const cantidadCompra = item.cantidad;
+            const nuevoStock = stockAnterior + cantidadCompra;
+            
+            // Calcular precio promedio ponderado
+            const precioAnterior = insumoActual.precioPromedioCalculado || insumoActual.costoUnitario || 0;
+            const precioCompra = item.valorUnitario;
+            const nuevoPrecioPromedio = (stockAnterior + cantidadCompra > 0)
+                ? (stockAnterior * precioAnterior + cantidadCompra * precioCompra) / (stockAnterior + cantidadCompra)
+                : precioCompra;
+
+            // Actualizar el documento del insumo
+            batch.update(insumoRef, {
+                stockActual: nuevoStock,
+                precioPromedioCalculado: nuevoPrecioPromedio,
+                costoUnitario: precioCompra, // Guardamos el último costo
+                ultimaCompra: data.fechaEmision.toISOString(),
+            });
+
+            // Crear movimiento de stock
+            const movimientoRef = doc(collection(firestore, "MovimientosStock"));
+            const movimientoData: Omit<MovimientoStock, 'id'> = {
+                fecha: data.fechaEmision,
+                tipo: 'entrada',
+                origen: 'compra',
+                compraId: compraRef.id,
+                insumoId: insumoComprado.id,
+                insumoNombre: insumoComprado.nombre,
+                unidad: insumoComprado.unidad,
+                categoria: insumoComprado.categoria,
+                cantidad: cantidadCompra,
+                stockAntes: stockAnterior,
+                stockDespues: nuevoStock,
+                precioUnitario: precioCompra,
+                costoTotal: cantidadCompra * precioCompra,
+                creadoPor: user.uid,
+                creadoEn: new Date(),
+            };
+            batch.set(movimientoRef, movimientoData);
+        }
+    }
+
+    // --- 3. COMMIT DE LA TRANSACCIÓN ---
+    try {
+        await batch.commit();
+        toast({ title: compra ? "Compra actualizada con éxito" : "Compra registrada con éxito" });
+        onCancel();
+    } catch (e: any) {
+        console.error("Error al guardar la compra y actualizar stock:", e);
+        toast({ variant: "destructive", title: "Error al guardar", description: e.message });
+    }
   };
 
   return (

@@ -1,3 +1,4 @@
+
 import type { FieldValue } from 'firebase/firestore';
 
 export type GeoJSONPoint = {
@@ -314,7 +315,7 @@ export type CompraNormal = {
   entidadId: string; // Proveedor
   formaPago?: string;
   totalizadora: boolean;
-  observacion?: string;
+  observacion?: string | null;
   totalMercaderias: number;
   totalFlete: number;
   totalFactura: number;
@@ -324,6 +325,7 @@ export type CompraNormal = {
   // Nested Objects
   mercaderias: {
     insumoId: string;
+    insumo?: Insumo; // <-- Añadido para el formulario
     cantidad: number;
     valorUnitario: number;
   }[];
@@ -389,6 +391,19 @@ export type Asistencia = {
   horaSalida: string; // "HH:mm"
   observaciones?: string;
 };
+
+export type ControlHorario = {
+    id: string;
+    empleadoId: string;
+    fecha: string;
+    actividades: {
+        parcelaId: string;
+        horaInicio: string;
+        horaFin: string;
+        descripcion: string;
+    }[];
+};
+
 
 // --- CONTABILIDAD ---
 export type PlanDeCuenta = {
