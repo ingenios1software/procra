@@ -94,10 +94,16 @@ const navItems = [
         title: "Comercial",
         icon: ShoppingCart,
         links: [
-            { href: "/comercial/compras", icon: ShoppingBag, label: "Compras" },
             { href: "/comercial/ventas", icon: TrendingUp, label: "Ventas" },
             { href: "/comercial/proveedores", icon: Users, label: "Proveedores" },
             { href: "/comercial/clientes", icon: Users, label: "Clientes" },
+        ]
+    },
+    {
+        title: "Facturas",
+        icon: FileText,
+        links: [
+            { href: "/comercial/compras", icon: ShoppingBag, label: "Consulta de Facturas" },
         ]
     },
     {

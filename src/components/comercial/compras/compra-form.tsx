@@ -128,7 +128,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
             const nuevoStock = stockAntes + item.cantidad;
             
             const nuevoMovimiento: Omit<MovimientoStock, 'id'> = {
-                fecha: data.fecha,
+                fecha: new Date(data.fecha),
                 tipo: "entrada",
                 origen: "compra",
                 compraId: compraRef.id,

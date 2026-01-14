@@ -183,13 +183,13 @@ export type MovimientoStock = {
     fecha: Date;
     tipo: "salida" | "entrada" | "ajuste";
     origen: "evento" | "compra" | "ajuste manual";
-    eventoId?: string;
-    compraId?: string;
-    ajusteId?: string;
-    parcelaId?: string;
-    parcelaNombre?: string;
-    zafraId?: string;
-    cultivo?: string;
+    eventoId?: string | null;
+    compraId?: string | null;
+    ajusteId?: string | null;
+    parcelaId?: string | null;
+    parcelaNombre?: string | null;
+    zafraId?: string | null;
+    cultivo?: string | null;
     insumoId: string;
     insumoNombre: string;
     unidad: string;
@@ -302,6 +302,51 @@ export type Compra = {
     porcentajeIva: '0' | '5' | '10';
   }[];
 }
+
+export type CompraNormal = {
+  id: string;
+  codigo?: number;
+  documento?: string;
+  fechaEmision: Date | string;
+  planFinanciacion?: string;
+  moneda: 'USD' | 'PYG';
+  condicionCompra: 'Contado' | 'Crédito';
+  entidadId: string; // Proveedor
+  formaPago?: string;
+  totalizadora: boolean;
+  observacion?: string;
+  totalMercaderias: number;
+  totalFlete: number;
+  totalFactura: number;
+  estado: 'abierto' | 'cerrado' | 'anulado';
+  usuario: string;
+  timestamp: FieldValue;
+  // Nested Objects
+  mercaderias: {
+    insumoId: string;
+    cantidad: number;
+    valorUnitario: number;
+  }[];
+  flete: {
+    transportadoraId?: string;
+    datos?: string;
+    cuentaAcreedora?: string;
+    cuentaDeudora?: string;
+    valor: number;
+  };
+  financiero: {
+    cuentaId?: string;
+    vencimiento?: Date | string;
+    valor: number;
+  };
+  comprobante: {
+    documento: string; // Serie + Numero
+    timbre: string;
+    ruc?: string;
+    cdc?: string;
+  };
+}
+
 
 export type Plaga = {
   id: string;

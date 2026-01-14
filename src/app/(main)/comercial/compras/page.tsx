@@ -7,7 +7,7 @@ import { PlusCircle, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import type { Compra, Proveedor } from "@/lib/types";
+import type { CompraNormal, Proveedor } from "@/lib/types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { CompraForm } from "@/components/comercial/compras/compra-form";
+import { CompraNormalForm } from "@/components/comercial/compras/compra-normal-form";
 import { MoreHorizontal } from "lucide-react";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
@@ -28,12 +28,12 @@ export default function ComprasPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const [isFormOpen, setFormOpen] = useState(false);
-  const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
+  const [selectedCompra, setSelectedCompra] = useState<CompraNormal | null>(null);
 
   const comprasQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'compras'), orderBy('fecha', 'desc')) : null
+    firestore ? query(collection(firestore, 'comprasNormal'), orderBy('fechaEmision', 'desc')) : null
   , [firestore]);
-  const { data: compras, isLoading: isLoadingCompras } = useCollection<Compra>(comprasQuery);
+  const { data: compras, isLoading: isLoadingCompras } = useCollection<CompraNormal>(comprasQuery);
 
   const proveedoresQuery = useMemoFirebase(() =>
     firestore ? query(collection(firestore, 'proveedores')) : null
@@ -49,7 +49,7 @@ export default function ComprasPage() {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
 
-  const openForm = (compra?: Compra) => {
+  const openForm = (compra?: CompraNormal) => {
     setSelectedCompra(compra || null);
     setFormOpen(true);
   };
@@ -62,8 +62,8 @@ export default function ComprasPage() {
   return (
     <>
       <PageHeader
-        title="Gestión de Compras"
-        description="Registre y administre las compras de insumos, productos y servicios."
+        title="Consulta de Facturas de Compra"
+        description="Consulte, edite y registre las compras de insumos, productos y servicios."
       >
         <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleExportPDF}>
@@ -80,56 +80,45 @@ export default function ComprasPage() {
       </PageHeader>
       <Card>
         <CardHeader>
-          <CardTitle>Listado de Compras</CardTitle>
+          <CardTitle>Listado de Facturas</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Código</TableHead>
                 <TableHead>Fecha</TableHead>
-                <TableHead>Documento</TableHead>
-                <TableHead>Proveedor</TableHead>
-                <TableHead>Condición</TableHead>
-                <TableHead>Tipo</TableHead>
+                <TableHead>Comprobante</TableHead>
+                <TableHead>Entidad (Proveedor)</TableHead>
+                <TableHead>Valor</TableHead>
+                <TableHead>Moneda</TableHead>
+                <TableHead>Usuario</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(isLoadingCompras || isLoadingProveedores) && <TableRow><TableCell colSpan={8} className="text-center">Cargando...</TableCell></TableRow>}
+              {(isLoadingCompras || isLoadingProveedores) && <TableRow><TableCell colSpan={9} className="text-center">Cargando...</TableCell></TableRow>}
               {compras?.map((compra) => (
                 <TableRow key={compra.id}>
-                  <TableCell>{format(new Date(compra.fecha as string), "dd/MM/yyyy")}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{compra.numeroDocumento}</span>
-                      <span className="text-xs text-muted-foreground">{compra.tipoDocumento}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{getProveedorNombre(compra.proveedorId)}</TableCell>
-                  <TableCell>
-                    <Badge variant={compra.condicion === 'Contado' ? 'secondary' : 'outline'}>
-                      {compra.condicion}
-                    </Badge>
-                  </TableCell>
-                   <TableCell>
-                    <Badge variant={compra.tipoCompra === 'Externa' ? 'default' : 'outline'}>
-                      {compra.tipoCompra}
-                    </Badge>
-                  </TableCell>
+                  <TableCell>{compra.codigo}</TableCell>
+                  <TableCell>{format(new Date(compra.fechaEmision as string), "dd/MM/yyyy")}</TableCell>
+                  <TableCell>{compra.comprobante.documento}</TableCell>
+                  <TableCell>{getProveedorNombre(compra.entidadId)}</TableCell>
+                  <TableCell className="text-right font-mono">${compra.totalFactura.toLocaleString('en-US')}</TableCell>
+                   <TableCell>{compra.moneda}</TableCell>
+                  <TableCell>{compra.usuario}</TableCell>
                   <TableCell>
                     <Badge
-                      className={cn({
-                        "bg-blue-500 text-white": compra.estado === 'Registrado',
-                        "bg-yellow-500 text-black": compra.estado === 'Aprobado',
-                        "bg-green-600 text-white": compra.estado === 'Pagado',
+                      className={cn("capitalize", {
+                        "bg-green-600 text-white": compra.estado === 'cerrado',
+                        "bg-yellow-500 text-black": compra.estado === 'abierto',
+                         "bg-red-600 text-white": compra.estado === 'anulado',
                       })}
                     >
                       {compra.estado}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right font-mono">${compra.total.toLocaleString('en-US')}</TableCell>
                    <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -154,15 +143,15 @@ export default function ComprasPage() {
       </Card>
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-4xl h-screen md:h-auto">
+        <DialogContent className="max-w-6xl h-screen md:h-auto">
            <DialogHeader>
-             <DialogTitle>{selectedCompra ? `Editar Compra N° ${selectedCompra.numeroDocumento}`: 'Registrar Nueva Compra'}</DialogTitle>
+             <DialogTitle>{selectedCompra ? `Editar Compra N° ${selectedCompra.codigo}`: 'Registrar Nueva Compra Normal'}</DialogTitle>
              <DialogDescription>
                 Complete los detalles de la factura o documento de compra.
              </DialogDescription>
            </DialogHeader>
             <div className="overflow-y-auto max-h-[85vh]">
-              <CompraForm compra={selectedCompra} onCancel={closeForm} />
+              <CompraNormalForm compra={selectedCompra} onCancel={closeForm} />
             </div>
         </DialogContent>
       </Dialog>
