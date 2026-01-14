@@ -326,7 +326,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-              <div>
+              <div className="flex-grow">
                   <CardTitle>Inventario Detallado</CardTitle>
                   <CardDescription>Análisis completo del movimiento de cada insumo.</CardDescription>
               </div>
@@ -395,7 +395,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                   <TableHead>Dosis Rec.</TableHead>
                   <TableHead className="text-right">Stock Actual</TableHead>
                   <TableHead className="text-right">Precio Prom. Cal.</TableHead>
-                  <TableHead className="text-right">Valor Item</TableHead>
+                  <TableHead className="text-right">Valor en Stock</TableHead>
                   {user && <TableHead className="text-right no-print">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
