@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -72,7 +72,6 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
   const { user } = useUser();
 
   const { data: proveedores } = useCollection<Proveedor>(useMemoFirebase(() => firestore ? collection(firestore, 'proveedores') : null, [firestore]));
-  const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? collection(firestore, 'insumos') : null, [firestore]));
   
   const form = useForm<CompraFormValues>({
     resolver: zodResolver(formSchema),
@@ -93,15 +92,24 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
     name: "mercaderias",
   });
 
-  const watchedMercaderias = form.watch('mercaderias');
-  const watchedFlete = form.watch('flete_valor');
+  const watchedMercaderias = useWatch({
+    control: form.control,
+    name: 'mercaderias',
+  });
+  const watchedFlete = useWatch({
+    control: form.control,
+    name: 'flete_valor',
+  });
 
-  const totalMercaderias = useMemo(() => watchedMercaderias.reduce((acc, item) => {
-    return acc + ((item.cantidad || 0) * (item.valorUnitario || 0));
-  }, 0), [watchedMercaderias]);
+  const totalMercaderias = useMemo(() => {
+    return (watchedMercaderias || []).reduce((acc, item) => {
+        return acc + ((Number(item.cantidad) || 0) * (Number(item.valorUnitario) || 0));
+    }, 0);
+  }, [watchedMercaderias]);
   
-  const totalFactura = useMemo(() => totalMercaderias + (watchedFlete || 0), [totalMercaderias, watchedFlete]);
-
+  const totalFactura = useMemo(() => {
+    return totalMercaderias + (Number(watchedFlete) || 0);
+  }, [totalMercaderias, watchedFlete]);
 
   const handleSubmit = async (data: CompraFormValues) => {
     if (!firestore || !user) return;
@@ -126,7 +134,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
       estado: 'abierto',
       usuario: user.email || 'N/A',
       timestamp: serverTimestamp(),
-      mercaderias: data.mercaderias.map(m => ({ ...m, insumoId: m.insumo.id })),
+      mercaderias: data.mercaderias.map(m => ({ ...m, insumoId: m.insumo.id, insumo: m.insumo })),
       flete: {
         transportadoraId: data.flete_transportadoraId,
         datos: data.flete_datos,
@@ -189,15 +197,38 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
                       <TableHead></TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
-                      {fields.map((field, index) => (
+                      {fields.map((field, index) => {
+                          const item = watchedMercaderias?.[index];
+                          const cantidad = item?.cantidad || 0;
+                          const valorUnitario = item?.valorUnitario || 0;
+                          const valorTotal = cantidad * valorUnitario;
+                          return (
                           <TableRow key={field.id} className="align-top">
-                              <TableCell className="font-medium p-1"><FormField control={form.control} name={`mercaderias.${index}.insumo`} render={({ field: formField }) => (<FormItem><SelectorUniversal label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={formField.value} onSelect={(insumo) => formField.onChange(insumo)} searchFields={['nombre', 'numeroItem']} /><FormMessage /></FormItem> )} /></TableCell>
+                              <TableCell className="font-medium p-1">
+                                <FormField 
+                                    control={form.control} 
+                                    name={`mercaderias.${index}.insumo`} 
+                                    render={({ field: formField }) => (
+                                      <FormItem>
+                                        <SelectorUniversal<Insumo> 
+                                            label="Insumo" 
+                                            collectionName="insumos" 
+                                            displayField="nombre" 
+                                            codeField="numeroItem" 
+                                            value={formField.value} 
+                                            onSelect={(insumo) => form.setValue(`mercaderias.${index}.insumo`, insumo)} 
+                                            searchFields={['nombre', 'numeroItem']} />
+                                        <FormMessage />
+                                      </FormItem> 
+                                    )} 
+                                />
+                              </TableCell>
                               <TableCell className="p-1"><FormField control={form.control} name={`mercaderias.${index}.cantidad`} render={({ field: formField }) => <Input type="number" {...formField} />} /></TableCell>
                               <TableCell className="p-1"><FormField control={form.control} name={`mercaderias.${index}.valorUnitario`} render={({ field: formField }) => <Input type="number" {...formField} />} /></TableCell>
-                              <TableCell className="text-right font-mono p-1 align-middle">${formatCurrency((form.watch(`mercaderias.${index}.cantidad`) || 0) * (form.watch(`mercaderias.${index}.valorUnitario`) || 0))}</TableCell>
+                              <TableCell className="text-right font-mono p-1 align-middle">${formatCurrency(valorTotal)}</TableCell>
                               <TableCell className="p-1"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                           </TableRow>
-                      ))}
+                      )})}
                   </TableBody>
                   <TableFooter>
                       <TableRow className="text-base"><TableCell colSpan={3} className="text-right font-bold">Total Mercaderías</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totalMercaderias)}</TableCell><TableCell></TableCell></TableRow>
