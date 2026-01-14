@@ -63,7 +63,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
     if (!insumos) return [];
 
     return insumos.map(insumo => {
-        const precioPromedio = insumo.precioPromedioCalculado || insumo.costoUnitario || 0;
+        const precioPromedio = insumo.precioPromedioCalculado ?? 0;
         const stockFinal = insumo.stockActual || 0;
         const valorStock = stockFinal * precioPromedio;
 
@@ -337,7 +337,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
             <Table className="whitespace-nowrap">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item N°</TableHead>
+                  <TableHead>Item Nº</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Principio Activo</TableHead>
