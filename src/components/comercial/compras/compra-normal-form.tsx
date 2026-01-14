@@ -127,7 +127,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
       formaPago: data.formaPago,
       condicionCompra: data.condicionCompra,
       totalizadora: data.totalizadora,
-      observacion: data.observacion || null,
+      observacion: data.observacion ?? undefined,
       totalMercaderias: totalMercaderias,
       totalFlete: data.flete_valor || 0,
       totalFactura: totalFactura,
