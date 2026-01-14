@@ -78,6 +78,10 @@ service cloud.firestore {
     match /compras/{document=**} {
       allow read, write: if isAuthenticated();
     }
+
+    match /comprasNormal/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
     
     match /ventas/{document=**} {
       allow read, write: if isAuthenticated();
