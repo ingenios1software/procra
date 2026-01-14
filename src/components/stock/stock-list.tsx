@@ -241,12 +241,8 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
         'Categoría': item.categoria,
         'Principio Activo': item.principioActivo || 'N/A',
         'Dosis Rec.': item.dosisRecomendada ? `${item.dosisRecomendada} ${item.unidad}/ha` : 'N/A',
-        'Precio Prom. Calc. ($)': item.precioPromedioCalculado,
-        'Unidad': item.unidad,
-        'Entrada Total': item.entradaTotal,
-        'Salida Total': item.salidaTotal,
         'Stock Actual': item.stockFinal,
-        'Stock Mínimo': item.stockMinimo,
+        'Precio Prom. Calc. ($)': item.precioPromedioCalculado,
         'Valor en Stock ($)': item.valorStock,
     }));
 
@@ -392,23 +388,19 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
             <Table className="whitespace-nowrap">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">Item Nº</TableHead>
-                  <TableHead className="w-[250px] min-w-[250px]">Nombre</TableHead>
-                  <TableHead className="w-[150px] min-w-[150px]">Categoría</TableHead>
-                  <TableHead className="w-[150px] min-w-[150px]">Principio Activo</TableHead>
-                  <TableHead className="w-[150px] min-w-[150px]">Dosis Rec.</TableHead>
-                  <TableHead className="w-[150px] min-w-[150px] text-right">Precio Prom. Calc.</TableHead>
-                  <TableHead className="w-[100px]">Unidad</TableHead>
-                  <TableHead className="w-[150px] min-w-[150px] text-right">Entrada Total</TableHead>
-                  <TableHead className="w-[150px] min-w-[150px] text-right">Salida Total</TableHead>
-                  <TableHead className="w-[150px] min-w-[150px] text-right">Stock Actual</TableHead>
-                  <TableHead className="w-[150px] min-w-[150px] text-right">Stock Mínimo</TableHead>
-                  <TableHead className="w-[180px] min-w-[180px] text-right">Valor en Stock</TableHead>
-                  {user && <TableHead className="w-[100px] min-w-[100px] text-right no-print">Acciones</TableHead>}
+                  <TableHead>Item Nº</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>Principio Activo</TableHead>
+                  <TableHead>Dosis Rec.</TableHead>
+                  <TableHead className="text-right">Stock Actual</TableHead>
+                  <TableHead className="text-right">Precio Prom. Cal.</TableHead>
+                  <TableHead className="text-right">Valor Item</TableHead>
+                  {user && <TableHead className="text-right no-print">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={13} className="text-center h-24">Cargando...</TableCell></TableRow>}
+                {isLoading && <TableRow><TableCell colSpan={9} className="text-center h-24">Cargando...</TableCell></TableRow>}
                 {filteredStockData.map((insumo, index) => (
                   <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
                     <TableCell className="font-medium text-muted-foreground py-2 px-4">{insumo.numeroItem || index + 1}</TableCell>
@@ -434,16 +426,8 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                     </TableCell>
                     <TableCell className="py-2 px-4">{insumo.principioActivo || 'N/A'}</TableCell>
                     <TableCell className="py-2 px-4">{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
+                    <TableCell className="text-right font-mono font-bold py-2 px-4">{insumo.stockFinal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
                     <TableCell className="text-right font-mono py-2 px-4">${insumo.precioPromedioCalculado.toFixed(2)}</TableCell>
-                    <TableCell className="py-2 px-4">{insumo.unidad}</TableCell>
-                    <TableCell className="text-right font-mono text-green-600 py-2 px-4">
-                      <div className="flex items-center justify-end gap-1"><ArrowUp size={14}/> {insumo.entradaTotal.toLocaleString('en-US')}</div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-red-600 py-2 px-4">
-                      <div className="flex items-center justify-end gap-1"><ArrowDown size={14}/> {insumo.salidaTotal.toLocaleString('en-US')}</div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-bold py-2 px-4">{insumo.stockFinal.toLocaleString('en-US')}</TableCell>
-                    <TableCell className="text-right font-mono py-2 px-4">{insumo.stockMinimo.toLocaleString('en-US')}</TableCell>
                     <TableCell className="text-right font-mono font-bold text-primary py-2 px-4">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                     
                     {user && (
@@ -499,7 +483,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                   </TableRow>
                 ))}
                 {!isLoading && filteredStockData.length === 0 && (
-                  <TableRow><TableCell colSpan={13} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
