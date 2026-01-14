@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
@@ -26,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const mercaderiaSchema = z.object({
-  insumoId: z.string().nonempty("Debe seleccionar una mercadería."),
+  insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar una mercadería." }),
   cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
   valorUnitario: z.coerce.number().positive("El valor debe ser mayor a 0."),
 });
@@ -72,6 +72,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
   const { user } = useUser();
 
   const { data: proveedores } = useCollection<Proveedor>(useMemoFirebase(() => firestore ? collection(firestore, 'proveedores') : null, [firestore]));
+  const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? collection(firestore, 'insumos') : null, [firestore]));
   
   const form = useForm<CompraFormValues>({
     resolver: zodResolver(formSchema),
@@ -125,7 +126,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
       estado: 'abierto',
       usuario: user.email || 'N/A',
       timestamp: serverTimestamp(),
-      mercaderias: data.mercaderias,
+      mercaderias: data.mercaderias.map(m => ({ ...m, insumoId: m.insumo.id })),
       flete: {
         transportadoraId: data.flete_transportadoraId,
         datos: data.flete_datos,
@@ -190,7 +191,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
                   <TableBody>
                       {fields.map((field, index) => (
                           <TableRow key={field.id} className="align-top">
-                              <TableCell className="font-medium p-1"><FormField control={form.control} name={`mercaderias.${index}.insumoId`} render={({ field: formField }) => (<FormItem><SelectorUniversal label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" onSelect={(insumo) => formField.onChange(insumo?.id)} searchFields={['nombre', 'numeroItem']} /><FormMessage /></FormItem> )} /></TableCell>
+                              <TableCell className="font-medium p-1"><FormField control={form.control} name={`mercaderias.${index}.insumo`} render={({ field: formField }) => (<FormItem><SelectorUniversal label="Insumo" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={formField.value} onSelect={(insumo) => formField.onChange(insumo)} searchFields={['nombre', 'numeroItem']} /><FormMessage /></FormItem> )} /></TableCell>
                               <TableCell className="p-1"><FormField control={form.control} name={`mercaderias.${index}.cantidad`} render={({ field: formField }) => <Input type="number" {...formField} />} /></TableCell>
                               <TableCell className="p-1"><FormField control={form.control} name={`mercaderias.${index}.valorUnitario`} render={({ field: formField }) => <Input type="number" {...formField} />} /></TableCell>
                               <TableCell className="text-right font-mono p-1 align-middle">${formatCurrency((form.watch(`mercaderias.${index}.cantidad`) || 0) * (form.watch(`mercaderias.${index}.valorUnitario`) || 0))}</TableCell>
@@ -202,7 +203,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
                       <TableRow className="text-base"><TableCell colSpan={3} className="text-right font-bold">Total Mercaderías</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totalMercaderias)}</TableCell><TableCell></TableCell></TableRow>
                   </TableFooter>
               </Table>
-              <Button type="button" variant="outline" size="sm" onClick={() => append({ insumoId: "", cantidad: 0, valorUnitario: 0 })}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => append({ insumo: undefined, cantidad: 0, valorUnitario: 0 })}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem</Button>
           </TabsContent>
 
           <TabsContent value="flete" className="space-y-6 pt-4">
@@ -234,4 +235,3 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
     </Form>
   );
 }
-

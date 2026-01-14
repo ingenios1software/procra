@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -66,7 +67,7 @@ export function SelectorUniversal<T extends { id: string }>({
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  const [codeQuery, setCodeQuery] = React.useState((value?.[codeField] as string) || "");
+  const [codeQuery, setCodeQuery] = React.useState<string>((value?.[codeField] as string) || "");
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
@@ -140,7 +141,7 @@ export function SelectorUniversal<T extends { id: string }>({
 
 
   React.useEffect(() => {
-    setCodeQuery(value?.[codeField] as string || "");
+    setCodeQuery((value?.[codeField] as string) || "");
   }, [value, codeField]);
 
   const selectorContent = (
