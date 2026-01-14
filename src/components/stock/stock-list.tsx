@@ -342,15 +342,13 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                   <TableHead>Nombre</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Principio Activo</TableHead>
-                  <TableHead>Dosis Rec.</TableHead>
                   <TableHead className="text-right">Stock Actual</TableHead>
-                  <TableHead className="text-right">Precio Prom. Cal.</TableHead>
-                  <TableHead className="text-right">Valor Item</TableHead>
+                  <TableHead className="text-right">Valor en Stock</TableHead>
                   {user && <TableHead className="text-right no-print">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={9} className="text-center h-24">Cargando...</TableCell></TableRow>}
+                {isLoading && <TableRow><TableCell colSpan={7} className="text-center h-24">Cargando...</TableCell></TableRow>}
                 {filteredStockData.map((insumo, index) => (
                   <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
                     <TableCell className="font-medium text-muted-foreground py-2 px-4">{insumo.numeroItem || index + 1}</TableCell>
@@ -375,9 +373,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                       <Badge variant="secondary" className="capitalize">{insumo.categoria}</Badge>
                     </TableCell>
                     <TableCell className="py-2 px-4">{insumo.principioActivo || 'N/A'}</TableCell>
-                    <TableCell className="py-2 px-4">{insumo.dosisRecomendada ? `${insumo.dosisRecomendada} ${insumo.unidad}/ha` : 'N/A'}</TableCell>
                     <TableCell className="text-right font-mono font-bold py-2 px-4">{insumo.stockFinal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
-                    <TableCell className="text-right font-mono py-2 px-4">${insumo.precioPromedioCalculado.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono font-bold text-primary py-2 px-4">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
                     
                     {user && (
@@ -433,7 +429,7 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                   </TableRow>
                 ))}
                 {!isLoading && filteredStockData.length === 0 && (
-                  <TableRow><TableCell colSpan={9} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center h-24">No se encontraron insumos para los filtros aplicados.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
