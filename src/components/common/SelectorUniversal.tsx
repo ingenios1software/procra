@@ -36,6 +36,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
+import { Badge } from "../ui/badge";
 
 interface SelectorUniversalProps<T> {
   label?: string;
@@ -169,9 +170,9 @@ export function SelectorUniversal<T extends { id: string }>({
                     }}
                     className="cursor-pointer flex flex-col items-start p-2"
                   >
-                     <div className="flex justify-between w-full">
+                     <div className="flex justify-between items-center w-full">
                         <span className="font-semibold">{item[displayField] as string}</span>
-                        <span className="text-xs bg-muted px-2 py-1 rounded-full">{item[codeField] as string}</span>
+                        <Badge variant="outline">{item[codeField] as string}</Badge>
                      </div>
                      <div className="text-xs text-muted-foreground mt-1 w-full grid grid-cols-2 gap-x-4">
                         {extraInfoFields.map(info => (

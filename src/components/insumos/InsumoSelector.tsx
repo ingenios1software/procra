@@ -23,8 +23,13 @@ export function InsumoSelector({ value, onChange, disabled }: InsumoSelectorProp
       extraInfoFields={[
         { label: 'Stock', field: 'stockActual', format: (val) => (val || 0).toLocaleString('de-DE') },
         { label: 'Unidad', field: 'unidad'},
-        { label: 'Precio Prom.', field: 'precioPromedioCalculado', format: (val) => `$${(val || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}`},
         { label: 'P.A.', field: 'principioActivo' },
+        {
+            label: "Precio",
+            field: "precioPromedioCalculado",
+            format: (val) =>
+              `$${(val || 0).toLocaleString("de-DE", { minimumFractionDigits: 2 })}`,
+        },
       ]}
       disabled={disabled}
     />
