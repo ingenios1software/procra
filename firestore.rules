@@ -111,7 +111,7 @@ service cloud.firestore {
        allow read: if isAuthenticated();
     }
     
-    match /movimientosStock/{movimientoId} {
+    match /movimientosStock/{document=**} {
       allow read: if request.auth != null;
       // allow write: if isAdmin();
     }
