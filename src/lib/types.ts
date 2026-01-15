@@ -1,4 +1,5 @@
 
+
 import type { FieldValue } from 'firebase/firestore';
 
 export type GeoJSONPoint = {
@@ -184,6 +185,7 @@ export type MovimientoStock = {
     fecha: Date;
     tipo: "salida" | "entrada" | "ajuste";
     origen: "evento" | "compra" | "ajuste manual";
+    documentoOrigen?: string; // Numero de factura de compra o N° de lanzamiento del evento
     eventoId?: string | null;
     compraId?: string | null;
     ajusteId?: string | null;
@@ -200,6 +202,7 @@ export type MovimientoStock = {
     stockDespues: number;
     precioUnitario: number;
     costoTotal: number;
+    subtotal?: number; // Para la ficha de insumo
     creadoPor: string;
     creadoEn: Date;
 };

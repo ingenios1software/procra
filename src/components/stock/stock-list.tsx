@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
@@ -7,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Trash2, Download, Printer } from "lucide-react";
+import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Trash2, Download, Printer, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Insumo, Compra, Evento } from "@/lib/types";
 import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
@@ -28,16 +29,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import Link from 'next/link';
 
 interface StockListProps {
   insumos: Insumo[];
-  compras: Compra[];
-  eventos: Evento[];
   isLoading: boolean;
   onImportClick: () => void;
 }
 
-export function StockList({ insumos, compras, eventos, isLoading, onImportClick }: StockListProps) {
+export function StockList({ insumos, isLoading, onImportClick }: StockListProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -387,11 +387,13 @@ export function StockList({ insumos, compras, eventos, isLoading, onImportClick 
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                                <Link href={`/stock/insumos/${insumo.id}`}>
+                                    <Eye className="mr-2 h-4 w-4" /> Ver Ficha
+                                </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openDialog(insumo)}>
                               Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              Ver Movimientos
                             </DropdownMenuItem>
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
