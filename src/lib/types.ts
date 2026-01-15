@@ -182,7 +182,7 @@ export type AjusteInsumo = {
 
 export type MovimientoStock = {
     id: string;
-    fecha: Date;
+    fecha: Date | string;
     tipo: "salida" | "entrada" | "ajuste";
     origen: "evento" | "compra" | "ajuste manual" | "venta";
     documentoOrigen?: string; // Numero de factura de compra o N° de lanzamiento del evento

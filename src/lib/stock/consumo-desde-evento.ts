@@ -42,7 +42,7 @@ export async function procesarConsumoDeStockDesdeEvento(evento: Evento & { id: s
             const precioUnitario = insumo.precioPromedioCalculado || insumo.costoUnitario || 0;
 
             // 1. Crear el documento de Movimiento de Stock
-            const movimientoRef = doc(collection(db, "MovimientosStock"));
+            const movimientoRef = doc(collection(db, "movimientosStock"));
             const nuevoMovimiento: Omit<MovimientoStock, 'id'> = {
                 fecha: new Date(evento.fecha as string),
                 tipo: "salida",
