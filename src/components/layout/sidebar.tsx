@@ -142,6 +142,7 @@ const navItems = [
             { href: "/usuarios", icon: Users, label: "Usuarios" },
             { href: "/roles", icon: Shield, label: "Roles" },
             { href: "/auditoria", icon: History, label: "Auditoría" },
+            { href: "/admin", icon: Wrench, label: "Herramientas" },
             { href: "/configuracion", icon: Settings, label: "Configuración" },
             { href: "/acerca-de", icon: Info, label: "Acerca de" },
         ]
