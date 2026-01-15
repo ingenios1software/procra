@@ -184,10 +184,11 @@ export type MovimientoStock = {
     id: string;
     fecha: Date;
     tipo: "salida" | "entrada" | "ajuste";
-    origen: "evento" | "compra" | "ajuste manual";
+    origen: "evento" | "compra" | "ajuste manual" | "venta";
     documentoOrigen?: string; // Numero de factura de compra o N° de lanzamiento del evento
     eventoId?: string | null;
     compraId?: string | null;
+    ventaId?: string | null;
     ajusteId?: string | null;
     parcelaId?: string | null;
     parcelaNombre?: string | null;
@@ -242,13 +243,18 @@ export type Costo = {
 
 export type Venta = {
     id: string;
-    cultivoId: string;
-    parcelaId: string;
-    zafraId: string;
-    toneladas: number;
-    precioTonelada: number;
-    fecha: Date | string;
+    documento: string;
     clienteId?: string;
+    fecha: Date | string;
+    items: {
+        insumoId: string;
+        cultivoId: string;
+        parcelaId: string;
+        zafraId: string;
+        cantidad: number; // Anteriormente 'toneladas'
+        precioUnitario: number; // Anteriormente 'precioTonelada'
+    }[];
+    total: number;
 };
 
 export type Proveedor = {

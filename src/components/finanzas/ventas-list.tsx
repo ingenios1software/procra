@@ -8,12 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { MoreHorizontal, PlusCircle, TrendingUp, Download, Package } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { VentaForm } from "./venta-form";
-import type { Venta, Parcela, Zafra, Cultivo, Cliente } from "@/lib/types";
+import type { Venta, Parcela, Zafra, Cultivo, Cliente, Insumo, MovimientoStock } from "@/lib/types";
 import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, writeBatch, getDoc } from "firebase/firestore";
 
 interface VentasListProps {
   ventas: Venta[];
@@ -34,12 +34,14 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
   const { totalIngresos, rendimientoPorParcela } = useMemo(() => {
     if (!ventas || !parcelas) return { totalIngresos: 0, rendimientoPorParcela: [] };
     
-    const totalIngresos = ventas.reduce((acc, venta) => acc + (venta.toneladas * venta.precioTonelada), 0);
+    const totalIngresos = ventas.reduce((acc, venta) => acc + venta.total, 0);
 
     const rendimientoPorParcela = parcelas.map(parcela => {
-        const ventasParcela = ventas.filter(v => v.parcelaId === parcela.id);
-        const totalToneladas = ventasParcela.reduce((sum, v) => sum + v.toneladas, 0);
-        const rendimientoKgHa = parcela.superficie > 0 ? (totalToneladas * 1000) / parcela.superficie : 0;
+        const toneladasVendidas = ventas.flatMap(v => v.items)
+            .filter(item => item.parcelaId === parcela.id)
+            .reduce((sum, item) => sum + item.cantidad, 0);
+        
+        const rendimientoKgHa = parcela.superficie > 0 ? (toneladasVendidas * 1000) / parcela.superficie : 0;
         return {
             nombre: parcela.nombre,
             rendimiento: rendimientoKgHa
@@ -49,22 +51,68 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
     return { totalIngresos, rendimientoPorParcela };
   }, [ventas, parcelas]);
 
-  const handleSave = useCallback((ventaData: Omit<Venta, 'id'>) => {
-    if (!firestore) return;
-    const dataToSave = { ...ventaData, fecha: (ventaData.fecha as Date).toISOString() };
+  const handleSave = useCallback(async (ventaData: Omit<Venta, 'id'>) => {
+    if (!firestore || !user) return;
 
+    const batch = writeBatch(firestore);
+    const ventaRef = selectedVenta ? doc(firestore, 'ventas', selectedVenta.id) : doc(collection(firestore, 'ventas'));
+    
+    const dataToSave = { ...ventaData, fecha: (ventaData.fecha as Date).toISOString() };
+    
     if (selectedVenta) {
-      const ventaRef = doc(firestore, 'ventas', selectedVenta.id);
-      updateDocumentNonBlocking(ventaRef, dataToSave);
-      toast({ title: "Venta actualizada" });
+        batch.update(ventaRef, dataToSave);
     } else {
-      const ventasCol = collection(firestore, 'ventas');
-      addDocumentNonBlocking(ventasCol, dataToSave);
-      toast({ title: "Venta creada" });
+        batch.set(ventaRef, dataToSave);
     }
-    setDialogOpen(false);
-    setSelectedVenta(null);
-  }, [selectedVenta, firestore, toast]);
+    
+    // --- Lógica de Stock ---
+    for (const item of ventaData.items) {
+        const insumoRef = doc(firestore, "insumos", item.insumoId);
+        const insumoDoc = await getDoc(insumoRef);
+        if (!insumoDoc.exists()) {
+            toast({ variant: "destructive", title: "Error", description: `Insumo con ID ${item.insumoId} no encontrado.` });
+            continue; // Saltar este item si no se encuentra el insumo
+        }
+        const insumoActual = insumoDoc.data() as Insumo;
+        const stockAnterior = insumoActual.stockActual || 0;
+        const stockDespues = stockAnterior - item.cantidad;
+
+        // 1. Actualizar stock del insumo
+        batch.update(insumoRef, { stockActual: stockDespues });
+
+        // 2. Crear movimiento de stock
+        const movimientoRef = doc(collection(firestore, "MovimientosStock"));
+        const nuevoMovimiento: Omit<MovimientoStock, 'id'> = {
+            fecha: dataToSave.fecha,
+            tipo: "salida",
+            origen: "venta",
+            ventaId: ventaRef.id,
+            documentoOrigen: dataToSave.documento,
+            insumoId: item.insumoId,
+            insumoNombre: insumoActual.nombre,
+            unidad: insumoActual.unidad,
+            categoria: insumoActual.categoria,
+            cantidad: item.cantidad,
+            stockAntes: stockAnterior,
+            stockDespues: stockDespues,
+            precioUnitario: item.precioUnitario,
+            costoTotal: item.cantidad * item.precioUnitario,
+            creadoPor: user.uid,
+            creadoEn: new Date(),
+        };
+        batch.set(movimientoRef, nuevoMovimiento);
+    }
+
+    try {
+        await batch.commit();
+        toast({ title: selectedVenta ? "Venta actualizada" : "Venta creada" });
+        closeDialog();
+    } catch (error) {
+        console.error("Error al guardar venta y actualizar stock: ", error);
+        toast({ variant: "destructive", title: "Error al guardar", description: "Ocurrió un error inesperado."});
+    }
+
+  }, [selectedVenta, firestore, toast, user]);
   
   const openDialog = useCallback((venta?: Venta) => {
     setSelectedVenta(venta || null);
@@ -148,26 +196,21 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
+                <TableHead>Documento</TableHead>
                 <TableHead>Cliente</TableHead>
-                <TableHead>Cultivo</TableHead>
-                <TableHead>Toneladas</TableHead>
-                <TableHead>Precio/Ton</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 {user && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={5} className="text-center">Cargando...</TableCell></TableRow>}
               {ventas.map((venta) => {
-                const total = venta.toneladas * venta.precioTonelada;
                 return (
                   <TableRow key={venta.id}>
                     <TableCell>{format(new Date(venta.fecha as string), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{venta.documento}</TableCell>
                     <TableCell className="font-medium">{getClienteNombre(venta.clienteId)}</TableCell>
-                    <TableCell className="font-medium">{getCultivoNombre(venta.cultivoId)}</TableCell>
-                    <TableCell>{venta.toneladas} tn</TableCell>
-                    <TableCell>${venta.precioTonelada.toLocaleString('en-US')}</TableCell>
-                    <TableCell className="text-right font-semibold">${total.toLocaleString('en-US')}</TableCell>
+                    <TableCell className="text-right font-semibold">${venta.total.toLocaleString('en-US')}</TableCell>
                     {user && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(venta)}>
@@ -184,7 +227,7 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
       </Card>
       
       <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{selectedVenta ? 'Editar Venta' : 'Registrar Nueva Venta'}</DialogTitle>
           </DialogHeader>
@@ -192,10 +235,11 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
             venta={selectedVenta}
             onSubmit={handleSave}
             onCancel={closeDialog}
-            parcelas={parcelas}
-            cultivos={cultivos}
-            zafras={zafras}
-            clientes={clientes}
+            parcelas={parcelas || []}
+            cultivos={cultivos || []}
+            zafras={zafras || []}
+            clientes={clientes || []}
+            insumos={[]}
           />
         </DialogContent>
       </Dialog>
