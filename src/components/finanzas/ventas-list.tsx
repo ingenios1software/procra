@@ -34,7 +34,7 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
   const { totalIngresos, rendimientoPorParcela } = useMemo(() => {
     if (!ventas || !parcelas) return { totalIngresos: 0, rendimientoPorParcela: [] };
     
-    const totalIngresos = ventas.reduce((acc, venta) => acc + venta.total, 0);
+    const totalIngresos = ventas.reduce((acc, venta) => acc + (venta.total || 0), 0);
 
     const rendimientoPorParcela = parcelas.map(parcela => {
         const toneladasVendidas = ventas.flatMap(v => v.items)
@@ -210,7 +210,7 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
                     <TableCell>{format(new Date(venta.fecha as string), "dd/MM/yyyy")}</TableCell>
                     <TableCell>{venta.documento}</TableCell>
                     <TableCell className="font-medium">{getClienteNombre(venta.clienteId)}</TableCell>
-                    <TableCell className="text-right font-semibold">${venta.total.toLocaleString('en-US')}</TableCell>
+                    <TableCell className="text-right font-semibold">${(venta.total || 0).toLocaleString('en-US')}</TableCell>
                     {user && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(venta)}>
