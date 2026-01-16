@@ -63,10 +63,6 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    match /insumos/{document=**} {
-      allow read, write: if isAuthenticated();
-    }
-
     match /maquinaria/{document=**} {
       allow read, write: if isAuthenticated();
     }
@@ -83,10 +79,6 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
     
-    match /ventas/{document=**} {
-      allow read, write: if isAuthenticated();
-    }
-
     match /clientes/{document=**} {
       allow read, write: if isAuthenticated();
     }
@@ -112,13 +104,41 @@ service cloud.firestore {
     }
     
     match /movimientosStock/{document=**} {
-      allow read: if request.auth != null;
-      allow write: if isAuthenticated();
-    }
-    
-    match /depositos/{document=**} {
       allow read, write: if isAuthenticated();
     }
 
+    // New Master Data Rules
+    match /depositos/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /insumos/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /entidades/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /cuentasCajaBanco/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /cuentasContables/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /monedas/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /planesFinanciacion/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /tiposDocumento/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /formasPago/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /ventas/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }
+
+    

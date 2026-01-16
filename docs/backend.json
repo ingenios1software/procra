@@ -15,6 +15,101 @@
       },
       "required": ["id", "name", "code", "area", "location", "status"]
     },
+    "Insumo": {
+        "title": "Insumo",
+        "description": "Represents a supply or product used in agriculture.",
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string" },
+          "descripcion": { "type": "string" },
+          "precioVenta": { "type": "number" },
+          "unidadMedida": { "type": "string" },
+          "activo": { "type": "boolean" }
+        },
+        "required": ["codigo", "descripcion", "unidadMedida", "activo"]
+    },
+    "Entidad": {
+        "title": "Entidad",
+        "description": "Represents a client, provider, or both.",
+        "type": "object",
+        "properties": {
+          "tipo": { "type": "string", "enum": ["CLIENTE", "PROVEEDOR", "AMBOS"] },
+          "nombre": { "type": "string" },
+          "ruc": { "type": "string" },
+          "direccion": { "type": "string" },
+          "telefono": { "type": "string" },
+          "activo": { "type": "boolean" }
+        },
+        "required": ["tipo", "nombre", "ruc", "activo"]
+    },
+    "CuentaCajaBanco": {
+        "title": "CuentaCajaBanco",
+        "description": "Represents a cash or bank account.",
+        "type": "object",
+        "properties": {
+          "nombre": { "type": "string" },
+          "tipo": { "type": "string", "enum": ["CAJA", "BANCO", "BILLETERA"] },
+          "monedaId": { "type": "string" },
+          "activo": { "type": "boolean" }
+        },
+        "required": ["nombre", "tipo", "monedaId", "activo"]
+    },
+    "CuentaContable": {
+        "title": "CuentaContable",
+        "description": "Represents an accounting account.",
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string" },
+          "descripcion": { "type": "string" },
+          "tipo": { "type": "string" },
+          "activo": { "type": "boolean" }
+        },
+        "required": ["codigo", "descripcion", "tipo", "activo"]
+    },
+    "Moneda": {
+        "title": "Moneda",
+        "description": "Represents a currency.",
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string" },
+          "descripcion": { "type": "string" },
+          "tasaCambio": { "type": "number" },
+          "esMonedaBase": { "type": "boolean" }
+        },
+        "required": ["codigo", "descripcion", "tasaCambio", "esMonedaBase"]
+    },
+    "PlanFinanciacion": {
+        "title": "PlanFinanciacion",
+        "description": "Represents a financing plan.",
+        "type": "object",
+        "properties": {
+          "nombre": { "type": "string" },
+          "cantidadCuotas": { "type": "number" },
+          "diasEntreCuotas": { "type": "number" }
+        },
+        "required": ["nombre", "cantidadCuotas", "diasEntreCuotas"]
+    },
+    "TipoDocumento": {
+        "title": "TipoDocumento",
+        "description": "Represents a type of legal document.",
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string" },
+          "descripcion": { "type": "string" },
+          "esFiscal": { "type": "boolean" }
+        },
+        "required": ["codigo", "descripcion", "esFiscal"]
+    },
+    "FormaPago": {
+        "title": "FormaPago",
+        "description": "Represents a form of payment.",
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string" },
+          "descripcion": { "type": "string" }
+        },
+        "required": ["codigo", "descripcion"]
+    },
     "Crop": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Crop",
@@ -179,18 +274,6 @@
         "creadoPor"
       ]
     },
-    "Deposito": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Deposito",
-      "description": "Represents a warehouse or storage location.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "nombre": { "type": "string" },
-        "descripcion": { "type": "string" }
-      },
-      "required": ["id", "nombre"]
-    },
     "Venta": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Venta",
@@ -241,7 +324,16 @@
     "/asientosDiario/{asientoId}": { "schema": { "$ref": "#/entities/AsientoDiario" }, "description": "Stores journal entries." },
     "/MovimientosStock/{movimientoId}": { "schema": { "$ref": "#/entities/MovimientoStock"}, "description": "Logs all stock movements."},
     "/comprasNormal/{compraId}": { "schema": { "$ref": "#/entities/CompraNormal"}, "description": "Stores normal purchase documents."},
-    "/depositos/{depositoId}": { "schema": { "$ref": "#/entities/Deposito"}, "description": "Stores warehouse information."},
-    "/ventas/{ventaId}": { "schema": { "$ref": "#/entities/Venta"}, "description": "Stores product sales documents."}
+    "/ventas/{ventaId}": { "schema": { "$ref": "#/entities/Venta"}, "description": "Stores product sales documents."},
+    "/insumos/{insumoId}": { "schema": { "$ref": "#/entities/Insumo"}, "description": "Stores supplies and products information."},
+    "/entidades/{entidadId}": { "schema": { "$ref": "#/entities/Entidad"}, "description": "Stores clients and providers information."},
+    "/cuentasCajaBanco/{cuentaId}": { "schema": { "$ref": "#/entities/CuentaCajaBanco"}, "description": "Stores cash and bank accounts."},
+    "/cuentasContables/{cuentaId}": { "schema": { "$ref": "#/entities/CuentaContable"}, "description": "Stores accounting accounts."},
+    "/monedas/{monedaId}": { "schema": { "$ref": "#/entities/Moneda"}, "description": "Stores currency information."},
+    "/planesFinanciacion/{planId}": { "schema": { "$ref": "#/entities/PlanFinanciacion"}, "description": "Stores financing plans."},
+    "/tiposDocumento/{tipoId}": { "schema": { "$ref": "#/entities/TipoDocumento"}, "description": "Stores document types."},
+    "/formasPago/{formaId}": { "schema": { "$ref": "#/entities/FormaPago"}, "description": "Stores payment methods."}
   }
 }
+
+    

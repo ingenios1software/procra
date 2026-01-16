@@ -144,7 +144,9 @@ export type StatCard = {
 
 export type Insumo = {
   id: string;
+  codigo: string;
   nombre: string;
+  descripcion: string;
   categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'biologico' | 'otros';
   principioActivo?: string;
   unidad: 'kg' | 'lt' | 'unidad' | 'ton';
@@ -152,6 +154,7 @@ export type Insumo = {
   dosisRecomendada?: number;
   costoUnitario: number; // Costo de la última compra o manual
   precioPromedioCalculado: number; // Calculado a partir de todas las compras
+  precioVenta?: number;
   stockMinimo: number;
   stockActual: number; // Este es el valor que se ajusta con entradas/salidas
   proveedor?: string;
@@ -263,6 +266,8 @@ export type Deposito = {
   id: string;
   nombre: string;
   descripcion?: string;
+  sucursalId?: string;
+  activo: boolean;
 };
 
 export type Venta = {
@@ -442,7 +447,7 @@ export type ControlHorario = {
 };
 
 
-// --- CONTABILIDAD ---
+// --- CONTABILIDAD Y MAESTROS ---
 export type PlanDeCuenta = {
   id: string;
   codigo: string;
@@ -469,3 +474,62 @@ export type AsientoDiario = {
     centroCostoId?: string;
   }[];
 };
+
+
+// --- NUEVOS MAESTROS ---
+
+export type Entidad = {
+  id: string;
+  tipo: "CLIENTE" | "PROVEEDOR" | "AMBOS";
+  nombre: string;
+  ruc: string;
+  direccion: string;
+  telefono: string;
+  activo: boolean;
+};
+
+export type CuentaCajaBanco = {
+  id: string;
+  nombre: string;
+  tipo: "CAJA" | "BANCO" | "BILLETERA";
+  monedaId: string;
+  activo: boolean;
+};
+
+export type CuentaContable = {
+  id: string;
+  codigo: string;
+  descripcion: string;
+  tipo: string;
+  activo: boolean;
+};
+
+export type Moneda = {
+  id: string;
+  codigo: string;
+  descripcion: string;
+  tasaCambio: number;
+  esMonedaBase: boolean;
+};
+
+export type PlanFinanciacion = {
+  id: string;
+  nombre: string;
+  cantidadCuotas: number;
+  diasEntreCuotas: number;
+};
+
+export type TipoDocumento = {
+  id: string;
+  codigo: string;
+  descripcion: string;
+  esFiscal: boolean;
+};
+
+export type FormaPago = {
+  id: string;
+  codigo: string;
+  descripcion: string;
+};
+
+    

@@ -39,6 +39,8 @@ import {
     AreaChart,
     Clock,
     Wallet,
+    Building,
+    BookOpenCheck,
 } from "lucide-react"
 import {
   Accordion,
@@ -135,9 +137,17 @@ const navItems = [
         ]
     },
     {
+        title: "Maestros",
+        icon: Building,
+        links: [
+            { href: "/maestros/depositos", icon: Warehouse, label: "Depósitos" },
+        ]
+    },
+    {
         title: "Administración",
         icon: Cog,
         links: [
+            { href: "/configuracion/inicial", icon: BookOpenCheck, label: "Checklist Inicial" },
             { href: "/dashboard/general", icon: AreaChart, label: "Dashboard General" },
             { href: "/usuarios", icon: Users, label: "Usuarios" },
             { href: "/roles", icon: Shield, label: "Roles" },
@@ -288,3 +298,5 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkC
     </aside>
   )
 }
+
+    
