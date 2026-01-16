@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -31,6 +32,8 @@ export default function VentasPage() {
 
   const { data: ventas, isLoading: isLoadingVentas } = useCollection<Venta>(useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas'), orderBy('fecha', 'desc')) : null, [firestore]));
   const { data: clientes, isLoading: isLoadingClientes } = useCollection<Cliente>(useMemoFirebase(() => firestore ? query(collection(firestore, 'clientes')) : null, [firestore]));
+  const { data: depositos, isLoading: isLoadingDepositos } = useCollection<Deposito>(useMemoFirebase(() => firestore ? query(collection(firestore, 'depositos')) : null, [firestore]));
+
 
   const getClienteNombre = (id: string) => clientes?.find(c => c.id === id)?.nombre || 'N/A';
 
@@ -84,7 +87,7 @@ export default function VentasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(isLoadingVentas || isLoadingClientes) && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
+              {(isLoadingVentas || isLoadingClientes || isLoadingDepositos) && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
               {ventas?.map((venta) => (
                 <TableRow key={venta.id}>
                   <TableCell>{venta.numeroDocumento}</TableCell>
@@ -123,7 +126,12 @@ export default function VentasPage() {
              </DialogDescription>
            </DialogHeader>
             <div className="overflow-y-auto max-h-[85vh] p-1">
-              <VentaForm venta={selectedVenta} onCancel={closeForm} />
+              <VentaForm 
+                venta={selectedVenta} 
+                onCancel={closeForm}
+                clientes={clientes || []}
+                depositos={depositos || []}
+              />
             </div>
         </DialogContent>
       </Dialog>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from 'react';
@@ -16,16 +17,17 @@ import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Venta, Cliente, Insumo, MovimientoStock, Deposito } from "@/lib/types";
-import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
+import { useFirestore, useUser } from "@/firebase";
 import { collection, doc, writeBatch, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from '@/components/common';
 
 const itemSchema = z.object({
-  productoId: z.string().nonempty("Debe seleccionar un producto."),
-  descripcion: z.string(),
+  producto: z.any().refine(val => val && val.id, { message: "Debe seleccionar un producto." }),
+  productoId: z.string().optional(),
+  descripcion: z.string().optional(),
   cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
-  precioUnitario: z.coerce.number().positive("El precio debe ser mayor a 0."),
+  precioUnitario: z.coerce.number().min(0, "El precio no puede ser negativo."),
   descuentoPorc: z.coerce.number().min(0, "El descuento no puede ser negativo.").optional().default(0),
 });
 
@@ -46,15 +48,14 @@ type VentaFormValues = z.infer<typeof formSchema>;
 interface VentaFormProps {
     venta?: Venta | null;
     onCancel: () => void;
+    clientes: Cliente[];
+    depositos: Deposito[];
 }
 
-export function VentaForm({ venta, onCancel }: VentaFormProps) {
+export function VentaForm({ venta, onCancel, clientes, depositos }: VentaFormProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
-
-  const { data: clientes } = useCollection<Cliente>(useMemoFirebase(() => firestore ? collection(firestore, 'clientes') : null, [firestore]));
-  const { data: depositos } = useCollection<Deposito>(useMemoFirebase(() => firestore ? collection(firestore, 'depositos') : null, [firestore]));
   
   const form = useForm<VentaFormValues>({
     resolver: zodResolver(formSchema),
@@ -74,6 +75,14 @@ export function VentaForm({ venta, onCancel }: VentaFormProps) {
   });
 
   const watchedItems = useWatch({ control: form.control, name: 'items' });
+
+  const handleSelectProducto = (index: number, producto: Insumo) => {
+    form.setValue(`items.${index}.producto`, producto);
+    form.setValue(`items.${index}.productoId`, producto.id);
+    form.setValue(`items.${index}.descripcion`, producto.nombre);
+    form.setValue(`items.${index}.precioUnitario`, producto.costoUnitario); // O precioVenta si existe
+    form.trigger(`items.${index}`);
+  }
 
   const totalVenta = useMemo(() => {
     return (watchedItems || []).reduce((acc, item) => {
@@ -95,7 +104,11 @@ export function VentaForm({ venta, onCancel }: VentaFormProps) {
     const ventaRef = venta ? doc(firestore, "ventas", venta.id) : doc(collection(firestore, "ventas"));
 
     const itemsFinal = data.items.map(item => ({
-        ...item,
+        productoId: item.producto.id,
+        descripcion: item.producto.nombre,
+        cantidad: item.cantidad,
+        precioUnitario: item.precioUnitario,
+        descuentoPorc: item.descuentoPorc || 0,
         subtotal: (item.cantidad * item.precioUnitario) * (1 - (item.descuentoPorc || 0) / 100)
     }));
     
@@ -112,9 +125,8 @@ export function VentaForm({ venta, onCancel }: VentaFormProps) {
         batch.set(ventaRef, ventaData);
     }
 
-    // Lógica de Movimientos de Stock y actualización de Insumos
     for (const item of data.items) {
-        const insumoRef = doc(firestore, "insumos", item.productoId);
+        const insumoRef = doc(firestore, "insumos", item.producto.id);
         const insumoDoc = await getDoc(insumoRef);
 
         if (insumoDoc.exists()) {
@@ -122,10 +134,8 @@ export function VentaForm({ venta, onCancel }: VentaFormProps) {
             const stockAnterior = insumoActual.stockActual || 0;
             const stockDespues = stockAnterior - item.cantidad;
 
-            // 1. Actualizar el stock del insumo
             batch.update(insumoRef, { stockActual: stockDespues });
 
-            // 2. Crear movimiento de stock
             const movimientoRef = doc(collection(firestore, "movimientosStock"));
             const nuevoMovimiento: Omit<MovimientoStock, 'id'> = {
                 fecha: data.fecha,
@@ -134,10 +144,10 @@ export function VentaForm({ venta, onCancel }: VentaFormProps) {
                 documentoOrigen: data.numeroDocumento,
                 ventaId: ventaRef.id,
                 depositoId: data.depositoOrigenId,
-                insumoId: item.productoId,
-                insumoNombre: insumoActual.nombre,
-                unidad: insumoActual.unidad,
-                categoria: insumoActual.categoria,
+                insumoId: item.producto.id,
+                insumoNombre: item.producto.nombre,
+                unidad: item.producto.unidad,
+                categoria: item.producto.categoria,
                 cantidad: item.cantidad,
                 stockAntes: stockAnterior,
                 stockDespues: stockDespues,
@@ -187,9 +197,9 @@ export function VentaForm({ venta, onCancel }: VentaFormProps) {
 
                       return (
                           <TableRow key={field.id} className="align-top">
-                              <TableCell className="p-1">
-                                <FormField control={form.control} name={`items.${index}.productoId`} render={({ field: formField }) => (
-                                    <SelectorUniversal<Insumo> label="Producto" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={form.getValues(`items.${index}.productoId`)} onSelect={(insumo) => form.setValue(`items.${index}.productoId`, insumo?.id || '')} searchFields={['nombre', 'numeroItem']} />
+                              <TableCell className="p-1 min-w-[300px]">
+                                <FormField control={form.control} name={`items.${index}.producto`} render={({ field: formField }) => (
+                                    <SelectorUniversal<Insumo> label="Producto" collectionName="insumos" displayField="nombre" codeField="numeroItem" value={formField.value} onSelect={(insumo) => insumo && handleSelectProducto(index, insumo)} searchFields={['nombre', 'numeroItem']} />
                                 )}/>
                               </TableCell>
                               <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.cantidad`} render={({ field: formField }) => <Input type="number" {...formField} />} /></TableCell>
