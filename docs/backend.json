@@ -149,10 +149,12 @@
         "id": { "type": "string" },
         "fecha": { "type": "string", "format": "date-time" },
         "tipo": { "type": "string", "enum": ["salida", "entrada", "ajuste"] },
-        "origen": { "type": "string", "enum": ["evento", "compra", "ajuste manual"] },
+        "origen": { "type": "string", "enum": ["evento", "compra", "ajuste manual", "venta"] },
         "eventoId": { "type": "string", "description": "Reference to Event if origin is 'evento'." },
         "compraId": { "type": "string", "description": "Reference to Compra if origin is 'compra'." },
+        "ventaId": { "type": "string", "description": "Reference to Venta if origin is 'venta'." },
         "ajusteId": { "type": "string", "description": "Reference to an adjustment document if origin is 'ajuste manual'." },
+        "depositoId": { "type": "string" },
         "insumoId": { "type": "string" },
         "insumoNombre": { "type": "string" },
         "cantidad": { "type": "number" },
@@ -176,6 +178,52 @@
         "costoTotal",
         "creadoPor"
       ]
+    },
+    "Deposito": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Deposito",
+      "description": "Represents a warehouse or storage location.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "descripcion": { "type": "string" }
+      },
+      "required": ["id", "nombre"]
+    },
+    "Venta": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Venta",
+      "description": "Represents a sale of products.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "numeroDocumento": { "type": "string" },
+        "clienteId": { "type": "string" },
+        "fecha": { "type": "string", "format": "date-time" },
+        "moneda": { "type": "string", "enum": ["USD", "PYG"] },
+        "formaPago": { "type": "string" },
+        "vendedorId": { "type": "string" },
+        "depositoOrigenId": { "type": "string" },
+        "observacion": { "type": "string" },
+        "total": { "type": "number" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "productoId": { "type": "string" },
+              "descripcion": { "type": "string" },
+              "cantidad": { "type": "number" },
+              "precioUnitario": { "type": "number" },
+              "descuentoPorc": { "type": "number" },
+              "subtotal": { "type": "number" }
+            },
+            "required": ["productoId", "cantidad", "precioUnitario", "subtotal"]
+          }
+        }
+      },
+      "required": ["id", "numeroDocumento", "clienteId", "fecha", "total", "items"]
     }
   },
   "auth": {
@@ -191,6 +239,9 @@
     "/planDeCuentas/{cuentaId}": { "schema": { "$ref": "#/entities/PlanDeCuenta" }, "description": "Stores the chart of accounts." },
     "/centrosDeCosto/{centroId}": { "schema": { "$ref": "#/entities/CentroDeCosto" }, "description": "Stores cost centers." },
     "/asientosDiario/{asientoId}": { "schema": { "$ref": "#/entities/AsientoDiario" }, "description": "Stores journal entries." },
-    "/MovimientosStock/{movimientoId}": { "schema": { "$ref": "#/entities/MovimientoStock"}, "description": "Logs all stock movements."}
+    "/MovimientosStock/{movimientoId}": { "schema": { "$ref": "#/entities/MovimientoStock"}, "description": "Logs all stock movements."},
+    "/comprasNormal/{compraId}": { "schema": { "$ref": "#/entities/CompraNormal"}, "description": "Stores normal purchase documents."},
+    "/depositos/{depositoId}": { "schema": { "$ref": "#/entities/Deposito"}, "description": "Stores warehouse information."},
+    "/ventas/{ventaId}": { "schema": { "$ref": "#/entities/Venta"}, "description": "Stores product sales documents."}
   }
 }

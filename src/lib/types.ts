@@ -190,6 +190,7 @@ export type MovimientoStock = {
     compraId?: string | null;
     ventaId?: string | null;
     ajusteId?: string | null;
+    depositoId?: string;
     parcelaId?: string | null;
     parcelaNombre?: string | null;
     zafraId?: string | null;
@@ -241,7 +242,8 @@ export type Costo = {
     fecha: Date | string;
 };
 
-export type Venta = {
+// Venta de cosecha (granos)
+export type VentaCosecha = {
     id: string;
     documento: string;
     clienteId?: string;
@@ -257,6 +259,32 @@ export type Venta = {
     total: number;
 };
 
+export type Deposito = {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+};
+
+export type Venta = {
+  id: string;
+  numeroDocumento: string;
+  clienteId: string;
+  fecha: Date | string;
+  moneda: 'USD' | 'PYG';
+  formaPago?: string;
+  vendedorId?: string;
+  depositoOrigenId: string;
+  observacion?: string;
+  items: {
+    productoId: string;
+    descripcion: string;
+    cantidad: number;
+    precioUnitario: number;
+    descuentoPorc: number;
+    subtotal: number;
+  }[];
+  total: number;
+}
 export type Proveedor = {
   id: string;
   nombre: string;
