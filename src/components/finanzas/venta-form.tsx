@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -66,7 +67,7 @@ export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cult
   const watchedItems = form.watch('items');
 
   const totalVenta = useMemo(() => {
-    return watchedItems.reduce((acc, item) => {
+    return (watchedItems || []).reduce((acc, item) => {
         return acc + (Number(item.cantidad) || 0) * (Number(item.precioUnitario) || 0);
     }, 0);
   }, [watchedItems]);
@@ -96,7 +97,7 @@ export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cult
             <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead className="text-right">Subtotal</TableHead><TableHead></TableHead></TableRow></TableHeader>
             <TableBody>
                 {fields.map((field, index) => {
-                    const item = watchedItems[index];
+                    const item = watchedItems?.[index];
                     const subtotal = (Number(item?.cantidad) || 0) * (Number(item?.precioUnitario) || 0);
                     return (
                         <TableRow key={field.id} className="align-top">
