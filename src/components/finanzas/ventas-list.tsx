@@ -37,7 +37,7 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
     const totalIngresos = ventas.reduce((acc, venta) => acc + (venta.total || 0), 0);
 
     const rendimientoPorParcela = parcelas.map(parcela => {
-        const toneladasVendidas = ventas.flatMap(v => v.items)
+        const toneladasVendidas = ventas.flatMap(v => v.items || [])
             .filter(item => item.parcelaId === parcela.id)
             .reduce((sum, item) => sum + item.cantidad, 0);
         
