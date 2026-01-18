@@ -1,0 +1,145 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return request.auth.token.role == 'admin';
+    }
+
+    function isSupervisor() {
+      return request.auth.token.role == 'supervisor';
+    }
+
+    match /plots/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /crops/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /seasons/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /eventos/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /users/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /roles/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /planDeCuentas/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /centrosDeCosto/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /asientosDiario/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /parcelas/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /cultivos/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /zafras/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /maquinaria/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /proveedores/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /compras/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /comprasNormal/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /clientes/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /etapasCultivo/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /plagas/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /asistencias/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /empleados/{empleadoId} {
+      allow read, write: if isAdmin();
+    }
+    
+    match /empleados/{document=**} {
+       allow read: if isAuthenticated();
+    }
+    
+    match /movimientosStock/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // New Master Data Rules
+    match /depositos/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /insumos/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /entidades/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /cuentasCajaBanco/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /cuentasContables/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /monedas/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /planesFinanciacion/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /tiposDocumento/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /formasPago/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /ventas/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}
+
+    

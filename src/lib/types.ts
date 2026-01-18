@@ -145,7 +145,6 @@ export type StatCard = {
 export type Insumo = {
   id: string;
   codigo: string;
-  nombre: string;
   descripcion: string;
   categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'biologico' | 'otros';
   principioActivo?: string;
@@ -251,7 +250,7 @@ export type Venta = {
   clienteId: string;
   fecha: Date | string;
   moneda: 'USD' | 'PYG';
-  formaPago?: 'Contado' | 'Transferencia' | 'Crédito';
+  formaPago: 'Contado' | 'Transferencia' | 'Crédito';
   vencimiento?: Date | string;
   vendedorId?: string;
   depositoOrigenId: string;
