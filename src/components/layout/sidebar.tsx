@@ -61,7 +61,6 @@ import { useSidebar } from "@/hooks/use-mobile-sidebar"
 import { Logo } from "../icons"
 import React, { useMemo } from "react"
 import { ScrollArea } from "../ui/scroll-area"
-import { useAuth } from "@/hooks/use-auth"
 import { Skeleton } from "../ui/skeleton"
 
 const navItems = [
@@ -200,7 +199,6 @@ const NavLink = ({ link, isCollapsed, pathname, onLinkClick }: { link: { href: s
 export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkClick?: () => void }) {
   const pathname = usePathname();
   const { isCollapsed, toggleSidebar } = useSidebar();
-  const { permisos, isAuthLoading } = useAuth();
   
   const [openSections, setOpenSections] = React.useState<string[]>(
     navItems.filter(section => section.links.some(link => pathname.startsWith(link.href))).map(s => s.title)
@@ -208,25 +206,6 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkC
 
   const finalIsCollapsed = isMobile ? false : isCollapsed;
   
-  const filteredNavItems = useMemo(() => {
-    if (isAuthLoading || !permisos) return [];
-    return navItems
-      .map(section => {
-        // @ts-ignore
-        const hasSectionPermission = !section.permission || permisos[section.permission];
-        if (!hasSectionPermission) return null;
-
-        const filteredLinks = section.links.filter(link => {
-            // @ts-ignore
-            return !link.permission || permisos[link.permission];
-        });
-
-        return { ...section, links: filteredLinks };
-      })
-      .filter((section): section is typeof navItems[0] => section !== null && section.links.length > 0);
-  }, [isAuthLoading, permisos]);
-
-
   const navContent = (
     <>
       <Button
@@ -241,25 +220,21 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkC
           </Link>
       </Button>
       <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="w-full">
-          {isAuthLoading ? (
-             Array.from({length: 5}).map((_, i) => <Skeleton key={i} className="h-10 w-full my-2"/>)
-          ) : (
-            filteredNavItems.map(section => (
-                <AccordionItem value={section.title} key={section.title} className="border-b-0">
-                    <AccordionTrigger className="py-2 px-3 text-sm font-medium hover:bg-sidebar-accent rounded-md [&[data-state=open]>svg]:rotate-180">
-                    <div className="flex items-center gap-4">
-                        <section.icon className="h-5 w-5" />
-                        {!finalIsCollapsed && section.title}
-                    </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-1 pb-0 pl-2">
-                        {section.links.map(link => (
-                            <NavLink key={link.href + link.label} link={link} isCollapsed={finalIsCollapsed} pathname={pathname} onLinkClick={onLinkClick}/>
-                        ))}
-                    </AccordionContent>
-                </AccordionItem>
-            ))
-          )}
+          {navItems.map(section => (
+              <AccordionItem value={section.title} key={section.title} className="border-b-0">
+                  <AccordionTrigger className="py-2 px-3 text-sm font-medium hover:bg-sidebar-accent rounded-md [&[data-state=open]>svg]:rotate-180">
+                  <div className="flex items-center gap-4">
+                      <section.icon className="h-5 w-5" />
+                      {!finalIsCollapsed && section.title}
+                  </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-1 pb-0 pl-2">
+                      {section.links.map(link => (
+                          <NavLink key={link.href + link.label} link={link} isCollapsed={finalIsCollapsed} pathname={pathname} onLinkClick={onLinkClick}/>
+                      ))}
+                  </AccordionContent>
+              </AccordionItem>
+          ))}
       </Accordion>
     </>
   );
@@ -297,7 +272,7 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkC
         <nav className="flex-1 space-y-1 p-2">
           {finalIsCollapsed ? (
             <TooltipProvider>
-              {filteredNavItems.flatMap(section => section.links.map(link => (
+              {navItems.flatMap(section => section.links.map(link => (
                 <NavLink key={link.href + link.label} link={link} isCollapsed={true} pathname={pathname} />
               )))}
             </TooltipProvider>
