@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useMemo, ReactNode, useEffect } from 'react';
-import { Usuario, UserRole, Permisos } from '@/lib/types';
+import { Usuario, Permisos, Rol } from '@/lib/types';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
@@ -9,61 +9,53 @@ interface AuthContextType {
   usuarioApp: Usuario | null;
   permisos: Permisos;
   isAuthLoading: boolean;
-  role: UserRole | null; // Keep role for compatibility
-  setRole: (role: UserRole) => void; // Keep for demo purposes
+  role: string | null;
+  // setRole is no longer needed as role comes from Firestore
 }
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Grant all permissions to bypass the permission system
-const allPermissions: Permisos = {
-    compras: true,
-    stock: true,
-    eventos: true,
-    monitoreos: true,
-    ventas: true,
-    contabilidad: true,
-    rrhh: true,
+const defaultPermissions: Permisos = {
+    compras: false, stock: false, eventos: false, monitoreos: false,
+    ventas: false, contabilidad: false, rrhh: false,
 };
 
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user: firebaseUser, isUserLoading: isAuthLoading } = useUser();
   
-  // This state is kept for the demo role switcher.
-  const [role, setRole] = useState<UserRole>('admin');
+  // Fetch user profile from Firestore
+  const userProfileRef = useMemoFirebase(() => 
+    (firebaseUser && firestore) ? doc(firestore, 'usuarios', firebaseUser.uid) : null, 
+    [firebaseUser]
+  );
+  const { data: usuarioApp, isLoading: isProfileLoading } = useDoc<Usuario>(userProfileRef);
 
-  const isLoading = isAuthLoading;
-  
-  const usuarioApp: Usuario | null = useMemo(() => {
-    if (!firebaseUser) return null;
-    // Create a user profile on the fly from Firebase Auth user
-    return {
-      id: firebaseUser.uid,
-      nombre: firebaseUser.displayName || firebaseUser.email || 'Usuario',
-      email: firebaseUser.email || '',
-      rol: role,
-      activo: true,
-      permisos: allPermissions, // Always assign full permissions
-    };
-  }, [firebaseUser, role]);
+  const firestore = useFirestore();
+
+  // Fetch role permissions from Firestore
+  const roleRef = useMemoFirebase(() => 
+    (usuarioApp && firestore) ? doc(firestore, 'roles', usuarioApp.rolId) : null,
+    [usuarioApp]
+  );
+  const { data: userRole, isLoading: isRoleLoading } = useDoc<Rol>(roleRef);
+
+  const isLoading = isAuthLoading || isProfileLoading || isRoleLoading;
 
   const value = useMemo(() => {
     return {
       isAuthLoading: isLoading,
-      usuarioApp: isLoading ? null : usuarioApp,
-      permisos: allPermissions,
-      role,
-      setRole, // Keep for demo
+      usuarioApp: isLoading ? null : (usuarioApp || null),
+      permisos: userRole?.permisos || defaultPermissions,
+      role: usuarioApp?.rolNombre || null,
+      setRole: () => {}, // Placeholder, no longer used
     };
-  }, [isLoading, usuarioApp, role]);
+  }, [isLoading, usuarioApp, userRole]);
 
 
-  if (isLoading) {
-    // You can return a global loader here
+  if (isAuthLoading) { // Only show global loader during initial Firebase Auth check
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
-            <p>Cargando sesión...</p>
+            <p>Verificando autenticación...</p>
         </div>
     )
   }

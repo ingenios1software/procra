@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 interface UsuariosListProps {
   initialUsuarios: Usuario[];
   roles: Rol[];
-  onSave: (data: Omit<Usuario, 'id'>, id?: string) => void;
+  onSave: (data: Omit<Usuario, 'id' | 'rolNombre'>, id?: string) => void;
   onDelete: (id: string) => void;
   isLoading: boolean;
 }
@@ -26,9 +26,11 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const { user } = useAuth();
-  const canModify = user && (user.rol === "admin" || user.rol === "supervisor");
+  // El control de permisos real vendrá del hook useAuth en el futuro.
+  // Por ahora, asumimos que solo admin y supervisor pueden modificar.
+  const canModify = user && ['admin', 'supervisor'].includes(user.rolNombre);
 
-  const handleSave = (usuarioData: Omit<Usuario, 'id'>) => {
+  const handleSave = (usuarioData: Omit<Usuario, 'id' | 'rolNombre'>) => {
     if (selectedUsuario) {
       onSave(usuarioData, selectedUsuario.id);
     } else {
@@ -86,7 +88,7 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
                 <TableRow key={usuario.id}>
                   <TableCell className="font-medium">{usuario.nombre}</TableCell>
                   <TableCell>{usuario.email}</TableCell>
-                  <TableCell className="capitalize">{usuario.rol.replace(/([A-Z])/g, ' $1')}</TableCell>
+                  <TableCell className="capitalize">{usuario.rolNombre}</TableCell>
                   <TableCell>
                     <Badge variant={usuario.activo ? 'default' : "destructive"}>{usuario.activo ? 'Activo' : 'Inactivo'}</Badge>
                   </TableCell>
@@ -151,6 +153,9 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{selectedUsuario ? 'Editar Usuario' : 'Crear Nuevo Usuario'}</DialogTitle>
+             <DialogDescription>
+                Complete los datos del perfil y asigne un rol.
+            </DialogDescription>
           </DialogHeader>
           <UsuarioForm
             usuario={selectedUsuario}

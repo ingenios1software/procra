@@ -15,6 +15,101 @@
       },
       "required": ["id", "name", "code", "area", "location", "status"]
     },
+    "Insumo": {
+        "title": "Insumo",
+        "description": "Represents a supply or product used in agriculture.",
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string" },
+          "descripcion": { "type": "string" },
+          "precioVenta": { "type": "number" },
+          "unidadMedida": { "type": "string" },
+          "activo": { "type": "boolean" }
+        },
+        "required": ["codigo", "descripcion", "unidadMedida", "activo"]
+    },
+    "Entidad": {
+        "title": "Entidad",
+        "description": "Represents a client, provider, or both.",
+        "type": "object",
+        "properties": {
+          "tipo": { "type": "string", "enum": ["CLIENTE", "PROVEEDOR", "AMBOS"] },
+          "nombre": { "type": "string" },
+          "ruc": { "type": "string" },
+          "direccion": { "type": "string" },
+          "telefono": { "type": "string" },
+          "activo": { "type": "boolean" }
+        },
+        "required": ["tipo", "nombre", "ruc", "activo"]
+    },
+    "CuentaCajaBanco": {
+        "title": "CuentaCajaBanco",
+        "description": "Represents a cash or bank account.",
+        "type": "object",
+        "properties": {
+          "nombre": { "type": "string" },
+          "tipo": { "type": "string", "enum": ["CAJA", "BANCO", "BILLETERA"] },
+          "monedaId": { "type": "string" },
+          "activo": { "type": "boolean" }
+        },
+        "required": ["nombre", "tipo", "monedaId", "activo"]
+    },
+    "CuentaContable": {
+        "title": "CuentaContable",
+        "description": "Represents an accounting account.",
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string" },
+          "descripcion": { "type": "string" },
+          "tipo": { "type": "string" },
+          "activo": { "type": "boolean" }
+        },
+        "required": ["codigo", "descripcion", "tipo", "activo"]
+    },
+    "Moneda": {
+        "title": "Moneda",
+        "description": "Represents a currency.",
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string" },
+          "descripcion": { "type": "string" },
+          "tasaCambio": { "type": "number" },
+          "esMonedaBase": { "type": "boolean" }
+        },
+        "required": ["codigo", "descripcion", "tasaCambio", "esMonedaBase"]
+    },
+    "PlanFinanciacion": {
+        "title": "PlanFinanciacion",
+        "description": "Represents a financing plan.",
+        "type": "object",
+        "properties": {
+          "nombre": { "type": "string" },
+          "cantidadCuotas": { "type": "number" },
+          "diasEntreCuotas": { "type": "number" }
+        },
+        "required": ["nombre", "cantidadCuotas", "diasEntreCuotas"]
+    },
+    "TipoDocumento": {
+        "title": "TipoDocumento",
+        "description": "Represents a type of legal document.",
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string" },
+          "descripcion": { "type": "string" },
+          "esFiscal": { "type": "boolean" }
+        },
+        "required": ["codigo", "descripcion", "esFiscal"]
+    },
+    "FormaPago": {
+        "title": "FormaPago",
+        "description": "Represents a form of payment.",
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string" },
+          "descripcion": { "type": "string" }
+        },
+        "required": ["codigo", "descripcion"]
+    },
     "Crop": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Crop",
@@ -63,19 +158,19 @@
       "required": ["id", "plotId", "cropId", "seasonId", "type", "date", "description", "inputs", "quantity", "unit", "result"]
     },
     "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
-      "type": "object",
-      "description": "Represents a user of the application.",
-      "properties": {
-        "id": { "type": "string", "description": "Unique identifier for the User entity." },
-        "name": { "type": "string", "description": "Name of the user." },
-        "email": { "type": "string", "description": "Email address of the user.", "format": "email" },
-        "roleId": { "type": "string", "description": "Reference to Role. (Relationship: Role 1:N User)" },
-        "active": { "type": "boolean", "description": "Indicates whether the user account is active." }
+        "title": "User",
+        "type": "object",
+        "description": "Represents a user of the application with roles and permissions.",
+        "properties": {
+          "nombre": { "type": "string", "description": "Full name of the user." },
+          "email": { "type": "string", "description": "Email address of the user.", "format": "email" },
+          "rolId": { "type": "string", "description": "Identifier for the user's role." },
+          "rolNombre": { "type": "string", "description": "Name of the user's role." },
+          "empresaId": { "type": "string", "description": "Identifier for the company the user belongs to." },
+          "activo": { "type": "boolean", "description": "Indicates if the user account is active." }
+        },
+        "required": ["nombre", "email", "rolId", "rolNombre", "activo"]
       },
-      "required": ["id", "name", "email", "roleId", "active"]
-    },
     "Role": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Role",
@@ -83,10 +178,26 @@
       "description": "Represents a user role within the application.",
       "properties": {
         "id": { "type": "string", "description": "Unique identifier for the Role entity." },
-        "name": { "type": "string", "description": "Name of the role." },
-        "description": { "type": "string", "description": "Description of the role and its permissions." }
+        "nombre": { "type": "string", "description": "Name of the role." },
+        "descripcion": { "type": "string", "description": "Description of the role and its permissions." },
+        "soloLectura": { "type": "boolean", "description": "Indicates if the role is read-only." },
+        "esSistema": { "type": "boolean", "description": "Indicates if the role is a system role and cannot be deleted." },
+        "permisos": {
+            "type": "object",
+            "description": "Object defining user permissions for different modules.",
+            "properties": {
+              "compras": { "type": "boolean" },
+              "stock": { "type": "boolean" },
+              "eventos": { "type": "boolean" },
+              "monitoreos": { "type": "boolean" },
+              "ventas": { "type": "boolean" },
+              "contabilidad": { "type": "boolean" },
+              "rrhh": { "type": "boolean" }
+            },
+            "required": ["compras", "stock", "eventos", "monitoreos", "ventas", "contabilidad", "rrhh"]
+          }
       },
-      "required": ["id", "name", "description"]
+      "required": ["id", "nombre", "descripcion", "permisos", "soloLectura"]
     },
     "PlanDeCuenta": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -149,10 +260,12 @@
         "id": { "type": "string" },
         "fecha": { "type": "string", "format": "date-time" },
         "tipo": { "type": "string", "enum": ["salida", "entrada", "ajuste"] },
-        "origen": { "type": "string", "enum": ["evento", "compra", "ajuste manual"] },
+        "origen": { "type": "string", "enum": ["evento", "compra", "ajuste manual", "venta"] },
         "eventoId": { "type": "string", "description": "Reference to Event if origin is 'evento'." },
         "compraId": { "type": "string", "description": "Reference to Compra if origin is 'compra'." },
+        "ventaId": { "type": "string", "description": "Reference to Venta if origin is 'venta'." },
         "ajusteId": { "type": "string", "description": "Reference to an adjustment document if origin is 'ajuste manual'." },
+        "depositoId": { "type": "string" },
         "insumoId": { "type": "string" },
         "insumoNombre": { "type": "string" },
         "cantidad": { "type": "number" },
@@ -176,6 +289,40 @@
         "costoTotal",
         "creadoPor"
       ]
+    },
+    "Venta": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Venta",
+      "description": "Represents a sale of products.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "numeroDocumento": { "type": "string" },
+        "clienteId": { "type": "string" },
+        "fecha": { "type": "string", "format": "date-time" },
+        "moneda": { "type": "string", "enum": ["USD", "PYG"] },
+        "formaPago": { "type": "string" },
+        "vendedorId": { "type": "string" },
+        "depositoOrigenId": { "type": "string" },
+        "observacion": { "type": "string" },
+        "total": { "type": "number" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "productoId": { "type": "string" },
+              "descripcion": { "type": "string" },
+              "cantidad": { "type": "number" },
+              "precioUnitario": { "type": "number" },
+              "descuentoPorc": { "type": "number" },
+              "subtotal": { "type": "number" }
+            },
+            "required": ["productoId", "cantidad", "precioUnitario", "subtotal"]
+          }
+        }
+      },
+      "required": ["id", "numeroDocumento", "clienteId", "fecha", "total", "items"]
     }
   },
   "auth": {
@@ -185,13 +332,22 @@
     "/plots/{plotId}": { "schema": { "$ref": "#/entities/Plot" }, "description": "Stores plot information." },
     "/crops/{cropId}": { "schema": { "$ref": "#/entities/Crop" }, "description": "Stores crop information." },
     "/seasons/{seasonId}": { "schema": { "$ref": "#/entities/Season" }, "description": "Stores season information." },
-    "/events/{eventId}": { "schema": { "$ref": "#/entities/Event" }, "description": "Stores event information related to plots." },
-    "/users/{userId}": { "schema": { "$ref": "#/entities/User" }, "description": "Stores user information." },
+    "/eventos/{eventoId}": { "schema": { "$ref": "#/entities/Event" }, "description": "Stores event information related to plots." },
+    "/usuarios/{userId}": { "schema": { "$ref": "#/entities/User" }, "description": "Stores user information." },
     "/roles/{roleId}": { "schema": { "$ref": "#/entities/Role" }, "description": "Stores role information." },
     "/planDeCuentas/{cuentaId}": { "schema": { "$ref": "#/entities/PlanDeCuenta" }, "description": "Stores the chart of accounts." },
     "/centrosDeCosto/{centroId}": { "schema": { "$ref": "#/entities/CentroDeCosto" }, "description": "Stores cost centers." },
     "/asientosDiario/{asientoId}": { "schema": { "$ref": "#/entities/AsientoDiario" }, "description": "Stores journal entries." },
     "/MovimientosStock/{movimientoId}": { "schema": { "$ref": "#/entities/MovimientoStock"}, "description": "Logs all stock movements."},
-    "/comprasNormal/{compraId}": { "schema": { "$ref": "#/entities/CompraNormal"}, "description": "Stores normal purchase documents."}
+    "/comprasNormal/{compraId}": { "schema": { "$ref": "#/entities/CompraNormal"}, "description": "Stores normal purchase documents."},
+    "/ventas/{ventaId}": { "schema": { "$ref": "#/entities/Venta"}, "description": "Stores product sales documents."},
+    "/insumos/{insumoId}": { "schema": { "$ref": "#/entities/Insumo"}, "description": "Stores supplies and products information."},
+    "/entidades/{entidadId}": { "schema": { "$ref": "#/entities/Entidad"}, "description": "Stores clients and providers information."},
+    "/cuentasCajaBanco/{cuentaId}": { "schema": { "$ref": "#/entities/CuentaCajaBanco"}, "description": "Stores cash and bank accounts."},
+    "/cuentasContables/{cuentaId}": { "schema": { "$ref": "#/entities/CuentaContable"}, "description": "Stores accounting accounts."},
+    "/monedas/{monedaId}": { "schema": { "$ref": "#/entities/Moneda"}, "description": "Stores currency information."},
+    "/planesFinanciacion/{planId}": { "schema": { "$ref": "#/entities/PlanFinanciacion"}, "description": "Stores financing plans."},
+    "/tiposDocumento/{tipoId}": { "schema": { "$ref": "#/entities/TipoDocumento"}, "description": "Stores document types."},
+    "/formasPago/{formaId}": { "schema": { "$ref": "#/entities/FormaPago"}, "description": "Stores payment methods."}
   }
 }

@@ -8,12 +8,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { Usuario, Rol, UserRole } from "@/lib/types";
+import type { Usuario, Rol } from "@/lib/types";
 
 const formSchema = z.object({
   nombre: z.string().min(2, "El nombre es muy corto."),
   email: z.string().email("Email inválido."),
-  rol: z.enum(["admin", "operador", "consulta", "gerente", "tecnicoCampo", "auditor", "supervisor"]),
+  rolId: z.string().nonempty("Debe seleccionar un rol."),
   activo: z.boolean(),
 });
 
@@ -22,7 +22,7 @@ type UsuarioFormValues = z.infer<typeof formSchema>;
 interface UsuarioFormProps {
   usuario?: Partial<Usuario> | null;
   roles: Rol[];
-  onSubmit: (data: UsuarioFormValues) => void;
+  onSubmit: (data: Omit<Usuario, 'id' | 'rolNombre'>) => void;
   onCancel: () => void;
 }
 
@@ -32,14 +32,19 @@ export function UsuarioForm({ usuario, roles, onSubmit, onCancel }: UsuarioFormP
     defaultValues: {
       nombre: usuario?.nombre || "",
       email: usuario?.email || "",
-      rol: usuario?.rol || "consulta",
+      rolId: usuario?.rolId || "",
       activo: usuario?.activo ?? true,
     },
   });
 
+  const handleSubmit = (data: UsuarioFormValues) => {
+    // El rolNombre se añade en el componente padre
+    onSubmit(data);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="nombre"
@@ -57,14 +62,15 @@ export function UsuarioForm({ usuario, roles, onSubmit, onCancel }: UsuarioFormP
           render={({ field }) => (
             <FormItem>
               <FormLabel>Email</FormLabel>
-              <FormControl><Input type="email" placeholder="juan@ejemplo.com" {...field} /></FormControl>
+              <FormControl><Input type="email" placeholder="juan@ejemplo.com" {...field} disabled={!!usuario} /></FormControl>
+               {!!usuario && <p className="text-xs text-muted-foreground">El email no se puede modificar para usuarios existentes.</p>}
               <FormMessage />
             </FormItem>
           )}
         />
         <FormField
           control={form.control}
-          name="rol"
+          name="rolId"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Rol</FormLabel>
@@ -72,7 +78,7 @@ export function UsuarioForm({ usuario, roles, onSubmit, onCancel }: UsuarioFormP
                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un rol" /></SelectTrigger></FormControl>
                 <SelectContent>
                   {roles.map(rol => (
-                    <SelectItem key={rol.id} value={rol.nombre} className="capitalize">{rol.nombre.replace(/([A-Z])/g, ' $1')}</SelectItem>
+                    <SelectItem key={rol.id} value={rol.id} className="capitalize">{rol.nombre}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

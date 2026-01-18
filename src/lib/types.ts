@@ -132,16 +132,19 @@ export type Usuario = {
   id: string;
   nombre: string;
   email: string;
-  rol: UserRole;
+  rolId: string;
+  rolNombre: string;
   empresaId?: string;
   activo: boolean;
-  permisos: Permisos;
 };
 
 export type Rol = {
   id: string;
-  nombre: UserRole;
+  nombre: string;
   descripcion: string;
+  permisos: Permisos;
+  soloLectura: boolean;
+  esSistema?: boolean;
 };
 
 export type UserRole = 'admin' | 'operador' | 'consulta' | 'tecnicoCampo' | 'gerente' | 'auditor' | 'supervisor';

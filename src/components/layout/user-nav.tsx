@@ -16,16 +16,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
-import { UserRole } from "@/lib/types"
 
 export function UserNav() {
-  const { user, role, setRole } = useAuth()
+  const { user, role } = useAuth()
 
   if (!user) return null
-
-  const handleRoleChange = (newRole: UserRole) => {
-    setRole(newRole)
-  }
 
   return (
     <DropdownMenu>
@@ -44,33 +39,13 @@ export function UserNav() {
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>
+            {role && (
+                <p className="text-xs leading-none text-muted-foreground pt-1">
+                    Rol: <span className="font-semibold">{role}</span>
+                </p>
+            )}
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Cambiar Rol (Demo)</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => handleRoleChange('admin')} disabled={role === 'admin'}>
-            Administrador
-          </DropdownMenuItem>
-           <DropdownMenuItem onClick={() => handleRoleChange('supervisor')} disabled={role === 'supervisor'}>
-            Supervisor
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleRoleChange('gerente')} disabled={role === 'gerente'}>
-            Gerente
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleRoleChange('operador')} disabled={role === 'operador'}>
-            Operador
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleRoleChange('tecnicoCampo')} disabled={role === 'tecnicoCampo'}>
-            Técnico de Campo
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleRoleChange('auditor')} disabled={role === 'auditor'}>
-            Auditor
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleRoleChange('consulta')} disabled={role === 'consulta'}>
-            Consulta
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem>
           Cerrar Sesión
