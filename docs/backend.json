@@ -158,19 +158,32 @@
       "required": ["id", "plotId", "cropId", "seasonId", "type", "date", "description", "inputs", "quantity", "unit", "result"]
     },
     "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
-      "type": "object",
-      "description": "Represents a user of the application.",
-      "properties": {
-        "id": { "type": "string", "description": "Unique identifier for the User entity." },
-        "name": { "type": "string", "description": "Name of the user." },
-        "email": { "type": "string", "description": "Email address of the user.", "format": "email" },
-        "roleId": { "type": "string", "description": "Reference to Role. (Relationship: Role 1:N User)" },
-        "active": { "type": "boolean", "description": "Indicates whether the user account is active." }
+        "title": "User",
+        "type": "object",
+        "description": "Represents a user of the application with roles and permissions.",
+        "properties": {
+          "nombre": { "type": "string", "description": "Full name of the user." },
+          "email": { "type": "string", "description": "Email address of the user.", "format": "email" },
+          "rol": { "type": "string", "description": "User role identifier." },
+          "empresaId": { "type": "string", "description": "Identifier for the company the user belongs to." },
+          "activo": { "type": "boolean", "description": "Indicates if the user account is active." },
+          "permisos": {
+            "type": "object",
+            "description": "Object defining user permissions for different modules.",
+            "properties": {
+              "compras": { "type": "boolean" },
+              "stock": { "type": "boolean" },
+              "eventos": { "type": "boolean" },
+              "monitoreos": { "type": "boolean" },
+              "ventas": { "type": "boolean" },
+              "contabilidad": { "type": "boolean" },
+              "rrhh": { "type": "boolean" }
+            },
+            "required": ["compras", "stock", "eventos", "monitoreos", "ventas", "contabilidad", "rrhh"]
+          }
+        },
+        "required": ["nombre", "email", "rol", "activo", "permisos"]
       },
-      "required": ["id", "name", "email", "roleId", "active"]
-    },
     "Role": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Role",
@@ -317,7 +330,7 @@
     "/crops/{cropId}": { "schema": { "$ref": "#/entities/Crop" }, "description": "Stores crop information." },
     "/seasons/{seasonId}": { "schema": { "$ref": "#/entities/Season" }, "description": "Stores season information." },
     "/eventos/{eventoId}": { "schema": { "$ref": "#/entities/Event" }, "description": "Stores event information related to plots." },
-    "/users/{userId}": { "schema": { "$ref": "#/entities/User" }, "description": "Stores user information." },
+    "/usuarios/{userId}": { "schema": { "$ref": "#/entities/User" }, "description": "Stores user information." },
     "/roles/{roleId}": { "schema": { "$ref": "#/entities/Role" }, "description": "Stores role information." },
     "/planDeCuentas/{cuentaId}": { "schema": { "$ref": "#/entities/PlanDeCuenta" }, "description": "Stores the chart of accounts." },
     "/centrosDeCosto/{centroId}": { "schema": { "$ref": "#/entities/CentroDeCosto" }, "description": "Stores cost centers." },
@@ -335,5 +348,3 @@
     "/formasPago/{formaId}": { "schema": { "$ref": "#/entities/FormaPago"}, "description": "Stores payment methods."}
   }
 }
-
-    

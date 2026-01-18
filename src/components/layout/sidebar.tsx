@@ -59,8 +59,10 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { useSidebar } from "@/hooks/use-mobile-sidebar"
 import { Logo } from "../icons"
-import React from "react"
+import React, { useMemo } from "react"
 import { ScrollArea } from "../ui/scroll-area"
+import { useAuth } from "@/hooks/use-auth"
+import { Skeleton } from "../ui/skeleton"
 
 const navItems = [
     { 
@@ -75,10 +77,11 @@ const navItems = [
     {
         title: "Operaciones",
         icon: Tractor,
+        permission: 'eventos',
         links: [
-            { href: "/dashboard/monitoreo", icon: Monitor, label: "Monitoreo" },
-            { href: "/eventos", icon: ClipboardList, label: "Eventos" },
-            { href: "/stock", icon: Boxes, label: "Stock" },
+            { href: "/dashboard/monitoreo", icon: Monitor, label: "Monitoreo", permission: 'monitoreos' },
+            { href: "/eventos", icon: ClipboardList, label: "Eventos", permission: 'eventos' },
+            { href: "/stock", icon: Boxes, label: "Stock", permission: 'stock' },
             { href: "/maquinaria", icon: Wrench, label: "Maquinaria" },
         ]
     },
@@ -96,7 +99,7 @@ const navItems = [
         title: "Comercial",
         icon: ShoppingCart,
         links: [
-            { href: "/comercial/ventas", icon: TrendingUp, label: "Ventas" },
+            { href: "/comercial/ventas", icon: TrendingUp, label: "Ventas", permission: 'ventas' },
             { href: "/comercial/proveedores", icon: Users, label: "Proveedores" },
             { href: "/comercial/clientes", icon: Users, label: "Clientes" },
         ]
@@ -105,7 +108,7 @@ const navItems = [
         title: "Facturas",
         icon: FileText,
         links: [
-            { href: "/comercial/compras", icon: ShoppingBag, label: "Consulta de Facturas" },
+            { href: "/comercial/compras", icon: ShoppingBag, label: "Consulta de Facturas", permission: 'compras' },
         ]
     },
     {
@@ -120,6 +123,7 @@ const navItems = [
     {
         title: "Contabilidad",
         icon: BookText,
+        permission: 'contabilidad',
         links: [
             { href: "/contabilidad/plan-de-cuentas", icon: ListTree, label: "Plan de Cuentas" },
             { href: "/contabilidad/centros-de-costo", icon: Landmark, label: "Centros de Costo" },
@@ -130,6 +134,7 @@ const navItems = [
     {
         title: "RRHH",
         icon: Users,
+        permission: 'rrhh',
         links: [
             { href: "/rrhh/empleados", icon: Briefcase, label: "Empleados" },
             { href: "/rrhh/asistencias", icon: UserCheck, label: "Asistencias" },
@@ -195,11 +200,32 @@ const NavLink = ({ link, isCollapsed, pathname, onLinkClick }: { link: { href: s
 export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkClick?: () => void }) {
   const pathname = usePathname();
   const { isCollapsed, toggleSidebar } = useSidebar();
+  const { permisos, isAuthLoading } = useAuth();
+  
   const [openSections, setOpenSections] = React.useState<string[]>(
     navItems.filter(section => section.links.some(link => pathname.startsWith(link.href))).map(s => s.title)
   );
 
   const finalIsCollapsed = isMobile ? false : isCollapsed;
+  
+  const filteredNavItems = useMemo(() => {
+    if (isAuthLoading || !permisos) return [];
+    return navItems
+      .map(section => {
+        // @ts-ignore
+        const hasSectionPermission = !section.permission || permisos[section.permission];
+        if (!hasSectionPermission) return null;
+
+        const filteredLinks = section.links.filter(link => {
+            // @ts-ignore
+            return !link.permission || permisos[link.permission];
+        });
+
+        return { ...section, links: filteredLinks };
+      })
+      .filter((section): section is typeof navItems[0] => section !== null && section.links.length > 0);
+  }, [isAuthLoading, permisos]);
+
 
   const navContent = (
     <>
@@ -215,21 +241,25 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkC
           </Link>
       </Button>
       <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="w-full">
-          {navItems.map(section => (
-              <AccordionItem value={section.title} key={section.title} className="border-b-0">
-                  <AccordionTrigger className="py-2 px-3 text-sm font-medium hover:bg-sidebar-accent rounded-md [&[data-state=open]>svg]:rotate-180">
-                  <div className="flex items-center gap-4">
-                      <section.icon className="h-5 w-5" />
-                      {!finalIsCollapsed && section.title}
-                  </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="pt-1 pb-0 pl-2">
-                      {section.links.map(link => (
-                          <NavLink key={link.href + link.label} link={link} isCollapsed={finalIsCollapsed} pathname={pathname} onLinkClick={onLinkClick}/>
-                      ))}
-                  </AccordionContent>
-              </AccordionItem>
-          ))}
+          {isAuthLoading ? (
+             Array.from({length: 5}).map((_, i) => <Skeleton key={i} className="h-10 w-full my-2"/>)
+          ) : (
+            filteredNavItems.map(section => (
+                <AccordionItem value={section.title} key={section.title} className="border-b-0">
+                    <AccordionTrigger className="py-2 px-3 text-sm font-medium hover:bg-sidebar-accent rounded-md [&[data-state=open]>svg]:rotate-180">
+                    <div className="flex items-center gap-4">
+                        <section.icon className="h-5 w-5" />
+                        {!finalIsCollapsed && section.title}
+                    </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-1 pb-0 pl-2">
+                        {section.links.map(link => (
+                            <NavLink key={link.href + link.label} link={link} isCollapsed={finalIsCollapsed} pathname={pathname} onLinkClick={onLinkClick}/>
+                        ))}
+                    </AccordionContent>
+                </AccordionItem>
+            ))
+          )}
       </Accordion>
     </>
   );
@@ -267,7 +297,7 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkC
         <nav className="flex-1 space-y-1 p-2">
           {finalIsCollapsed ? (
             <TooltipProvider>
-              {navItems.flatMap(section => section.links.map(link => (
+              {filteredNavItems.flatMap(section => section.links.map(link => (
                 <NavLink key={link.href + link.label} link={link} isCollapsed={true} pathname={pathname} />
               )))}
             </TooltipProvider>

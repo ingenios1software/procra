@@ -2,6 +2,16 @@
 
 import type { FieldValue } from 'firebase/firestore';
 
+export type Permisos = {
+  compras: boolean;
+  stock: boolean;
+  eventos: boolean;
+  monitoreos: boolean;
+  ventas: boolean;
+  contabilidad: boolean;
+  rrhh: boolean;
+};
+
 export type GeoJSONPoint = {
   type: "Point";
   coordinates: [number, number];
@@ -123,8 +133,9 @@ export type Usuario = {
   nombre: string;
   email: string;
   rol: UserRole;
+  empresaId?: string;
   activo: boolean;
-  rolId?: string; // Mantener por compatibilidad con datos existentes
+  permisos: Permisos;
 };
 
 export type Rol = {

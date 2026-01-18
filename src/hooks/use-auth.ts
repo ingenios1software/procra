@@ -8,5 +8,7 @@ export const useAuth = () => {
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context;
+  // The user property from firebase is now replaced by usuarioApp from firestore
+  const { usuarioApp, ...rest } = context;
+  return { user: usuarioApp, ...rest };
 };

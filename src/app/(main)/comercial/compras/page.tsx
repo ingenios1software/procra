@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Download } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlusCircle, Download, ShieldAlert } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { CompraNormal, Proveedor } from "@/lib/types";
@@ -22,9 +22,11 @@ import { CompraNormalForm } from "@/components/comercial/compras/compra-normal-f
 import { MoreHorizontal } from "lucide-react";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
+import { useAuth } from "@/hooks/use-auth";
 
 
 export default function ComprasPage() {
+  const { permisos, isAuthLoading } = useAuth();
   const firestore = useFirestore();
   const { user } = useUser();
   const [isFormOpen, setFormOpen] = useState(false);
@@ -39,6 +41,30 @@ export default function ComprasPage() {
     firestore ? query(collection(firestore, 'proveedores')) : null
   , [firestore]);
   const { data: proveedores, isLoading: isLoadingProveedores } = useCollection<Proveedor>(proveedoresQuery);
+
+  if (isAuthLoading) {
+    return <p>Cargando permisos...</p>;
+  }
+
+  if (!permisos.compras) {
+    return (
+        <>
+            <PageHeader title="Acceso Denegado" />
+            <Card className="border-destructive">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-destructive">
+                        <ShieldAlert />
+                        Permisos Insuficientes
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p>No tienes permiso para acceder a este módulo. Contacta a un administrador.</p>
+                </CardContent>
+            </Card>
+        </>
+    );
+  }
+
 
   const getProveedorNombre = (id: string) => {
     if (!proveedores) return 'N/A';
