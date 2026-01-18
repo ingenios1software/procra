@@ -22,20 +22,19 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user: firebaseUser, isUserLoading: isAuthLoading } = useUser();
+  const firestore = useFirestore();
   
   // Fetch user profile from Firestore
   const userProfileRef = useMemoFirebase(() => 
     (firebaseUser && firestore) ? doc(firestore, 'usuarios', firebaseUser.uid) : null, 
-    [firebaseUser]
+    [firebaseUser, firestore]
   );
   const { data: usuarioApp, isLoading: isProfileLoading } = useDoc<Usuario>(userProfileRef);
-
-  const firestore = useFirestore();
 
   // Fetch role permissions from Firestore
   const roleRef = useMemoFirebase(() => 
     (usuarioApp && firestore) ? doc(firestore, 'roles', usuarioApp.rolId) : null,
-    [usuarioApp]
+    [usuarioApp, firestore]
   );
   const { data: userRole, isLoading: isRoleLoading } = useDoc<Rol>(roleRef);
 
