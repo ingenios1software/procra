@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -15,7 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { Venta, Cliente, Insumo, MovimientoStock, Deposito, AsientoDiario } from "@/lib/types";
+import type { Venta, Cliente, Insumo, MovimientoStock, Deposito, AsientoDiario, CuentaCajaBanco } from "@/lib/types";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, doc, writeBatch, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -41,14 +42,18 @@ const formSchema = z.object({
   depositoOrigenId: z.string().nonempty("Debe seleccionar un depósito de origen."),
   observacion: z.string().optional(),
   items: z.array(itemSchema).min(1, "Debe agregar al menos un producto."),
+  financiero_cuentaId: z.string().optional(),
 }).refine(data => {
     if (data.formaPago === 'Crédito' && !data.vencimiento) {
         return false;
     }
+    if (['Contado', 'Transferencia'].includes(data.formaPago) && !data.financiero_cuentaId) {
+        return false;
+    }
     return true;
 }, {
-    message: "El vencimiento es obligatorio para ventas a crédito.",
-    path: ["vencimiento"],
+    message: "El vencimiento es obligatorio para ventas a crédito y la cuenta de cobro para contado/transferencia.",
+    path: ["vencimiento"], // O path: ["financiero_cuentaId"]
 });
 
 type VentaFormValues = z.infer<typeof formSchema>;
@@ -58,20 +63,20 @@ interface VentaFormProps {
     onCancel: () => void;
     clientes: Cliente[];
     depositos: Deposito[];
+    cuentasCajaBanco: CuentaCajaBanco[];
 }
 
-// IDs de Cuentas Contables (Hardcodeado por ahora)
 const CUENTAS = {
-    CAJA: 'IdCajaGeneral', // Reemplazar con ID real de Firestore
-    BANCO: 'IdBancoFamiliar', // Reemplazar con ID real de Firestore
-    CLIENTES: 'IdCuentasPorCobrarClientes', // Reemplazar con ID real de Firestore
-    VENTAS: 'IdVentasMercaderias', // Reemplazar con ID real de Firestore
-    IVA_DEBITO: 'IdIVADebitoFiscal', // Reemplazar con ID real de Firestore
-    CMV: 'IdCostoMercaderiaVendida', // Reemplazar con ID real de Firestore
-    INVENTARIO: 'IdInventario', // Reemplazar con ID real de Firestore
+    CAJA: '1.1.1',
+    BANCO: '1.1.2',
+    CLIENTES: '1.1.3',
+    VENTAS: '4.1.1',
+    IVA_DEBITO: '2.1.2',
+    CMV: '5.1.1',
+    INVENTARIO: '1.1.5',
 };
 
-export function VentaForm({ venta, onCancel, clientes, depositos }: VentaFormProps) {
+export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBanco }: VentaFormProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -80,7 +85,9 @@ export function VentaForm({ venta, onCancel, clientes, depositos }: VentaFormPro
     resolver: zodResolver(formSchema),
     defaultValues: venta ? {
       ...venta,
+      financiero_cuentaId: venta.financiero?.cuentaCobroId,
       fecha: new Date(venta.fecha as string),
+      vencimiento: venta.vencimiento ? new Date(venta.vencimiento as string) : undefined,
     } : {
       fecha: new Date(),
       moneda: 'PYG',
@@ -95,6 +102,18 @@ export function VentaForm({ venta, onCancel, clientes, depositos }: VentaFormPro
   });
 
   const watchedItems = useWatch({ control: form.control, name: 'items' });
+  const watchedFormaPago = useWatch({ control: form.control, name: 'formaPago' });
+
+  useEffect(() => {
+    if (watchedFormaPago === 'Contado') {
+        const caja = cuentasCajaBanco.find(c => c.tipo === 'CAJA');
+        if (caja) form.setValue('financiero_cuentaId', caja.id);
+    } else if (watchedFormaPago === 'Transferencia') {
+        const banco = cuentasCajaBanco.find(c => c.tipo === 'BANCO');
+        if (banco) form.setValue('financiero_cuentaId', banco.id);
+    }
+  }, [watchedFormaPago, cuentasCajaBanco, form]);
+
 
   const handleSelectProducto = (index: number, producto: Insumo) => {
     form.setValue(`items.${index}.producto`, producto);
@@ -130,8 +149,8 @@ export function VentaForm({ venta, onCancel, clientes, depositos }: VentaFormPro
       }
     });
   
-    const ivaCalculado10 = subtotal10 / 11;
-    const ivaCalculado5 = subtotal5 / 21;
+    const ivaCalculado10 = subtotal10 - (subtotal10 / 1.1);
+    const ivaCalculado5 = subtotal5 - (subtotal5 / 1.05);
     const total = subtotal10 + subtotal5 + subtotalExenta;
   
     return {
@@ -172,6 +191,11 @@ export function VentaForm({ venta, onCancel, clientes, depositos }: VentaFormPro
         fecha: (data.fecha as Date).toISOString(),
         items: itemsFinal,
         total: totalGeneral,
+        financiero: {
+            cuentaCobroId: data.financiero_cuentaId,
+            total: totalGeneral,
+            vencimiento: data.vencimiento,
+        }
     };
     
     if (venta) {
@@ -213,31 +237,35 @@ export function VentaForm({ venta, onCancel, clientes, depositos }: VentaFormPro
         };
         batch.set(movimientoRef, nuevoMovimiento);
         
-        // Calcular CMV
-        const costoUnitario = producto.precioPromedioCalculado || 0;
-        costoTotalCMV += item.cantidad * costoUnitario;
+        costoTotalCMV += item.cantidad * (producto.precioPromedioCalculado || 0);
     }
 
     // --- 3. Generar Asientos Contables ---
     const baseImponible = (subtotalIva10 - iva10) + (subtotalIva5 - iva5) + exenta;
     const totalIva = iva10 + iva5;
 
-    let cuentaDebeVenta;
-    if (data.formaPago === 'Contado') cuentaDebeVenta = CUENTAS.CAJA;
-    else if (data.formaPago === 'Transferencia') cuentaDebeVenta = CUENTAS.BANCO;
-    else cuentaDebeVenta = CUENTAS.CLIENTES;
+    let cuentaDebeCodigo;
+    if (data.formaPago === 'Crédito') {
+      cuentaDebeCodigo = CUENTAS.CLIENTES;
+    } else {
+      const cuentaCobro = cuentasCajaBanco.find(c => c.id === data.financiero_cuentaId);
+      if (cuentaCobro?.tipo === 'CAJA') cuentaDebeCodigo = CUENTAS.CAJA;
+      else if (cuentaCobro?.tipo === 'BANCO') cuentaDebeCodigo = CUENTAS.BANCO;
+    }
 
-    const asientoVentaRef = doc(collection(firestore, "asientosDiario"));
-    const asientoVenta: Omit<AsientoDiario, 'id'> = {
-        fecha: data.fecha,
-        descripcion: `Venta s/ doc ${data.numeroDocumento}`,
-        movimientos: [
-            { cuentaId: cuentaDebeVenta, tipo: 'debe', monto: totalGeneral },
-            { cuentaId: CUENTAS.VENTAS, tipo: 'haber', monto: baseImponible },
-            { cuentaId: CUENTAS.IVA_DEBITO, tipo: 'haber', monto: totalIva },
-        ]
-    };
-    batch.set(asientoVentaRef, asientoVenta);
+    if(cuentaDebeCodigo) {
+        const asientoVentaRef = doc(collection(firestore, "asientosDiario"));
+        const asientoVenta: Omit<AsientoDiario, 'id'> = {
+            fecha: data.fecha,
+            descripcion: `Venta s/ doc ${data.numeroDocumento}`,
+            movimientos: [
+                { cuentaId: cuentaDebeCodigo, tipo: 'debe', monto: totalGeneral },
+                { cuentaId: CUENTAS.VENTAS, tipo: 'haber', monto: baseImponible },
+                { cuentaId: CUENTAS.IVA_DEBITO, tipo: 'haber', monto: totalIva },
+            ]
+        };
+        batch.set(asientoVentaRef, asientoVenta);
+    }
     
     if (costoTotalCMV > 0) {
         const asientoCMVRef = doc(collection(firestore, "asientosDiario"));
@@ -265,6 +293,11 @@ export function VentaForm({ venta, onCancel, clientes, depositos }: VentaFormPro
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 p-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <FormField name="numeroDocumento" control={form.control} render={({ field }) => ( <FormItem><FormLabel>N° Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
+            <FormField name="clienteId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent>{(clientes || []).map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+            <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+        </div>
         <Tabs defaultValue="detalle" className="w-full">
             <TabsList>
                 <TabsTrigger value="detalle">Detalle</TabsTrigger>
@@ -302,24 +335,21 @@ export function VentaForm({ venta, onCancel, clientes, depositos }: VentaFormPro
               <Button type="button" variant="outline" size="sm" onClick={() => append({} as any)}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Producto</Button>
             </TabsContent>
             <TabsContent value="financiero" className="space-y-6 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <FormField name="formaPago" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Forma de Pago</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Contado">Contado</SelectItem><SelectItem value="Transferencia">Transferencia</SelectItem><SelectItem value="Crédito">Crédito</SelectItem></SelectContent></Select><FormMessage/></FormItem> )}/>
-                  <FormField name="vencimiento" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Vencimiento</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")} disabled={form.getValues('formaPago') !== 'Crédito'}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage/></FormItem> )}/>
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <FormField name="formaPago" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Forma de Pago</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Contado">Contado</SelectItem><SelectItem value="Transferencia">Transferencia</SelectItem><SelectItem value="Crédito">Crédito</SelectItem></SelectContent></Select><FormMessage/></FormItem> )}/>
+                    {watchedFormaPago !== 'Crédito' && (
+                        <FormField name="financiero_cuentaId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cuenta de Cobro</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una cuenta"/></SelectTrigger></FormControl><SelectContent>{(cuentasCajaBanco).map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                    )}
+                    {watchedFormaPago === 'Crédito' && (
+                      <FormField name="vencimiento" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Vencimiento</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")} >{field.value ? format(field.value, "dd/MM/yyyy") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage/></FormItem> )}/>
+                    )}
+                </div>
             </TabsContent>
             <TabsContent value="observaciones" className="pt-4">
               <FormField name="observacion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage/></FormItem> )}/>
             </TabsContent>
         </Tabs>
           
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FormField name="numeroDocumento" control={form.control} render={({ field }) => ( <FormItem><FormLabel>N° Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
-            <FormField name="clienteId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent>{(clientes || []).map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-            <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-            <FormField name="moneda" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="PYG">PYG</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-            <FormField name="depositoOrigenId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Depósito de Origen</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un depósito" /></SelectTrigger></FormControl><SelectContent>{(depositos || []).map(d => <SelectItem key={d.id} value={d.id}>{d.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-        </div>
-
         <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Gravado 10%:</span><span>{formatCurrency(subtotalIva10 - iva10)}</span></div>

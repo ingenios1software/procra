@@ -264,6 +264,11 @@ export type Venta = {
     subtotal: number;
   }[];
   total: number;
+  financiero?: {
+    cuentaCobroId?: string;
+    total: number;
+    vencimiento?: Date | string;
+  }
 }
 export type Proveedor = {
   id: string;

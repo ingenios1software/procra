@@ -8,7 +8,7 @@ import { PlusCircle, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Venta, Cliente, Deposito } from "@/lib/types";
+import { Venta, Cliente, Deposito, CuentaCajaBanco } from "@/lib/types";
 import { format } from "date-fns";
 import {
   DropdownMenu,
@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { VentaForm } from "@/components/comercial/ventas/venta-form";
 import { MoreHorizontal } from "lucide-react";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, where } from 'firebase/firestore';
 import { formatCurrency } from "@/lib/utils";
 
 export default function VentasPage() {
@@ -33,6 +33,7 @@ export default function VentasPage() {
   const { data: ventas, isLoading: isLoadingVentas } = useCollection<Venta>(useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas'), orderBy('fecha', 'desc')) : null, [firestore]));
   const { data: clientes, isLoading: isLoadingClientes } = useCollection<Cliente>(useMemoFirebase(() => firestore ? query(collection(firestore, 'clientes')) : null, [firestore]));
   const { data: depositos, isLoading: isLoadingDepositos } = useCollection<Deposito>(useMemoFirebase(() => firestore ? query(collection(firestore, 'depositos')) : null, [firestore]));
+  const { data: cuentasCajaBanco, isLoading: isLoadingCuentas } = useCollection<CuentaCajaBanco>(useMemoFirebase(() => firestore ? query(collection(firestore, 'cuentasCajaBanco'), where('activo', '==', true)) : null, [firestore]));
 
 
   const getClienteNombre = (id: string) => clientes?.find(c => c.id === id)?.nombre || 'N/A';
@@ -131,6 +132,7 @@ export default function VentasPage() {
                 onCancel={closeForm}
                 clientes={clientes || []}
                 depositos={depositos || []}
+                cuentasCajaBanco={cuentasCajaBanco || []}
               />
             </div>
         </DialogContent>
@@ -138,3 +140,4 @@ export default function VentasPage() {
     </>
   );
 }
+
