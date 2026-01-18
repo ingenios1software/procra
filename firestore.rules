@@ -12,7 +12,10 @@ service cloud.firestore {
     function hasPerm(module) {
       // Verifica si el usuario tiene un permiso específico activado.
       // Asegurarse que el campo 'permisos' y el módulo existan para evitar errores.
-      return getUsuario().permisos[module] == true;
+      return 'permisos' in getUsuario() &&
+             getUsuario().permisos != null &&
+             module in getUsuario().permisos &&
+             getUsuario().permisos[module] == true;
     }
     
     function isAuthenticated() {
