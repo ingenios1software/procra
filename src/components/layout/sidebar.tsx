@@ -298,5 +298,3 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean, onLinkC
     </aside>
   )
 }
-
-    

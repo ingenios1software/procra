@@ -154,7 +154,7 @@ export type Insumo = {
   dosisRecomendada?: number;
   costoUnitario: number; // Costo de la última compra o manual
   precioPromedioCalculado: number; // Calculado a partir de todas las compras
-  precioVenta?: number;
+  precioVenta: number;
   stockMinimo: number;
   stockActual: number; // Este es el valor que se ajusta con entradas/salidas
   proveedor?: string;
@@ -245,38 +245,14 @@ export type Costo = {
     fecha: Date | string;
 };
 
-// Venta de cosecha (granos)
-export type VentaCosecha = {
-    id: string;
-    documento: string;
-    clienteId?: string;
-    fecha: Date | string;
-    items: {
-        insumoId: string;
-        cultivoId: string;
-        parcelaId: string;
-        zafraId: string;
-        cantidad: number; // Anteriormente 'toneladas'
-        precioUnitario: number; // Anteriormente 'precioTonelada'
-    }[];
-    total: number;
-};
-
-export type Deposito = {
-  id: string;
-  nombre: string;
-  descripcion?: string;
-  sucursalId?: string;
-  activo: boolean;
-};
-
 export type Venta = {
   id: string;
   numeroDocumento: string;
   clienteId: string;
   fecha: Date | string;
   moneda: 'USD' | 'PYG';
-  formaPago?: string;
+  formaPago?: 'Contado' | 'Transferencia' | 'Crédito';
+  vencimiento?: Date | string;
   vendedorId?: string;
   depositoOrigenId: string;
   observacion?: string;
@@ -478,6 +454,14 @@ export type AsientoDiario = {
 
 // --- NUEVOS MAESTROS ---
 
+export type Deposito = {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  sucursalId?: string;
+  activo: boolean;
+};
+
 export type Entidad = {
   id: string;
   tipo: "CLIENTE" | "PROVEEDOR" | "AMBOS";
@@ -531,5 +515,3 @@ export type FormaPago = {
   codigo: string;
   descripcion: string;
 };
-
-    
