@@ -144,6 +144,7 @@ export type StatCard = {
 
 export type Insumo = {
   id: string;
+  nombre: string;
   codigo: string;
   descripcion: string;
   categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'biologico' | 'otros';
