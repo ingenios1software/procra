@@ -53,7 +53,7 @@ export default function UsuariosPage() {
     <UsuariosList 
       initialUsuarios={usuarios || []}
       roles={roles || []}
-      onSave={handleSave}
+      onSave={handleSaveUsuario}
       onDelete={handleDeleteUsuario}
       isLoading={loadingUsuarios || loadingRoles}
     />
