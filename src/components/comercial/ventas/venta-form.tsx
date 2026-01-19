@@ -16,7 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { Venta, Cliente, Insumo, MovimientoStock, Deposito, AsientoDiario, CuentaCajaBanco } from "@/lib/types";
+import type { Venta, Cliente, Insumo, MovimientoStock, Deposito, AsientoDiario, CuentaCajaBanco, Zafra } from "@/lib/types";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, doc, writeBatch, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +34,7 @@ const itemSchema = z.object({
 const formSchema = z.object({
   numeroDocumento: z.string().nonempty("El número de documento es obligatorio."),
   clienteId: z.string().nonempty("Debe seleccionar un cliente."),
+  zafraId: z.string().nonempty("Debe seleccionar una zafra."),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
   moneda: z.enum(['USD', 'PYG']),
   formaPago: z.enum(['Contado', 'Transferencia', 'Crédito']),
@@ -64,6 +65,7 @@ interface VentaFormProps {
     clientes: Cliente[];
     depositos: Deposito[];
     cuentasCajaBanco: CuentaCajaBanco[];
+    zafras: Zafra[];
 }
 
 const CUENTAS = {
@@ -76,7 +78,7 @@ const CUENTAS = {
     INVENTARIO: '1.1.5',
 };
 
-export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBanco }: VentaFormProps) {
+export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBanco, zafras }: VentaFormProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -293,10 +295,11 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 p-1">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <FormField name="numeroDocumento" control={form.control} render={({ field }) => ( <FormItem><FormLabel>N° Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
-            <FormField name="clienteId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent>{(clientes || []).map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
             <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+            <FormField name="clienteId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent>{(clientes || []).map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+            <FormField name="zafraId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Zafra</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl><SelectContent>{(zafras || []).map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
         </div>
         <Tabs defaultValue="detalle" className="w-full">
             <TabsList>

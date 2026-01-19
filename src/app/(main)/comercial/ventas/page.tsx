@@ -8,7 +8,7 @@ import { PlusCircle, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Venta, Cliente, Deposito, CuentaCajaBanco } from "@/lib/types";
+import { Venta, Cliente, Deposito, CuentaCajaBanco, Zafra } from "@/lib/types";
 import { format } from "date-fns";
 import {
   DropdownMenu,
@@ -34,7 +34,7 @@ export default function VentasPage() {
   const { data: clientes, isLoading: isLoadingClientes } = useCollection<Cliente>(useMemoFirebase(() => firestore ? query(collection(firestore, 'clientes')) : null, [firestore]));
   const { data: depositos, isLoading: isLoadingDepositos } = useCollection<Deposito>(useMemoFirebase(() => firestore ? query(collection(firestore, 'depositos')) : null, [firestore]));
   const { data: cuentasCajaBanco, isLoading: isLoadingCuentas } = useCollection<CuentaCajaBanco>(useMemoFirebase(() => firestore ? query(collection(firestore, 'cuentasCajaBanco'), where('activo', '==', true)) : null, [firestore]));
-
+  const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]));
 
   const getClienteNombre = (id: string) => clientes?.find(c => c.id === id)?.nombre || 'N/A';
 
@@ -88,7 +88,7 @@ export default function VentasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(isLoadingVentas || isLoadingClientes || isLoadingDepositos) && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
+              {(isLoadingVentas || isLoadingClientes || isLoadingDepositos || isLoadingZafras) && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
               {ventas?.map((venta) => (
                 <TableRow key={venta.id}>
                   <TableCell>{venta.numeroDocumento}</TableCell>
@@ -133,6 +133,7 @@ export default function VentasPage() {
                 clientes={clientes || []}
                 depositos={depositos || []}
                 cuentasCajaBanco={cuentasCajaBanco || []}
+                zafras={zafras || []}
               />
             </div>
         </DialogContent>
@@ -140,4 +141,3 @@ export default function VentasPage() {
     </>
   );
 }
-

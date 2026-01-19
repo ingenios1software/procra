@@ -263,6 +263,7 @@ export type Venta = {
   id: string;
   numeroDocumento: string;
   clienteId: string;
+  zafraId?: string;
 
   parcelaId?: string;       // 🔹 NUEVO
   cultivoId?: string;       // 🔹 NUEVO
