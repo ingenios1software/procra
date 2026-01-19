@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc, collection, query, where, orderBy } from 'firebase/firestore';
 import type { Insumo, MovimientoStock, Zafra, Parcela } from '@/lib/types';
+import { type DateRange } from "react-day-picker";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -30,7 +31,7 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
   const firestore = useFirestore();
 
   // --- State for Filters ---
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedZafra, setSelectedZafra] = useState<string>('all');
   const [selectedTipos, setSelectedTipos] = useState<string[]>(['entrada', 'salida', 'ajuste']);
 
@@ -56,8 +57,8 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
 
     const filtered = movimientos.filter(mov => {
       const movDate = new Date(mov.fecha as any);
-      const isAfterFrom = !dateRange.from || movDate >= dateRange.from;
-      const isBeforeTo = !dateRange.to || movDate <= dateRange.to;
+      const isAfterFrom = !dateRange?.from || movDate >= dateRange.from;
+      const isBeforeTo = !dateRange?.to || movDate <= dateRange.to;
       const zafraMatch = selectedZafra === 'all' || mov.zafraId === selectedZafra;
       const tipoMatch = selectedTipos.includes(mov.tipo);
       return isAfterFrom && isBeforeTo && zafraMatch && tipoMatch;
@@ -143,9 +144,9 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
           <CardContent className="flex flex-col md:flex-row gap-4 items-center">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-[300px] justify-start text-left font-normal", !dateRange.from && "text-muted-foreground")}>
+                  <Button variant="outline" className={cn("w-[300px] justify-start text-left font-normal", !dateRange?.from && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange.from ? (dateRange.to ? `${format(dateRange.from, "LLL dd, y")} - ${format(dateRange.to, "LLL dd, y")}` : format(dateRange.from, "LLL dd, y")) : <span>Seleccionar período</span>}
+                    {dateRange?.from ? (dateRange.to ? `${format(dateRange.from, "LLL dd, y")} - ${format(dateRange.to, "LLL dd, y")}` : format(dateRange.from, "LLL dd, y")) : <span>Seleccionar período</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
