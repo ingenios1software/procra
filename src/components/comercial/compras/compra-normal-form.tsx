@@ -76,9 +76,26 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
   const form = useForm<CompraFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: compra ? {
-      ...compra,
-      mercaderias: compra.mercaderias.map(m => ({...m, insumo: m.insumo || m})),
+      // Mapeo explícito para evitar problemas de anidamiento y tipos
       fechaEmision: new Date(compra.fechaEmision as string),
+      moneda: compra.moneda,
+      condicionCompra: compra.condicionCompra,
+      entidadId: compra.entidadId,
+      formaPago: compra.formaPago || undefined,
+      totalizadora: compra.totalizadora,
+      observacion: compra.observacion ?? undefined, // FIX: `null` becomes `undefined`
+      
+      mercaderias: compra.mercaderias.map(m => ({...m, insumo: m.insumo || m})),
+      
+      flete_valor: compra.flete?.valor || undefined,
+      flete_transportadoraId: compra.flete?.transportadoraId || undefined,
+      flete_datos: compra.flete?.datos || undefined,
+
+      financiero_cuentaId: compra.financiero?.cuentaId || undefined,
+      financiero_vencimiento: compra.financiero?.vencimiento ? new Date(compra.financiero.vencimiento as string) : undefined,
+      
+      comprobante_documento: compra.comprobante.documento,
+      comprobante_timbre: compra.comprobante.timbre,
     } : {
       fechaEmision: new Date(),
       moneda: 'USD',
