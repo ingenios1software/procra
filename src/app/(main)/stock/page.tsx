@@ -3,7 +3,7 @@
 import { StockList } from "@/components/stock/stock-list";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query } from "firebase/firestore";
-import type { Insumo, Compra, Evento } from "@/lib/types";
+import type { Insumo } from "@/lib/types";
 import { ImportButton } from "@/components/stock/import-button";
 import { ImportModal } from "@/components/stock/import-modal";
 import { useState } from "react";
@@ -17,12 +17,9 @@ export default function StockPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const { data: insumos, isLoading: l1, forceRefetch: refetchInsumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos')) : null, [firestore]));
-  const { data: compras, isLoading: l2 } = useCollection<Compra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'compras')) : null, [firestore]));
-  const { data: eventos, isLoading: l3 } = useCollection<Evento>(useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos')) : null, [firestore]));
+  const { data: insumos, isLoading, forceRefetch: refetchInsumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos')) : null, [firestore]));
   
   const [isImportModalOpen, setImportModalOpen] = useState(false);
-  const [isFormOpen, setFormOpen] = useState(false);
 
   const handleImport = async (file: File) => {
     const result = await importarStockDesdeExcel(file);
@@ -48,9 +45,7 @@ export default function StockPage() {
     <>
       <StockList 
         insumos={insumos || []}
-        compras={compras || []}
-        eventos={eventos || []}
-        isLoading={l1 || l2 || l3}
+        isLoading={isLoading}
         onImportClick={() => setImportModalOpen(true)}
       />
       <ImportModal
