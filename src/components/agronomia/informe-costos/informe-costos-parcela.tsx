@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -75,7 +76,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
         const costoServicios = eventosParcela.reduce((sum, ev) => sum + ((ev.costoServicioPorHa || 0) * (ev.hectareasAplicadas || 0)), 0);
 
         const ventasParcela = ventas.filter(v => v.parcelaId === parcela.id && (!selectedZafraId || v.zafraId === selectedZafraId));
-        const totalKg = ventasParcela.reduce((sum, v) => sum + (v.toneladas * 1000), 0);
+        const totalKg = ventasParcela.reduce((sum, v) => sum + ((v.toneladas || 0) * 1000), 0);
         const rendimiento = parcela.superficie > 0 ? totalKg / parcela.superficie : 0;
         const costoPorTn = rendimiento > 0 ? costoHa / (rendimiento/1000) : 0;
         
