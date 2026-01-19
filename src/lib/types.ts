@@ -289,7 +289,7 @@ export type Venta = {
   precioTonelada?: number;   // 🔹 NUEVO
 
   financiero?: {
-    cuentaCobroId: string;
+    cuentaCobroId?: string;
     total: number;
     vencimiento?: Date | string;
   };
