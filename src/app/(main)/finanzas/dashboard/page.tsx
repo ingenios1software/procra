@@ -34,12 +34,17 @@ export default function DashboardFinancieroPage() {
     if (!eventos || !ventas || !parcelas || !cultivos) return { totalCostos: 0, totalIngresos: 0, margenNeto: 0, rentabilidadPorParcela: [], rentabilidadPorCultivo: [], costosPorCategoria: [], costosMensuales: [] };
 
     const totalCostos = eventos.reduce((acc, evento) => acc + (evento.costoTotal || 0), 0);
-    const totalIngresos = ventas.reduce((acc, venta) => acc + venta.toneladas * venta.precioTonelada, 0);
+    const totalIngresos = ventas.reduce((acc, venta) => {
+      const toneladas = venta.toneladas ?? 0;
+      const precioTonelada = venta.precioTonelada ?? 0;
+      return acc + toneladas * precioTonelada;
+    }, 0);
+    
     const margenNeto = totalIngresos - totalCostos;
 
     const rentabilidadPorParcela = parcelas.map(parcela => {
       const costosParcela = eventos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + (c.costoTotal || 0), 0);
-      const ingresosParcela = ventas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+      const ingresosParcela = ventas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + (v.toneladas || 0) * (v.precioTonelada || 0), 0);
       return {
         nombre: parcela.nombre,
         rentabilidad: ingresosParcela - costosParcela,
@@ -48,7 +53,7 @@ export default function DashboardFinancieroPage() {
 
     const rentabilidadPorCultivo = cultivos.map(cultivo => {
       const costosCultivo = eventos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + (c.costoTotal || 0), 0);
-      const ingresosCultivo = ventas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+      const ingresosCultivo = ventas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + (v.toneladas || 0) * (v.precioTonelada || 0), 0);
       return {
         name: cultivo.nombre,
         rentabilidad: ingresosCultivo - costosCultivo,

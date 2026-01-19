@@ -27,12 +27,12 @@ export default function RentabilidadPage() {
   const { totalIngresos, totalCostos, rentabilidadTotal, rentabilidadPorCultivo, rentabilidadPorParcela, composicionIngresos } = useMemo(() => {
     if (!eventos || !ventas || !parcelas || !cultivos) return { totalIngresos: 0, totalCostos: 0, rentabilidadTotal: 0, rentabilidadPorCultivo: [], rentabilidadPorParcela: [], composicionIngresos: [] };
     
-    const totalIngresos = ventas.reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+    const totalIngresos = ventas.reduce((sum, v) => sum + (v.toneladas || 0) * (v.precioTonelada || 0), 0);
     const totalCostos = eventos.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
     
     const rentabilidadPorCultivo = cultivos.map(cultivo => {
       const costosCultivo = eventos.filter(c => c.cultivoId === cultivo.id).reduce((sum, c) => sum + (c.costoTotal || 0), 0);
-      const ingresosCultivo = ventas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+      const ingresosCultivo = ventas.filter(v => v.cultivoId === cultivo.id).reduce((sum, v) => sum + (v.toneladas || 0) * (v.precioTonelada || 0), 0);
       const rentabilidadNeta = ingresosCultivo - costosCultivo;
       const margen = ingresosCultivo > 0 ? (rentabilidadNeta / ingresosCultivo) * 100 : 0;
       return {
@@ -46,7 +46,7 @@ export default function RentabilidadPage() {
 
     const rentabilidadPorParcela = parcelas.map(parcela => {
       const costosParcela = eventos.filter(c => c.parcelaId === parcela.id).reduce((sum, c) => sum + (c.costoTotal || 0), 0);
-      const ingresosParcela = ventas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+      const ingresosParcela = ventas.filter(v => v.parcelaId === parcela.id).reduce((sum, v) => sum + (v.toneladas || 0) * (v.precioTonelada || 0), 0);
       const margenNeto = ingresosParcela - costosParcela;
       const margenPorHa = parcela.superficie > 0 ? margenNeto / parcela.superficie : 0;
       const margenPercent = ingresosParcela > 0 ? (margenNeto / ingresosParcela) * 100 : 0;
@@ -66,7 +66,7 @@ export default function RentabilidadPage() {
     const composicionIngresos = cultivos.map(cultivo => {
       const ingresosCultivo = ventas
         .filter(v => v.cultivoId === cultivo.id)
-        .reduce((sum, v) => sum + v.toneladas * v.precioTonelada, 0);
+        .reduce((sum, v) => sum + (v.toneladas || 0) * (v.precioTonelada || 0), 0);
       return {
         name: cultivo.nombre,
         value: ingresosCultivo,

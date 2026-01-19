@@ -263,12 +263,16 @@ export type Venta = {
   id: string;
   numeroDocumento: string;
   clienteId: string;
+
+  parcelaId?: string;       // 🔹 NUEVO
+  cultivoId?: string;       // 🔹 NUEVO
+
   fecha: Date | string;
   moneda: 'USD' | 'PYG';
   formaPago: 'Contado' | 'Transferencia' | 'Crédito';
   vencimiento?: Date | string;
   vendedorId?: string;
-  depositoOrigenId: string;
+  depositoOrigenId?: string;
   observacion?: string;
   items: {
     productoId: string;
@@ -279,12 +283,16 @@ export type Venta = {
     subtotal: number;
   }[];
   total: number;
+
+  toneladas?: number;        // 🔹 NUEVO
+  precioTonelada?: number;   // 🔹 NUEVO
+
   financiero?: {
-    cuentaCobroId?: string;
+    cuentaCobroId: string;
     total: number;
     vencimiento?: Date | string;
-  }
-}
+  };
+};
 export type Proveedor = {
   id: string;
   nombre: string;
