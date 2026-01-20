@@ -27,10 +27,13 @@ import { Textarea } from "../ui/textarea";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
+  codigo: z.string().nonempty("El código es requerido."),
+  descripcion: z.string().nonempty("La descripción es requerida."),
   categoria: z.enum(['fertilizante', 'herbicida', 'fungicida', 'semilla', 'insecticida', 'biologico', 'otros']),
   principioActivo: z.string().optional(),
   unidad: z.enum(['kg', 'lt', 'unidad', 'ton']),
   iva: z.enum(['0', '5', '10']),
+  precioVenta: z.coerce.number().min(0, "El precio de venta no puede ser negativo."),
   dosisRecomendada: z.coerce.number().optional(),
   stockMinimo: z.coerce.number().min(0, "El stock mínimo no puede ser negativo."),
   proveedor: z.string().optional(),
@@ -53,12 +56,18 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
         stockMinimo: insumo.stockMinimo || 0,
         proveedor: insumo.proveedor || "",
         iva: insumo.iva || '10',
+        codigo: insumo.codigo || "",
+        descripcion: insumo.descripcion || "",
+        precioVenta: insumo.precioVenta || 0,
     } : {
       nombre: "",
+      codigo: "",
+      descripcion: "",
       categoria: "otros",
       principioActivo: "",
       unidad: "unidad",
       iva: "10",
+      precioVenta: 0,
       dosisRecomendada: 0,
       stockMinimo: 0,
       proveedor: "",
@@ -68,14 +77,43 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="nombre"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre del Insumo</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: Urea" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="codigo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Código</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: FERT-001" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        
         <FormField
           control={form.control}
-          name="nombre"
+          name="descripcion"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nombre del Insumo</FormLabel>
+              <FormLabel>Descripción</FormLabel>
               <FormControl>
-                <Input placeholder="Ej: Urea" {...field} />
+                <Textarea placeholder="Descripción detallada del producto..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -185,7 +223,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <FormField
               control={form.control}
               name="stockMinimo"
@@ -194,6 +232,19 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
                   <FormLabel>Stock Mínimo</FormLabel>
                   <FormControl>
                     <Input type="number" placeholder="500" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="precioVenta"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Precio de Venta ($)</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="25.50" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
