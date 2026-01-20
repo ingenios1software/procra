@@ -20,19 +20,22 @@ import { SelectorUniversal } from "../common";
 
 const itemSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar un insumo."}),
-  cultivoId: z.string().nonempty("Debe seleccionar un cultivo."),
-  parcelaId: z.string().nonempty("Debe seleccionar una parcela."),
-  zafraId: z.string().nonempty("Debe seleccionar una zafra."),
   cantidad: z.coerce.number().positive("La cantidad debe ser un número positivo."),
   precioUnitario: z.coerce.number().positive("El precio debe ser un número positivo."),
 });
 
 const formSchema = z.object({
-  documento: z.string().min(1, "El número de documento es obligatorio."),
+  numeroDocumento: z.string().min(1, "El número de documento es obligatorio."),
   clienteId: z.string().optional(),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
+  moneda: z.enum(['USD', 'PYG']),
+  formaPago: z.enum(['Contado', 'Transferencia', 'Crédito']),
+  zafraId: z.string().nonempty("Debe seleccionar una zafra."),
+  parcelaId: z.string().nonempty("Debe seleccionar una parcela."),
+  cultivoId: z.string().nonempty("Debe seleccionar un cultivo."),
   items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem."),
 });
+
 
 type VentaFormValues = z.infer<typeof formSchema>;
 
@@ -52,10 +55,15 @@ export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cult
     resolver: zodResolver(formSchema),
     defaultValues: venta ? {
       ...venta,
+      numeroDocumento: venta.numeroDocumento || '',
+      moneda: venta.moneda || 'USD',
+      formaPago: venta.formaPago || 'Contado',
       fecha: new Date(venta.fecha as string),
     } : {
       fecha: new Date(),
-      items: []
+      items: [],
+      moneda: 'USD',
+      formaPago: 'Contado'
     },
   });
 
@@ -76,21 +84,34 @@ export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cult
     const dataToSave = {
         ...data,
         items: data.items.map(item => ({
-            ...item,
-            insumoId: item.insumo.id, // Aplanar el objeto insumo
+            productoId: item.insumo.id, // Aplanar el objeto insumo
+            cantidad: item.cantidad,
+            precioUnitario: item.precioUnitario,
+            descripcion: item.insumo.descripcion || '',
+            descuentoPorc: 0, // No está en el form, default a 0
+            subtotal: item.cantidad * item.precioUnitario,
         })),
         total: totalVenta
     };
-    onSubmit(dataToSave);
+    onSubmit(dataToSave as any);
   };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFinalSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-           <FormField control={form.control} name="documento" render={({ field }) => ( <FormItem><FormLabel>N° Documento</FormLabel><FormControl><Input placeholder="001-001-000123" {...field} /></FormControl><FormMessage/></FormItem> )}/>
+           <FormField control={form.control} name="numeroDocumento" render={({ field }) => ( <FormItem><FormLabel>N° Documento</FormLabel><FormControl><Input placeholder="001-001-000123" {...field} /></FormControl><FormMessage/></FormItem> )}/>
            <FormField control={form.control} name="clienteId" render={({ field }) => ( <FormItem> <FormLabel>Cliente</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl> <SelectContent>{clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
            <FormField control={form.control} name="fecha" render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha de Venta</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <FormField control={form.control} name="zafraId" render={({ field }) => ( <FormItem> <FormLabel>Zafra</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione la zafra" /></SelectTrigger></FormControl> <SelectContent>{zafras.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="parcelaId" render={({ field }) => ( <FormItem> <FormLabel>Parcela</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione la parcela" /></SelectTrigger></FormControl> <SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="cultivoId" render={({ field }) => ( <FormItem> <FormLabel>Cultivo</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione el cultivo" /></SelectTrigger></FormControl> <SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField control={form.control} name="moneda" render={({ field }) => ( <FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="PYG">PYG</SelectItem></SelectContent></Select><FormMessage/></FormItem> )}/>
+            <FormField control={form.control} name="formaPago" render={({ field }) => ( <FormItem><FormLabel>Forma de Pago</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Contado">Contado</SelectItem><SelectItem value="Transferencia">Transferencia</SelectItem><SelectItem value="Crédito">Crédito</SelectItem></SelectContent></Select><FormMessage/></FormItem> )}/>
         </div>
         
         <Table>
