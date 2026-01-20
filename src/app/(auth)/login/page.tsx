@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth, useFirestore } from "@/firebase";
 import { Logo } from "@/components/icons";
@@ -61,8 +61,6 @@ export default function LoginPage() {
                 rolNombre: 'admin',
                 activo: true,
             });
-            // Re-fetch the document after creating it
-            userDoc = await getDoc(userDocRef);
         } else {
             setError("El usuario no tiene un perfil configurado en el sistema.");
             setLoading(false);
@@ -71,20 +69,50 @@ export default function LoginPage() {
         }
       }
       
-      // La redirección principal se maneja en el layout autenticado.
-      // Aquí simplemente redirigimos al dashboard principal.
       router.push("/dashboard");
 
-    } catch (err: any) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-          setError("Correo electrónico o contraseña incorrectos.");
-      } else if (err.code === 'auth/invalid-email') {
-          setError("El formato del correo electrónico no es válido.");
-      } else {
-          setError("Ocurrió un error inesperado. Intente de nuevo.");
-          console.error(err); // Log the full error for debugging
-      }
-      setLoading(false);
+    } catch (loginError: any) {
+        if (loginError.code === 'auth/user-not-found' && email.toLowerCase() === 'admin@crapro95.com') {
+            // Admin user not found, let's create it as a convenience for first-time setup.
+            try {
+                const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const uid = newUserCredential.user.uid;
+                const userDocRef = doc(db, "usuarios", uid);
+
+                // Find the admin role
+                const rolesQuery = query(collection(db, 'roles'), where('nombre', '==', 'admin'));
+                const rolesSnapshot = await getDocs(rolesQuery);
+                if (rolesSnapshot.empty) {
+                    setError("El rol 'admin' no existe, no se pudo crear el perfil de administrador.");
+                    setLoading(false);
+                    return;
+                }
+                const adminRole = rolesSnapshot.docs[0];
+                
+                // Create the user profile document
+                await setDoc(userDocRef, {
+                    nombre: 'Administrador',
+                    email: email,
+                    rolId: adminRole.id,
+                    rolNombre: 'admin',
+                    activo: true,
+                });
+                
+                // User is now created and logged in.
+                router.push("/dashboard");
+
+            } catch (creationError: any) {
+                // This can happen if the email exists but the password was wrong initially.
+                setError("La contraseña del administrador es incorrecta.");
+                setLoading(false);
+            }
+        } else if (loginError.code === 'auth/user-not-found' || loginError.code === 'auth/wrong-password' || loginError.code === 'auth/invalid-credential') {
+            setError("Correo electrónico o contraseña incorrectos.");
+        } else {
+            setError("Ocurrió un error inesperado. Intente de nuevo.");
+            console.error(loginError);
+        }
+        setLoading(false);
     }
   };
 
