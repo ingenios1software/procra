@@ -107,7 +107,11 @@ export default function LoginPage() {
                 setLoading(false);
             }
         } else if (loginError.code === 'auth/user-not-found' || loginError.code === 'auth/wrong-password' || loginError.code === 'auth/invalid-credential') {
-            setError("Correo electrónico o contraseña incorrectos.");
+            if (email.toLowerCase() === 'admin@crapro95.com') {
+                setError("La contraseña del administrador es incorrecta. Use la opción 'Olvidé mi contraseña' para recuperarla.");
+            } else {
+                setError("Correo electrónico o contraseña incorrectos.");
+            }
         } else {
             setError("Ocurrió un error inesperado. Intente de nuevo.");
             console.error(loginError);
