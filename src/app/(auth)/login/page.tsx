@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { useAuth, useFirestore } from "@/firebase";
 import { Logo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -37,14 +37,38 @@ export default function LoginPage() {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
-
-      const userDoc = await getDoc(doc(db, "usuarios", uid));
+      
+      const userDocRef = doc(db, "usuarios", uid);
+      let userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists()) {
-        setError("El usuario no tiene un perfil configurado en el sistema.");
-        setLoading(false);
-        await auth.signOut(); // Cerrar sesión si no tiene perfil
-        return;
+        // Special case: If it's the admin user and they don't have a profile, create one to unblock them.
+        if (email.toLowerCase() === 'admin@crapro95.com') {
+            const rolesQuery = query(collection(db, 'roles'), where('nombre', '==', 'admin'));
+            const rolesSnapshot = await getDocs(rolesQuery);
+            if (rolesSnapshot.empty) {
+                 setError("El rol 'admin' no existe en la base de datos. No se puede crear el perfil de administrador.");
+                 setLoading(false);
+                 await auth.signOut();
+                 return;
+            }
+            const adminRole = rolesSnapshot.docs[0];
+
+            await setDoc(userDocRef, {
+                nombre: 'Administrador',
+                email: email,
+                rolId: adminRole.id,
+                rolNombre: 'admin',
+                activo: true,
+            });
+            // Re-fetch the document after creating it
+            userDoc = await getDoc(userDocRef);
+        } else {
+            setError("El usuario no tiene un perfil configurado en el sistema.");
+            setLoading(false);
+            await auth.signOut(); // Cerrar sesión si no tiene perfil
+            return;
+        }
       }
       
       // La redirección principal se maneja en el layout autenticado.
@@ -58,6 +82,7 @@ export default function LoginPage() {
           setError("El formato del correo electrónico no es válido.");
       } else {
           setError("Ocurrió un error inesperado. Intente de nuevo.");
+          console.error(err); // Log the full error for debugging
       }
       setLoading(false);
     }
@@ -70,6 +95,7 @@ export default function LoginPage() {
     }
     setError("");
     setLoading(true);
+    if (!auth) return;
     try {
         await sendPasswordResetEmail(auth, email);
         setResetSent(true);
