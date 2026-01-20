@@ -28,16 +28,6 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    // --- MODO DE PRUEBA ---
-    if (email === 'admin@crapro95.com' && password === 'cra5274') {
-        console.log("Modo de prueba: Iniciando sesión como administrador.");
-        router.push("/dashboard");
-        // No es necesario llamar a setLoading(false) porque la redirección ocurrirá
-        return;
-    }
-    // --- FIN MODO DE PRUEBA ---
-
-
     if (!auth || !db) {
         setError("Error de inicialización. Intente de nuevo.");
         setLoading(false);
@@ -48,7 +38,7 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      const userDoc = await getDoc(doc(db, "users", uid));
+      const userDoc = await getDoc(doc(db, "usuarios", uid));
 
       if (!userDoc.exists()) {
         setError("El usuario no tiene un perfil configurado en el sistema.");
