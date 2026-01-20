@@ -46,7 +46,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       usuarioApp: isLoading ? null : (usuarioApp || null),
       permisos: userRole?.permisos || defaultPermissions,
       role: usuarioApp?.rolNombre || null,
-      setRole: () => {}, // Placeholder, no longer used
     };
   }, [isLoading, usuarioApp, userRole]);
 
