@@ -37,9 +37,9 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
     const totalIngresos = ventas.reduce((acc, venta) => acc + (venta.total || 0), 0);
 
     const rendimientoPorParcela = parcelas.map(parcela => {
-        const toneladasVendidas = ventas.flatMap(v => v.items || [])
-            .filter(item => item.parcelaId === parcela.id)
-            .reduce((sum, item) => sum + item.cantidad, 0);
+        const toneladasVendidas = ventas
+            .filter(v => v.parcelaId === parcela.id)
+            .reduce((sum, v) => sum + (v.toneladas || 0), 0);
         
         const rendimientoKgHa = parcela.superficie > 0 ? (toneladasVendidas * 1000) / parcela.superficie : 0;
         return {
@@ -67,10 +67,10 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
     
     // --- Lógica de Stock ---
     for (const item of ventaData.items) {
-        const insumoRef = doc(firestore, "insumos", item.insumoId);
+        const insumoRef = doc(firestore, "insumos", item.productoId);
         const insumoDoc = await getDoc(insumoRef);
         if (!insumoDoc.exists()) {
-            toast({ variant: "destructive", title: "Error", description: `Insumo con ID ${item.insumoId} no encontrado.` });
+            toast({ variant: "destructive", title: "Error", description: `Insumo con ID ${item.productoId} no encontrado.` });
             continue; // Saltar este item si no se encuentra el insumo
         }
         const insumoActual = insumoDoc.data() as Insumo;
@@ -87,8 +87,8 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
             tipo: "salida",
             origen: "venta",
             ventaId: ventaRef.id,
-            documentoOrigen: dataToSave.documento,
-            insumoId: item.insumoId,
+            documentoOrigen: dataToSave.numeroDocumento,
+            insumoId: item.productoId,
             insumoNombre: insumoActual.nombre,
             unidad: insumoActual.unidad,
             categoria: insumoActual.categoria,
@@ -208,7 +208,7 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
                 return (
                   <TableRow key={venta.id}>
                     <TableCell>{format(new Date(venta.fecha as string), "dd/MM/yyyy")}</TableCell>
-                    <TableCell>{venta.documento}</TableCell>
+                    <TableCell>{venta.numeroDocumento}</TableCell>
                     <TableCell className="font-medium">{getClienteNombre(venta.clienteId)}</TableCell>
                     <TableCell className="text-right font-semibold">${(venta.total || 0).toLocaleString('en-US')}</TableCell>
                     {user && (
