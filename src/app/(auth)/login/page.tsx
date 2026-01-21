@@ -23,6 +23,11 @@ export default function LoginPage() {
   const [showReset, setShowReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
+  const isAdminEmail = (email: string) => {
+    const lowercasedEmail = email.toLowerCase();
+    return lowercasedEmail === 'admin@crapro95.com' || lowercasedEmail === 'ricardo.ortellado@outlook.com';
+  }
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -43,7 +48,7 @@ export default function LoginPage() {
 
       if (!userDoc.exists()) {
         // Special case: If it's the admin user and they don't have a profile, create one to unblock them.
-        if (email.toLowerCase() === 'admin@crapro95.com') {
+        if (isAdminEmail(email)) {
             const rolesQuery = query(collection(db, 'roles'), where('nombre', '==', 'admin'));
             const rolesSnapshot = await getDocs(rolesQuery);
             if (rolesSnapshot.empty) {
@@ -72,7 +77,7 @@ export default function LoginPage() {
       router.push("/dashboard");
 
     } catch (loginError: any) {
-        if (loginError.code === 'auth/user-not-found' && email.toLowerCase() === 'admin@crapro95.com') {
+        if (loginError.code === 'auth/user-not-found' && isAdminEmail(email)) {
             // Admin user not found, let's create it as a convenience for first-time setup.
             try {
                 const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -107,7 +112,7 @@ export default function LoginPage() {
                 setLoading(false);
             }
         } else if (loginError.code === 'auth/user-not-found' || loginError.code === 'auth/wrong-password' || loginError.code === 'auth/invalid-credential') {
-            if (email.toLowerCase() === 'admin@crapro95.com') {
+            if (isAdminEmail(email)) {
                 setError("La contraseña del administrador es incorrecta. Use la opción 'Olvidé mi contraseña' para recuperarla.");
             } else {
                 setError("Correo electrónico o contraseña incorrectos.");
