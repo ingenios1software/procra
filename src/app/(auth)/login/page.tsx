@@ -44,9 +44,13 @@ export default function LoginPage() {
       const uid = userCredential.user.uid;
       
       const userDocRef = doc(db, "usuarios", uid);
-      let userDoc = await getDoc(userDocRef);
+      const userDoc = await getDoc(userDocRef);
 
-      if (!userDoc.exists()) {
+      if (userDoc.exists()) {
+        if (isAdminEmail(email) && userDoc.data()?.activo === false) {
+            await setDoc(userDocRef, { activo: true }, { merge: true });
+        }
+      } else {
         // Special case: If it's the admin user and they don't have a profile, create one to unblock them.
         if (isAdminEmail(email)) {
             const rolesQuery = query(collection(db, 'roles'), where('nombre', '==', 'admin'));
