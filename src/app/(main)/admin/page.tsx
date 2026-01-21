@@ -7,9 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ShieldAlert } from "lucide-react";
 
 export default function AdminPage() {
-  const { role } = useAuth();
+  const { permisos } = useAuth();
 
-  if (role !== 'admin') {
+  if (!permisos.administracion) {
     return (
         <>
             <PageHeader title="Acceso Denegado" />
@@ -21,7 +21,7 @@ export default function AdminPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p>Esta sección está restringida y solo es accesible para usuarios con el rol de Administrador.</p>
+                    <p>No tienes los permisos necesarios para acceder a la sección de administración.</p>
                 </CardContent>
             </Card>
         </>
