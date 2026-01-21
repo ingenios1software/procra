@@ -164,10 +164,25 @@
         "properties": {
           "nombre": { "type": "string", "description": "Full name of the user." },
           "email": { "type": "string", "description": "Email address of the user.", "format": "email" },
-          "rol": { "type": "string", "description": "User role identifier." },
+          "rolId": { "type": "string", "description": "Identifier for the user's role." },
+          "rolNombre": { "type": "string", "description": "Name of the user's role." },
           "empresaId": { "type": "string", "description": "Identifier for the company the user belongs to." },
-          "activo": { "type": "boolean", "description": "Indicates if the user account is active." },
-          "permisos": {
+          "activo": { "type": "boolean", "description": "Indicates if the user account is active." }
+        },
+        "required": ["nombre", "email", "rolId", "rolNombre", "activo"]
+      },
+    "Role": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Role",
+      "type": "object",
+      "description": "Represents a user role within the application.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the Role entity." },
+        "nombre": { "type": "string", "description": "Name of the role." },
+        "descripcion": { "type": "string", "description": "Description of the role and its permissions." },
+        "soloLectura": { "type": "boolean", "description": "Indicates if the role is read-only." },
+        "esSistema": { "type": "boolean", "description": "Indicates if the role is a system role and cannot be deleted." },
+        "permisos": {
             "type": "object",
             "description": "Object defining user permissions for different modules.",
             "properties": {
@@ -177,24 +192,16 @@
               "monitoreos": { "type": "boolean" },
               "ventas": { "type": "boolean" },
               "contabilidad": { "type": "boolean" },
-              "rrhh": { "type": "boolean" }
+              "rrhh": { "type": "boolean" },
+              "finanzas": { "type": "boolean" },
+              "agronomia": { "type": "boolean" },
+              "maestros": { "type": "boolean" },
+              "administracion": { "type": "boolean" }
             },
-            "required": ["compras", "stock", "eventos", "monitoreos", "ventas", "contabilidad", "rrhh"]
+            "required": ["compras", "stock", "eventos", "monitoreos", "ventas", "contabilidad", "rrhh", "finanzas", "agronomia", "maestros", "administracion"]
           }
-        },
-        "required": ["nombre", "email", "rol", "activo", "permisos"]
       },
-    "Role": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Role",
-      "type": "object",
-      "description": "Represents a user role within the application.",
-      "properties": {
-        "id": { "type": "string", "description": "Unique identifier for the Role entity." },
-        "name": { "type": "string", "description": "Name of the role." },
-        "description": { "type": "string", "description": "Description of the role and its permissions." }
-      },
-      "required": ["id", "name", "description"]
+      "required": ["id", "nombre", "descripcion", "permisos", "soloLectura"]
     },
     "PlanDeCuenta": {
       "$schema": "http://json-schema.org/draft-07/schema#",

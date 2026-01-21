@@ -1,5 +1,3 @@
-
-
 import type { FieldValue } from 'firebase/firestore';
 
 export type Permisos = {
@@ -10,6 +8,10 @@ export type Permisos = {
   ventas: boolean;
   contabilidad: boolean;
   rrhh: boolean;
+  finanzas: boolean;
+  agronomia: boolean;
+  maestros: boolean;
+  administracion: boolean;
 };
 
 export type GeoJSONPoint = {

@@ -16,6 +16,7 @@ interface AuthContextType {
 const defaultPermissions: Permisos = {
     compras: false, stock: false, eventos: false, monitoreos: false,
     ventas: false, contabilidad: false, rrhh: false,
+    finanzas: false, agronomia: false, maestros: false, administracion: false,
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);

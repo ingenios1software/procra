@@ -19,6 +19,10 @@ const PERMISOS_DEFAULT: Permisos = {
     ventas: false,
     contabilidad: false,
     rrhh: false,
+    finanzas: false,
+    agronomia: false,
+    maestros: false,
+    administracion: false,
 };
 
 const formSchema = z.object({
@@ -32,6 +36,10 @@ const formSchema = z.object({
     ventas: z.boolean(),
     contabilidad: z.boolean(),
     rrhh: z.boolean(),
+    finanzas: z.boolean(),
+    agronomia: z.boolean(),
+    maestros: z.boolean(),
+    administracion: z.boolean(),
   }),
   soloLectura: z.boolean(),
 });
