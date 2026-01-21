@@ -19,6 +19,13 @@ const defaultPermissions: Permisos = {
     finanzas: false, agronomia: false, maestros: false, administracion: false,
 };
 
+const allPermissions: Permisos = {
+    compras: true, stock: true, eventos: true, monitoreos: true,
+    ventas: true, contabilidad: true, rrhh: true,
+    finanzas: true, agronomia: true, maestros: true, administracion: true,
+};
+
+
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -42,10 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isLoading = isAuthLoading || isProfileLoading || isRoleLoading;
 
   const value = useMemo(() => {
+    // SPECIAL CASE: If the user has the 'admin' role, always grant all permissions.
+    // This is a safeguard to ensure the admin is never locked out due to DB inconsistencies.
+    const isAdmin = usuarioApp?.rolNombre === 'admin';
+
     return {
       isAuthLoading: isLoading,
       usuarioApp: isLoading ? null : (usuarioApp || null),
-      permisos: userRole?.permisos || defaultPermissions,
+      permisos: isAdmin ? allPermissions : (userRole?.permisos || defaultPermissions),
       role: usuarioApp?.rolNombre || null,
     };
   }, [isLoading, usuarioApp, userRole]);
