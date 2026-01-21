@@ -39,91 +39,73 @@ export default function LoginPage() {
         return;
     }
 
+    const isLoginAdmin = isAdminEmail(email);
+
     try {
+      // Step 1: Attempt to sign in
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
-      
       const userDocRef = doc(db, "usuarios", uid);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
-        if (isAdminEmail(email) && userDoc.data()?.activo === false) {
+        // If user is admin and inactive, activate them. This is a backdoor for admins.
+        if (isLoginAdmin && userDoc.data()?.activo === false) {
             await setDoc(userDocRef, { activo: true }, { merge: true });
         }
       } else {
-        // Special case: If it's the admin user and they don't have a profile, create one to unblock them.
-        if (isAdminEmail(email)) {
+        // If user is authenticated but has no profile document...
+        if (isLoginAdmin) {
+            // ...and they are an admin, create a profile for them.
             const rolesQuery = query(collection(db, 'roles'), where('nombre', '==', 'admin'));
             const rolesSnapshot = await getDocs(rolesQuery);
-            if (rolesSnapshot.empty) {
-                 setError("El rol 'admin' no existe en la base de datos. No se puede crear el perfil de administrador.");
-                 setLoading(false);
-                 await auth.signOut();
-                 return;
-            }
+            if (rolesSnapshot.empty) throw new Error("El rol 'admin' no existe en la base de datos.");
             const adminRole = rolesSnapshot.docs[0];
-
             await setDoc(userDocRef, {
-                nombre: 'Administrador',
-                email: email,
-                rolId: adminRole.id,
-                rolNombre: 'admin',
-                activo: true,
+                nombre: 'Administrador', email: email, rolId: adminRole.id, rolNombre: 'admin', activo: true,
             });
         } else {
-            setError("El usuario no tiene un perfil configurado en el sistema.");
-            setLoading(false);
-            await auth.signOut(); // Cerrar sesión si no tiene perfil
-            return;
+            // A non-admin user without a profile is not allowed.
+            await auth.signOut();
+            throw new Error("El usuario no tiene un perfil configurado en el sistema.");
         }
       }
       
       router.push("/dashboard");
 
-    } catch (loginError: any) {
-        if (loginError.code === 'auth/user-not-found' && isAdminEmail(email)) {
-            // Admin user not found, let's create it as a convenience for first-time setup.
+    } catch (error: any) {
+        // Step 2: Handle sign-in failures
+        if (error.code === 'auth/user-not-found' && isLoginAdmin) {
+            // Admin doesn't exist in Auth, so let's create them.
             try {
                 const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const uid = newUserCredential.user.uid;
                 const userDocRef = doc(db, "usuarios", uid);
 
-                // Find the admin role
                 const rolesQuery = query(collection(db, 'roles'), where('nombre', '==', 'admin'));
                 const rolesSnapshot = await getDocs(rolesQuery);
-                if (rolesSnapshot.empty) {
-                    setError("El rol 'admin' no existe, no se pudo crear el perfil de administrador.");
-                    setLoading(false);
-                    return;
-                }
-                const adminRole = rolesSnapshot.docs[0];
+                if (rolesSnapshot.empty) throw new Error("El rol 'admin' no existe. No se puede crear el perfil.");
                 
-                // Create the user profile document
+                const adminRole = rolesSnapshot.docs[0];
                 await setDoc(userDocRef, {
-                    nombre: 'Administrador',
-                    email: email,
-                    rolId: adminRole.id,
-                    rolNombre: 'admin',
-                    activo: true,
+                    nombre: 'Administrador', email: email, rolId: adminRole.id, rolNombre: 'admin', activo: true,
                 });
                 
-                // User is now created and logged in.
                 router.push("/dashboard");
 
             } catch (creationError: any) {
-                // This can happen if the email exists but the password was wrong initially.
-                setError("La contraseña del administrador es incorrecta.");
-                setLoading(false);
+                // This could happen if, for example, the password is too weak.
+                setError("No se pudo crear la cuenta de administrador. " + creationError.message);
             }
-        } else if (loginError.code === 'auth/user-not-found' || loginError.code === 'auth/wrong-password' || loginError.code === 'auth/invalid-credential') {
-            if (isAdminEmail(email)) {
+        } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+             if (isLoginAdmin) {
                 setError("La contraseña del administrador es incorrecta. Use la opción 'Olvidé mi contraseña' para recuperarla.");
             } else {
                 setError("Correo electrónico o contraseña incorrectos.");
             }
         } else {
-            setError("Ocurrió un error inesperado. Intente de nuevo.");
-            console.error(loginError);
+            setError(error.message || "Ocurrió un error inesperado.");
+            console.error(error);
         }
         setLoading(false);
     }
