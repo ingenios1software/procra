@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -26,9 +27,22 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const { user } = useAuth();
-  // El control de permisos real vendrá del hook useAuth en el futuro.
-  // Por ahora, asumimos que solo admin y supervisor pueden modificar.
-  const canModify = user && ['admin', 'supervisor'].includes(user.rolNombre);
+
+  // ✅ Permisos reales basados en Firestore (usuarios + roles)
+  const authId = (user as any)?.id || (user as any)?.uid;
+const authEmail = (user as any)?.email;
+
+const currentUsuario =
+  initialUsuarios.find(u => u.id === authId) ||
+  initialUsuarios.find(u => u.email === authEmail);
+  const currentRol =
+  roles.find(r => (r as any).id === currentUsuario?.rolId) ||
+  roles.find(r => (r as any).docId === currentUsuario?.rolId) ||
+  roles.find(r => (r as any)._id === currentUsuario?.rolId);
+
+  const canModify =
+    !!currentUsuario?.activo &&
+    (currentRol?.isAdmin === true || currentRol?.permisos?.administracion === true);
 
   const handleSave = (usuarioData: Omit<Usuario, 'id' | 'rolNombre'>) => {
     if (selectedUsuario) {
@@ -39,11 +53,11 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
     setDialogOpen(false);
     setSelectedUsuario(null);
   };
-  
+
   const openDialog = (usuario?: Usuario) => {
     setSelectedUsuario(usuario || null);
     setDialogOpen(true);
-  }
+  };
 
   return (
     <>
@@ -58,12 +72,14 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
           </Button>
         )}
       </PageHeader>
-      
+  
       {!canModify && (
         <Card className="mb-4 bg-amber-50 border-amber-200">
-            <CardContent className="p-4">
-                <p className="text-amber-800 font-medium">Solo los administradores o supervisores pueden gestionar usuarios.</p>
-            </CardContent>
+          <CardContent className="p-4">
+            <p className="text-amber-800 font-medium">
+              Solo los administradores o supervisores pueden gestionar usuarios.
+            </p>
+          </CardContent>
         </Card>
       )}
 
@@ -83,20 +99,31 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={5} className="text-center h-24">Cargando usuarios...</TableCell></TableRow>}
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center h-24">
+                    Cargando usuarios...
+                  </TableCell>
+                </TableRow>
+              )}
               {initialUsuarios.map((usuario) => (
                 <TableRow key={usuario.id}>
                   <TableCell className="font-medium">{usuario.nombre}</TableCell>
                   <TableCell>{usuario.email}</TableCell>
-                  <TableCell className="capitalize">{usuario.rolNombre}</TableCell>
-                  <TableCell>
-                    <Badge variant={usuario.activo ? 'default' : "destructive"}>{usuario.activo ? 'Activo' : 'Inactivo'}</Badge>
+                  <TableCell className="capitalize">
+                  {roles.find(r => r.id === usuario.rolId)?.nombre || usuario.rolNombre || "—"}
                   </TableCell>
+                  <TableCell>
+                    <Badge variant={usuario.activo ? 'default' : "destructive"}>
+                      {usuario.activo ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                  </TableCell>
+
                   {canModify && (
                     <TableCell className="text-right">
-                       <DropdownMenu>
+                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
                             <span className="sr-only">Editar</span>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
@@ -139,22 +166,25 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
                   )}
                 </TableRow>
               ))}
+
               {!isLoading && initialUsuarios.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">No hay usuarios registrados.</TableCell>
+                  <TableCell colSpan={5} className="text-center h-24">
+                    No hay usuarios registrados.
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-      
+
       <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{selectedUsuario ? 'Editar Usuario' : 'Crear Nuevo Usuario'}</DialogTitle>
-             <DialogDescription>
-                Complete los datos del perfil y asigne un rol.
+            <DialogDescription>
+              Complete los datos del perfil y asigne un rol.
             </DialogDescription>
           </DialogHeader>
           <UsuarioForm
