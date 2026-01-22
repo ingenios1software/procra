@@ -26,23 +26,9 @@ interface UsuariosListProps {
 export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoading }: UsuariosListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
-  const { user } = useAuth();
+  const { permisos } = useAuth();
 
-  // ✅ Permisos reales basados en Firestore (usuarios + roles)
-  const authId = (user as any)?.id || (user as any)?.uid;
-const authEmail = (user as any)?.email;
-
-const currentUsuario =
-  initialUsuarios.find(u => u.id === authId) ||
-  initialUsuarios.find(u => u.email === authEmail);
-  const currentRol =
-  roles.find(r => (r as any).id === currentUsuario?.rolId) ||
-  roles.find(r => (r as any).docId === currentUsuario?.rolId) ||
-  roles.find(r => (r as any)._id === currentUsuario?.rolId);
-
-  const canModify =
-    !!currentUsuario?.activo &&
-    (currentRol?.isAdmin === true || currentRol?.permisos?.administracion === true);
+  const canModify = permisos.administracion;
 
   const handleSave = (usuarioData: Omit<Usuario, 'id' | 'rolNombre'>) => {
     if (selectedUsuario) {
