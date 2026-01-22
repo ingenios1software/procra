@@ -49,9 +49,29 @@ export default function LoginPage() {
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
-        // If user is admin and inactive, activate them. This is a backdoor for admins.
-        if (isLoginAdmin && userDoc.data()?.activo === false) {
-            await setDoc(userDocRef, { activo: true }, { merge: true });
+        const userProfile = userDoc.data();
+        const updates: { activo?: boolean, rolId?: string, rolNombre?: string } = {};
+
+        // If user is admin and inactive, activate them.
+        if (isLoginAdmin && userProfile?.activo === false) {
+            updates.activo = true;
+        }
+
+        // ALSO, if user is admin, ensure they have the admin role.
+        if (isLoginAdmin && userProfile?.rolNombre !== 'admin') {
+            const rolesQuery = query(collection(db, 'roles'), where('nombre', '==', 'admin'));
+            const rolesSnapshot = await getDocs(rolesQuery);
+            if (!rolesSnapshot.empty) {
+                const adminRole = rolesSnapshot.docs[0];
+                updates.rolId = adminRole.id;
+                updates.rolNombre = 'admin';
+            } else {
+                console.error("El rol 'admin' no existe en la base de datos. No se pudo asignar el rol de administrador.");
+            }
+        }
+        
+        if (Object.keys(updates).length > 0) {
+            await setDoc(userDocRef, updates, { merge: true });
         }
       } else {
         // If user is authenticated but has no profile document...
@@ -226,3 +246,4 @@ export default function LoginPage() {
     </div>
   );
 }
+    
