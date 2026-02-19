@@ -4,30 +4,41 @@ import { useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Activity, Map, Calendar, TriangleAlert, AreaChart } from "lucide-react";
+import { Activity, Map, Calendar, TriangleAlert, AreaChart, Sparkles } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, where } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { collection, query, where } from 'firebase/firestore';
 import type { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
+function DashboardWatermarkFooter() {
+  return (
+    <footer className="pointer-events-none fixed inset-x-0 bottom-3 z-50 flex justify-center" aria-hidden="true">
+      <div className="flex items-center gap-1.5 rounded-full border border-border/40 bg-background/50 px-3 py-1 text-[11px] text-muted-foreground opacity-45 shadow-sm backdrop-blur-sm">
+        <Sparkles className="h-3 w-3" />
+        <span className="tracking-wide">Ingeniosoft95</span>
+      </div>
+    </footer>
+  );
+}
+
 export default function DashboardPage() {
   const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
 
   // Filtrar por zafra activa
-  const zafraActivaQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras'), where('estado', '==', 'en curso')) : null, [firestore]);
+  const zafraActivaQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'zafras'), where('estado', '==', 'en curso')) : null, [user, firestore]);
   const { data: zafrasActivas, isLoading: l3 } = useCollection<Zafra>(zafraActivaQuery);
   const zafraActiva = zafrasActivas?.[0];
 
-  const { data: parcelas, isLoading: l1 } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
-  const { data: cultivos, isLoading: l2 } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
+  const { data: parcelas, isLoading: l1 } = useCollection<Parcela>(useMemoFirebase(() => user && firestore ? collection(firestore, 'parcelas') : null, [user, firestore]));
+  const { data: cultivos, isLoading: l2 } = useCollection<Cultivo>(useMemoFirebase(() => user && firestore ? collection(firestore, 'cultivos') : null, [user, firestore]));
   const { data: eventos, isLoading: l4 } = useCollection<Evento>(
     useMemoFirebase(() => 
-      firestore && zafraActiva ? query(collection(firestore, 'eventos'), where('zafraId', '==', zafraActiva.id)) : null,
-      [firestore, zafraActiva]
+      user && firestore && zafraActiva ? query(collection(firestore, 'eventos'), where('zafraId', '==', zafraActiva.id)) : null,
+      [user, firestore, zafraActiva]
   ));
 
   const {
@@ -94,8 +105,23 @@ export default function DashboardPage() {
     return { totalParcelas, totalHectareas, zafraActiva, zafraProgress, eventosPorTipo, eventosPorMes, distribucionCultivos, alertasParcelas, totalEventos };
   }, [parcelas, cultivos, zafraActiva, eventos]);
 
-  const isLoading = l1 || l2 || l3 || l4;
+  const isLoading = isUserLoading || l1 || l2 || l3 || l4;
   if (isLoading) return <p>Cargando dashboard de monitoreo...</p>;
+
+  if (!user) {
+    return (
+      <>
+        <PageHeader
+          title="Dashboard de Monitoreo"
+          description="Vista general de la zafra activa."
+        />
+        <Card className="flex items-center justify-center h-48 border-dashed">
+          <p className="text-muted-foreground">Iniciando sesión para cargar datos del dashboard...</p>
+        </Card>
+        <DashboardWatermarkFooter />
+      </>
+    );
+  }
   
   if (!zafraActiva) {
     return (
@@ -107,6 +133,7 @@ export default function DashboardPage() {
             <Card className="flex items-center justify-center h-48 border-dashed">
                 <p className="text-muted-foreground">No hay una zafra "en curso" activa para mostrar el dashboard.</p>
             </Card>
+            <DashboardWatermarkFooter />
         </>
     )
   }
@@ -233,6 +260,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <DashboardWatermarkFooter />
     </>
   );
 }
