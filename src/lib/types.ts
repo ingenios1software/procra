@@ -163,7 +163,7 @@ export type Insumo = {
   nombre: string;
   codigo: string;
   descripcion: string;
-  categoria: 'fertilizante' | 'herbicida' | 'fungicida' | 'semilla' | 'insecticida' | 'biologico' | 'otros';
+  categoria: string;
   principioActivo?: string;
   unidad: 'kg' | 'lt' | 'unidad' | 'ton';
   iva: '0' | '5' | '10';
