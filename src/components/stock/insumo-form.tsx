@@ -1,13 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -22,17 +21,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Insumo } from "@/lib/types";
-import React from "react";
+import React, { useMemo } from "react";
 import { Textarea } from "../ui/textarea";
+
+const DEFAULT_CATEGORIES = [
+  "semilla",
+  "fertilizante",
+  "herbicida",
+  "fungicida",
+  "insecticida",
+  "biologico",
+  "otros",
+] as const;
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
   codigo: z.string().nonempty("El código es requerido."),
   descripcion: z.string().nonempty("La descripción es requerida."),
-  categoria: z.enum(['fertilizante', 'herbicida', 'fungicida', 'semilla', 'insecticida', 'biologico', 'otros']),
+  categoria: z.string().trim().min(1, "La categoría es requerida."),
   principioActivo: z.string().optional(),
-  unidad: z.enum(['kg', 'lt', 'unidad', 'ton']),
-  iva: z.enum(['0', '5', '10']),
+  unidad: z.enum(["kg", "lt", "unidad", "ton"]),
+  iva: z.enum(["0", "5", "10"]),
   precioVenta: z.coerce.number().min(0, "El precio de venta no puede ser negativo."),
   dosisRecomendada: z.coerce.number().optional(),
   stockMinimo: z.coerce.number().min(0, "El stock mínimo no puede ser negativo."),
@@ -50,34 +59,46 @@ interface InsumoFormProps {
 export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoFormProps) => {
   const form = useForm<InsumoFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: insumo ? {
-        ...insumo,
-        dosisRecomendada: insumo.dosisRecomendada || undefined,
-        stockMinimo: insumo.stockMinimo || 0,
-        proveedor: insumo.proveedor || "",
-        iva: insumo.iva || '10',
-        codigo: insumo.codigo || "",
-        descripcion: insumo.descripcion || "",
-        precioVenta: insumo.precioVenta || 0,
-    } : {
-      nombre: "",
-      codigo: "",
-      descripcion: "",
-      categoria: "otros",
-      principioActivo: "",
-      unidad: "unidad",
-      iva: "10",
-      precioVenta: 0,
-      dosisRecomendada: 0,
-      stockMinimo: 0,
-      proveedor: "",
-    },
+    defaultValues: insumo
+      ? {
+          ...insumo,
+          categoria: insumo.categoria || "otros",
+          dosisRecomendada: insumo.dosisRecomendada || undefined,
+          stockMinimo: insumo.stockMinimo || 0,
+          proveedor: insumo.proveedor || "",
+          iva: insumo.iva || "10",
+          codigo: insumo.codigo || "",
+          descripcion: insumo.descripcion || "",
+          precioVenta: insumo.precioVenta || 0,
+        }
+      : {
+          nombre: "",
+          codigo: "",
+          descripcion: "",
+          categoria: "otros",
+          principioActivo: "",
+          unidad: "unidad",
+          iva: "10",
+          precioVenta: 0,
+          dosisRecomendada: 0,
+          stockMinimo: 0,
+          proveedor: "",
+        },
   });
+
+  const categoriaValue = useWatch({ control: form.control, name: "categoria" });
+  const categorySuggestions = useMemo(() => {
+    const current = categoriaValue?.trim();
+    if (!current) return [...DEFAULT_CATEGORIES];
+    return DEFAULT_CATEGORIES.includes(current as (typeof DEFAULT_CATEGORIES)[number])
+      ? [...DEFAULT_CATEGORIES]
+      : [...DEFAULT_CATEGORIES, current];
+  }, [categoriaValue]);
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
             name="nombre"
@@ -105,7 +126,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
             )}
           />
         </div>
-        
+
         <FormField
           control={form.control}
           name="descripcion"
@@ -119,35 +140,32 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
             </FormItem>
           )}
         />
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
             name="categoria"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Categoría</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione una categoría" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="semilla">Semilla</SelectItem>
-                    <SelectItem value="fertilizante">Fertilizante</SelectItem>
-                    <SelectItem value="herbicida">Herbicida</SelectItem>
-                    <SelectItem value="fungicida">Fungicida</SelectItem>
-                    <SelectItem value="insecticida">Insecticida</SelectItem>
-                    <SelectItem value="biologico">Biológico</SelectItem>
-                    <SelectItem value="otros">Otros</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Input
+                    list="insumo-categorias"
+                    placeholder="Ej: fertilizante"
+                    {...field}
+                    onChange={(event) => field.onChange(event.target.value.toLowerCase())}
+                  />
+                </FormControl>
+                <datalist id="insumo-categorias">
+                  {categorySuggestions.map((cat) => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
                 <FormMessage />
               </FormItem>
             )}
           />
-           <FormField
+          <FormField
             control={form.control}
             name="principioActivo"
             render={({ field }) => (
@@ -162,14 +180,14 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <FormField
             control={form.control}
             name="unidad"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Unidad de Medida</FormLabel>
-                 <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccione una unidad" />
@@ -192,7 +210,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tipo de IVA</FormLabel>
-                 <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccione IVA" />
@@ -208,7 +226,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
               </FormItem>
             )}
           />
-           <FormField
+          <FormField
             control={form.control}
             name="dosisRecomendada"
             render={({ field }) => (
@@ -223,50 +241,52 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FormField
-              control={form.control}
-              name="stockMinimo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Stock Mínimo</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="500" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="precioVenta"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Precio de Venta ($)</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="25.50" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="proveedor"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Proveedor (Opcional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="AgroPro S.A." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <FormField
+            control={form.control}
+            name="stockMinimo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Stock Mínimo</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="500" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="precioVenta"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Precio de Venta ($)</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="25.50" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="proveedor"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Proveedor (Opcional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="AgroPro S.A." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancelar
+          </Button>
           <Button type="submit">{insumo?.id ? "Guardar Cambios" : "Crear Insumo"}</Button>
         </div>
       </form>
@@ -274,4 +294,4 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
   );
 });
 
-InsumoForm.displayName = 'InsumoForm';
+InsumoForm.displayName = "InsumoForm";
