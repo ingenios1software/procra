@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Trash2, Download, Printer, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Insumo, Compra, Evento } from "@/lib/types";
+import type { Insumo, Compra, Evento, LoteInsumo } from "@/lib/types";
 import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { InsumoForm } from "./insumo-form";
 import {
@@ -33,11 +33,12 @@ import Link from 'next/link';
 
 interface StockListProps {
   insumos: Insumo[];
+  lotes: LoteInsumo[];
   isLoading: boolean;
   onImportClick: () => void;
 }
 
-export function StockList({ insumos, isLoading, onImportClick }: StockListProps) {
+export function StockList({ insumos, lotes, isLoading, onImportClick }: StockListProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -99,6 +100,24 @@ export function StockList({ insumos, isLoading, onImportClick }: StockListProps)
   const itemsBajoMinimo = useMemo(() => filteredStockData.filter(item => item.stockFinal < item.stockMinimo).length, [filteredStockData]);
   
   const categoriasUnicas = useMemo(() => [...new Set(insumos.map(i => i.categoria))], [insumos]);
+
+  const alertasVencimiento = useMemo(() => {
+    const hoy = new Date();
+    return lotes
+      .map((lote) => {
+        if (!lote.fechaVencimiento) return null;
+        const fechaVencimiento = new Date(lote.fechaVencimiento as string);
+        if (Number.isNaN(fechaVencimiento.getTime())) return null;
+        const insumo = insumos.find(i => i.id === lote.insumoId);
+        if (!insumo) return null;
+        const diasAlerta = insumo.diasAlertaVencimiento || 30;
+        const diffDias = Math.ceil((fechaVencimiento.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDias > diasAlerta) return null;
+        return { lote, insumo, diffDias, vencido: diffDias < 0 };
+      })
+      .filter((x): x is { lote: LoteInsumo; insumo: Insumo; diffDias: number; vencido: boolean } => Boolean(x))
+      .sort((a, b) => a.diffDias - b.diffDias);
+  }, [lotes, insumos]);
 
   const handleSaveInsumo = useCallback(async (insumoData: Omit<Insumo, 'id' | 'precioPromedioCalculado' | 'stockActual' | 'costoUnitario'>) => {
     if (!firestore) return;
@@ -270,6 +289,23 @@ export function StockList({ insumos, isLoading, onImportClick }: StockListProps)
             </div>
         )}
       </PageHeader>
+
+      {alertasVencimiento.length > 0 && (
+        <Card className="mb-4 border-amber-300">
+          <CardHeader>
+            <CardTitle>Alertas de vencimiento de lotes</CardTitle>
+            <CardDescription>Lotes próximos a vencer o vencidos.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {alertasVencimiento.slice(0, 8).map(({ lote, insumo, diffDias, vencido }) => (
+              <div key={lote.id} className="flex items-center justify-between rounded border p-2 text-sm">
+                <span>{insumo.nombre} · Lote {lote.codigoLote}</span>
+                <Badge variant={vencido ? 'destructive' : 'secondary'}>{vencido ? `Vencido hace ${Math.abs(diffDias)} días` : `Vence en ${diffDias} días`}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
       
     <div id="pdf-area" className="print-area">
       <Card>
