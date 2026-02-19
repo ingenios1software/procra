@@ -17,7 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { CompraNormal, Proveedor, Insumo, MovimientoStock } from "@/lib/types";
+import type { CompraNormal, Proveedor, Insumo, MovimientoStock, LoteInsumo } from "@/lib/types";
 import { useCollection, useFirestore, useUser, updateDocumentNonBlocking, useMemoFirebase } from "@/firebase";
 import { collection, doc, writeBatch, serverTimestamp, getDocs, query, orderBy, limit, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +29,9 @@ const mercaderiaSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar una mercadería." }),
   cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
   valorUnitario: z.coerce.number().positive("El valor debe ser mayor a 0."),
+  lote: z.string().optional(),
+  sinVencimiento: z.boolean().optional(),
+  fechaVencimiento: z.date().optional(),
 });
 
 const formSchema = z.object({
@@ -85,7 +88,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
       totalizadora: compra.totalizadora,
       observacion: compra.observacion ?? undefined, // FIX: `null` becomes `undefined`
       
-      mercaderias: compra.mercaderias.map(m => ({...m, insumo: m.insumo || m})),
+      mercaderias: compra.mercaderias.map(m => ({...m, insumo: m.insumo || m, fechaVencimiento: m.fechaVencimiento ? new Date(m.fechaVencimiento as string) : undefined, sinVencimiento: m.sinVencimiento || false })),
       
       flete_valor: compra.flete?.valor || undefined,
       flete_transportadoraId: compra.flete?.transportadoraId || undefined,
@@ -163,7 +166,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
         estado: compra?.estado || 'abierto',
         usuario: user.email || 'N/A',
         timestamp: serverTimestamp(),
-        mercaderias: data.mercaderias.map(m => ({ insumoId: m.insumo.id, cantidad: m.cantidad, valorUnitario: m.valorUnitario })),
+        mercaderias: data.mercaderias.map(m => ({ insumoId: m.insumo.id, cantidad: m.cantidad, valorUnitario: m.valorUnitario, lote: m.lote?.trim() || undefined, fechaVencimiento: m.fechaVencimiento ? m.fechaVencimiento.toISOString() : undefined, sinVencimiento: Boolean(m.sinVencimiento) })),
         flete: { valor: data.flete_valor || 0, transportadoraId: data.flete_transportadoraId, datos: data.flete_datos },
         financiero: { valor: totalFactura, cuentaId: data.financiero_cuentaId, vencimiento: data.financiero_vencimiento },
         comprobante: { documento: data.comprobante_documento, timbre: data.comprobante_timbre }
@@ -205,6 +208,26 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
                 ultimaCompra: data.fechaEmision.toISOString(),
             });
 
+            const loteCodigo = item.lote?.trim();
+            const controlaLotes = Boolean(insumoActual.controlaLotes);
+            if (controlaLotes && loteCodigo) {
+                const loteRef = doc(collection(firestore, 'lotesInsumos'));
+                const loteData: Omit<LoteInsumo, 'id'> = {
+                    insumoId: insumoComprado.id,
+                    codigoLote: loteCodigo,
+                    fechaIngreso: data.fechaEmision.toISOString(),
+                    fechaVencimiento: item.sinVencimiento ? null : (item.fechaVencimiento ? item.fechaVencimiento.toISOString() : null),
+                    cantidadInicial: cantidadCompra,
+                    cantidadDisponible: cantidadCompra,
+                    estado: 'activo',
+                    origen: 'compra',
+                    origenId: compraRef.id,
+                    creadoPor: user.uid,
+                    creadoEn: new Date().toISOString(),
+                };
+                batch.set(loteRef, loteData);
+            }
+
             // Crear movimiento de stock
             const movimientoRef = doc(collection(firestore, "MovimientosStock"));
             const movimientoData: Omit<MovimientoStock, 'id'> = {
@@ -221,6 +244,8 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
                 stockDespues: nuevoStock,
                 precioUnitario: precioCompra,
                 costoTotal: cantidadCompra * precioCompra,
+                lote: item.lote?.trim() || undefined,
+                loteVencimiento: item.sinVencimiento ? null : (item.fechaVencimiento ? item.fechaVencimiento.toISOString() : null),
                 creadoPor: user.uid,
                 creadoEn: new Date(),
             };
@@ -269,6 +294,8 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
                       <TableHead className="w-[350px]">Mercadería</TableHead>
                       <TableHead>Cantidad</TableHead>
                       <TableHead>Valor Unitario</TableHead>
+                      <TableHead>Lote</TableHead>
+                      <TableHead>Vencimiento</TableHead>
                       <TableHead className="text-right">Valor Total</TableHead>
                       <TableHead></TableHead>
                   </TableRow></TableHeader>
@@ -301,16 +328,22 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
                               </TableCell>
                               <TableCell className="p-1"><FormField control={form.control} name={`mercaderias.${index}.cantidad`} render={({ field: formField }) => <Input type="number" {...formField} />} /></TableCell>
                               <TableCell className="p-1"><FormField control={form.control} name={`mercaderias.${index}.valorUnitario`} render={({ field: formField }) => <Input type="number" {...formField} />} /></TableCell>
+                              <TableCell className="p-1"><FormField control={form.control} name={`mercaderias.${index}.lote`} render={({ field: formField }) => <Input placeholder="Opcional" {...formField} />} /></TableCell>
+                              <TableCell className="p-1">
+                                <FormField control={form.control} name={`mercaderias.${index}.fechaVencimiento`} render={({ field: formField }) => (
+                                  <Input type="date" value={formField.value ? format(formField.value, 'yyyy-MM-dd') : ''} onChange={(e) => formField.onChange(e.target.value ? new Date(`${e.target.value}T00:00:00`) : undefined)} />
+                                )} />
+                              </TableCell>
                               <TableCell className="text-right font-mono p-1 align-middle">${formatCurrency(valorTotal)}</TableCell>
                               <TableCell className="p-1"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                           </TableRow>
                       )})}
                   </TableBody>
                   <TableFooter>
-                      <TableRow className="text-base"><TableCell colSpan={3} className="text-right font-bold">Total Mercaderías</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totalMercaderias)}</TableCell><TableCell></TableCell></TableRow>
+                      <TableRow className="text-base"><TableCell colSpan={5} className="text-right font-bold">Total Mercaderías</TableCell><TableCell className="text-right font-bold font-mono">${formatCurrency(totalMercaderias)}</TableCell><TableCell></TableCell></TableRow>
                   </TableFooter>
               </Table>
-              <Button type="button" variant="outline" size="sm" onClick={() => append({ insumo: undefined, cantidad: 0, valorUnitario: 0 })}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => append({ insumo: undefined, cantidad: 0, valorUnitario: 0, lote: '', sinVencimiento: false })}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem</Button>
           </TabsContent>
 
           <TabsContent value="flete" className="space-y-6 pt-4">
