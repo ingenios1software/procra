@@ -411,6 +411,13 @@ export type CompraNormal = {
   };
   financiero: {
     cuentaId?: string;
+    cuentaInventarioId?: string;
+    cuentaPorPagarId?: string;
+    cuentaPagoId?: string;
+    asientoRegistroId?: string;
+    asientoPagoId?: string;
+    pagoAplicado?: boolean;
+    fechaPago?: Date | string;
     vencimiento?: Date | string;
     valor: number;
   };
@@ -532,6 +539,7 @@ export type CuentaCajaBanco = {
   nombre: string;
   tipo: "CAJA" | "BANCO" | "BILLETERA";
   monedaId: string;
+  cuentaContableId?: string;
   activo: boolean;
 };
 

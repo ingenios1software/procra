@@ -1,11 +1,10 @@
 
 "use client";
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { z } from "zod";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -17,8 +16,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { CompraNormal, Proveedor, Insumo, MovimientoStock, LoteInsumo } from "@/lib/types";
-import { useCollection, useFirestore, useUser, updateDocumentNonBlocking, useMemoFirebase } from "@/firebase";
+import type { CompraNormal, Proveedor, Insumo, MovimientoStock, LoteInsumo, AsientoDiario, PlanDeCuenta } from "@/lib/types";
+import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { collection, doc, writeBatch, serverTimestamp, getDocs, query, orderBy, limit, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from '@/components/common';
@@ -38,7 +37,7 @@ const formSchema = z.object({
   // Datos Iniciales
   fechaEmision: z.date({ required_error: "La fecha es obligatoria." }),
   moneda: z.enum(['USD', 'PYG']),
-  condicionCompra: z.enum(['Contado', 'Crédito']),
+  condicionCompra: z.enum(['Contado', 'Crédito']).default('Crédito'),
   entidadId: z.string().nonempty("Debe seleccionar un proveedor."),
   formaPago: z.string().optional(),
   totalizadora: z.boolean().default(false),
@@ -54,11 +53,16 @@ const formSchema = z.object({
 
   // Financiero
   financiero_cuentaId: z.string().optional(),
+  financiero_cuentaInventarioId: z.string().nonempty('Seleccione la cuenta de inventario/gasto.'),
+  financiero_cuentaPorPagarId: z.string().nonempty('Seleccione la cuenta por pagar.'),
   financiero_vencimiento: z.date().optional(),
   
   // Comprobante
   comprobante_documento: z.string().nonempty("El número de documento es obligatorio."),
   comprobante_timbre: z.string().nonempty("El timbre es obligatorio."),
+}).refine(data => data.condicionCompra === 'Crédito', {
+  message: 'En este flujo las compras se registran como crédito.',
+  path: ['condicionCompra'],
 });
 
 type CompraFormValues = z.infer<typeof formSchema>;
@@ -69,12 +73,12 @@ interface CompraNormalFormProps {
 }
 
 export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
-  const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
 
   const { data: proveedores } = useCollection<Proveedor>(useMemoFirebase(() => firestore ? collection(firestore, 'proveedores') : null, [firestore]));
+  const { data: planDeCuentas } = useCollection<PlanDeCuenta>(useMemoFirebase(() => firestore ? query(collection(firestore, 'planDeCuentas'), orderBy('codigo')) : null, [firestore]));
   
   const form = useForm<CompraFormValues>({
     resolver: zodResolver(formSchema),
@@ -82,7 +86,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
       // Mapeo explícito para evitar problemas de anidamiento y tipos
       fechaEmision: new Date(compra.fechaEmision as string),
       moneda: compra.moneda,
-      condicionCompra: compra.condicionCompra,
+      condicionCompra: "Crédito",
       entidadId: compra.entidadId,
       formaPago: compra.formaPago || undefined,
       totalizadora: compra.totalizadora,
@@ -95,6 +99,8 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
       flete_datos: compra.flete?.datos || undefined,
 
       financiero_cuentaId: compra.financiero?.cuentaId || undefined,
+      financiero_cuentaInventarioId: compra.financiero?.cuentaInventarioId || '',
+      financiero_cuentaPorPagarId: compra.financiero?.cuentaPorPagarId || '',
       financiero_vencimiento: compra.financiero?.vencimiento ? new Date(compra.financiero.vencimiento as string) : undefined,
       
       comprobante_documento: compra.comprobante.documento,
@@ -102,9 +108,11 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
     } : {
       fechaEmision: new Date(),
       moneda: 'USD',
-      condicionCompra: 'Contado',
+      condicionCompra: 'Crédito',
       totalizadora: false,
       mercaderias: [],
+      financiero_cuentaInventarioId: '',
+      financiero_cuentaPorPagarId: '',
     },
   });
 
@@ -157,7 +165,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
         entidadId: data.entidadId,
         moneda: data.moneda,
         formaPago: data.formaPago,
-        condicionCompra: data.condicionCompra,
+        condicionCompra: 'Crédito',
         totalizadora: data.totalizadora,
         observacion: data.observacion || null,
         totalMercaderias: totalMercaderias,
@@ -168,7 +176,17 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
         timestamp: serverTimestamp(),
         mercaderias: data.mercaderias.map(m => ({ insumoId: m.insumo.id, cantidad: m.cantidad, valorUnitario: m.valorUnitario, lote: m.lote?.trim() || undefined, fechaVencimiento: m.fechaVencimiento ? m.fechaVencimiento.toISOString() : undefined, sinVencimiento: Boolean(m.sinVencimiento) })),
         flete: { valor: data.flete_valor || 0, transportadoraId: data.flete_transportadoraId, datos: data.flete_datos },
-        financiero: { valor: totalFactura, cuentaId: data.financiero_cuentaId, vencimiento: data.financiero_vencimiento },
+        financiero: {
+          valor: totalFactura,
+          cuentaId: data.financiero_cuentaId,
+          cuentaInventarioId: data.financiero_cuentaInventarioId,
+          cuentaPorPagarId: data.financiero_cuentaPorPagarId,
+          pagoAplicado: compra?.financiero?.pagoAplicado || false,
+          cuentaPagoId: compra?.financiero?.cuentaPagoId,
+          asientoPagoId: compra?.financiero?.asientoPagoId,
+          fechaPago: compra?.financiero?.fechaPago,
+          vencimiento: data.financiero_vencimiento ? data.financiero_vencimiento.toISOString() : undefined
+        },
         comprobante: { documento: data.comprobante_documento, timbre: data.comprobante_timbre }
     };
     
@@ -253,6 +271,21 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
         }
     }
 
+
+    if (!compra) {
+      const asientoCompraRef = doc(collection(firestore, "asientosDiario"));
+      const asientoCompra: Omit<AsientoDiario, 'id'> = {
+        fecha: data.fechaEmision.toISOString(),
+        descripcion: `Compra crédito doc ${data.comprobante_documento}`,
+        movimientos: [
+          { cuentaId: data.financiero_cuentaInventarioId, tipo: 'debe', monto: totalFactura },
+          { cuentaId: data.financiero_cuentaPorPagarId, tipo: 'haber', monto: totalFactura },
+        ],
+      };
+      batch.set(asientoCompraRef, asientoCompra);
+      (compraData.financiero as any).asientoRegistroId = asientoCompraRef.id;
+    }
+
     // --- 3. COMMIT DE LA TRANSACCIÓN ---
     try {
         await batch.commit();
@@ -281,7 +314,7 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
                 <FormField name="entidadId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Proveedor</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un proveedor" /></SelectTrigger></FormControl><SelectContent>{proveedores?.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField name="fechaEmision" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha Emisión</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
                 <FormField name="moneda" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="PYG">PYG</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                <FormField name="condicionCompra" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Condición</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="Contado">Contado</SelectItem><SelectItem value="Crédito">Crédito</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormItem><FormLabel>Condición</FormLabel><div className="rounded-md border px-3 py-2 text-sm">Crédito (flujo contable)</div></FormItem>
                 <FormField name="formaPago" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Forma de Pago</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField name="totalizadora" control={form.control} render={({ field }) => (<FormItem className="flex flex-row items-center justify-start space-x-3 space-y-0 rounded-md border p-4 h-full"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>Totalizadora</FormLabel><FormMessage /></div></FormItem>)} />
             </div>
@@ -353,7 +386,9 @@ export function CompraNormalForm({ compra, onCancel }: CompraNormalFormProps) {
           </TabsContent>
 
           <TabsContent value="financiero" className="space-y-6 pt-4">
-              <FormField name="financiero_cuentaId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cuenta de Pago</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField name="financiero_cuentaInventarioId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cuenta de Inventario/Gasto (Debe)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una cuenta" /></SelectTrigger></FormControl><SelectContent>{planDeCuentas?.map(c => <SelectItem key={c.id} value={c.id}>{c.codigo} - {c.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+              <FormField name="financiero_cuentaPorPagarId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cuenta por Pagar (Haber)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una cuenta" /></SelectTrigger></FormControl><SelectContent>{planDeCuentas?.map(c => <SelectItem key={c.id} value={c.id}>{c.codigo} - {c.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+              <FormField name="financiero_cuentaId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cuenta sugerida para pago futuro (opcional)</FormLabel><FormControl><Input placeholder="Referencia interna" {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField name="financiero_vencimiento" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Vencimiento</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem> )} />
               <div className="font-bold text-lg">Valor a Pagar: ${formatCurrency(totalFactura)}</div>
           </TabsContent>

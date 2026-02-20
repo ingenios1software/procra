@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Download, ShieldAlert } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlusCircle, Download } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import type { CompraNormal, Proveedor } from "@/lib/types";
+import type { CompraNormal, Proveedor, AsientoDiario, PlanDeCuenta } from "@/lib/types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -17,12 +17,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { CompraNormalForm } from "@/components/comercial/compras/compra-normal-form";
 import { MoreHorizontal } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
-import { useAuth } from "@/hooks/use-auth";
+import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 
 
 export default function ComprasPage() {
@@ -30,6 +31,10 @@ export default function ComprasPage() {
   const { user } = useUser();
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState<CompraNormal | null>(null);
+  const [compraParaAprobar, setCompraParaAprobar] = useState<CompraNormal | null>(null);
+  const [cuentaPagoAprobacionId, setCuentaPagoAprobacionId] = useState<string>("");
+  const [isApproving, setIsApproving] = useState(false);
+  const { toast } = useToast();
 
   const comprasQuery = useMemoFirebase(() =>
     firestore ? query(collection(firestore, 'comprasNormal'), orderBy('fechaEmision', 'desc')) : null
@@ -40,11 +45,72 @@ export default function ComprasPage() {
     firestore ? query(collection(firestore, 'proveedores')) : null
   , [firestore]);
   const { data: proveedores, isLoading: isLoadingProveedores } = useCollection<Proveedor>(proveedoresQuery);
+  const planDeCuentasQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'planDeCuentas'), orderBy('codigo')) : null
+  , [firestore]);
+  const { data: planDeCuentas } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
 
   const getProveedorNombre = (id: string) => {
     if (!proveedores) return 'N/A';
     return proveedores.find(p => p.id === id)?.nombre || 'N/A';
   }
+
+
+  const cuentasPago = useMemo(() => {
+    return (planDeCuentas || []).filter(c => c.tipo === 'activo');
+  }, [planDeCuentas]);
+
+  const handleOpenApprove = (compra: CompraNormal) => {
+    setCompraParaAprobar(compra);
+    setCuentaPagoAprobacionId("");
+  };
+
+  const handleApproveCompra = async () => {
+    if (!firestore || !compraParaAprobar || !user) return;
+    if (!compraParaAprobar.financiero?.cuentaPorPagarId) {
+      toast({ variant: 'destructive', title: 'Falta cuenta por pagar', description: 'Edite la compra y seleccione cuenta por pagar.' });
+      return;
+    }
+
+    setIsApproving(true);
+    try {
+      const batch = writeBatch(firestore);
+      const compraRef = doc(firestore, 'comprasNormal', compraParaAprobar.id);
+      const pagoAplicado = Boolean(cuentaPagoAprobacionId);
+      let asientoPagoId: string | undefined;
+
+      if (pagoAplicado) {
+        const asientoPagoRef = doc(collection(firestore, 'asientosDiario'));
+        const asientoPago: Omit<AsientoDiario, 'id'> = {
+          fecha: new Date().toISOString(),
+          descripcion: `Pago compra ${compraParaAprobar.comprobante.documento}`,
+          movimientos: [
+            { cuentaId: compraParaAprobar.financiero.cuentaPorPagarId, tipo: 'debe', monto: compraParaAprobar.totalFactura },
+            { cuentaId: cuentaPagoAprobacionId, tipo: 'haber', monto: compraParaAprobar.totalFactura },
+          ],
+        };
+        batch.set(asientoPagoRef, asientoPago);
+        asientoPagoId = asientoPagoRef.id;
+      }
+
+      batch.update(compraRef, {
+        estado: 'cerrado',
+        'financiero.pagoAplicado': pagoAplicado,
+        'financiero.cuentaPagoId': pagoAplicado ? cuentaPagoAprobacionId : null,
+        'financiero.asientoPagoId': asientoPagoId || null,
+        'financiero.fechaPago': pagoAplicado ? new Date().toISOString() : null,
+      });
+
+      await batch.commit();
+      toast({ title: pagoAplicado ? 'Compra aprobada y pagada' : 'Compra aprobada sin pago' });
+      setCompraParaAprobar(null);
+      setCuentaPagoAprobacionId('');
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'No se pudo aprobar', description: error?.message || 'Error inesperado' });
+    } finally {
+      setIsApproving(false);
+    }
+  };
 
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
@@ -132,6 +198,7 @@ export default function ComprasPage() {
                         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => openForm(compra)}>Ver Detalle</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openForm(compra)}>Editar</DropdownMenuItem>
+                        {compra.estado === "abierto" && <DropdownMenuItem onClick={() => handleOpenApprove(compra)}>Aprobar</DropdownMenuItem>}
                         <DropdownMenuItem className="text-destructive">Anular</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -156,6 +223,43 @@ export default function ComprasPage() {
             </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={Boolean(compraParaAprobar)} onOpenChange={(open) => !open && setCompraParaAprobar(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aprobar compra</DialogTitle>
+            <DialogDescription>
+              Puede cerrar la compra solo como crédito, o aplicar pago inmediato desde una cuenta (caja/banco).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Comprobante</p>
+              <p className="font-medium">{compraParaAprobar?.comprobante?.documento}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total</p>
+              <p className="font-medium">{compraParaAprobar?.totalFactura?.toLocaleString('en-US')}</p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Cuenta de pago contable (opcional)</label>
+              <Select value={cuentaPagoAprobacionId} onValueChange={setCuentaPagoAprobacionId}>
+                <SelectTrigger><SelectValue placeholder="Aprobar sin pago inmediato" /></SelectTrigger>
+                <SelectContent>
+                  {cuentasPago.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.codigo} - {c.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompraParaAprobar(null)}>Cancelar</Button>
+            <Button onClick={handleApproveCompra} disabled={isApproving}>{isApproving ? 'Aprobando...' : 'Confirmar aprobación'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </>
   );
 }
