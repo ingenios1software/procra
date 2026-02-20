@@ -3,7 +3,7 @@
 import { StockList } from "@/components/stock/stock-list";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query } from "firebase/firestore";
-import type { Insumo } from "@/lib/types";
+import type { Insumo, LoteInsumo } from "@/lib/types";
 import { ImportButton } from "@/components/stock/import-button";
 import { ImportModal } from "@/components/stock/import-modal";
 import { useState } from "react";
@@ -18,6 +18,7 @@ export default function StockPage() {
   const { toast } = useToast();
   
   const { data: insumos, isLoading, forceRefetch: refetchInsumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'insumos')) : null, [firestore]));
+  const { data: lotes } = useCollection<LoteInsumo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'lotesInsumos')) : null, [firestore]));
   
   const [isImportModalOpen, setImportModalOpen] = useState(false);
 
@@ -47,6 +48,7 @@ export default function StockPage() {
         insumos={insumos || []}
         isLoading={isLoading}
         onImportClick={() => setImportModalOpen(true)}
+        lotes={lotes || []}
       />
       <ImportModal
         isOpen={isImportModalOpen}
