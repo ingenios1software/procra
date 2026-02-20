@@ -174,8 +174,28 @@ export type Insumo = {
   stockMinimo: number;
   stockActual: number; // Este es el valor que se ajusta con entradas/salidas
   proveedor?: string;
+  controlaLotes?: boolean;
+  permiteMovimientoSinLote?: boolean;
+  controlaVencimiento?: boolean;
+  permiteLoteSinVencimiento?: boolean;
+  diasAlertaVencimiento?: number;
   numeroItem?: number;
   ultimaCompra?: Date | string;
+};
+
+export type LoteInsumo = {
+  id: string;
+  insumoId: string;
+  codigoLote: string;
+  fechaIngreso: Date | string;
+  fechaVencimiento?: Date | string | null;
+  cantidadInicial: number;
+  cantidadDisponible: number;
+  estado: 'activo' | 'vencido' | 'agotado';
+  origen: 'compra' | 'manual' | 'ajuste';
+  origenId?: string;
+  creadoPor: string;
+  creadoEn: Date | string;
 };
 
 export type MovimientoInsumo = {
@@ -223,6 +243,8 @@ export type MovimientoStock = {
     stockDespues: number;
     precioUnitario: number;
     costoTotal: number;
+    lote?: string;
+    loteVencimiento?: Date | string | null;
     subtotal?: number; // Para la ficha de insumo
     creadoPor: string;
     creadoEn: Date;
@@ -376,6 +398,9 @@ export type CompraNormal = {
     insumo?: Insumo; // <-- Añadido para el formulario
     cantidad: number;
     valorUnitario: number;
+    lote?: string;
+    fechaVencimiento?: Date | string;
+    sinVencimiento?: boolean;
   }[];
   flete: {
     transportadoraId?: string;
@@ -386,6 +411,13 @@ export type CompraNormal = {
   };
   financiero: {
     cuentaId?: string;
+    cuentaInventarioId?: string;
+    cuentaPorPagarId?: string;
+    cuentaPagoId?: string;
+    asientoRegistroId?: string;
+    asientoPagoId?: string;
+    pagoAplicado?: boolean;
+    fechaPago?: Date | string;
     vencimiento?: Date | string;
     valor: number;
   };
@@ -507,6 +539,7 @@ export type CuentaCajaBanco = {
   nombre: string;
   tipo: "CAJA" | "BANCO" | "BILLETERA";
   monedaId: string;
+  cuentaContableId?: string;
   activo: boolean;
 };
 

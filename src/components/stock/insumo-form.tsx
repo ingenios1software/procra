@@ -23,6 +23,7 @@ import {
 import type { Insumo } from "@/lib/types";
 import React, { useMemo } from "react";
 import { Textarea } from "../ui/textarea";
+import { Checkbox } from "../ui/checkbox";
 
 const DEFAULT_CATEGORIES = [
   "semilla",
@@ -46,6 +47,11 @@ const formSchema = z.object({
   dosisRecomendada: z.coerce.number().optional(),
   stockMinimo: z.coerce.number().min(0, "El stock mínimo no puede ser negativo."),
   proveedor: z.string().optional(),
+  controlaLotes: z.boolean().default(false),
+  permiteMovimientoSinLote: z.boolean().default(true),
+  controlaVencimiento: z.boolean().default(false),
+  permiteLoteSinVencimiento: z.boolean().default(true),
+  diasAlertaVencimiento: z.coerce.number().min(1).max(365).default(30),
 });
 
 type InsumoFormValues = z.infer<typeof formSchema>;
@@ -70,6 +76,11 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
           codigo: insumo.codigo || "",
           descripcion: insumo.descripcion || "",
           precioVenta: insumo.precioVenta || 0,
+          controlaLotes: insumo.controlaLotes || false,
+          permiteMovimientoSinLote: insumo.permiteMovimientoSinLote ?? true,
+          controlaVencimiento: insumo.controlaVencimiento || false,
+          permiteLoteSinVencimiento: insumo.permiteLoteSinVencimiento ?? true,
+          diasAlertaVencimiento: insumo.diasAlertaVencimiento || 30,
         }
       : {
           nombre: "",
@@ -83,6 +94,11 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
           dosisRecomendada: 0,
           stockMinimo: 0,
           proveedor: "",
+          controlaLotes: false,
+          permiteMovimientoSinLote: true,
+          controlaVencimiento: false,
+          permiteLoteSinVencimiento: true,
+          diasAlertaVencimiento: 30,
         },
   });
 
@@ -277,6 +293,62 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
                 <FormControl>
                   <Input placeholder="AgroPro S.A." {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+
+
+        <div className="grid grid-cols-1 gap-4 rounded-md border p-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="controlaLotes"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <FormLabel>Controlar lotes para este insumo</FormLabel>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="permiteMovimientoSinLote"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <FormLabel>Permitir movimientos sin lote</FormLabel>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="controlaVencimiento"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <FormLabel>Controlar fecha de vencimiento</FormLabel>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="permiteLoteSinVencimiento"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <FormLabel>Permitir lote sin vencimiento</FormLabel>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="diasAlertaVencimiento"
+            render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>Días para alerta de vencimiento</FormLabel>
+                <FormControl><Input type="number" min={1} max={365} {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )}
