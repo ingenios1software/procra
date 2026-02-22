@@ -200,7 +200,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-green-800 hover:bg-green-700 text-white py-3 rounded-lg font-semibold text-base"
+                className="w-full bg-red-700 hover:bg-red-600 text-white py-3 rounded-lg font-semibold text-base"
               >
                 {loading ? <Loader2 className="animate-spin" /> : "Ingresar"}
               </Button>
