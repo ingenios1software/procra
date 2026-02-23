@@ -195,7 +195,7 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="h-screen w-screen max-w-full rounded-none p-0 sm:h-auto sm:w-auto sm:max-w-2xl sm:rounded-lg">
+      <DialogContent className="h-screen max-h-screen w-screen max-w-full rounded-none p-0 sm:h-auto sm:max-h-[90vh] sm:w-auto sm:max-w-2xl sm:rounded-lg">
         <DialogHeader className="flex-row items-center justify-between border-b px-4 py-3 sm:text-left sm:p-6">
           <div>
             <DialogTitle className="text-lg">Registrar Nuevo Evento</DialogTitle>

@@ -2,28 +2,41 @@
 
 import type { PlanDeCuenta } from "@/lib/types";
 import { SelectorUniversal } from "@/components/common/SelectorUniversal";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, orderBy, query } from "firebase/firestore";
 
 interface SelectorPlanDeCuentasProps {
   value?: string | null;
   onChange: (value: string | null) => void;
-  filter?: 'activo' | 'pasivo' | 'patrimonio' | 'ingreso' | 'costo' | 'gasto';
+  filter?: "activo" | "pasivo" | "patrimonio" | "ingreso" | "costo" | "gasto";
   disabled?: boolean;
   label?: string;
 }
 
-export function SelectorPlanDeCuentas({ value, onChange, filter, disabled, label = "Cuenta Contable" }: SelectorPlanDeCuentasProps) {
+export function SelectorPlanDeCuentas({
+  value,
+  onChange,
+  filter,
+  disabled,
+  label = "Cuenta Contable",
+}: SelectorPlanDeCuentasProps) {
+  const firestore = useFirestore();
 
-  // Esta es una función placeholder. La lógica de filtrado real
-  // debería ocurrir en la query de `SelectorUniversal` si se implementa.
-  // Por ahora, el selector mostrará todas las cuentas.
+  const planDeCuentasQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null),
+    [firestore]
+  );
+  const { data: cuentas } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
+
+  const selectedCuenta = (cuentas || []).find((c) => c.id === value);
+  const normalizedFilter = (filter || "").toLowerCase().trim();
+  const itemFilter = normalizedFilter
+    ? (item: PlanDeCuenta) => (item.tipo || "").toLowerCase().trim() === normalizedFilter
+    : undefined;
+
   const handleSelect = (cuenta?: PlanDeCuenta) => {
     onChange(cuenta ? cuenta.id : null);
   };
-  
-  // Como no podemos pasar un `value` de tipo `PlanDeCuenta` directamente
-  // si solo tenemos el `id`, este componente es un wrapper.
-  // La lógica para buscar la cuenta por `id` y pasarla a `SelectorUniversal`
-  // se manejaría aquí si fuera necesario, pero `SelectorUniversal` ya maneja la búsqueda.
 
   return (
     <SelectorUniversal<PlanDeCuenta>
@@ -31,16 +44,13 @@ export function SelectorPlanDeCuentas({ value, onChange, filter, disabled, label
       collectionName="planDeCuentas"
       displayField="nombre"
       codeField="codigo"
+      value={selectedCuenta}
       onSelect={handleSelect}
-      // `value` para `SelectorUniversal` espera el objeto completo.
-      // Aquí necesitaríamos una forma de obtener el objeto PlanDeCuenta a partir del `value` (id).
-      // Por simplicidad y para corregir el build, asumimos que el valor inicial puede no mostrarse
-      // correctamente si solo se pasa el ID, pero la funcionalidad de selección funcionará.
-      // Un `useDoc` aquí podría resolverlo pero complicaría el componente.
-      searchFields={['nombre', 'codigo']}
+      searchFields={["nombre", "codigo"]}
+      itemFilter={itemFilter}
       extraInfoFields={[
-        { label: 'Tipo', field: 'tipo' },
-        { label: 'Naturaleza', field: 'naturaleza' },
+        { label: "Tipo", field: "tipo" },
+        { label: "Naturaleza", field: "naturaleza" },
       ]}
       disabled={disabled}
     />

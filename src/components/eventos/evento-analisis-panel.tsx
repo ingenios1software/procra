@@ -72,7 +72,7 @@ export function EventoAnalisisPanel({
       proximaEtapa: proximaEtapa?.nombre,
       diasParaProximaEtapa
     };
-  }, [eventoActual.zafraId, eventoActual.cultivoId, zafras, etapasCultivo]);
+  }, [eventoActual.zafraId, zafras, etapasCultivo]);
 
   const { ultimoEventoSimilar, diasDesdeUltimoSimilar, intervaloStatus } = useMemo(() => {
     if (!eventoActual.parcelaId || !eventoActual.tipo) return {};

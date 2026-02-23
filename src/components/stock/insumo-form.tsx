@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Insumo } from "@/lib/types";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Textarea } from "../ui/textarea";
 import { Checkbox } from "../ui/checkbox";
 
@@ -58,11 +58,17 @@ type InsumoFormValues = z.infer<typeof formSchema>;
 
 interface InsumoFormProps {
   insumo?: Partial<Insumo> | null;
+  existingCategories?: string[];
   onSubmit: (data: InsumoFormValues) => void;
   onCancel: () => void;
 }
 
-export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoFormProps) => {
+const normalizeCategory = (value: string) => value.trim().toLowerCase();
+
+export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmit, onCancel }: InsumoFormProps) => {
+  const [newCategoryDraft, setNewCategoryDraft] = useState("");
+  const [addedCategories, setAddedCategories] = useState<string[]>([]);
+
   const form = useForm<InsumoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: insumo
@@ -103,13 +109,28 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
   });
 
   const categoriaValue = useWatch({ control: form.control, name: "categoria" });
+  const baseCategories = useMemo(() => {
+    const all = [...DEFAULT_CATEGORIES, ...existingCategories, ...addedCategories]
+      .map((cat) => normalizeCategory(cat))
+      .filter(Boolean);
+    return [...new Set(all)];
+  }, [existingCategories, addedCategories]);
+
   const categorySuggestions = useMemo(() => {
-    const current = categoriaValue?.trim();
-    if (!current) return [...DEFAULT_CATEGORIES];
-    return DEFAULT_CATEGORIES.includes(current as (typeof DEFAULT_CATEGORIES)[number])
-      ? [...DEFAULT_CATEGORIES]
-      : [...DEFAULT_CATEGORIES, current];
-  }, [categoriaValue]);
+    const current = normalizeCategory(categoriaValue || "");
+    if (!current) return baseCategories;
+    return baseCategories.includes(current) ? baseCategories : [...baseCategories, current];
+  }, [categoriaValue, baseCategories]);
+
+  const handleAddCategory = () => {
+    const normalized = normalizeCategory(newCategoryDraft);
+    if (!normalized) return;
+    if (!categorySuggestions.includes(normalized)) {
+      setAddedCategories((prev) => [...prev, normalized]);
+    }
+    form.setValue("categoria", normalized, { shouldValidate: true, shouldDirty: true });
+    setNewCategoryDraft("");
+  };
 
   return (
     <Form {...form}>
@@ -169,7 +190,7 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
                     list="insumo-categorias"
                     placeholder="Ej: fertilizante"
                     {...field}
-                    onChange={(event) => field.onChange(event.target.value.toLowerCase())}
+                    onChange={(event) => field.onChange(normalizeCategory(event.target.value))}
                   />
                 </FormControl>
                 <datalist id="insumo-categorias">
@@ -177,6 +198,16 @@ export const InsumoForm = React.memo(({ insumo, onSubmit, onCancel }: InsumoForm
                     <option key={cat} value={cat} />
                   ))}
                 </datalist>
+                <div className="mt-2 flex items-center gap-2">
+                  <Input
+                    value={newCategoryDraft}
+                    onChange={(event) => setNewCategoryDraft(event.target.value)}
+                    placeholder="Agregar nueva categoría..."
+                  />
+                  <Button type="button" variant="outline" onClick={handleAddCategory}>
+                    Agregar
+                  </Button>
+                </div>
                 <FormMessage />
               </FormItem>
             )}

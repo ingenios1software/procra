@@ -12,11 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { cn, formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import type { Compra, Proveedor, Zafra, Insumo, MovimientoStock } from "@/lib/types";
 import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from "@/firebase";
 import { collection, doc, writeBatch } from "firebase/firestore";
@@ -46,6 +44,17 @@ type CompraFormValues = z.infer<typeof formSchema>;
 interface CompraFormProps {
     compra?: Compra | null;
     onCancel: () => void;
+}
+
+function dateToInputValue(value?: Date | null): string {
+  if (!value || Number.isNaN(value.getTime())) return "";
+  return format(value, "yyyy-MM-dd");
+}
+
+function inputValueToDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 export function CompraForm({ compra, onCancel }: CompraFormProps) {
@@ -177,18 +186,18 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8 p-1">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5 sm:space-y-7 p-1">
         <Card>
           <CardHeader>
             <CardTitle>Datos del Documento</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <CardContent className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <FormField name="proveedorId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Proveedor</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un proveedor" /></SelectTrigger></FormControl><SelectContent>{proveedores?.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
               <FormField name="zafraId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Zafra</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl><SelectContent>{zafras?.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-              <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+              <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Fecha</FormLabel><FormControl><Input type="date" lang="es-PY" value={dateToInputValue(field.value)} onChange={(e) => field.onChange(inputValueToDate(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <FormField name="tipoDocumento" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tipo de Documento</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="Factura">Factura</SelectItem><SelectItem value="Nota de Crédito">Nota de Crédito</SelectItem><SelectItem value="Remisión">Remisión</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
               <FormField name="numeroDocumento" control={form.control} render={({ field }) => ( <FormItem><FormLabel>N° de Documento</FormLabel><FormControl><Input placeholder="001-001-123456" {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField name="condicion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Condición de Pago</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="Contado">Contado</SelectItem><SelectItem value="Crédito">Crédito</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
@@ -203,6 +212,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                 <CardTitle>Detalles de la Compra</CardTitle>
             </CardHeader>
             <CardContent>
+                <div className="overflow-x-auto -mx-1 px-1">
                 <Table>
                     <TableHeader><TableRow>
                         <TableHead className="w-[350px]">Insumo</TableHead>
@@ -237,6 +247,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
                         </TableRow>
                     </TableFooter>
                 </Table>
+                </div>
                 <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ insumo: undefined, cantidad: 0, precioUnitario: 0 })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem
                 </Button>
@@ -253,3 +264,4 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
     </Form>
   );
 }
+

@@ -7,18 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Foto } from "@/lib/types";
-import { cn } from "@/lib/utils";
-import { CalendarIcon, Cloud, Thermometer, Wind, DollarSign, Eraser, Check, Ban, Clock } from "lucide-react";
+import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Foto, Usuario, PlanDeCuenta } from "@/lib/types";
+import { Cloud, Thermometer, Wind, Eraser, Check, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase, useUser, updateDocumentNonBlocking } from "@/firebase";
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser, updateDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, serverTimestamp, doc } from 'firebase/firestore';
 import { useDraftStore } from "@/store/draft-store";
 import isEqual from 'lodash.isequal';
@@ -30,6 +27,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useAuth } from "@/hooks/use-auth";
 import { SelectorUniversal } from "../common";
 import { SelectorPlanDeCuentas } from "../contabilidad/SelectorPlanDeCuentas";
+import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 
 
 const productoSchema = z.object({
@@ -80,22 +78,70 @@ interface EventoFormProps {
   onCancel: () => void;
 }
 
+function dateToInputValue(value?: Date | null): string {
+  if (!value || Number.isNaN(value.getTime())) return "";
+  return format(value, "yyyy-MM-dd");
+}
+
+function inputValueToDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
 export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
-  const { role } = useAuth();
+  const { role, user: usuarioApp } = useAuth();
   const { draft, setDraft, clearDraft } = useDraftStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const draftRef = useRef(draft);
 
   const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
   const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
   const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
   const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
   const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
+  const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
+    useMemoFirebase(() => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null), [firestore])
+  );
+  const nombrePersistidoAprobador = (evento as any)?.aprobadoPorNombre;
+  const hasNombrePersistidoValido =
+    !!nombrePersistidoAprobador && nombrePersistidoAprobador !== evento?.aprobadoPor;
+
+  const shouldLookupAprobador =
+    role === 'admin' &&
+    !!evento?.aprobadoPor &&
+    !hasNombrePersistidoValido &&
+    evento.aprobadoPor !== user?.uid;
+
+  const aprobadorRef = useMemoFirebase(
+    () => (shouldLookupAprobador && firestore && evento?.aprobadoPor)
+      ? doc(firestore, 'usuarios', evento.aprobadoPor)
+      : null,
+    [shouldLookupAprobador, firestore, evento?.aprobadoPor]
+  );
+  const { data: aprobador } = useDoc<Usuario>(aprobadorRef);
+
+  const aprobadoPorNombre = useMemo(() => {
+    if (hasNombrePersistidoValido) {
+      return nombrePersistidoAprobador;
+    }
+    if (evento?.aprobadoPor && user?.uid && evento.aprobadoPor === user.uid) {
+      return usuarioApp?.nombre || user.email || 'Aprobador';
+    }
+    if (aprobador?.nombre) return aprobador.nombre;
+    if (evento?.aprobadoPor) return 'Aprobador';
+    return 'N/A';
+  }, [evento, aprobador, user, usuarioApp, hasNombrePersistidoValido, nombrePersistidoAprobador]);
   
-  const getInitialValues = () => {
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  const getInitialValues = useCallback(() => {
     // Si estamos editando un evento existente, usamos sus datos.
     if (evento) {
       return {
@@ -113,10 +159,11 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       };
     }
     // Si no hay evento y existe un borrador, usamos el borrador.
-    if (draft && Object.keys(draft).length > 0) {
+    const currentDraft = draftRef.current;
+    if (currentDraft && Object.keys(currentDraft).length > 0) {
       return { 
-        ...draft, 
-        fecha: draft.fecha ? new Date(draft.fecha) : new Date() 
+        ...currentDraft, 
+        fecha: currentDraft.fecha ? new Date(currentDraft.fecha) : new Date() 
       };
     }
     // Si no hay nada, valores por defecto para un evento nuevo.
@@ -136,7 +183,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       resultado: '',
       cuentaContableId: null,
     };
-  }
+  }, [evento]);
 
   const form = useForm<EventoFormValues>({
     resolver: zodResolver(formSchema),
@@ -158,7 +205,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     // Cuando el `evento` que viene de las props cambia, reseteamos el formulario
     // con los valores correctos, sea un evento existente o un formulario nuevo/borrador.
     form.reset(getInitialValues() as any);
-  }, [evento]);
+  }, [form, getInitialValues]);
 
 
   useEffect(() => {
@@ -193,6 +240,19 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         form.setValue('cuentaContableId', null);
     }
 }, [form]);
+
+  useEffect(() => {
+    if (evento || !mostrarCuentaContable || !planDeCuentas || planDeCuentas.length === 0) return;
+    if (form.getValues("cuentaContableId")) return;
+
+    const sugerida =
+      findPlanCuentaByCodigo(planDeCuentas, CODIGOS_CUENTAS_BASE.GASTOS_EVENTOS) ||
+      planDeCuentas.find((cuenta) => cuenta.tipo === "gasto");
+
+    if (sugerida?.id) {
+      form.setValue("cuentaContableId", sugerida.id, { shouldDirty: false });
+    }
+  }, [evento, form, mostrarCuentaContable, planDeCuentas]);
 
   const { totalInsumos, totalServicio, totalEvento, costoPorHa } = useMemo(() => {
     const costoProductos = watchedProductos?.reduce((acc, prod) => {
@@ -281,6 +341,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     updateDocumentNonBlocking(eventoRef, {
       estado: 'aprobado',
       aprobadoPor: user.uid,
+      aprobadoPorNombre: usuarioApp?.nombre || user.email || user.uid,
       aprobadoEn: serverTimestamp(),
     });
     toast({ title: "Evento Aprobado", description: "El evento ha sido marcado como aprobado." });
@@ -329,7 +390,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   <div>
                       <CardTitle className="text-green-800 dark:text-green-300">Evento Aprobado</CardTitle>
                       <CardDescription className="text-green-700 dark:text-green-400/80">
-                          Este registro está cerrado y no puede ser modificado. Aprobado por <strong>{evento?.aprobadoPor || 'N/A'}</strong> el {evento?.aprobadoEn ? format(new Date((evento.aprobadoEn as any).seconds * 1000), 'dd/MM/yyyy HH:mm') : 'N/A'}.
+                          Este registro está cerrado y no puede ser modificado. Aprobado por <strong>{aprobadoPorNombre}</strong> el {evento?.aprobadoEn ? format(new Date((evento.aprobadoEn as any).seconds * 1000), 'dd/MM/yyyy HH:mm') : 'N/A'}.
                       </CardDescription>
                   </div>
               </CardHeader>
@@ -350,17 +411,17 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
            </Card>
       )}
 
-      <Card>
-        <CardContent className="p-6 mt-6">
+      <Card className="max-w-full overflow-hidden">
+        <CardContent className="mt-6 max-w-full overflow-x-hidden p-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 sm:space-y-6">
               <fieldset disabled={isFinalizado}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
                   <FormField
                     control={form.control}
                     name="parcelaId"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="min-w-0">
                         <FormLabel>Parcela</FormLabel>
                         <FormControl>
                           <SelectorUniversal<Parcela>
@@ -384,7 +445,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                     control={form.control}
                     name="cultivoId"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="min-w-0">
                         <FormLabel>Cultivo / Variedad</FormLabel>
                         <FormControl>
                           <SelectorUniversal<Cultivo>
@@ -404,7 +465,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                     control={form.control}
                     name="zafraId"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="min-w-0">
                         <FormLabel>Zafra</FormLabel>
                         <FormControl>
                           <SelectorUniversal<Zafra>
@@ -425,9 +486,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                     )}
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   <FormField name="tipo" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tipo de Evento</FormLabel><Select onValueChange={handleTipoEventoChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl><SelectContent><SelectItem value="siembra">Siembra</SelectItem><SelectItem value="aplicacion">Aplicación</SelectItem><SelectItem value="fertilización">Fertilización</SelectItem><SelectItem value="riego">Riego</SelectItem><SelectItem value="cosecha">Cosecha</SelectItem><SelectItem value="rendimiento">Rendimiento</SelectItem><SelectItem value="mantenimiento">Mantenimiento</SelectItem><SelectItem value="plagas">Control de Plagas</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                  <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha del Evento</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                  <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Fecha del Evento</FormLabel><FormControl><Input type="date" lang="es-PY" value={dateToInputValue(field.value)} onChange={(e) => field.onChange(inputValueToDate(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
                 </div>
                 <FormField name="descripcion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea placeholder="Describa el evento..." {...field} /></FormControl><FormMessage /></FormItem> )} />
 
@@ -482,7 +543,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                  {['aplicacion', 'fertilización', 'plagas'].includes(tipoEvento) && (
                    <div>
                      <FormLabel>Condiciones Climáticas</FormLabel>
-                     <div className="grid grid-cols-3 gap-4 mt-2 border p-4 rounded-md">
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 border p-4 rounded-md">
                         <FormField name="temperatura" control={form.control} render={({ field }) => ( <FormItem><FormLabel className="text-xs text-muted-foreground">Temp (°C)</FormLabel><div className="relative"><Thermometer className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><FormControl><Input type="number" className="pl-8" {...field} /></FormControl></div><FormMessage /></FormItem> )}/>
                         <FormField name="humedad" control={form.control} render={({ field }) => ( <FormItem><FormLabel className="text-xs text-muted-foreground">Humedad (%)</FormLabel><div className="relative"><Cloud className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><FormControl><Input type="number" className="pl-8" {...field} /></FormControl></div><FormMessage /></FormItem> )}/>
                         <FormField name="viento" control={form.control} render={({ field }) => ( <FormItem><FormLabel className="text-xs text-muted-foreground">Viento (km/h)</FormLabel><div className="relative"><Wind className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><FormControl><Input type="number" className="pl-8" {...field} /></FormControl></div><FormMessage /></FormItem> )}/>
@@ -491,7 +552,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                 )}
 
                 {['cosecha', 'riego'].includes(tipoEvento) && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <FormField control={form.control} name="toneladas" render={({ field }) => (<FormItem><FormLabel>Cantidad/Volumen</FormLabel><FormControl><Input type="number" placeholder="Ej: 100" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="precioTonelada" render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><FormControl><Input placeholder="Ej: ton, mm, hs" {...field} /></FormControl><FormMessage /></FormItem>)} />
                   </div>
@@ -501,7 +562,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   <Card className="bg-muted/30 p-4">
                     <CardHeader className="p-2"><CardTitle className="text-lg">Detalles de Rendimiento</CardTitle></CardHeader>
                     <CardContent className="p-2 space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         <FormField name="toneladas" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Toneladas Cosechadas</FormLabel><FormControl><Input type="number" placeholder="Ej: 150" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                         <FormField name="precioTonelada" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Precio por Tonelada (USD)</FormLabel><FormControl><Input type="number" placeholder="Ej: 450" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                       </div>
@@ -520,9 +581,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                 />
               </fieldset>
 
-              <div className="flex justify-end pt-4 gap-4">
-                <div className="flex items-center gap-4 mr-auto">
-                    <div className="flex items-stretch gap-4">
+              <div className="flex flex-col gap-4 pt-4">
+                <div className="w-full">
+                    <div className="flex w-full flex-col items-stretch gap-4 lg:flex-row">
                         <div className="flex flex-col gap-2 p-3 rounded-lg bg-background border border-primary/20">
                             <div className="flex justify-between items-center gap-4">
                                 <span className="text-sm text-muted-foreground">Valor Total de Ítems:</span>
@@ -554,7 +615,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                         Descartar Borrador
                     </Button>
                 )}
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                     <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
                     {!evento && <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Guardando..." : "Registrar Evento"}</Button>}
                 </div>

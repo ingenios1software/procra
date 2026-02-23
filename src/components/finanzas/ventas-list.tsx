@@ -106,7 +106,8 @@ export function VentasList({ ventas, parcelas, zafras, cultivos, clientes, isLoa
     try {
         await batch.commit();
         toast({ title: selectedVenta ? "Venta actualizada" : "Venta creada" });
-        closeDialog();
+        setDialogOpen(false);
+        setSelectedVenta(null);
     } catch (error) {
         console.error("Error al guardar venta y actualizar stock: ", error);
         toast({ variant: "destructive", title: "Error al guardar", description: "Ocurrió un error inesperado."});

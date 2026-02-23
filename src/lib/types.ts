@@ -316,6 +316,8 @@ export type Venta = {
     cuentaCobroId?: string;
     total: number;
     vencimiento?: Date | string;
+    asientoVentaId?: string;
+    asientoCmvId?: string;
   };
 };
 export type Proveedor = {

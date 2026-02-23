@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
@@ -22,7 +20,7 @@ import {
 import { PageHeader } from "../shared/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Switch } from "../ui/switch";
 import { collection, doc, getDocs, query, orderBy, limit, writeBatch } from "firebase/firestore";
 import { ImportButton } from "./import-button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
@@ -54,6 +52,7 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
     categoria: '',
     principioActivo: '',
     numeroItem: '',
+    soloEnStock: false,
   });
 
   const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
@@ -80,13 +79,16 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
   const filteredStockData = useMemo(() => {
     return stockData.filter(insumo => {
       const nombreMatch = insumo.nombre.toLowerCase().includes(filters.nombre.toLowerCase());
-      const categoriaMatch = filters.categoria ? insumo.categoria === filters.categoria : true;
+      const categoriaMatch = filters.categoria
+        ? insumo.categoria.toLowerCase().includes(filters.categoria.toLowerCase())
+        : true;
       const principioActivoMatch = insumo.principioActivo ? insumo.principioActivo.toLowerCase().includes(filters.principioActivo.toLowerCase()) : true;
       const numeroItemMatch = filters.numeroItem ? insumo.numeroItem?.toString().includes(filters.numeroItem) : true;
+      const stockMatch = filters.soloEnStock ? insumo.stockFinal > 0 : true;
       
       if (filters.principioActivo && !insumo.principioActivo) return false;
 
-      return nombreMatch && categoriaMatch && principioActivoMatch && numeroItemMatch;
+      return nombreMatch && categoriaMatch && principioActivoMatch && numeroItemMatch && stockMatch;
     }).sort((a, b) => {
         const categoriaComparison = a.categoria.localeCompare(b.categoria);
         if (categoriaComparison !== 0) {
@@ -99,7 +101,12 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
   const totalStockValue = useMemo(() => filteredStockData.reduce((sum, item) => sum + item.valorStock, 0), [filteredStockData]);
   const itemsBajoMinimo = useMemo(() => filteredStockData.filter(item => item.stockFinal < item.stockMinimo).length, [filteredStockData]);
   
-  const categoriasUnicas = useMemo(() => [...new Set(insumos.map(i => i.categoria))], [insumos]);
+  const categoriasUnicas = useMemo(
+    () =>
+      [...new Set(insumos.map((i) => (i.categoria || "").trim().toLowerCase()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b)),
+    [insumos]
+  );
 
   const alertasVencimiento = useMemo(() => {
     const hoy = new Date();
@@ -266,7 +273,7 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
                         <AlertDialogHeader>
                             <AlertDialogTitle>¿Eliminar todos los insumos?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                Esta acción es irreversible y eliminará todos los registros de insumos. Para confirmar, escriba "ELIMINAR" en el campo de abajo.
+                                Esta acción es irreversible y eliminará todos los registros de insumos. Para confirmar, escriba &quot;ELIMINAR&quot; en el campo de abajo.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <Input 
@@ -339,7 +346,7 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
                   </div>
               </div>
           </div>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 no-print">
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-5 no-print">
             <Input 
               placeholder="Filtrar por Nº Item..."
               value={filters.numeroItem}
@@ -350,22 +357,30 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
               value={filters.nombre}
               onChange={(e) => handleFilterChange('nombre', e.target.value)}
             />
-            <Select value={filters.categoria} onValueChange={(v) => handleFilterChange('categoria', v === 'all' ? '' : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por categoría..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las categorías</SelectItem>
-                {categoriasUnicas.map(cat => (
-                  <SelectItem key={cat} value={cat} className="capitalize">{cat}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              list="stock-categorias"
+              placeholder="Filtrar por categoría (escriba)..."
+              value={filters.categoria}
+              onChange={(e) => handleFilterChange('categoria', e.target.value.toLowerCase())}
+            />
+            <datalist id="stock-categorias">
+              {categoriasUnicas.map((cat) => (
+                <option key={cat} value={cat} />
+              ))}
+            </datalist>
             <Input 
               placeholder="Filtrar por principio activo..."
               value={filters.principioActivo}
               onChange={(e) => handleFilterChange('principioActivo', e.target.value)}
             />
+            <div className="flex items-center justify-between rounded-md border px-3 py-2">
+              <span className="text-sm text-muted-foreground">Solo en stock</span>
+              <Switch
+                checked={filters.soloEnStock}
+                onCheckedChange={(checked) => setFilters((prev) => ({ ...prev, soloEnStock: checked }))}
+                aria-label="Filtrar solo insumos con stock mayor a cero"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -484,6 +499,7 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
           </DialogHeader>
           <InsumoForm 
             insumo={selectedInsumo}
+            existingCategories={categoriasUnicas}
             onSubmit={handleSaveInsumo}
             onCancel={closeDialog}
           />

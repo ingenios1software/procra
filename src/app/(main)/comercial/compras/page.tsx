@@ -7,7 +7,7 @@ import { PlusCircle, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import type { CompraNormal, Proveedor, AsientoDiario, PlanDeCuenta } from "@/lib/types";
+import type { CompraNormal, Proveedor, AsientoDiario, PlanDeCuenta, CuentaCajaBanco } from "@/lib/types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -23,7 +23,7 @@ import { MoreHorizontal } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, orderBy, writeBatch, doc, where } from 'firebase/firestore';
 
 
 export default function ComprasPage() {
@@ -31,6 +31,7 @@ export default function ComprasPage() {
   const { user } = useUser();
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState<CompraNormal | null>(null);
+  const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('create');
   const [compraParaAprobar, setCompraParaAprobar] = useState<CompraNormal | null>(null);
   const [cuentaPagoAprobacionId, setCuentaPagoAprobacionId] = useState<string>("");
   const [isApproving, setIsApproving] = useState(false);
@@ -49,6 +50,10 @@ export default function ComprasPage() {
     firestore ? query(collection(firestore, 'planDeCuentas'), orderBy('codigo')) : null
   , [firestore]);
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
+  const cuentasCajaBancoQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'cuentasCajaBanco'), where('activo', '==', true)) : null
+  , [firestore]);
+  const { data: cuentasCajaBanco } = useCollection<CuentaCajaBanco>(cuentasCajaBancoQuery);
 
   const getProveedorNombre = (id: string) => {
     if (!proveedores) return 'N/A';
@@ -57,8 +62,43 @@ export default function ComprasPage() {
 
 
   const cuentasPago = useMemo(() => {
-    return (planDeCuentas || []).filter(c => c.tipo === 'activo');
-  }, [planDeCuentas]);
+    const cuentas = planDeCuentas || [];
+    const cajasBancos = cuentasCajaBanco || [];
+    const byId = new Map(cuentas.map((c) => [c.id, c]));
+    const seen = new Set<string>();
+    const options: Array<{ id: string; label: string }> = [];
+
+    // Preferir cuentas contables vinculadas a cuentas de caja/banco.
+    for (const cb of cajasBancos) {
+      if (!cb.cuentaContableId) continue;
+      const cuenta = byId.get(cb.cuentaContableId);
+      if (!cuenta) continue;
+      if (seen.has(cuenta.id)) continue;
+      seen.add(cuenta.id);
+      options.push({
+        id: cuenta.id,
+        label: `${cb.tipo} ${cb.nombre} - ${cuenta.codigo} - ${cuenta.nombre}`,
+      });
+    }
+
+    // Fallback: cuentas de activo/deudora para no dejar el selector vacio.
+    const normalize = (v?: string) => (v || "").toLowerCase().trim();
+    if (options.length === 0) {
+      for (const c of cuentas) {
+        const tipo = normalize((c as any).tipo);
+        const naturaleza = normalize((c as any).naturaleza);
+        const nombre = normalize(c.nombre);
+        const esActiva = tipo === "activo";
+        const pareceCajaBanco = nombre.includes("caja") || nombre.includes("banco") || nombre.includes("efectivo");
+        if (!(esActiva || (naturaleza === "deudora" && pareceCajaBanco))) continue;
+        if (seen.has(c.id)) continue;
+        seen.add(c.id);
+        options.push({ id: c.id, label: `${c.codigo} - ${c.nombre}` });
+      }
+    }
+
+    return options;
+  }, [planDeCuentas, cuentasCajaBanco]);
 
   const handleOpenApprove = (compra: CompraNormal) => {
     setCompraParaAprobar(compra);
@@ -67,6 +107,10 @@ export default function ComprasPage() {
 
   const handleApproveCompra = async () => {
     if (!firestore || !compraParaAprobar || !user) return;
+    if (compraParaAprobar.estado !== 'abierto') {
+      toast({ variant: 'destructive', title: 'Estado invalido', description: 'Solo se pueden aprobar compras abiertas.' });
+      return;
+    }
     if (!compraParaAprobar.financiero?.cuentaPorPagarId) {
       toast({ variant: 'destructive', title: 'Falta cuenta por pagar', description: 'Edite la compra y seleccione cuenta por pagar.' });
       return;
@@ -77,6 +121,15 @@ export default function ComprasPage() {
       const batch = writeBatch(firestore);
       const compraRef = doc(firestore, 'comprasNormal', compraParaAprobar.id);
       const pagoAplicado = Boolean(cuentaPagoAprobacionId);
+      if (pagoAplicado && !(planDeCuentas || []).some((c) => c.id === cuentaPagoAprobacionId)) {
+        toast({
+          variant: 'destructive',
+          title: 'Cuenta de pago invalida',
+          description: 'Seleccione nuevamente la cuenta contable de pago.',
+        });
+        setIsApproving(false);
+        return;
+      }
       let asientoPagoId: string | undefined;
 
       if (pagoAplicado) {
@@ -112,18 +165,52 @@ export default function ComprasPage() {
     }
   };
 
+  const handleAnularCompra = async (compra: CompraNormal) => {
+    if (!firestore || !user) return;
+    if (compra.estado !== 'abierto') {
+      toast({ variant: 'destructive', title: 'No se puede anular', description: 'Solo se pueden anular compras abiertas.' });
+      return;
+    }
+    if (!window.confirm(`Desea anular la compra ${compra.comprobante.documento}?`)) return;
+
+    if (!compra.totalizadora) {
+      toast({
+        variant: 'destructive',
+        title: 'Anulacion manual requerida',
+        description: 'Esta compra impacto stock. Realice ajuste de stock y asiento de reversa.',
+      });
+      return;
+    }
+
+    try {
+      const batch = writeBatch(firestore);
+      const compraRef = doc(firestore, 'comprasNormal', compra.id);
+      batch.update(compraRef, {
+        estado: 'anulado',
+        anuladoPor: user.uid,
+        anuladoEn: new Date().toISOString(),
+      });
+      await batch.commit();
+      toast({ title: 'Compra anulada' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'No se pudo anular', description: error?.message || 'Error inesperado' });
+    }
+  };
+
   const handleExportPDF = () => {
     alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
   };
 
-  const openForm = (compra?: CompraNormal) => {
+  const openForm = (compra?: CompraNormal, mode: 'create' | 'edit' | 'view' = 'create') => {
     setSelectedCompra(compra || null);
+    setFormMode(mode);
     setFormOpen(true);
   };
 
   const closeForm = () => {
     setFormOpen(false);
     setSelectedCompra(null);
+    setFormMode('create');
   }
 
   return (
@@ -132,7 +219,7 @@ export default function ComprasPage() {
         title="Consulta de Facturas de Compra"
         description="Consulte, edite y registre las compras de insumos, productos y servicios."
       >
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={handleExportPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
@@ -196,10 +283,10 @@ export default function ComprasPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => openForm(compra)}>Ver Detalle</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openForm(compra)}>Editar</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openForm(compra, 'view')}>Ver Detalle</DropdownMenuItem>
+                        {compra.estado === "abierto" && <DropdownMenuItem onClick={() => openForm(compra, 'edit')}>Editar</DropdownMenuItem>}
                         {compra.estado === "abierto" && <DropdownMenuItem onClick={() => handleOpenApprove(compra)}>Aprobar</DropdownMenuItem>}
-                        <DropdownMenuItem className="text-destructive">Anular</DropdownMenuItem>
+                        {compra.estado === "abierto" && <DropdownMenuItem className="text-destructive" onClick={() => handleAnularCompra(compra)}>Anular</DropdownMenuItem>}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -210,16 +297,20 @@ export default function ComprasPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-6xl h-screen md:h-auto">
+      <Dialog open={isFormOpen} onOpenChange={(open) => (open ? setFormOpen(true) : closeForm())}>
+        <DialogContent className="max-w-6xl">
            <DialogHeader>
-             <DialogTitle>{selectedCompra ? `Editar Compra N° ${selectedCompra.codigo}`: 'Registrar Nueva Compra Normal'}</DialogTitle>
+             <DialogTitle>
+               {selectedCompra
+                 ? (formMode === 'view' ? `Detalle Compra Nro ${selectedCompra.codigo}` : `Editar Compra Nro ${selectedCompra.codigo}`)
+                 : 'Registrar Nueva Compra Normal'}
+             </DialogTitle>
              <DialogDescription>
                 Complete los detalles de la factura o documento de compra.
              </DialogDescription>
            </DialogHeader>
-            <div className="overflow-y-auto max-h-[85vh]">
-              <CompraNormalForm compra={selectedCompra} onCancel={closeForm} />
+            <div className="overflow-y-auto max-h-[70dvh] sm:max-h-[78dvh] pr-1">
+              <CompraNormalForm compra={selectedCompra} mode={formMode} onCancel={closeForm} />
             </div>
         </DialogContent>
       </Dialog>
@@ -246,8 +337,11 @@ export default function ComprasPage() {
               <Select value={cuentaPagoAprobacionId} onValueChange={setCuentaPagoAprobacionId}>
                 <SelectTrigger><SelectValue placeholder="Aprobar sin pago inmediato" /></SelectTrigger>
                 <SelectContent>
-                  {cuentasPago.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.codigo} - {c.nombre}</SelectItem>
+                  {cuentasPago.length === 0 && (
+                    <SelectItem value="sin-cuentas" disabled>No hay cuentas de pago configuradas</SelectItem>
+                  )}
+                  {cuentasPago.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -263,3 +357,4 @@ export default function ComprasPage() {
     </>
   );
 }
+

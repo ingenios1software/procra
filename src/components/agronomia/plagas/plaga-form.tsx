@@ -109,7 +109,7 @@ export function PlagaForm({
                   Seleccione los cultivos que son comúnmente afectados por esta plaga.
                 </FormDescription>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {cultivos?.map((cultivo) => (
                   <FormField
                     key={cultivo.id}
@@ -163,3 +163,4 @@ export function PlagaForm({
     </Form>
   );
 }
+

@@ -21,11 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import type { Asistencia, Empleado } from "@/lib/types";
-import { cn } from "@/lib/utils";
-import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 
 const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
@@ -45,6 +41,17 @@ interface AsistenciaFormProps {
   empleados: Empleado[];
   onSubmit: (data: Omit<Asistencia, "id">) => void;
   onCancel: () => void;
+}
+
+function dateToInputValue(value?: Date | null): string {
+  if (!value || Number.isNaN(value.getTime())) return "";
+  return format(value, "yyyy-MM-dd");
+}
+
+function inputValueToDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 export function AsistenciaForm({
@@ -76,8 +83,8 @@ export function AsistenciaForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 sm:space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <FormField
             control={form.control}
             name="empleadoId"
@@ -109,43 +116,22 @@ export function AsistenciaForm({
             control={form.control}
             name="fecha"
             render={({ field }) => (
-              <FormItem className="flex flex-col pt-2">
+              <FormItem>
                 <FormLabel>Fecha</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        {field.value ? (
-                          format(field.value, "PPP")
-                        ) : (
-                          <span>Elige una fecha</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <FormControl>
+                  <Input
+                    type="date" lang="es-PY"
+                    value={dateToInputValue(field.value)}
+                    onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="horaEntrada"
@@ -203,3 +189,5 @@ export function AsistenciaForm({
     </Form>
   );
 }
+
+

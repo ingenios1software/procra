@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,11 +33,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PlanDeCuentasForm } from "@/components/contabilidad/plan-de-cuentas/plan-de-cuentas-form";
-import type { PlanDeCuenta } from "@/lib/types";
+import type { PlanDeCuenta, AsientoDiario } from "@/lib/types";
 import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, query, orderBy, writeBatch, getDocs } from 'firebase/firestore';
+import { findPlanCuentaByCodigo, getCuentasBaseFaltantes } from "@/lib/contabilidad/cuentas-base";
 
 
 export default function PlanDeCuentasPage() {
@@ -90,6 +91,98 @@ export default function PlanDeCuentasPage() {
     });
   };
 
+  const handleCargarCuentasBase = async () => {
+    if (!firestore) return;
+    const faltantes = getCuentasBaseFaltantes(cuentas || []);
+    if (faltantes.length === 0) {
+      toast({
+        title: "Plan de cuentas al dia",
+        description: "No hay cuentas base pendientes de crear.",
+      });
+      return;
+    }
+
+    try {
+      const batch = writeBatch(firestore);
+      const cuentasCol = collection(firestore, "planDeCuentas");
+      for (const cuenta of faltantes) {
+        const ref = doc(cuentasCol);
+        batch.set(ref, cuenta);
+      }
+      await batch.commit();
+      toast({
+        title: "Cuentas base creadas",
+        description: `Se agregaron ${faltantes.length} cuentas sugeridas para compras, ventas y eventos.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "No se pudieron crear cuentas base",
+        description: error?.message || "Error inesperado.",
+      });
+    }
+  };
+
+  const handleNormalizarAsientos = async () => {
+    if (!firestore || !cuentas || cuentas.length === 0) return;
+
+    try {
+      const cuentasPorId = new Set(cuentas.map((c) => c.id));
+      const asientosSnap = await getDocs(collection(firestore, "asientosDiario"));
+      if (asientosSnap.empty) {
+        toast({ title: "Sin asientos", description: "No hay asientos para normalizar." });
+        return;
+      }
+
+      let batch = writeBatch(firestore);
+      let pendingOps = 0;
+      let asientosActualizados = 0;
+      let movimientosNormalizados = 0;
+
+      for (const asientoDoc of asientosSnap.docs) {
+        const data = asientoDoc.data() as AsientoDiario;
+        const movimientos = Array.isArray(data.movimientos) ? data.movimientos : [];
+
+        let changed = false;
+        const movimientosNormalizadosActuales = movimientos.map((mov) => {
+          if (cuentasPorId.has(mov.cuentaId)) return mov;
+          const cuentaByCodigo = findPlanCuentaByCodigo(cuentas, mov.cuentaId);
+          if (!cuentaByCodigo?.id) return mov;
+          changed = true;
+          movimientosNormalizados += 1;
+          return { ...mov, cuentaId: cuentaByCodigo.id };
+        });
+
+        if (!changed) continue;
+
+        batch.update(asientoDoc.ref, { movimientos: movimientosNormalizadosActuales });
+        pendingOps += 1;
+        asientosActualizados += 1;
+
+        if (pendingOps >= 400) {
+          await batch.commit();
+          batch = writeBatch(firestore);
+          pendingOps = 0;
+        }
+      }
+
+      if (pendingOps > 0) {
+        await batch.commit();
+      }
+
+      toast({
+        title: "Asientos normalizados",
+        description: `Se actualizaron ${asientosActualizados} asientos y ${movimientosNormalizados} movimientos.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "No se pudieron normalizar asientos",
+        description: error?.message || "Error inesperado.",
+      });
+    }
+  };
+
   const openForm = (cuenta?: PlanDeCuenta) => {
     setSelectedCuenta(cuenta || null);
     setFormOpen(true);
@@ -102,10 +195,18 @@ export default function PlanDeCuentasPage() {
         description="Administre el plan contable de la empresa."
       >
         {user && (
-          <Button onClick={() => openForm()}>
-            <PlusCircle />
-            Nueva Cuenta
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={handleCargarCuentasBase}>
+              Cargar Cuentas Base
+            </Button>
+            <Button variant="outline" onClick={handleNormalizarAsientos}>
+              Normalizar Asientos
+            </Button>
+            <Button onClick={() => openForm()}>
+              <PlusCircle />
+              Nueva Cuenta
+            </Button>
+          </div>
         )}
       </PageHeader>
       <Card>

@@ -33,33 +33,7 @@ export function ImageUpload({ onFileAdd, onFileRemove, existingFiles, eventoId, 
   const { user } = useUser();
   const firebaseApp = useFirebaseApp();
 
-  const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length === 0) return;
-
-    const newFiles: UploadingFile[] = files.map(file => ({
-      id: uuidv4(),
-      file,
-      preview: URL.createObjectURL(file),
-      progress: 0,
-    }));
-    
-    setUploadingFiles(prev => [...prev, ...newFiles]);
-    event.target.value = ''; // Reset input
-
-    for (const uf of newFiles) {
-      try {
-        const compressedFile = await compressImage(uf.file);
-        const uploadedFoto = await uploadFile(compressedFile, uf.id);
-        onFileAdd(uploadedFoto);
-        setUploadingFiles(prev => prev.map(f => f.id === uf.id ? { ...f, storagePath: uploadedFoto.storagePath } : f));
-      } catch (error: any) {
-        setUploadingFiles(prev => prev.map(f => f.id === uf.id ? { ...f, error: error.message } : f));
-      }
-    }
-  }, [onFileAdd, eventoId, parcelaId, user, firebaseApp]);
-
-  const compressImage = (file: File): Promise<File> => {
+  const compressImage = useCallback((file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -98,9 +72,9 @@ export function ImageUpload({ onFileAdd, onFileRemove, existingFiles, eventoId, 
       };
       reader.onerror = error => reject(error);
     });
-  };
+  }, []);
   
-  const uploadFile = (file: File, id: string): Promise<Foto> => {
+  const uploadFile = useCallback((file: File, id: string): Promise<Foto> => {
     return new Promise((resolve, reject) => {
       if (!user || !firebaseApp) return reject('Usuario o Firebase no inicializado');
       
@@ -133,7 +107,33 @@ export function ImageUpload({ onFileAdd, onFileRemove, existingFiles, eventoId, 
         }
       );
     });
-  };
+  }, [user, firebaseApp, eventoId, parcelaId]);
+
+  const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    const newFiles: UploadingFile[] = files.map(file => ({
+      id: uuidv4(),
+      file,
+      preview: URL.createObjectURL(file),
+      progress: 0,
+    }));
+    
+    setUploadingFiles(prev => [...prev, ...newFiles]);
+    event.target.value = ''; // Reset input
+
+    for (const uf of newFiles) {
+      try {
+        const compressedFile = await compressImage(uf.file);
+        const uploadedFoto = await uploadFile(compressedFile, uf.id);
+        onFileAdd(uploadedFoto);
+        setUploadingFiles(prev => prev.map(f => f.id === uf.id ? { ...f, storagePath: uploadedFoto.storagePath } : f));
+      } catch (error: any) {
+        setUploadingFiles(prev => prev.map(f => f.id === uf.id ? { ...f, error: error.message } : f));
+      }
+    }
+  }, [compressImage, onFileAdd, uploadFile]);
 
   const handleRemoveFile = (storagePath: string) => {
     // This function will be called for both uploading and existing files

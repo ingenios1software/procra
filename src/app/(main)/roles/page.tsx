@@ -5,12 +5,20 @@ import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, u
 import { collection, query, doc } from 'firebase/firestore';
 import type { Rol } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { PageHeader } from "@/components/shared/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShieldAlert } from "lucide-react";
 
 export default function RolesPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { permisos } = useAuth();
   
-  const rolesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'roles')) : null, [firestore]);
+  const rolesQuery = useMemoFirebase(
+    () => (firestore && permisos.administracion) ? query(collection(firestore, 'roles')) : null,
+    [firestore, permisos.administracion]
+  );
   const { data: roles, isLoading } = useCollection<Rol>(rolesQuery);
 
   const handleSave = (rolData: Omit<Rol, 'id'>, id?: string) => {
@@ -33,6 +41,25 @@ export default function RolesPage() {
 
   if (isLoading) {
     return <p>Cargando roles...</p>
+  }
+
+  if (!permisos.administracion) {
+    return (
+      <>
+        <PageHeader title="Acceso Denegado" />
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <ShieldAlert />
+              Permisos Insuficientes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>No tienes los permisos necesarios para acceder a la sección de roles.</p>
+          </CardContent>
+        </Card>
+      </>
+    );
   }
   
   return (

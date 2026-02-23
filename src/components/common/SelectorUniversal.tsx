@@ -49,6 +49,7 @@ interface SelectorUniversalProps<T> {
   extraInfoFields?: { label: string; field: keyof T; format?: (value: any) => string }[];
   searchFields: (keyof T)[];
   disabled?: boolean;
+  itemFilter?: (item: T) => boolean;
 }
 
 export function SelectorUniversal<T extends { id: string }>({
@@ -62,6 +63,7 @@ export function SelectorUniversal<T extends { id: string }>({
   extraInfoFields = [],
   searchFields = [],
   disabled = false,
+  itemFilter,
 }: SelectorUniversalProps<T>) {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -81,17 +83,18 @@ export function SelectorUniversal<T extends { id: string }>({
 
   const filteredItems = React.useMemo(() => {
     if (!allItems) return [];
-    if (!debouncedSearchQuery) return allItems;
+    const baseItems = itemFilter ? allItems.filter(itemFilter) : allItems;
+    if (!debouncedSearchQuery) return baseItems;
 
     const q = debouncedSearchQuery.toLowerCase().trim();
 
-    return allItems.filter((item) => {
+    return baseItems.filter((item) => {
         return searchFields.some(field => {
             const fieldValue = item[field] as any;
             return fieldValue?.toString().toLowerCase().includes(q);
         })
     });
-  }, [allItems, debouncedSearchQuery, searchFields]);
+  }, [allItems, debouncedSearchQuery, searchFields, itemFilter]);
 
 
   const handleCodeSearch = async () => {
@@ -197,11 +200,11 @@ export function SelectorUniversal<T extends { id: string }>({
         variant="outline"
         role="combobox"
         aria-expanded={open}
-        className={cn("justify-between h-9 text-base sm:text-sm", width, "flex-grow")}
+        className={cn("justify-between h-9 min-w-0 max-w-full text-base sm:text-sm", width, "flex-grow")}
         disabled={isLoading || disabled}
       >
         <span className="truncate">
-          {isLoading ? "Cargando..." : value ? (value[displayField] as string) : `Seleccionar ${label}...`}
+          {isLoading ? "Cargando..." : value ? (value[displayField] as string) : (label ? `Seleccionar ${label}...` : "Seleccionar...")}
         </span>
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>
@@ -209,25 +212,27 @@ export function SelectorUniversal<T extends { id: string }>({
 
   if (isDesktop) {
     return (
-      <div className="flex items-center gap-2 w-full">
+      <div className="flex min-w-0 w-full items-center gap-2">
         <Input
           type="text"
           placeholder="Cod."
-          className="w-16 h-9"
+          className="h-9 w-16 shrink-0"
           value={codeQuery || ''}
           onChange={(e) => setCodeQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleCodeSearch}
           disabled={isLoading || disabled}
         />
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild className="flex-grow">
-                {triggerButton}
-            </PopoverTrigger>
-            <PopoverContent className="p-0 flex flex-col" style={{ width: `var(--radix-popover-trigger-width)`}}>
-                {selectorContent}
-            </PopoverContent>
-        </Popover>
+        <div className="min-w-0 flex-1">
+          <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                  {triggerButton}
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-0 flex flex-col">
+                  {selectorContent}
+              </PopoverContent>
+          </Popover>
+        </div>
       </div>
     );
   }
@@ -236,13 +241,13 @@ export function SelectorUniversal<T extends { id: string }>({
   return (
     <>
       <div className="space-y-2">
-         <div className="flex items-center gap-2">
-            <Input type="text" placeholder="Código" className="w-24 h-12 text-base" value={codeQuery || ''} onChange={(e) => setCodeQuery(e.target.value)} onKeyDown={handleKeyDown} onBlur={handleCodeSearch} disabled={isLoading || disabled} />
-            <div onClick={() => !disabled && setOpen(true)} className="flex-grow">{triggerButton}</div>
+         <div className="flex min-w-0 items-center gap-2">
+            <Input type="text" placeholder="Código" className="h-12 w-24 shrink-0 text-base" value={codeQuery || ''} onChange={(e) => setCodeQuery(e.target.value)} onKeyDown={handleKeyDown} onBlur={handleCodeSearch} disabled={isLoading || disabled} />
+            <div onClick={() => !disabled && setOpen(true)} className="min-w-0 flex-grow">{triggerButton}</div>
         </div>
       </div>
       <Dialog open={open && !isDesktop} onOpenChange={setOpen}>
-        <DialogContent className="h-screen w-screen max-w-full rounded-none p-0 flex flex-col sm:h-[80vh] sm:w-auto sm:max-w-2xl sm:rounded-lg">
+        <DialogContent className="h-screen max-h-screen w-screen max-w-full rounded-none p-0 flex flex-col sm:h-[80vh] sm:max-h-[80vh] sm:w-auto sm:max-w-2xl sm:rounded-lg">
             <DialogHeader className="flex-row items-center justify-between border-b p-4"><DialogTitle className="text-lg font-semibold">Seleccionar {label}</DialogTitle><Button variant="ghost" size="icon" onClick={() => setOpen(false)}><X className="h-5 w-5"/></Button></DialogHeader>
             <div className="flex-grow overflow-hidden p-2">{selectorContent}</div>
         </DialogContent>

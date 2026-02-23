@@ -11,20 +11,26 @@ import { type DateRange } from "react-day-picker";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Package, DollarSign, BarChart2 } from 'lucide-react';
+import { Package, DollarSign, BarChart2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
 interface MovimientoConSaldo extends MovimientoStock {
   saldoAcumulado: number;
+}
+
+function dateToInputValue(value?: Date): string {
+  if (!value || Number.isNaN(value.getTime())) return '';
+  return format(value, 'yyyy-MM-dd');
+}
+
+function inputValueToDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 export default function FichaInsumoPage({ params }: { params: { insumoId: string } }) {
@@ -142,17 +148,32 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
               <CardTitle>Filtros</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col md:flex-row gap-4 items-center">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-[300px] justify-start text-left font-normal", !dateRange?.from && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (dateRange.to ? `${format(dateRange.from, "LLL dd, y")} - ${format(dateRange.to, "LLL dd, y")}` : format(dateRange.from, "LLL dd, y")) : <span>Seleccionar período</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
-                </PopoverContent>
-              </Popover>
+              <div className="flex w-full md:w-auto gap-2">
+                <Input
+                  type="date" lang="es-PY"
+                  className="w-full md:w-[170px]"
+                  value={dateToInputValue(dateRange?.from)}
+                  onChange={(e) => {
+                    const from = inputValueToDate(e.target.value);
+                    setDateRange((prev) => ({
+                      from,
+                      to: prev?.to,
+                    }));
+                  }}
+                />
+                <Input
+                  type="date" lang="es-PY"
+                  className="w-full md:w-[170px]"
+                  value={dateToInputValue(dateRange?.to)}
+                  onChange={(e) => {
+                    const to = inputValueToDate(e.target.value);
+                    setDateRange((prev) => ({
+                      from: prev?.from,
+                      to,
+                    }));
+                  }}
+                />
+              </div>
               <Select onValueChange={setSelectedZafra} value={selectedZafra}>
                   <SelectTrigger className="w-full md:w-[200px]">
                       <SelectValue placeholder="Filtrar por Zafra..." />
@@ -232,3 +253,5 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
     </>
   );
 }
+
+

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { createContext, useState, useMemo, ReactNode, useEffect } from 'react';
 import { Usuario, Permisos, Rol } from '@/lib/types';
@@ -29,8 +29,22 @@ const allPermissions: Permisos = {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { user: firebaseUser, isUserLoading: isAuthLoading } = useUser();
+  const { user: firebaseUser, isUserLoading: isAuthLoading, userError } = useUser();
   const firestore = useFirestore();
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+  
+  useEffect(() => {
+    if (!isAuthLoading) {
+      setAuthTimedOut(false);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setAuthTimedOut(true);
+    }, 10000);
+
+    return () => clearTimeout(timeoutId);
+  }, [isAuthLoading]);
   
   // Fetch user profile from Firestore
   const userProfileRef = useMemoFirebase(() => 
@@ -46,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const { data: userRole, isLoading: isRoleLoading } = useDoc<Rol>(roleRef);
 
-  const isLoading = isAuthLoading || isProfileLoading || isRoleLoading;
+  const isLoading = (isAuthLoading && !authTimedOut && !userError) || isProfileLoading || isRoleLoading;
 
   const value = useMemo(() => {
     // SPECIAL CASE: If the user has the 'admin' role, always grant all permissions.
@@ -62,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isLoading, usuarioApp, userRole]);
 
 
-  if (isAuthLoading) { // Only show global loader during initial Firebase Auth check
+  if (isAuthLoading && !authTimedOut && !userError) { // Only show global loader during initial Firebase Auth check
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
             <p>Verificando autenticación...</p>
@@ -76,3 +90,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
+

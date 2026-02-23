@@ -1,4 +1,3 @@
-import { FirebaseClientProvider } from "@/firebase";
 import { AuthenticatedLayout } from "@/components/layout/authenticated-layout";
 
 export default function MainLayout({
@@ -7,8 +6,6 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <FirebaseClientProvider>
-      <AuthenticatedLayout>{children}</AuthenticatedLayout>
-    </FirebaseClientProvider>
+    <AuthenticatedLayout>{children}</AuthenticatedLayout>
   );
 }

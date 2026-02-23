@@ -58,7 +58,7 @@ export default function VentasPage() {
         title="Gestión de Ventas"
         description="Consulte, edite y registre las ventas de productos."
       >
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={handleExportPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF
@@ -119,14 +119,14 @@ export default function VentasPage() {
       </Card>
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-6xl h-screen md:h-auto">
+        <DialogContent className="max-w-6xl">
            <DialogHeader>
              <DialogTitle>{selectedVenta ? `Editar Venta N° ${selectedVenta.numeroDocumento}`: 'Registrar Nueva Venta'}</DialogTitle>
              <DialogDescription>
                 Complete los detalles de la factura o documento de venta.
              </DialogDescription>
            </DialogHeader>
-            <div className="overflow-y-auto max-h-[85vh] p-1">
+            <div className="overflow-y-auto max-h-[70dvh] sm:max-h-[78dvh] p-1 pr-2">
               <VentaForm 
                 venta={selectedVenta} 
                 onCancel={closeForm}

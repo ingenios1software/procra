@@ -9,16 +9,31 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuth as useAppAuth } from "@/hooks/use-auth"
+import { useAuth as useFirebaseAuth } from "@/firebase"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 
 export function UserNav() {
-  const { user, role } = useAuth()
+  const { user, role } = useAppAuth()
+  const firebaseAuth = useFirebaseAuth()
+  const router = useRouter()
+  const [isSigningOut, setIsSigningOut] = useState(false)
+
+  const handleSignOut = async () => {
+    try {
+      setIsSigningOut(true)
+      await firebaseAuth.signOut()
+      router.push("/login")
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
 
   if (!user) return null
 
@@ -40,15 +55,15 @@ export function UserNav() {
               {user.email}
             </p>
             {role && (
-                <p className="text-xs leading-none text-muted-foreground pt-1">
-                    Rol: <span className="font-semibold">{role}</span>
-                </p>
+              <p className="text-xs leading-none text-muted-foreground pt-1">
+                Rol: <span className="font-semibold">{role}</span>
+              </p>
             )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          Cerrar Sesión
+        <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
+          {isSigningOut ? "Cerrando sesi\u00f3n..." : "Cerrar sesi\u00f3n"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

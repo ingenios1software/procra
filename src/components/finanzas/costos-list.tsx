@@ -30,7 +30,7 @@ export function CostosList() {
   const { data: zafras, isLoading: l4 } = useCollection<Zafra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]));
   
   const isLoading = l1 || l2 || l3 || l4;
-  const initialCostos = costos || [];
+  const initialCostos = useMemo(() => costos ?? [], [costos]);
 
   const { totalCostos, costosPorParcela } = useMemo(() => {
     if (!initialCostos || !parcelas) return { totalCostos: 0, costosPorParcela: [] };

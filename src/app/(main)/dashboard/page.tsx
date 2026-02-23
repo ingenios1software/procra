@@ -131,7 +131,7 @@ export default function DashboardPage() {
                 description="Vista general de la zafra activa."
             />
             <Card className="flex items-center justify-center h-48 border-dashed">
-                <p className="text-muted-foreground">No hay una zafra "en curso" activa para mostrar el dashboard.</p>
+                <p className="text-muted-foreground">No hay una zafra &quot;en curso&quot; activa para mostrar el dashboard.</p>
             </Card>
             <DashboardWatermarkFooter />
         </>

@@ -1,34 +1,38 @@
-'use client';
+﻿'use client';
 
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { ConnectionStatusIndicator } from '@/components/shared/connection-status';
-import { useAuth, useUser, initiateAnonymousSignIn } from '@/firebase';
+import { useUser } from '@/firebase';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 
 export function AuthenticatedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    // Si la carga ha terminado y no hay un usuario autenticado
     if (!isUserLoading && !user) {
-        // Primero, intentamos la autenticación anónima para cubrir sesiones nuevas
-        initiateAnonymousSignIn(auth);
+      router.replace('/login');
     }
-  }, [isUserLoading, user, auth, router]);
+  }, [isUserLoading, user, router]);
 
   if (isUserLoading) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
         <p>Cargando y autenticando...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+        <p>Redirigiendo al inicio de sesión...</p>
       </div>
     );
   }
@@ -51,3 +55,4 @@ export function AuthenticatedLayout({
     </div>
   );
 }
+

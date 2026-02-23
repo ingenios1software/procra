@@ -9,7 +9,7 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { RoleForm } from "./role-form";
 import type { Rol, Permisos } from "@/lib/types";
-import { useUser } from "@/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
 import { Badge } from "../ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -48,8 +48,8 @@ const PermissionsSummary = ({ permisos, soloLectura }: { permisos: Permisos, sol
 export function RolesList({ initialRoles, onSave, onDelete }: RolesListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedRol, setSelectedRol] = useState<Rol | null>(null);
-  const { user } = useUser();
-  const canModify = user;
+  const { permisos } = useAuth();
+  const canModify = permisos.administracion;
 
   const handleSaveWrapper = (rolData: Omit<Rol, 'id'>) => {
     if (selectedRol) {

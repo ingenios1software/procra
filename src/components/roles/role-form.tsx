@@ -105,7 +105,7 @@ export function RoleForm({ rol, onSubmit, onCancel }: RoleFormProps) {
 
         <div>
             <FormLabel>Permisos del Módulo</FormLabel>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2 p-4 border rounded-md">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2 p-4 border rounded-md">
                 {permisosKeys.map((key) => (
                     <FormField
                         key={key}
@@ -134,7 +134,7 @@ export function RoleForm({ rol, onSubmit, onCancel }: RoleFormProps) {
             render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
-                        <FormLabel>Modo "Solo Lectura"</FormLabel>
+                        <FormLabel>Modo &quot;Solo Lectura&quot;</FormLabel>
                         <p className="text-sm text-muted-foreground">
                             Anula todos los permisos y solo permite ver la información.
                         </p>

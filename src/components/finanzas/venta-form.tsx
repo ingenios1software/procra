@@ -7,12 +7,10 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Venta, Parcela, Cultivo, Zafra, Cliente, Insumo } from "@/lib/types";
-import { cn, formatCurrency } from "@/lib/utils";
-import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import React, { useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "../ui/table";
@@ -48,6 +46,17 @@ interface VentaFormProps {
   zafras: Zafra[];
   clientes: Cliente[];
   insumos: Insumo[];
+}
+
+function dateToInputValue(value?: Date | null): string {
+  if (!value || Number.isNaN(value.getTime())) return "";
+  return format(value, "yyyy-MM-dd");
+}
+
+function inputValueToDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cultivos, zafras, clientes, insumos }: VentaFormProps) => {
@@ -102,7 +111,7 @@ export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cult
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
            <FormField control={form.control} name="numeroDocumento" render={({ field }) => ( <FormItem><FormLabel>N° Documento</FormLabel><FormControl><Input placeholder="001-001-000123" {...field} /></FormControl><FormMessage/></FormItem> )}/>
            <FormField control={form.control} name="clienteId" render={({ field }) => ( <FormItem> <FormLabel>Cliente</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl> <SelectContent>{clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-           <FormField control={form.control} name="fecha" render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha de Venta</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+           <FormField control={form.control} name="fecha" render={({ field }) => ( <FormItem><FormLabel>Fecha de Venta</FormLabel><FormControl><Input type="date" lang="es-PY" value={dateToInputValue(field.value)} onChange={(e) => field.onChange(inputValueToDate(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <FormField control={form.control} name="zafraId" render={({ field }) => ( <FormItem> <FormLabel>Zafra</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione la zafra" /></SelectTrigger></FormControl> <SelectContent>{zafras.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
@@ -147,3 +156,4 @@ export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cult
 });
 
 VentaForm.displayName = 'VentaForm';
+

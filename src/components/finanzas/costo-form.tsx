@@ -6,12 +6,8 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Costo, Parcela, Cultivo, Zafra } from "@/lib/types";
-import { cn } from "@/lib/utils";
-import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import React from "react";
 
@@ -34,6 +30,17 @@ interface CostoFormProps {
   parcelas: Parcela[];
   cultivos: Cultivo[];
   zafras: Zafra[];
+}
+
+function dateToInputValue(value?: Date | null): string {
+  if (!value || Number.isNaN(value.getTime())) return "";
+  return format(value, "yyyy-MM-dd");
+}
+
+function inputValueToDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 export const CostoForm = React.memo(({ costo, onSubmit, onCancel, parcelas, cultivos, zafras }: CostoFormProps) => {
@@ -80,21 +87,15 @@ export const CostoForm = React.memo(({ costo, onSubmit, onCancel, parcelas, cult
             control={form.control}
             name="fecha"
             render={({ field }) => (
-              <FormItem className="flex flex-col pt-2">
+              <FormItem>
                 <FormLabel>Fecha del Costo</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                        {field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                  </PopoverContent>
-                </Popover>
+                <FormControl>
+                  <Input
+                    type="date" lang="es-PY"
+                    value={dateToInputValue(field.value)}
+                    onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -135,3 +136,4 @@ export const CostoForm = React.memo(({ costo, onSubmit, onCancel, parcelas, cult
 });
 
 CostoForm.displayName = 'CostoForm';
+

@@ -35,7 +35,7 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas }: PanelGraficos
             distribucionCostos: dataCostos,
             progresoZafraData: dataProgreso,
         };
-    }, [eventos, insumos, zafra, etapas]);
+    }, [eventos, zafra, etapas]);
     
     const diasCicloActual = zafra.fechaSiembra ? differenceInDays(new Date(), new Date(zafra.fechaSiembra)) : 0;
 

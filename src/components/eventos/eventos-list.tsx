@@ -396,14 +396,14 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
       </Card>
       
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="max-w-[96vw] overflow-hidden p-0 sm:max-w-5xl lg:max-w-6xl">
+          <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6">
             <DialogTitle>{selectedEvento ? `Revisar Evento #${selectedEvento.numeroLanzamiento}` : 'Registrar Nuevo Evento'}</DialogTitle>
             <DialogDescription>
                 Complete los detalles de la actividad agrícola. El panel superior le dará contexto agronómico.
             </DialogDescription>
           </DialogHeader>
-          <div className="overflow-y-auto max-h-[80vh] p-1">
+          <div className="max-h-[calc(92dvh-7rem)] overflow-y-auto overflow-x-hidden px-2 pb-4 sm:px-4 sm:pb-6">
             <EventoForm 
                 evento={selectedEvento}
                 onSave={handleSave}

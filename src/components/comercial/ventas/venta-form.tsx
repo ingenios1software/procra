@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useMemo, useState, useEffect } from 'react';
+import { useEffect, useMemo } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { z } from "zod";
@@ -9,93 +8,115 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { cn, formatCurrency } from "@/lib/utils";
-import type { Venta, Cliente, Insumo, MovimientoStock, Deposito, AsientoDiario, CuentaCajaBanco, Zafra } from "@/lib/types";
-import { useFirestore, useUser } from "@/firebase";
-import { collection, doc, writeBatch, getDoc } from "firebase/firestore";
+import { formatCurrency } from "@/lib/utils";
+import type { Venta, Cliente, Insumo, MovimientoStock, Deposito, AsientoDiario, CuentaCajaBanco, Zafra, PlanDeCuenta } from "@/lib/types";
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { collection, doc, writeBatch, query, orderBy } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { SelectorUniversal } from '@/components/common';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SelectorUniversal } from "@/components/common";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 
 const itemSchema = z.object({
-  producto: z.any().refine(val => val && val.id, { message: "Debe seleccionar un producto." }),
+  producto: z.any().refine((val) => val && val.id, { message: "Debe seleccionar un producto." }),
   descripcion: z.string().optional(),
   cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
   precioUnitario: z.coerce.number().min(0, "El precio no puede ser negativo."),
   descuentoPorc: z.coerce.number().min(0).optional().default(0),
 });
 
-const formSchema = z.object({
-  numeroDocumento: z.string().nonempty("El número de documento es obligatorio."),
-  clienteId: z.string().nonempty("Debe seleccionar un cliente."),
-  zafraId: z.string().nonempty("Debe seleccionar una zafra."),
-  fecha: z.date({ required_error: "La fecha es obligatoria." }),
-  moneda: z.enum(['USD', 'PYG']),
-  formaPago: z.enum(['Contado', 'Transferencia', 'Crédito']),
-  vencimiento: z.date().optional(),
-  vendedorId: z.string().optional(),
-  depositoOrigenId: z.string().nonempty("Debe seleccionar un depósito de origen."),
-  observacion: z.string().optional(),
-  items: z.array(itemSchema).min(1, "Debe agregar al menos un producto."),
-  financiero_cuentaId: z.string().optional(),
-}).refine(data => {
-    if (data.formaPago === 'Crédito' && !data.vencimiento) {
-        return false;
-    }
-    if (['Contado', 'Transferencia'].includes(data.formaPago) && !data.financiero_cuentaId) {
-        return false;
-    }
+const formSchema = z
+  .object({
+    numeroDocumento: z.string().nonempty("El numero de documento es obligatorio."),
+    clienteId: z.string().nonempty("Debe seleccionar un cliente."),
+    zafraId: z.string().nonempty("Debe seleccionar una zafra."),
+    fecha: z.date({ required_error: "La fecha es obligatoria." }),
+    moneda: z.enum(["USD", "PYG"]),
+    formaPago: z.enum(["Contado", "Transferencia", "Crédito"]),
+    vencimiento: z.date().optional(),
+    vendedorId: z.string().optional(),
+    depositoOrigenId: z.string().nonempty("Debe seleccionar un deposito de origen."),
+    observacion: z.string().optional(),
+    items: z.array(itemSchema).min(1, "Debe agregar al menos un producto."),
+    financiero_cuentaId: z.string().optional(),
+  })
+  .refine((data) => {
+    if (data.formaPago === "Crédito" && !data.vencimiento) return false;
+    if (["Contado", "Transferencia"].includes(data.formaPago) && !data.financiero_cuentaId) return false;
     return true;
-}, {
-    message: "El vencimiento es obligatorio para ventas a crédito y la cuenta de cobro para contado/transferencia.",
-    path: ["vencimiento"], // O path: ["financiero_cuentaId"]
-});
+  }, {
+    message: "El vencimiento es obligatorio para credito y la cuenta de cobro para contado/transferencia.",
+    path: ["vencimiento"],
+  });
 
 type VentaFormValues = z.infer<typeof formSchema>;
 
 interface VentaFormProps {
-    venta?: Venta | null;
-    onCancel: () => void;
-    clientes: Cliente[];
-    depositos: Deposito[];
-    cuentasCajaBanco: CuentaCajaBanco[];
-    zafras: Zafra[];
+  venta?: Venta | null;
+  onCancel: () => void;
+  clientes: Cliente[];
+  depositos: Deposito[];
+  cuentasCajaBanco: CuentaCajaBanco[];
+  zafras: Zafra[];
 }
 
-const CUENTAS = {
-    CAJA: '1.1.1',
-    BANCO: '1.1.2',
-    CLIENTES: '1.1.3',
-    VENTAS: '4.1.1',
-    IVA_DEBITO: '2.1.2',
-    CMV: '5.1.1',
-    INVENTARIO: '1.1.5',
-};
+function omitUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => omitUndefinedDeep(item)) as T;
+  }
+  if (value && typeof value === "object" && (value as any).constructor === Object) {
+    const result: Record<string, unknown> = {};
+    for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+      if (nestedValue === undefined) continue;
+      result[key] = omitUndefinedDeep(nestedValue);
+    }
+    return result as T;
+  }
+  return value;
+}
+
+function dateToInputValue(value?: Date | null): string {
+  if (!value || Number.isNaN(value.getTime())) return "";
+  return format(value, "yyyy-MM-dd");
+}
+
+function inputValueToDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
 
 export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBanco, zafras }: VentaFormProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
-  
+  const isEditingExisting = Boolean(venta);
+  const disableTransactional = isEditingExisting;
+
+  const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
+    useMemoFirebase(() => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null), [firestore])
+  );
+
   const form = useForm<VentaFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: venta ? {
-      ...venta,
-      financiero_cuentaId: venta.financiero?.cuentaCobroId,
-      fecha: new Date(venta.fecha as string),
-      vencimiento: venta.vencimiento ? new Date(venta.vencimiento as string) : undefined,
-    } : {
-      fecha: new Date(),
-      moneda: 'PYG',
-      formaPago: 'Contado',
-      items: [],
-    },
+    defaultValues: venta
+      ? {
+          ...venta,
+          financiero_cuentaId: venta.financiero?.cuentaCobroId,
+          fecha: new Date(venta.fecha as string),
+          vencimiento: venta.vencimiento ? new Date(venta.vencimiento as string) : undefined,
+        }
+      : {
+          fecha: new Date(),
+          moneda: "PYG",
+          formaPago: "Contado",
+          items: [],
+          depositoOrigenId: depositos[0]?.id || "",
+        },
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -103,58 +124,62 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     name: "items",
   });
 
-  const watchedItems = useWatch({ control: form.control, name: 'items' });
-  const watchedFormaPago = useWatch({ control: form.control, name: 'formaPago' });
+  const watchedItems = useWatch({ control: form.control, name: "items" });
+  const watchedFormaPago = useWatch({ control: form.control, name: "formaPago" });
 
   useEffect(() => {
-    if (watchedFormaPago === 'Contado') {
-        const caja = cuentasCajaBanco.find(c => c.tipo === 'CAJA');
-        if (caja) form.setValue('financiero_cuentaId', caja.id);
-    } else if (watchedFormaPago === 'Transferencia') {
-        const banco = cuentasCajaBanco.find(c => c.tipo === 'BANCO');
-        if (banco) form.setValue('financiero_cuentaId', banco.id);
+    if (form.getValues("depositoOrigenId")) return;
+    if (depositos.length > 0) {
+      form.setValue("depositoOrigenId", depositos[0].id, { shouldValidate: true });
     }
+  }, [depositos, form]);
+
+  useEffect(() => {
+    if (watchedFormaPago === "Contado") {
+      const caja = cuentasCajaBanco.find((c) => c.tipo === "CAJA");
+      const fallback = caja?.id || cuentasCajaBanco[0]?.id;
+      if (fallback) form.setValue("financiero_cuentaId", fallback, { shouldValidate: true });
+      return;
+    }
+    if (watchedFormaPago === "Transferencia") {
+      const banco = cuentasCajaBanco.find((c) => c.tipo === "BANCO");
+      const fallback = banco?.id || cuentasCajaBanco[0]?.id;
+      if (fallback) form.setValue("financiero_cuentaId", fallback, { shouldValidate: true });
+      return;
+    }
+    form.setValue("financiero_cuentaId", undefined, { shouldValidate: true });
   }, [watchedFormaPago, cuentasCajaBanco, form]);
 
-
   const handleSelectProducto = (index: number, producto: Insumo) => {
-    form.setValue(`items.${index}.producto`, producto);
-    form.setValue(`items.${index}.descripcion`, producto.descripcion);
-    form.setValue(`items.${index}.precioUnitario`, producto.precioVenta || 0);
+    if (disableTransactional) return;
+    form.setValue(`items.${index}.producto`, producto, { shouldValidate: true });
+    form.setValue(`items.${index}.descripcion`, producto.descripcion, { shouldValidate: true });
+    form.setValue(`items.${index}.precioUnitario`, producto.precioVenta || 0, { shouldValidate: true });
     form.trigger(`items.${index}`);
-  }
+  };
 
   const { totalGeneral, subtotalIva10, subtotalIva5, exenta, iva10, iva5 } = useMemo(() => {
     let subtotal10 = 0;
     let subtotal5 = 0;
     let subtotalExenta = 0;
-  
-    (watchedItems || []).forEach(item => {
+
+    (watchedItems || []).forEach((item) => {
       const producto = item.producto as Insumo | undefined;
       if (!producto) return;
-  
       const cantidad = Number(item.cantidad) || 0;
       const precio = Number(item.precioUnitario) || 0;
       const descuento = Number(item.descuentoPorc) || 0;
       const subtotal = cantidad * precio * (1 - descuento / 100);
-      
-      switch (producto.iva) {
-        case '10':
-          subtotal10 += subtotal;
-          break;
-        case '5':
-          subtotal5 += subtotal;
-          break;
-        case '0':
-          subtotalExenta += subtotal;
-          break;
-      }
+
+      if (producto.iva === "10") subtotal10 += subtotal;
+      if (producto.iva === "5") subtotal5 += subtotal;
+      if (producto.iva === "0") subtotalExenta += subtotal;
     });
-  
-    const ivaCalculado10 = subtotal10 - (subtotal10 / 1.1);
-    const ivaCalculado5 = subtotal5 - (subtotal5 / 1.05);
+
+    const ivaCalculado10 = subtotal10 - subtotal10 / 1.1;
+    const ivaCalculado5 = subtotal5 - subtotal5 / 1.05;
     const total = subtotal10 + subtotal5 + subtotalExenta;
-  
+
     return {
       totalGeneral: total,
       subtotalIva10: subtotal10,
@@ -164,211 +189,444 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
       iva5: ivaCalculado5,
     };
   }, [watchedItems]);
-  
+
+  const getCuentaIdPorCodigo = (codigo: string): string | undefined => {
+    return findPlanCuentaByCodigo(planDeCuentas || [], codigo)?.id;
+  };
 
   const handleSubmit = async (data: VentaFormValues) => {
     if (!firestore || !user) {
-        toast({ variant: "destructive", title: "Error de autenticación." });
-        return;
+      toast({ variant: "destructive", title: "Error de autenticacion." });
+      return;
+    }
+    if (!isEditingExisting && (!planDeCuentas || planDeCuentas.length === 0)) {
+      toast({
+        variant: "destructive",
+        title: "Falta plan de cuentas",
+        description: "Configure el plan de cuentas antes de registrar ventas.",
+      });
+      return;
     }
 
+    const shouldCreateWorkflowEntries = !venta;
     const batch = writeBatch(firestore);
     const ventaRef = venta ? doc(firestore, "ventas", venta.id) : doc(collection(firestore, "ventas"));
 
-    // --- 1. Preparar y guardar documento de Venta ---
-    const itemsFinal = data.items.map(item => {
-        const subtotal = (item.cantidad * item.precioUnitario) * (1 - (item.descuentoPorc || 0) / 100);
-        return {
-            productoId: item.producto.id,
-            descripcion: item.producto.descripcion,
-            cantidad: item.cantidad,
-            precioUnitario: item.precioUnitario,
-            descuentoPorc: item.descuentoPorc || 0,
-            subtotal: subtotal,
-        };
+    const itemsFinal = data.items.map((item) => {
+      const subtotal = item.cantidad * item.precioUnitario * (1 - (item.descuentoPorc || 0) / 100);
+      return {
+        productoId: item.producto.id,
+        descripcion: item.producto.descripcion,
+        cantidad: item.cantidad,
+        precioUnitario: item.precioUnitario,
+        descuentoPorc: item.descuentoPorc || 0,
+        subtotal,
+      };
     });
-    
-    const ventaData: Omit<Venta, 'id'> = {
-        ...data,
-        fecha: (data.fecha as Date).toISOString(),
-        items: itemsFinal,
-        total: totalGeneral,
-        financiero: {
-            cuentaCobroId: data.financiero_cuentaId,
-            total: totalGeneral,
-            vencimiento: data.vencimiento,
-        }
-    };
-    
-    if (venta) {
-        batch.update(ventaRef, ventaData as any);
-    } else {
-        batch.set(ventaRef, ventaData);
-    }
-    
+
+    const baseImponible = (subtotalIva10 - iva10) + (subtotalIva5 - iva5) + exenta;
+    const totalIva = iva10 + iva5;
     let costoTotalCMV = 0;
 
-    // --- 2. Actualizar Stock y Crear Movimientos ---
-    for (const item of data.items) {
+    let asientoVentaId: string | undefined = venta?.financiero?.asientoVentaId;
+    let asientoCmvId: string | undefined = venta?.financiero?.asientoCmvId;
+
+    if (shouldCreateWorkflowEntries) {
+      for (const item of data.items) {
         const producto = item.producto as Insumo;
-        const insumoRef = doc(firestore, "insumos", producto.id);
-        const stockActual = producto.stockActual || 0;
+        const stockActual = Number(producto.stockActual) || 0;
         const stockDespues = stockActual - item.cantidad;
 
+        const insumoRef = doc(firestore, "insumos", producto.id);
         batch.update(insumoRef, { stockActual: stockDespues });
 
         const movimientoRef = doc(collection(firestore, "movimientosStock"));
-        const nuevoMovimiento: Omit<MovimientoStock, 'id'> = {
-            fecha: data.fecha,
-            tipo: "salida",
-            origen: "venta",
-            documentoOrigen: data.numeroDocumento,
-            ventaId: ventaRef.id,
-            depositoId: data.depositoOrigenId,
-            insumoId: producto.id,
-            insumoNombre: producto.descripcion,
-            unidad: producto.unidad,
-            categoria: producto.categoria,
-            cantidad: item.cantidad,
-            stockAntes: stockActual,
-            stockDespues: stockDespues,
-            precioUnitario: item.precioUnitario,
-            costoTotal: item.cantidad * item.precioUnitario,
-            creadoPor: user.uid,
-            creadoEn: new Date(),
+        const movimiento: Omit<MovimientoStock, "id"> = {
+          fecha: data.fecha.toISOString(),
+          tipo: "salida",
+          origen: "venta",
+          documentoOrigen: data.numeroDocumento,
+          ventaId: ventaRef.id,
+          depositoId: data.depositoOrigenId,
+          insumoId: producto.id,
+          insumoNombre: producto.descripcion || producto.nombre,
+          unidad: producto.unidad,
+          categoria: producto.categoria,
+          cantidad: item.cantidad,
+          stockAntes: stockActual,
+          stockDespues: stockDespues,
+          precioUnitario: item.precioUnitario,
+          costoTotal: item.cantidad * item.precioUnitario,
+          creadoPor: user.uid,
+          creadoEn: new Date(),
         };
-        batch.set(movimientoRef, nuevoMovimiento);
-        
+        batch.set(movimientoRef, movimiento);
         costoTotalCMV += item.cantidad * (producto.precioPromedioCalculado || 0);
-    }
+      }
 
-    // --- 3. Generar Asientos Contables ---
-    const baseImponible = (subtotalIva10 - iva10) + (subtotalIva5 - iva5) + exenta;
-    const totalIva = iva10 + iva5;
+      let cuentaDebeId: string | undefined;
+      if (data.formaPago === "Crédito") {
+        cuentaDebeId = getCuentaIdPorCodigo(CODIGOS_CUENTAS_BASE.CLIENTES);
+      } else {
+        const cuentaCobro = cuentasCajaBanco.find((c) => c.id === data.financiero_cuentaId);
+        if (cuentaCobro?.cuentaContableId) {
+          cuentaDebeId = cuentaCobro.cuentaContableId;
+        } else if (cuentaCobro?.tipo === "CAJA") {
+          cuentaDebeId = getCuentaIdPorCodigo(CODIGOS_CUENTAS_BASE.CAJA);
+        } else if (cuentaCobro?.tipo === "BANCO") {
+          cuentaDebeId = getCuentaIdPorCodigo(CODIGOS_CUENTAS_BASE.BANCO);
+        }
+      }
 
-    let cuentaDebeCodigo;
-    if (data.formaPago === 'Crédito') {
-      cuentaDebeCodigo = CUENTAS.CLIENTES;
-    } else {
-      const cuentaCobro = cuentasCajaBanco.find(c => c.id === data.financiero_cuentaId);
-      if (cuentaCobro?.tipo === 'CAJA') cuentaDebeCodigo = CUENTAS.CAJA;
-      else if (cuentaCobro?.tipo === 'BANCO') cuentaDebeCodigo = CUENTAS.BANCO;
-    }
+      const cuentaVentasId = getCuentaIdPorCodigo(CODIGOS_CUENTAS_BASE.VENTAS);
+      const cuentaIvaDebitoId = totalIva > 0 ? getCuentaIdPorCodigo(CODIGOS_CUENTAS_BASE.IVA_DEBITO) : undefined;
+      const cuentaCmvId = costoTotalCMV > 0 ? getCuentaIdPorCodigo(CODIGOS_CUENTAS_BASE.CMV) : undefined;
+      const cuentaInventarioId = costoTotalCMV > 0 ? getCuentaIdPorCodigo(CODIGOS_CUENTAS_BASE.INVENTARIO) : undefined;
 
-    if(cuentaDebeCodigo) {
-        const asientoVentaRef = doc(collection(firestore, "asientosDiario"));
-        const asientoVenta: Omit<AsientoDiario, 'id'> = {
-            fecha: data.fecha,
-            descripcion: `Venta s/ doc ${data.numeroDocumento}`,
-            movimientos: [
-                { cuentaId: cuentaDebeCodigo, tipo: 'debe', monto: totalGeneral },
-                { cuentaId: CUENTAS.VENTAS, tipo: 'haber', monto: baseImponible },
-                { cuentaId: CUENTAS.IVA_DEBITO, tipo: 'haber', monto: totalIva },
-            ]
-        };
-        batch.set(asientoVentaRef, asientoVenta);
-    }
-    
-    if (costoTotalCMV > 0) {
+      const cuentasFaltantes: string[] = [];
+      if (!cuentaDebeId) cuentasFaltantes.push("Cuenta de cobro / Clientes");
+      if (!cuentaVentasId) cuentasFaltantes.push(`Cuenta ${CODIGOS_CUENTAS_BASE.VENTAS}`);
+      if (totalIva > 0 && !cuentaIvaDebitoId) cuentasFaltantes.push(`Cuenta ${CODIGOS_CUENTAS_BASE.IVA_DEBITO}`);
+      if (costoTotalCMV > 0 && !cuentaCmvId) cuentasFaltantes.push(`Cuenta ${CODIGOS_CUENTAS_BASE.CMV}`);
+      if (costoTotalCMV > 0 && !cuentaInventarioId) cuentasFaltantes.push(`Cuenta ${CODIGOS_CUENTAS_BASE.INVENTARIO}`);
+
+      if (cuentasFaltantes.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "No se puede registrar la venta",
+          description: `Faltan cuentas contables: ${cuentasFaltantes.join(", ")}.`,
+        });
+        return;
+      }
+
+      const asientoVentaRef = doc(collection(firestore, "asientosDiario"));
+      const movimientosVenta: AsientoDiario["movimientos"] = [
+        { cuentaId: cuentaDebeId!, tipo: "debe", monto: totalGeneral },
+        { cuentaId: cuentaVentasId!, tipo: "haber", monto: baseImponible },
+      ];
+      if (totalIva > 0 && cuentaIvaDebitoId) {
+        movimientosVenta.push({ cuentaId: cuentaIvaDebitoId, tipo: "haber", monto: totalIva });
+      }
+
+      const asientoVenta: Omit<AsientoDiario, "id"> = {
+        fecha: data.fecha.toISOString(),
+        descripcion: `Venta s/ doc ${data.numeroDocumento}`,
+        movimientos: movimientosVenta,
+      };
+      batch.set(asientoVentaRef, asientoVenta);
+      asientoVentaId = asientoVentaRef.id;
+
+      if (costoTotalCMV > 0 && cuentaCmvId && cuentaInventarioId) {
         const asientoCMVRef = doc(collection(firestore, "asientosDiario"));
-        const asientoCMV: Omit<AsientoDiario, 'id'> = {
-            fecha: data.fecha,
-            descripcion: `CMV por venta ${data.numeroDocumento}`,
-            movimientos: [
-                { cuentaId: CUENTAS.CMV, tipo: 'debe', monto: costoTotalCMV },
-                { cuentaId: CUENTAS.INVENTARIO, tipo: 'haber', monto: costoTotalCMV },
-            ]
+        const asientoCMV: Omit<AsientoDiario, "id"> = {
+          fecha: data.fecha.toISOString(),
+          descripcion: `CMV por venta ${data.numeroDocumento}`,
+          movimientos: [
+            { cuentaId: cuentaCmvId, tipo: "debe", monto: costoTotalCMV },
+            { cuentaId: cuentaInventarioId, tipo: "haber", monto: costoTotalCMV },
+          ],
         };
         batch.set(asientoCMVRef, asientoCMV);
+        asientoCmvId = asientoCMVRef.id;
+      }
+    }
+
+    const ventaData: Omit<Venta, "id"> = {
+      numeroDocumento: data.numeroDocumento,
+      clienteId: data.clienteId,
+      zafraId: data.zafraId,
+      fecha: data.fecha.toISOString(),
+      moneda: data.moneda,
+      formaPago: data.formaPago,
+      vencimiento: data.vencimiento ? data.vencimiento.toISOString() : undefined,
+      vendedorId: data.vendedorId,
+      depositoOrigenId: data.depositoOrigenId,
+      observacion: data.observacion,
+      items: itemsFinal,
+      total: totalGeneral,
+      financiero: {
+        cuentaCobroId: data.financiero_cuentaId,
+        total: totalGeneral,
+        vencimiento: data.vencimiento ? data.vencimiento.toISOString() : undefined,
+        asientoVentaId,
+        asientoCmvId,
+      },
+    };
+
+    const ventaDataSanitized = omitUndefinedDeep(ventaData);
+    if (venta) {
+      batch.update(ventaRef, ventaDataSanitized as any);
+    } else {
+      batch.set(ventaRef, ventaDataSanitized);
     }
 
     try {
-        await batch.commit();
-        toast({ title: venta ? "Venta actualizada con éxito" : "Venta registrada con éxito" });
-        onCancel();
+      await batch.commit();
+      toast({
+        title: venta ? "Venta actualizada con exito" : "Venta registrada con exito",
+        description: venta
+          ? "Se actualizaron solo datos administrativos; no se recalculo stock ni asientos."
+          : "Se registraron documento, stock y asientos contables.",
+      });
+      onCancel();
     } catch (e: any) {
-        console.error("Error al guardar la venta:", e);
-        toast({ variant: "destructive", title: "Error al guardar", description: e.message });
+      console.error("Error al guardar la venta:", e);
+      toast({ variant: "destructive", title: "Error al guardar", description: e.message });
     }
   };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 p-1">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <FormField name="numeroDocumento" control={form.control} render={({ field }) => ( <FormItem><FormLabel>N° Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
-            <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-            <FormField name="clienteId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent>{(clientes || []).map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-            <FormField name="zafraId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Zafra</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl><SelectContent>{(zafras || []).map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-        </div>
-        <Tabs defaultValue="detalle" className="w-full">
-            <TabsList>
-                <TabsTrigger value="detalle">Detalle</TabsTrigger>
-                <TabsTrigger value="financiero">Financiero</TabsTrigger>
-                <TabsTrigger value="observaciones">Observaciones</TabsTrigger>
-            </TabsList>
-            <TabsContent value="detalle" className="space-y-4 pt-4">
-              <Table>
-                  <TableHeader><TableRow><TableHead className="w-[350px]">Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead>Desc. (%)</TableHead><TableHead className="text-right">Subtotal</TableHead><TableHead></TableHead></TableRow></TableHeader>
-                  <TableBody>
-                      {fields.map((field, index) => {
-                          const item = watchedItems?.[index];
-                          const cantidad = Number(item?.cantidad) || 0;
-                          const precio = Number(item?.precioUnitario) || 0;
-                          const descuento = Number(item?.descuentoPorc) || 0;
-                          const subtotal = cantidad * precio * (1 - descuento / 100);
+        {isEditingExisting && (
+          <div className="rounded-md border border-amber-400/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Edicion administrativa: no se modifican movimientos de stock ni asientos contables.
+          </div>
+        )}
 
-                          return (
-                              <TableRow key={field.id} className="align-top">
-                                  <TableCell className="p-1 min-w-[300px]">
-                                    <FormField control={form.control} name={`items.${index}.producto`} render={({ field: formField }) => (
-                                        <SelectorUniversal<Insumo> label="Producto" collectionName="insumos" displayField="descripcion" codeField="codigo" value={formField.value} onSelect={(insumo) => insumo && handleSelectProducto(index, insumo)} searchFields={['descripcion', 'codigo']} />
-                                    )}/>
-                                  </TableCell>
-                                  <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.cantidad`} render={({ field: formField }) => <Input type="number" {...formField} />} /></TableCell>
-                                  <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.precioUnitario`} render={({ field: formField }) => <Input type="number" {...formField} />} /></TableCell>
-                                  <TableCell className="p-1"><FormField control={form.control} name={`items.${index}.descuentoPorc`} render={({ field: formField }) => <Input type="number" {...formField} />} /></TableCell>
-                                  <TableCell className="text-right font-mono p-1 align-middle">${formatCurrency(subtotal)}</TableCell>
-                                  <TableCell className="p-1"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
-                              </TableRow>
-                          );
-                      })}
-                  </TableBody>
-              </Table>
-              <Button type="button" variant="outline" size="sm" onClick={() => append({} as any)}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Producto</Button>
-            </TabsContent>
-            <TabsContent value="financiero" className="space-y-6 pt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <FormField name="formaPago" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Forma de Pago</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Contado">Contado</SelectItem><SelectItem value="Transferencia">Transferencia</SelectItem><SelectItem value="Crédito">Crédito</SelectItem></SelectContent></Select><FormMessage/></FormItem> )}/>
-                    {watchedFormaPago !== 'Crédito' && (
-                        <FormField name="financiero_cuentaId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cuenta de Cobro</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una cuenta"/></SelectTrigger></FormControl><SelectContent>{(cuentasCajaBanco).map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                    )}
-                    {watchedFormaPago === 'Crédito' && (
-                      <FormField name="vencimiento" control={form.control} render={({ field }) => ( <FormItem className="flex flex-col pt-2"><FormLabel>Vencimiento</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")} >{field.value ? format(field.value, "dd/MM/yyyy") : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage/></FormItem> )}/>
-                    )}
-                </div>
-            </TabsContent>
-            <TabsContent value="observaciones" className="pt-4">
-              <FormField name="observacion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage/></FormItem> )}/>
-            </TabsContent>
-        </Tabs>
-          
-        <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Gravado 10%:</span><span>{formatCurrency(subtotalIva10 - iva10)}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Gravado 5%:</span><span>{formatCurrency(subtotalIva5 - iva5)}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Exenta:</span><span>{formatCurrency(exenta)}</span></div>
-            </div>
-            <div className="space-y-2">
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">IVA 10%:</span><span>{formatCurrency(iva10)}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">IVA 5%:</span><span>{formatCurrency(iva5)}</span></div>
-                <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span className="text-foreground">Total General:</span><span>${formatCurrency(totalGeneral)}</span></div>
-            </div>
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-5">
+          <FormField
+            name="numeroDocumento"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>N Documento</FormLabel>
+                <FormControl><Input {...field} disabled={disableTransactional} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="fecha"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Fecha</FormLabel>
+                <FormControl>
+                  <Input
+                    type="date"
+                    lang="es-PY"
+                    value={dateToInputValue(field.value)}
+                    onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
+                    disabled={disableTransactional}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="clienteId"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cliente</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl>
+                  <SelectContent>{(clientes || []).map((p) => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="zafraId"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Zafra</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl>
+                  <SelectContent>{(zafras || []).map((z) => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="depositoOrigenId"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Deposito origen</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Seleccione deposito" /></SelectTrigger></FormControl>
+                  <SelectContent>{(depositos || []).map((d) => <SelectItem key={d.id} value={d.id}>{d.nombre}</SelectItem>)}</SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
-        
+
+        <Tabs defaultValue="detalle" className="w-full">
+          <TabsList>
+            <TabsTrigger value="detalle">Detalle</TabsTrigger>
+            <TabsTrigger value="financiero">Financiero</TabsTrigger>
+            <TabsTrigger value="observaciones">Observaciones</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="detalle" className="space-y-4 pt-4">
+            <div className="overflow-x-auto -mx-1 px-1">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[350px]">Producto</TableHead>
+                    <TableHead>Cantidad</TableHead>
+                    <TableHead>Precio Unit.</TableHead>
+                    <TableHead>Desc. (%)</TableHead>
+                    <TableHead className="text-right">Subtotal</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {fields.map((field, index) => {
+                    const item = watchedItems?.[index];
+                    const cantidad = Number(item?.cantidad) || 0;
+                    const precio = Number(item?.precioUnitario) || 0;
+                    const descuento = Number(item?.descuentoPorc) || 0;
+                    const subtotal = cantidad * precio * (1 - descuento / 100);
+
+                    return (
+                      <TableRow key={field.id} className="align-top">
+                        <TableCell className="min-w-[300px] p-1">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.producto`}
+                            render={({ field: formField }) => (
+                              <SelectorUniversal<Insumo>
+                                label="Producto"
+                                collectionName="insumos"
+                                displayField="descripcion"
+                                codeField="codigo"
+                                value={formField.value}
+                                onSelect={(insumo) => insumo && handleSelectProducto(index, insumo)}
+                                searchFields={["descripcion", "codigo"]}
+                                disabled={disableTransactional}
+                              />
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <FormField control={form.control} name={`items.${index}.cantidad`} render={({ field: formField }) => <Input type="number" {...formField} disabled={disableTransactional} />} />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <FormField control={form.control} name={`items.${index}.precioUnitario`} render={({ field: formField }) => <Input type="number" {...formField} disabled={disableTransactional} />} />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <FormField control={form.control} name={`items.${index}.descuentoPorc`} render={({ field: formField }) => <Input type="number" {...formField} disabled={disableTransactional} />} />
+                        </TableCell>
+                        <TableCell className="p-1 text-right font-mono align-middle">${formatCurrency(subtotal)}</TableCell>
+                        <TableCell className="p-1">
+                          <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={disableTransactional}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => append({} as any)} disabled={disableTransactional}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Agregar Producto
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="financiero" className="space-y-4 sm:space-y-6 pt-4">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <FormField
+                name="formaPago"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Forma de Pago</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="Contado">Contado</SelectItem>
+                        <SelectItem value="Transferencia">Transferencia</SelectItem>
+                        <SelectItem value="Crédito">Crédito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {watchedFormaPago !== "Crédito" && (
+                <FormField
+                  name="financiero_cuentaId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cuenta de Cobro</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una cuenta" /></SelectTrigger></FormControl>
+                        <SelectContent>{cuentasCajaBanco.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {watchedFormaPago === "Crédito" && (
+                <FormField
+                  name="vencimiento"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Vencimiento</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          lang="es-PY"
+                          value={dateToInputValue(field.value)}
+                          onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
+                          disabled={disableTransactional}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="observaciones" className="pt-4">
+            <FormField
+              name="observacion"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observaciones</FormLabel>
+                  <FormControl><Textarea {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </TabsContent>
+        </Tabs>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Gravado 10%:</span><span>{formatCurrency(subtotalIva10 - iva10)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Gravado 5%:</span><span>{formatCurrency(subtotalIva5 - iva5)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Exenta:</span><span>{formatCurrency(exenta)}</span></div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">IVA 10%:</span><span>{formatCurrency(iva10)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">IVA 5%:</span><span>{formatCurrency(iva5)}</span></div>
+            <div className="mt-2 flex justify-between border-t pt-2 text-lg font-bold"><span className="text-foreground">Total General:</span><span>${formatCurrency(totalGeneral)}</span></div>
+          </div>
+        </div>
+
         <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-            <Button type="submit">{venta ? "Guardar Cambios" : "Guardar Venta"}</Button>
+          <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
+          <Button type="submit">{venta ? "Guardar Cambios" : "Guardar Venta"}</Button>
         </div>
       </form>
     </Form>

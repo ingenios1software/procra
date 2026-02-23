@@ -5,13 +5,28 @@ import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, u
 import { collection, query, doc } from 'firebase/firestore';
 import type { Rol, Usuario } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { PageHeader } from "@/components/shared/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShieldAlert } from "lucide-react";
 
 export default function UsuariosPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { permisos } = useAuth();
 
-  const { data: usuarios, isLoading: loadingUsuarios } = useCollection<Usuario>(useMemoFirebase(() => firestore ? query(collection(firestore, 'usuarios')) : null, [firestore]));
-  const { data: roles, isLoading: loadingRoles } = useCollection<Rol>(useMemoFirebase(() => firestore ? query(collection(firestore, 'roles')) : null, [firestore]));
+  const { data: usuarios, isLoading: loadingUsuarios } = useCollection<Usuario>(
+    useMemoFirebase(
+      () => (firestore && permisos.administracion) ? query(collection(firestore, 'usuarios')) : null,
+      [firestore, permisos.administracion]
+    )
+  );
+  const { data: roles, isLoading: loadingRoles } = useCollection<Rol>(
+    useMemoFirebase(
+      () => (firestore && permisos.administracion) ? query(collection(firestore, 'roles')) : null,
+      [firestore, permisos.administracion]
+    )
+  );
 
   const handleSaveUsuario = (data: Omit<Usuario, 'id' | 'rolNombre'>, id?: string) => {
     if (!firestore || !roles) return;
@@ -48,6 +63,24 @@ export default function UsuariosPage() {
     toast({ variant: "destructive", title: "Usuario eliminado" });
   };
 
+  if (!permisos.administracion) {
+    return (
+      <>
+        <PageHeader title="Acceso Denegado" />
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <ShieldAlert />
+              Permisos Insuficientes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>No tienes los permisos necesarios para acceder a la sección de usuarios.</p>
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
 
   return (
     <UsuariosList 

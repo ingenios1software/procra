@@ -191,7 +191,7 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
                                  <AlertDialogHeader>
                                    <AlertDialogTitle>¿Desea cerrar la zafra?</AlertDialogTitle>
                                    <AlertDialogDescription>
-                                     Esta acción marcará la zafra como 'finalizada' y registrará la fecha de fin actual. No podrá ser revertida.
+                                     Esta acción marcará la zafra como &apos;finalizada&apos; y registrará la fecha de fin actual. No podrá ser revertida.
                                    </AlertDialogDescription>
                                  </AlertDialogHeader>
                                  <AlertDialogFooter>

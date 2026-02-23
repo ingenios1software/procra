@@ -7,12 +7,8 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Zafra, Cultivo } from "@/lib/types";
-import { cn } from "@/lib/utils";
-import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import React from "react";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
@@ -32,6 +28,17 @@ interface ZafraFormProps {
   zafra?: Partial<Zafra> | null;
   onSubmit: (data: any) => void;
   onCancel: () => void;
+}
+
+function dateToInputValue(value?: Date | null): string {
+  if (!value || Number.isNaN(value.getTime())) return "";
+  return format(value, "yyyy-MM-dd");
+}
+
+function inputValueToDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormProps) => {
@@ -59,7 +66,7 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 sm:space-y-6">
         <FormField
           control={form.control}
           name="nombre"
@@ -96,37 +103,20 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
                 </FormItem>
             )}
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="fechaInicio"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>Fecha de Inicio</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <FormControl>
+                    <Input
+                      type="date" lang="es-PY"
+                      value={dateToInputValue(field.value)}
+                      onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -135,32 +125,15 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
               control={form.control}
               name="fechaSiembra"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>Fecha de Siembra (Opcional)</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? format(field.value, "PPP") : <span>Elige una fecha</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <FormControl>
+                    <Input
+                      type="date" lang="es-PY"
+                      value={dateToInputValue(field.value)}
+                      onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
+                    />
+                  </FormControl>
                    <FormDescription>Fecha real de siembra para el panel agronómico.</FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -201,3 +174,5 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
 });
 
 ZafraForm.displayName = 'ZafraForm';
+
+
