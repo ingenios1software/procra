@@ -1,17 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { doc } from "firebase/firestore";
+import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Download } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/shared/page-header";
-import type { Cliente } from "@/lib/types";
-import { useUser, useFirestore, updateDocumentNonBlocking } from "@/firebase";
+import { ReportActions } from "@/components/shared/report-actions";
 import { Badge } from "@/components/ui/badge";
-import { doc } from 'firebase/firestore';
-
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useFirestore, useUser, updateDocumentNonBlocking } from "@/firebase";
+import type { Cliente } from "@/lib/types";
 
 interface ClientesListProps {
   clientes: Cliente[];
@@ -24,15 +30,13 @@ export function ClientesList({ clientes, isLoading }: ClientesListProps) {
 
   const handleToggleActive = (id: string) => {
     if (!firestore) return;
-    const cliente = clientes.find(c => c.id === id);
+    const cliente = clientes.find((item) => item.id === id);
     if (!cliente) return;
-    const clienteRef = doc(firestore, 'clientes', id);
+    const clienteRef = doc(firestore, "clientes", id);
     updateDocumentNonBlocking(clienteRef, { activo: !cliente.activo });
   };
-  
-  const handleExportPDF = () => {
-    alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
-  };
+
+  const shareSummary = `Total de clientes: ${clientes.length}.`;
 
   return (
     <>
@@ -40,80 +44,83 @@ export function ClientesList({ clientes, isLoading }: ClientesListProps) {
         title="Clientes"
         description="Gestione la cartera de clientes de la empresa."
       >
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleExportPDF}>
-            <Download className="mr-2 h-4 w-4" />
-            Exportar PDF
+        <ReportActions reportTitle="Clientes" reportSummary={shareSummary} />
+        {user && (
+          <Button asChild>
+            <Link href="/comercial/clientes/crear">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nuevo Cliente
+            </Link>
           </Button>
-          {user && (
-            <Button asChild>
-              <Link href="/comercial/clientes/crear">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Nuevo Cliente
-              </Link>
-            </Button>
-          )}
-        </div>
+        )}
       </PageHeader>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Listado de Clientes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item Nº</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>RUC</TableHead>
-                <TableHead>Teléfono</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Estado</TableHead>
-                {user && <TableHead className="text-right">Acciones</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
-              {clientes.map((cliente) => (
-                <TableRow key={cliente.id}>
-                  <TableCell className="font-medium text-muted-foreground">{cliente.numeroItem}</TableCell>
-                  <TableCell className="font-medium">{cliente.nombre}</TableCell>
-                  <TableCell>{cliente.ruc}</TableCell>
-                  <TableCell>{cliente.telefono || 'N/A'}</TableCell>
-                  <TableCell>{cliente.email || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Badge variant={cliente.activo ? 'default' : "destructive"}>
-                      {cliente.activo ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                  </TableCell>
-                  {user && (
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Abrir menú</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/comercial/clientes/editar/${cliente.id}`}>Editar</Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleActive(cliente.id)}>
-                            {cliente.activo ? 'Desactivar' : 'Activar'}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  )}
+
+      <div id="pdf-area" className="print-area">
+        <Card>
+          <CardHeader>
+            <CardTitle>Listado de Clientes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table className="min-w-[860px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item NÂº</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>RUC</TableHead>
+                  <TableHead>Telefono</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Estado</TableHead>
+                  {user && <TableHead className="text-right">Acciones</TableHead>}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center">
+                      Cargando...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {clientes.map((cliente) => (
+                  <TableRow key={cliente.id}>
+                    <TableCell className="font-medium text-muted-foreground">{cliente.numeroItem}</TableCell>
+                    <TableCell className="font-medium">{cliente.nombre}</TableCell>
+                    <TableCell>{cliente.ruc}</TableCell>
+                    <TableCell>{cliente.telefono || "N/A"}</TableCell>
+                    <TableCell>{cliente.email || "N/A"}</TableCell>
+                    <TableCell>
+                      <Badge variant={cliente.activo ? "default" : "destructive"}>
+                        {cliente.activo ? "Activo" : "Inactivo"}
+                      </Badge>
+                    </TableCell>
+                    {user && (
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/comercial/clientes/editar/${cliente.id}`}>Editar</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleActive(cliente.id)}>
+                              {cliente.activo ? "Desactivar" : "Activar"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </>
   );
 }

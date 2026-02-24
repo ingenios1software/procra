@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
+import { ReportActions } from "@/components/shared/report-actions";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Download } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -197,10 +198,6 @@ export default function ComprasPage() {
     }
   };
 
-  const handleExportPDF = () => {
-    alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
-  };
-
   const openForm = (compra?: CompraNormal, mode: 'create' | 'edit' | 'view' = 'create') => {
     setSelectedCompra(compra || null);
     setFormMode(mode);
@@ -213,31 +210,29 @@ export default function ComprasPage() {
     setFormMode('create');
   }
 
+  const shareSummary = `Facturas: ${compras?.length || 0}.`;
+
   return (
     <>
       <PageHeader
         title="Consulta de Facturas de Compra"
         description="Consulte, edite y registre las compras de insumos, productos y servicios."
       >
-        <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={handleExportPDF}>
-                <Download className="mr-2 h-4 w-4" />
-                Exportar PDF
-            </Button>
-            {user && (
-              <Button onClick={() => openForm()}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Nueva Compra
-              </Button>
-            )}
-        </div>
+        <ReportActions reportTitle="Consulta de Facturas de Compra" reportSummary={shareSummary} />
+        {user && (
+          <Button onClick={() => openForm()}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Nueva Compra
+          </Button>
+        )}
       </PageHeader>
+      <div id="pdf-area" className="print-area">
       <Card>
         <CardHeader>
           <CardTitle>Listado de Facturas</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Código</TableHead>
@@ -296,6 +291,7 @@ export default function ComprasPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
 
       <Dialog open={isFormOpen} onOpenChange={(open) => (open ? setFormOpen(true) : closeForm())}>
         <DialogContent className="max-w-6xl">

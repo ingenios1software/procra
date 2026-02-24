@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
+import { ReportActions } from "@/components/shared/report-actions";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Download } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -42,9 +43,7 @@ export default function ComprasPage() {
     return proveedores.find(p => p.id === id)?.nombre || 'N/A';
   }
 
-  const handleExportPDF = () => {
-    alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
-  };
+  const shareSummary = `Compras registradas: ${compras?.length || 0}.`;
 
   return (
     <>
@@ -52,25 +51,21 @@ export default function ComprasPage() {
         title="Gestión de Compras"
         description="Registre y administre las compras de insumos, productos y servicios."
       >
-        <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleExportPDF}>
-                <Download className="mr-2 h-4 w-4" />
-                Exportar PDF
-            </Button>
-            {user && (
-              <Button onClick={() => router.push('/comercial/compras/crear')}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Nueva Compra
-              </Button>
-            )}
-        </div>
+        <ReportActions reportTitle="Gestion de Compras" reportSummary={shareSummary} />
+        {user && (
+          <Button onClick={() => router.push('/comercial/compras/crear')}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Nueva Compra
+          </Button>
+        )}
       </PageHeader>
+      <div id="pdf-area" className="print-area">
       <Card>
         <CardHeader>
           <CardTitle>Listado de Compras</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table className="min-w-[980px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
@@ -139,6 +134,7 @@ export default function ComprasPage() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </>
   );
 }

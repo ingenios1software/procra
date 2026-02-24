@@ -36,8 +36,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, PlusCircle, TriangleAlert, Download } from "lucide-react";
+import { MoreHorizontal, PlusCircle, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { ReportActions } from "@/components/shared/report-actions";
 import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
 import { useUser, useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { format } from "date-fns";
@@ -105,11 +106,6 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     if (!eventos) return [];
     return [...new Set(eventos.map((e) => e.tipo))];
   }, [eventos]);
-
-
-  const handleExportPDF = () => {
-    alert("Funcionalidad 'Exportar PDF' pendiente de implementación.");
-  };
 
   const handleSave = async (eventoData: Omit<Evento, 'id'>) => {
     if (!firestore || !user) return;
@@ -201,6 +197,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     setFormOpen(false);
     setSelectedEvento(null);
   }
+  const shareSummary = `Eventos: ${eventos.length}.`;
 
   return (
     <>
@@ -208,20 +205,16 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
         title="Registro de Actividades"
         description="Consulte y gestione todas las actividades operativas realizadas en campo."
       >
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleExportPDF}>
-            <Download className="mr-2 h-4 w-4" />
-            Exportar PDF
+        <ReportActions reportTitle="Registro de Actividades" reportSummary={shareSummary} />
+        {user && (
+          <Button onClick={() => openForm()}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Registrar Evento
           </Button>
-          {user && (
-            <Button onClick={() => openForm()}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Registrar Evento
-            </Button>
-          )}
-        </div>
+        )}
       </PageHeader>
 
+      <div id="pdf-area" className="print-area">
       <Card>
         <CardHeader>
           <CardTitle>Filtros de Búsqueda</CardTitle>
@@ -288,7 +281,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
             </Select>
           </div>
           <div className="border-t pt-4">
-            <Table>
+            <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Item Nº</TableHead>
@@ -394,6 +387,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
           </div>
         </CardContent>
       </Card>
+      </div>
       
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-w-[96vw] overflow-hidden p-0 sm:max-w-5xl lg:max-w-6xl">
@@ -415,3 +409,4 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     </>
   );
 }
+
