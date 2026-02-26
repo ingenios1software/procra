@@ -12,6 +12,9 @@ export function AuthenticatedLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const startYear = 2024;
+  const currentYear = new Date().getFullYear();
+  const copyrightYears = currentYear > startYear ? `${startYear}-${currentYear}` : `${startYear}`;
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
@@ -48,7 +51,7 @@ export function AuthenticatedLayout({
           </main>
         </div>
         <footer className="text-center text-xs text-muted-foreground p-4 border-t">
-          © 2024 CRApro95 - Creado por Ricardo Ortellado. Todos los derechos reservados.
+          © {copyrightYears} CRApro95 - Creado por Ricardo Ortellado. Todos los derechos reservados.
         </footer>
       </div>
       <ConnectionStatusIndicator />

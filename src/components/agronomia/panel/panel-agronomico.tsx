@@ -3,10 +3,11 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { PageHeader } from "@/components/shared/page-header";
+import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Download, Printer } from "lucide-react";
+import { Download } from "lucide-react";
 import type { Parcela, Cultivo, Zafra, Evento, Insumo, EtapaCultivo } from "@/lib/types";
 import { PanelKpiCards } from "./panel-kpi-cards";
 import { PanelGraficos } from "./panel-graficos";
@@ -73,6 +74,9 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
         const costoHa = parcela.superficie > 0 ? costo / parcela.superficie : 0;
         return { diasDesdeSiembra: dias, costoTotal: costo, costoPorHa: costoHa };
     }, [zafra, parcela, filteredEvents]);
+    const shareSummary = parcela && zafra && cultivo
+        ? `Campana: ${parcela.nombre} - ${zafra.nombre} (${cultivo.nombre}) | Eventos: ${filteredEvents.length} | Costo total: $${costoTotal.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`
+        : "Panel agronomico sin seleccion de campana.";
 
 
     const exportToExcel = useCallback(() => {
@@ -184,7 +188,7 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
                 <div className="flex items-center gap-2 no-print">
                     <Button variant="outline" onClick={exportToPDF}><Download className="mr-2"/>Exportar PDF</Button>
                     <Button variant="outline" onClick={exportToExcel}><Download className="mr-2"/>Exportar Excel</Button>
-                    <Button type="button" variant="outline" onClick={() => window.print()}><Printer className="mr-2"/>Imprimir</Button>
+                    <ReportActions reportTitle="Panel Agronómico Inteligente" reportSummary={shareSummary} />
                 </div>
             </PageHeader>
             <div id="pdf-area" className="print-area">

@@ -13,6 +13,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { PageHeader } from "@/components/shared/page-header";
+import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -236,6 +237,10 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
     () => buildAxisDomain(data.map((item) => Number(item.rendimiento) || 0)),
     [data]
   );
+  const shareSummary = useMemo(() => {
+    const costoTotal = data.reduce((sum, item) => sum + (item.costoTotal || 0), 0);
+    return `Parcelas analizadas: ${data.length} | Costo total: $${formatCurrency(costoTotal)}.`;
+  }, [data]);
   const costoColor = COMPARATIVE_CHART_COLORS.costo;
   const rendimientoColor = COMPARATIVE_CHART_COLORS.rendimiento;
   const insumosColor = COMPARATIVE_CHART_COLORS.insumos;
@@ -251,7 +256,12 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
       <PageHeader
         title="Informe de Costos por Parcela"
         description="Análisis comparativo de costos, eficiencia y rendimiento entre parcelas."
-      />
+      >
+        <ReportActions
+          reportTitle="Informe de Costos por Parcela"
+          reportSummary={shareSummary}
+        />
+      </PageHeader>
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Filtros</CardTitle>

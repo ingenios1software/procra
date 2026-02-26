@@ -198,6 +198,22 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     setSelectedEvento(null);
   }
   const shareSummary = `Eventos: ${eventos.length}.`;
+  const eventoPrintTargetId = "evento-form-print-area";
+  const selectedParcela = selectedEvento ? parcelas.find((p) => p.id === selectedEvento.parcelaId) : null;
+  const selectedZafra = selectedEvento ? zafras.find((z) => z.id === selectedEvento.zafraId) : null;
+  const selectedCultivo = selectedEvento ? cultivos.find((c) => c.id === selectedEvento.cultivoId) : null;
+  const selectedEventoSummary = selectedEvento
+    ? [
+        `Evento #${selectedEvento.numeroLanzamiento || "N/A"}`,
+        `Fecha: ${format(new Date(selectedEvento.fecha as string), "dd/MM/yyyy")}`,
+        `Parcela: ${selectedParcela?.nombre || "N/A"}`,
+        `Cultivo: ${selectedCultivo?.nombre || "N/A"}`,
+        `Zafra: ${selectedZafra?.nombre || "N/A"}`,
+        `Tipo: ${selectedEvento.tipo}`,
+        `Estado: ${selectedEvento.estado || "pendiente"}`,
+        `Descripcion: ${selectedEvento.descripcion || "-"}`,
+      ].join(" | ")
+    : "Registro de nuevo evento en campo.";
 
   return (
     <>
@@ -396,8 +412,14 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
             <DialogDescription>
                 Complete los detalles de la actividad agrícola. El panel superior le dará contexto agronómico.
             </DialogDescription>
+            <ReportActions
+              reportTitle={selectedEvento ? `Evento #${selectedEvento.numeroLanzamiento}` : "Nuevo Evento"}
+              reportSummary={selectedEventoSummary}
+              imageTargetId={eventoPrintTargetId}
+              printTargetId={eventoPrintTargetId}
+            />
           </DialogHeader>
-          <div className="max-h-[calc(92dvh-7rem)] overflow-y-auto overflow-x-hidden px-2 pb-4 sm:px-4 sm:pb-6">
+          <div id={eventoPrintTargetId} className="max-h-[calc(92dvh-7rem)] overflow-y-auto overflow-x-hidden px-2 pb-4 sm:px-4 sm:pb-6">
             <EventoForm 
                 evento={selectedEvento}
                 onSave={handleSave}

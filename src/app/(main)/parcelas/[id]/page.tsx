@@ -7,6 +7,7 @@ import { collection, doc, query, where, orderBy } from 'firebase/firestore';
 import type { Parcela, Evento, Cultivo, Zafra, Insumo } from '@/lib/types';
 
 import { PageHeader } from "@/components/shared/page-header";
+import { ReportActions } from "@/components/shared/report-actions";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -96,11 +97,15 @@ export default function ParcelaCostoReportePage({ params }: { params: { id: stri
 
   if (isLoading) return <p>Cargando reporte de costos...</p>;
   if (!parcela) return notFound();
+  const shareSummary = `Parcela: ${parcela.nombre} | Costo total: $${(costoTotal || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | Eventos con costo: ${eventos?.filter(e => e.costoTotal && e.costoTotal > 0).length || 0}.`;
 
   return (
     <>
       <PageHeader title={`Reporte de Costos: ${parcela.nombre}`} description={`Análisis financiero para la campaña ${zafra?.nombre || 'N/A'}`}>
-        <Button onClick={() => router.push('/parcelas')}>Volver a Parcelas</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ReportActions reportTitle={`Reporte de Costos: ${parcela.nombre}`} reportSummary={shareSummary} />
+          <Button onClick={() => router.push('/parcelas')}>Volver a Parcelas</Button>
+        </div>
       </PageHeader>
       
       {/* KPI Cards */}

@@ -7,6 +7,7 @@ import { Activity, AreaChart, Calendar, Map as MapIcon, Sparkles, TriangleAlert 
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { PageHeader } from "@/components/shared/page-header";
+import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Cultivo, Evento, Parcela, Zafra } from "@/lib/types";
@@ -233,6 +234,9 @@ export default function DashboardPage() {
       dataScopeLabel,
     };
   }, [parcelas, cultivos, zafraActiva, eventos]);
+  const shareSummary = zafraActiva
+    ? `Zafra: ${zafraActiva.nombre || "N/A"} | Parcelas: ${totalParcelas} | Eventos: ${totalEventos} | Superficie: ${totalHectareas.toLocaleString("de-DE")} ha.`
+    : "Dashboard de monitoreo sin zafra activa.";
 
   const isLoading = isUserLoading || l1 || l2 || l3 || l4;
   if (isLoading) return <p>Cargando dashboard de monitoreo...</p>;
@@ -240,7 +244,9 @@ export default function DashboardPage() {
   if (!user) {
     return (
       <>
-        <PageHeader title="Dashboard de Monitoreo" description="Vista general de la zafra activa." />
+        <PageHeader title="Dashboard de Monitoreo" description="Vista general de la zafra activa.">
+          <ReportActions reportTitle="Dashboard de Monitoreo" reportSummary={shareSummary} />
+        </PageHeader>
         <Card className="flex items-center justify-center h-48 border-dashed">
           <p className="text-muted-foreground">Iniciando sesion para cargar datos del dashboard...</p>
         </Card>
@@ -252,7 +258,9 @@ export default function DashboardPage() {
   if (!zafraActiva) {
     return (
       <>
-        <PageHeader title="Dashboard de Monitoreo" description="Vista general de la zafra activa." />
+        <PageHeader title="Dashboard de Monitoreo" description="Vista general de la zafra activa.">
+          <ReportActions reportTitle="Dashboard de Monitoreo" reportSummary={shareSummary} />
+        </PageHeader>
         <Card className="flex items-center justify-center h-48 border-dashed">
           <p className="text-muted-foreground">
             No hay una zafra &quot;en curso&quot; activa para mostrar el dashboard.
@@ -268,7 +276,9 @@ export default function DashboardPage() {
       <PageHeader
         title="Dashboard de Monitoreo"
         description={`Resumen de la zafra activa: ${zafraActiva.nombre || "N/A"}`}
-      />
+      >
+        <ReportActions reportTitle="Dashboard de Monitoreo" reportSummary={shareSummary} />
+      </PageHeader>
 
       {dataScopeLabel ? <p className="mb-4 text-sm text-muted-foreground">{dataScopeLabel}</p> : null}
 

@@ -296,6 +296,7 @@ export type Venta = {
   fecha: Date | string;
   moneda: 'USD' | 'PYG';
   formaPago: 'Contado' | 'Transferencia' | 'Crédito';
+  totalizadora?: boolean;
   vencimiento?: Date | string;
   vendedorId?: string;
   depositoOrigenId?: string;
@@ -672,3 +673,4 @@ export type FormaPago = {
   codigo: string;
   descripcion: string;
 };
+

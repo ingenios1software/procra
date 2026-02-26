@@ -8,6 +8,7 @@ import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase
 import { collection, doc, query, where } from 'firebase/firestore';
 import type { Zafra, Parcela, Evento, Cultivo, Insumo } from '@/lib/types';
 import { PageHeader } from "@/components/shared/page-header";
+import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
@@ -114,6 +115,7 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
   if (!zafra) {
     notFound();
   }
+  const shareSummary = `Zafra: ${zafra.nombre} | Parcelas: ${kpis.parcelas} | Eventos: ${kpis.eventos} | Superficie: ${superficieTotal} ha.`;
 
   return (
     <>
@@ -121,7 +123,10 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
         title={zafra.nombre}
         description={`Reporte consolidado de la campaña. Cultivo principal: ${cultivoPrincipal?.nombre || 'N/A'}`}
       >
-        <Button asChild><Link href={`/eventos/crear?zafraId=${params.id}`}>Registrar Evento</Link></Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ReportActions reportTitle={zafra.nombre} reportSummary={shareSummary} />
+          <Button asChild><Link href={`/eventos/crear?zafraId=${params.id}`}>Registrar Evento</Link></Button>
+        </div>
       </PageHeader>
 
       {/* Section 1: KPI Cards */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { z } from "zod";
@@ -30,6 +30,16 @@ import { collection, doc, writeBatch, query, orderBy, getDoc } from "firebase/fi
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from "@/components/common";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 import { calcularEstadoCuenta, isFormaPagoCredito } from "@/lib/cuentas";
 
@@ -52,6 +62,7 @@ const formSchema = z
     vencimiento: z.date().optional(),
     vendedorId: z.string().optional(),
     depositoOrigenId: z.string().nonempty("Debe seleccionar un deposito de origen."),
+    totalizadora: z.boolean().optional().default(false),
     observacion: z.string().optional(),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un producto."),
     financiero_cuentaId: z.string().optional(),
@@ -66,6 +77,15 @@ const formSchema = z
   });
 
 type VentaFormValues = z.infer<typeof formSchema>;
+
+type StockShortage = {
+  productoId: string;
+  nombre: string;
+  solicitado: number;
+  disponible: number;
+  faltante: number;
+  unidad?: string;
+};
 
 interface VentaFormProps {
   venta?: Venta | null;
@@ -108,6 +128,9 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
   const { user } = useUser();
   const isEditingExisting = Boolean(venta);
   const disableTransactional = isEditingExisting;
+  const [isStockConfirmOpen, setIsStockConfirmOpen] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState<VentaFormValues | null>(null);
+  const [stockShortages, setStockShortages] = useState<StockShortage[]>([]);
 
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
     useMemoFirebase(() => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null), [firestore])
@@ -118,6 +141,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     defaultValues: venta
       ? {
           ...venta,
+          totalizadora: Boolean(venta.totalizadora),
           financiero_cuentaId: venta.financiero?.cuentaCobroId,
           fecha: new Date(venta.fecha as string),
           vencimiento: venta.vencimiento ? new Date(venta.vencimiento as string) : undefined,
@@ -126,6 +150,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
           fecha: new Date(),
           moneda: "PYG",
           formaPago: "Contado",
+          totalizadora: false,
           items: [],
           depositoOrigenId: depositos[0]?.id || "",
         },
@@ -206,7 +231,44 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     return findPlanCuentaByCodigo(planDeCuentas || [], codigo)?.id;
   };
 
-  const handleSubmit = async (data: VentaFormValues) => {
+  const getStockShortages = useCallback((items: VentaFormValues["items"]): StockShortage[] => {
+    const acumuladoPorProducto = new Map<
+      string,
+      { solicitado: number; disponible: number; nombre: string; unidad?: string }
+    >();
+
+    for (const item of items || []) {
+      const producto = item?.producto as Insumo | undefined;
+      if (!producto?.id) continue;
+      const solicitado = Number(item.cantidad) || 0;
+      if (solicitado <= 0) continue;
+
+      const previo = acumuladoPorProducto.get(producto.id);
+      if (previo) {
+        previo.solicitado += solicitado;
+      } else {
+        acumuladoPorProducto.set(producto.id, {
+          solicitado,
+          disponible: Number(producto.stockActual) || 0,
+          nombre: producto.descripcion || producto.nombre || producto.id,
+          unidad: producto.unidad,
+        });
+      }
+    }
+
+    return Array.from(acumuladoPorProducto.entries())
+      .map(([productoId, value]) => ({
+        productoId,
+        nombre: value.nombre,
+        solicitado: value.solicitado,
+        disponible: value.disponible,
+        faltante: Math.max(0, value.solicitado - value.disponible),
+        unidad: value.unidad,
+      }))
+      .filter((item) => item.faltante > 0);
+  }, []);
+
+  const handleSubmit = async (data: VentaFormValues, forceTotalizadora = false) => {
     if (!firestore || !user) {
       toast({ variant: "destructive", title: "Error de autenticacion." });
       return;
@@ -220,7 +282,18 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
       return;
     }
 
+    if (!isEditingExisting && !forceTotalizadora) {
+      const shortages = getStockShortages(data.items);
+      if (shortages.length > 0) {
+        setStockShortages(shortages);
+        setPendingSubmitData(data);
+        setIsStockConfirmOpen(true);
+        return;
+      }
+    }
+
     const shouldCreateWorkflowEntries = !venta;
+    const shouldApplyStock = shouldCreateWorkflowEntries && !forceTotalizadora;
     const batch = writeBatch(firestore);
     const ventaRef = venta ? doc(firestore, "ventas", venta.id) : doc(collection(firestore, "ventas"));
     const cuentaPorCobrarRef = doc(firestore, "cuentasPorCobrar", ventaRef.id);
@@ -256,36 +329,38 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     let asientoCmvId: string | undefined = venta?.financiero?.asientoCmvId;
 
     if (shouldCreateWorkflowEntries) {
-      for (const item of data.items) {
-        const producto = item.producto as Insumo;
-        const stockActual = Number(producto.stockActual) || 0;
-        const stockDespues = stockActual - item.cantidad;
+      if (shouldApplyStock) {
+        for (const item of data.items) {
+          const producto = item.producto as Insumo;
+          const stockActual = Number(producto.stockActual) || 0;
+          const stockDespues = stockActual - item.cantidad;
 
-        const insumoRef = doc(firestore, "insumos", producto.id);
-        batch.update(insumoRef, { stockActual: stockDespues });
+          const insumoRef = doc(firestore, "insumos", producto.id);
+          batch.update(insumoRef, { stockActual: stockDespues });
 
-        const movimientoRef = doc(collection(firestore, "MovimientosStock"));
-        const movimiento: Omit<MovimientoStock, "id"> = {
-          fecha: data.fecha.toISOString(),
-          tipo: "salida",
-          origen: "venta",
-          documentoOrigen: data.numeroDocumento,
-          ventaId: ventaRef.id,
-          depositoId: data.depositoOrigenId,
-          insumoId: producto.id,
-          insumoNombre: producto.descripcion || producto.nombre,
-          unidad: producto.unidad,
-          categoria: producto.categoria,
-          cantidad: item.cantidad,
-          stockAntes: stockActual,
-          stockDespues: stockDespues,
-          precioUnitario: item.precioUnitario,
-          costoTotal: item.cantidad * item.precioUnitario,
-          creadoPor: user.uid,
-          creadoEn: new Date(),
-        };
-        batch.set(movimientoRef, movimiento);
-        costoTotalCMV += item.cantidad * (producto.precioPromedioCalculado || 0);
+          const movimientoRef = doc(collection(firestore, "MovimientosStock"));
+          const movimiento: Omit<MovimientoStock, "id"> = {
+            fecha: data.fecha.toISOString(),
+            tipo: "salida",
+            origen: "venta",
+            documentoOrigen: data.numeroDocumento,
+            ventaId: ventaRef.id,
+            depositoId: data.depositoOrigenId,
+            insumoId: producto.id,
+            insumoNombre: producto.descripcion || producto.nombre,
+            unidad: producto.unidad,
+            categoria: producto.categoria,
+            cantidad: item.cantidad,
+            stockAntes: stockActual,
+            stockDespues: stockDespues,
+            precioUnitario: item.precioUnitario,
+            costoTotal: item.cantidad * item.precioUnitario,
+            creadoPor: user.uid,
+            creadoEn: new Date(),
+          };
+          batch.set(movimientoRef, movimiento);
+          costoTotalCMV += item.cantidad * (producto.precioPromedioCalculado || 0);
+        }
       }
 
       let cuentaDebeId: string | undefined;
@@ -362,6 +437,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
       fecha: data.fecha.toISOString(),
       moneda: data.moneda,
       formaPago: data.formaPago,
+      totalizadora: shouldCreateWorkflowEntries ? forceTotalizadora : Boolean(venta?.totalizadora),
       vencimiento: data.vencimiento ? data.vencimiento.toISOString() : undefined,
       vendedorId: data.vendedorId,
       depositoOrigenId: data.depositoOrigenId,
@@ -425,7 +501,9 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
         title: venta ? "Venta actualizada con exito" : "Venta registrada con exito",
         description: venta
           ? "Se actualizaron solo datos administrativos; no se recalculo stock ni asientos."
-          : "Se registraron documento, stock y asientos contables.",
+          : forceTotalizadora
+            ? "Se registro como venta sujeta a totalizadora; no se desconto stock ni se genero movimiento de salida."
+            : "Se registraron documento, stock y asientos contables.",
       });
       onCancel();
     } catch (e: any) {
@@ -434,12 +512,38 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     }
   };
 
+  const handleConfirmTotalizadora = async () => {
+    if (!pendingSubmitData) return;
+    const data = pendingSubmitData;
+    setPendingSubmitData(null);
+    setIsStockConfirmOpen(false);
+    setStockShortages([]);
+    await handleSubmit(data, true);
+  };
+
+  const handleCancelTotalizadora = () => {
+    setIsStockConfirmOpen(false);
+    setPendingSubmitData(null);
+    setStockShortages([]);
+  };
+
+  const formatQty = (value: number) =>
+    (Number(value) || 0).toLocaleString("de-DE", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 p-1">
         {isEditingExisting && (
           <div className="rounded-md border border-amber-400/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Edicion administrativa: no se modifican movimientos de stock ni asientos contables.
+          </div>
+        )}
+        {Boolean(venta?.totalizadora) && (
+          <div className="rounded-md border border-blue-300/60 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+            Esta venta fue registrada sujeta a totalizadora. El stock no se desconto al momento de guardar.
           </div>
         )}
 
@@ -687,6 +791,36 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
           <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
           <Button type="submit">{venta ? "Guardar Cambios" : "Guardar Venta"}</Button>
         </div>
+
+        <AlertDialog
+          open={isStockConfirmOpen}
+          onOpenChange={setIsStockConfirmOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Stock insuficiente</AlertDialogTitle>
+              <AlertDialogDescription>
+                No hay stock suficiente para completar esta venta. Puede cancelar o continuar como venta sujeta a totalizadora.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="max-h-48 overflow-y-auto rounded-md border p-3 text-sm">
+              {stockShortages.map((item) => (
+                <div key={item.productoId} className="mb-2 last:mb-0">
+                  <div className="font-medium">{item.nombre}</div>
+                  <div className="text-muted-foreground">
+                    Disponible: {formatQty(item.disponible)} {item.unidad || ""} | Solicitado: {formatQty(item.solicitado)} {item.unidad || ""} | Faltante: {formatQty(item.faltante)} {item.unidad || ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleCancelTotalizadora}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmTotalizadora}>
+                Continuar sujeto a totalizadora
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </form>
     </Form>
   );
