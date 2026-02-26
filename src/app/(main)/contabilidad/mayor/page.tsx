@@ -132,13 +132,13 @@ export default function MayorPage() {
                       <TableCell>{format(new Date(mov.fecha as string), "dd/MM/yyyy")}</TableCell>
                       <TableCell>{mov.descripcion}</TableCell>
                       <TableCell className={cn("text-right font-mono", mov.tipo === "debe" && "text-green-600")}>
-                        {mov.tipo === "debe" ? `$${mov.monto.toLocaleString("en-US")}` : "-"}
+                        {mov.tipo === "debe" ? `$${mov.monto.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
                       </TableCell>
                       <TableCell className={cn("text-right font-mono", mov.tipo === "haber" && "text-red-600")}>
-                        {mov.tipo === "haber" ? `$${mov.monto.toLocaleString("en-US")}` : "-"}
+                        {mov.tipo === "haber" ? `$${mov.monto.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
                       </TableCell>
                       <TableCell className="text-right font-mono font-semibold">
-                        ${mov.saldo.toLocaleString("en-US")}
+                        ${mov.saldo.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
                   )) : (
@@ -152,9 +152,9 @@ export default function MayorPage() {
                 <TableFooter>
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell colSpan={2}>Totales</TableCell>
-                    <TableCell className="text-right font-mono">${totalDebe.toLocaleString("en-US")}</TableCell>
-                    <TableCell className="text-right font-mono">${totalHaber.toLocaleString("en-US")}</TableCell>
-                    <TableCell className="text-right font-mono">${saldoFinal.toLocaleString("en-US")}</TableCell>
+                    <TableCell className="text-right font-mono">${totalDebe.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right font-mono">${totalHaber.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right font-mono">${saldoFinal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                   </TableRow>
                 </TableFooter>
               </Table>
@@ -165,3 +165,4 @@ export default function MayorPage() {
     </>
   );
 }
+

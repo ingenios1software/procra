@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { format } from "date-fns";
+import { addMonths, format } from "date-fns";
 import { collection } from "firebase/firestore";
 import {
+  Percent,
   DollarSign,
   TrendingDown,
   TrendingUp,
@@ -32,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Cultivo, Evento, Parcela, Venta } from "@/lib/types";
+import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
 
 const COLORS = [
   "hsl(var(--chart-1))",
@@ -49,7 +51,7 @@ function toDate(value: Date | string | undefined): Date | null {
 }
 
 function formatCurrency(value: number): string {
-  return `$${value.toLocaleString("en-US")}`;
+  return `$${value.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatCompactCurrency(value: number): string {
@@ -57,6 +59,31 @@ function formatCompactCurrency(value: number): string {
   if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000) return `$${(value / 1_000).toFixed(0)}k`;
   return `$${value.toFixed(0)}`;
+}
+
+function getIngresoVenta(venta: Venta): number {
+  const total = Number(venta.total) || 0;
+  if (total > 0) return total;
+  return (Number(venta.toneladas) || 0) * (Number(venta.precioTonelada) || 0);
+}
+
+function normalizarCategoriaEvento(evento: Evento): string {
+  if (evento.categoria && evento.categoria.trim()) return evento.categoria.trim();
+
+  const tipo = (evento.tipo || "").toLowerCase().trim();
+  const mapping: Record<string, string> = {
+    siembra: "Siembra",
+    fertilizacion: "Fertilizacion",
+    "fertilización": "Fertilizacion",
+    riego: "Riego",
+    cosecha: "Cosecha",
+    mantenimiento: "Mantenimiento",
+    plagas: "Plagas",
+    aplicacion: "Aplicacion",
+    rendimiento: "Rendimiento",
+  };
+
+  return mapping[tipo] || "Otros";
 }
 
 export default function DashboardFinancieroPage() {
@@ -99,10 +126,7 @@ export default function DashboardFinancieroPage() {
     }
 
     const totalCostos = eventos.reduce((acc, evento) => acc + (evento.costoTotal || 0), 0);
-    const totalIngresos = ventas.reduce(
-      (acc, venta) => acc + (venta.toneladas || 0) * (venta.precioTonelada || 0),
-      0
-    );
+    const totalIngresos = ventas.reduce((acc, venta) => acc + getIngresoVenta(venta), 0);
     const margenNeto = totalIngresos - totalCostos;
     const margenPorcentual = totalIngresos > 0 ? (margenNeto / totalIngresos) * 100 : 0;
 
@@ -113,7 +137,7 @@ export default function DashboardFinancieroPage() {
           .reduce((sum, evento) => sum + (evento.costoTotal || 0), 0);
         const ingresosParcela = ventas
           .filter((venta) => venta.parcelaId === parcela.id)
-          .reduce((sum, venta) => sum + (venta.toneladas || 0) * (venta.precioTonelada || 0), 0);
+          .reduce((sum, venta) => sum + getIngresoVenta(venta), 0);
         return {
           nombre: parcela.nombre,
           rentabilidad: ingresosParcela - costosParcela,
@@ -128,7 +152,7 @@ export default function DashboardFinancieroPage() {
           .reduce((sum, evento) => sum + (evento.costoTotal || 0), 0);
         const ingresosCultivo = ventas
           .filter((venta) => venta.cultivoId === cultivo.id)
-          .reduce((sum, venta) => sum + (venta.toneladas || 0) * (venta.precioTonelada || 0), 0);
+          .reduce((sum, venta) => sum + getIngresoVenta(venta), 0);
         return {
           name: cultivo.nombre,
           rentabilidad: ingresosCultivo - costosCultivo,
@@ -138,7 +162,7 @@ export default function DashboardFinancieroPage() {
       .filter((item) => item.rentabilidad !== 0);
 
     const costosPorCategoriaMap = eventos.reduce((acc, evento) => {
-      const categoria = evento.categoria || "Otros";
+      const categoria = normalizarCategoriaEvento(evento);
       acc[categoria] = (acc[categoria] || 0) + (evento.costoTotal || 0);
       return acc;
     }, {} as Record<string, number>);
@@ -167,25 +191,35 @@ export default function DashboardFinancieroPage() {
       const fecha = toDate(venta.fecha);
       if (!fecha) return;
       const monthKey = format(fecha, "yyyy-MM");
-      ingresosMensualesMap[monthKey] =
-        (ingresosMensualesMap[monthKey] || 0) + (venta.toneladas || 0) * (venta.precioTonelada || 0);
+      ingresosMensualesMap[monthKey] = (ingresosMensualesMap[monthKey] || 0) + getIngresoVenta(venta);
     });
 
-    const comparativoMensual = Array.from(
+    const availableMonths = Array.from(
       new Set([...Object.keys(costosMensualesMap), ...Object.keys(ingresosMensualesMap)])
-    )
-      .sort((a, b) => a.localeCompare(b))
-      .slice(-6)
-      .map((monthKey) => {
-        const costos = costosMensualesMap[monthKey] || 0;
-        const ingresos = ingresosMensualesMap[monthKey] || 0;
-        return {
-          name: format(new Date(`${monthKey}-01T00:00:00`), "MMM yyyy"),
-          costos,
-          ingresos,
-          margen: ingresos - costos,
-        };
-      });
+    ).sort((a, b) => a.localeCompare(b));
+
+    const comparativoMensual =
+      availableMonths.length === 0
+        ? []
+        : (() => {
+            const latestMonth = availableMonths[availableMonths.length - 1];
+            const latestDate = new Date(`${latestMonth}-01T00:00:00`);
+            const monthRange = Array.from({ length: 6 }, (_, index) => {
+              const monthDate = addMonths(latestDate, -(5 - index));
+              return format(monthDate, "yyyy-MM");
+            });
+
+            return monthRange.map((monthKey) => {
+              const costos = costosMensualesMap[monthKey] || 0;
+              const ingresos = ingresosMensualesMap[monthKey] || 0;
+              return {
+                name: format(new Date(`${monthKey}-01T00:00:00`), "MMM yyyy"),
+                costos,
+                ingresos,
+                margen: ingresos - costos,
+              };
+            });
+          })();
 
     return {
       totalCostos,
@@ -205,6 +239,9 @@ export default function DashboardFinancieroPage() {
   const topParcela = rentabilidadPorParcela[0];
   const peorParcela = rentabilidadPorParcela[rentabilidadPorParcela.length - 1];
   const topCultivo = rentabilidadPorCultivo[0];
+  const peorParcelaEsNegativa = (peorParcela?.rentabilidad || 0) < 0;
+  const ratioCostoIngreso = totalIngresos > 0 ? (totalCostos / totalIngresos) * 100 : 0;
+  const soloOtros = costosPorCategoria.length === 1 && costosPorCategoria[0]?.name === "Otros";
   const shareSummary = `Ingresos: ${formatCurrency(totalIngresos)} | Costos: ${formatCurrency(totalCostos)} | Margen: ${formatCurrency(margenNeto)}.`;
 
   return (
@@ -217,7 +254,7 @@ export default function DashboardFinancieroPage() {
       </PageHeader>
 
       <div id="pdf-area" className="print-area">
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div className="mb-6 grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
@@ -254,9 +291,18 @@ export default function DashboardFinancieroPage() {
             <div className="text-2xl font-bold">{margenPorcentual.toFixed(1)}%</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Relación Costo/Ingreso</CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{ratioCostoIngreso.toFixed(1)}%</div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
+      <div className="mb-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="bg-primary/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-primary">Mejor Parcela</CardTitle>
@@ -269,14 +315,18 @@ export default function DashboardFinancieroPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-destructive/10">
+        <Card className={peorParcelaEsNegativa ? "bg-destructive/10" : "bg-muted/40"}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-destructive">Peor Parcela</CardTitle>
-            <ChevronsDown className="h-4 w-4 text-destructive/70" />
+            <CardTitle className={`text-sm font-medium ${peorParcelaEsNegativa ? "text-destructive" : "text-foreground"}`}>
+              {peorParcelaEsNegativa ? "Peor Parcela" : "Parcela con Menor Margen"}
+            </CardTitle>
+            <ChevronsDown className={`h-4 w-4 ${peorParcelaEsNegativa ? "text-destructive/70" : "text-muted-foreground"}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold text-destructive">{peorParcela?.nombre || "N/A"}</div>
-            <p className="text-xs text-destructive/80">
+            <div className={`text-xl font-bold ${peorParcelaEsNegativa ? "text-destructive" : "text-foreground"}`}>
+              {peorParcela?.nombre || "N/A"}
+            </div>
+            <p className={`text-xs ${peorParcelaEsNegativa ? "text-destructive/80" : "text-muted-foreground"}`}>
               Margen: {formatCurrency(peorParcela?.rentabilidad || 0)}
             </p>
           </CardContent>
@@ -307,20 +357,34 @@ export default function DashboardFinancieroPage() {
                 <ComposedChart data={comparativoMensual}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" stroke="#888888" fontSize={12} />
-                  <YAxis stroke="#888888" fontSize={12} tickFormatter={formatCompactCurrency} />
+                  <YAxis yAxisId="left" stroke="#888888" fontSize={12} tickFormatter={formatCompactCurrency} />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke={COMPARATIVE_CHART_COLORS.margen}
+                    fontSize={12}
+                    tickFormatter={formatCompactCurrency}
+                  />
                   <Tooltip
                     cursor={{ fill: "hsla(var(--muted))" }}
                     contentStyle={{ backgroundColor: "hsl(var(--background))" }}
                     formatter={(value: number, name: string) => [formatCurrency(Number(value)), name]}
                   />
                   <Legend />
-                  <Bar dataKey="ingresos" name="Ingresos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="costos" name="Costos" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="ingresos"
+                    name="Ingresos"
+                    fill={COMPARATIVE_CHART_COLORS.ingresos}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar yAxisId="left" dataKey="costos" name="Costos" fill={COMPARATIVE_CHART_COLORS.costo} radius={[4, 4, 0, 0]} />
                   <Line
-                    type="monotone"
+                    yAxisId="right"
+                    type="linear"
                     dataKey="margen"
                     name="Margen"
-                    stroke="hsl(var(--primary))"
+                    stroke={COMPARATIVE_CHART_COLORS.margen}
                     strokeWidth={2}
                     dot={{ r: 3 }}
                   />
@@ -350,12 +414,15 @@ export default function DashboardFinancieroPage() {
                     cy="50%"
                     outerRadius={80}
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                    label={({ name, percent }) =>
+                      (percent || 0) >= 0.08 ? `${name} ${((percent || 0) * 100).toFixed(0)}%` : ""
+                    }
                   >
                     {costosPorCategoria.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
+                  <Legend />
                   <Tooltip
                     formatter={(value: number) => formatCurrency(Number(value))}
                     contentStyle={{ backgroundColor: "hsl(var(--background))" }}
@@ -364,6 +431,11 @@ export default function DashboardFinancieroPage() {
               </ResponsiveContainer>
             ) : (
               <p className="text-sm text-muted-foreground">No hay costos cargados por categoria.</p>
+            )}
+            {soloOtros && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Todos los costos quedaron sin categoria. Puede mejorar la lectura clasificando `categoria` en eventos.
+              </p>
             )}
           </CardContent>
         </Card>
@@ -385,17 +457,25 @@ export default function DashboardFinancieroPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rentabilidadPorParcela.slice(0, 10).map((parcela) => (
-                  <TableRow key={parcela.nombre}>
-                    <TableCell className="font-medium">{parcela.nombre}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(parcela.rentabilidad)}</TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant={parcela.rentabilidad >= 0 ? "secondary" : "destructive"}>
-                        {parcela.rentabilidad >= 0 ? "Positivo" : "Negativo"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {rentabilidadPorParcela.slice(0, 10).map((parcela) => {
+                  const estado =
+                    parcela.rentabilidad > 0 ? "Positivo" : parcela.rentabilidad < 0 ? "Negativo" : "Neutro";
+                  return (
+                    <TableRow key={parcela.nombre}>
+                      <TableCell className="font-medium">{parcela.nombre}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(parcela.rentabilidad)}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge
+                          variant={
+                            estado === "Positivo" ? "secondary" : estado === "Negativo" ? "destructive" : "outline"
+                          }
+                        >
+                          {estado}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           ) : (
@@ -409,3 +489,4 @@ export default function DashboardFinancieroPage() {
     </>
   );
 }
+

@@ -187,6 +187,7 @@ export type LoteInsumo = {
   id: string;
   insumoId: string;
   codigoLote: string;
+  costoUnitario?: number;
   fechaIngreso: Date | string;
   fechaVencimiento?: Date | string | null;
   cantidadInicial: number;
@@ -430,6 +431,97 @@ export type CompraNormal = {
     cdc?: string;
   };
 }
+
+export type EstadoCuentaFinanciera = "abierta" | "parcial" | "cancelada" | "vencida" | "anulada";
+
+export type CuentaPorCobrar = {
+  id: string;
+  ventaId: string;
+  ventaDocumento?: string;
+  clienteId: string;
+  fechaEmision: Date | string;
+  fechaVencimiento?: Date | string;
+  moneda: "USD" | "PYG";
+  montoOriginal: number;
+  montoCobrado: number;
+  saldoPendiente: number;
+  estado: EstadoCuentaFinanciera;
+  cuentaContableId?: string;
+  asientoVentaId?: string;
+  observacion?: string;
+  creadoPor?: string;
+  creadoEn?: Date | string | FieldValue;
+  actualizadoEn?: Date | string | FieldValue;
+};
+
+export type CobroCuentaPorCobrar = {
+  id: string;
+  cuentaPorCobrarId: string;
+  ventaId: string;
+  clienteId: string;
+  fecha: Date | string;
+  moneda: "USD" | "PYG";
+  monto: number;
+  cuentaContableId: string;
+  cuentaCajaBancoId?: string;
+  referencia?: string;
+  asientoId?: string;
+  reciboId?: string;
+  recibidoPor?: string;
+  creadoEn?: Date | string | FieldValue;
+};
+
+export type ReciboCobro = {
+  id: string;
+  numero: string;
+  cobroId: string;
+  cuentaPorCobrarId: string;
+  ventaId: string;
+  clienteId: string;
+  fecha: Date | string;
+  moneda: "USD" | "PYG";
+  monto: number;
+  estado: "emitido" | "anulado";
+  observacion?: string;
+  emitidoPor?: string;
+  creadoEn?: Date | string | FieldValue;
+};
+
+export type CuentaPorPagar = {
+  id: string;
+  compraId: string;
+  compraDocumento?: string;
+  proveedorId: string;
+  fechaEmision: Date | string;
+  fechaVencimiento?: Date | string;
+  moneda: "USD" | "PYG";
+  montoOriginal: number;
+  montoPagado: number;
+  saldoPendiente: number;
+  estado: EstadoCuentaFinanciera;
+  cuentaContableId?: string;
+  asientoRegistroId?: string;
+  observacion?: string;
+  creadoPor?: string;
+  creadoEn?: Date | string | FieldValue;
+  actualizadoEn?: Date | string | FieldValue;
+};
+
+export type PagoCuentaPorPagar = {
+  id: string;
+  cuentaPorPagarId: string;
+  compraId: string;
+  proveedorId: string;
+  fecha: Date | string;
+  moneda: "USD" | "PYG";
+  monto: number;
+  cuentaContableId: string;
+  cuentaCajaBancoId?: string;
+  referencia?: string;
+  asientoId?: string;
+  pagadoPor?: string;
+  creadoEn?: Date | string | FieldValue;
+};
 
 
 export type Plaga = {

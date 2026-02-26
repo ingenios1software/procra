@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, updateDocumentNonBlocking, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { CostoForm } from "./costo-form";
 import type { Costo, Cultivo, Parcela, Zafra } from "@/lib/types";
+import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
 
 export function CostosList() {
   const firestore = useFirestore();
@@ -90,7 +91,7 @@ export function CostosList() {
     setSelectedCosto(null);
   }, []);
 
-  const shareSummary = `Registros de costos: ${initialCostos.length} | Total: $${totalCostos.toLocaleString("en-US")}.`;
+  const shareSummary = `Registros de costos: ${initialCostos.length} | Total: $${totalCostos.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
 
   return (
     <>
@@ -115,7 +116,7 @@ export function CostosList() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalCostos.toLocaleString("en-US")}</div>
+              <div className="text-2xl font-bold">${totalCostos.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <p className="text-xs text-muted-foreground">Suma de todos los costos registrados</p>
             </CardContent>
           </Card>
@@ -142,7 +143,7 @@ export function CostosList() {
                     <TableRow key={parcela.id}>
                       <TableCell className="font-medium">{parcela.nombre}</TableCell>
                       <TableCell>{parcela.superficie}</TableCell>
-                      <TableCell className="text-right">${parcela.costoTotal.toLocaleString("en-US")}</TableCell>
+                      <TableCell className="text-right">${parcela.costoTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       <TableCell className="text-right font-semibold">${parcela.costoPorHa.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
@@ -165,7 +166,7 @@ export function CostosList() {
                     cursor={{ fill: "hsla(var(--muted))" }}
                     contentStyle={{ backgroundColor: "hsl(var(--background))" }}
                   />
-                  <Bar dataKey="costoPorHa" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="costoPorHa" fill={COMPARATIVE_CHART_COLORS.costo} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -208,7 +209,7 @@ export function CostosList() {
                         </Badge>
                       </TableCell>
                       <TableCell>{parcela?.nombre || "N/A"}</TableCell>
-                      <TableCell className="text-right">${costo.monto.toLocaleString("en-US")}</TableCell>
+                      <TableCell className="text-right">${costo.monto.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       {user && (
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(costo)}>
@@ -250,3 +251,4 @@ export function CostosList() {
     </>
   );
 }
+

@@ -106,7 +106,7 @@ export default function DiarioPage() {
                           {asiento.descripcion}
                         </TableCell>
                         <TableCell className="text-right font-mono">
-                          ${total.toLocaleString("en-US")}
+                          ${total.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                       </TableRow>
                       {isExpanded && (
@@ -154,7 +154,8 @@ export default function DiarioPage() {
                                       >
                                         {mov.tipo === "debe"
                                           ? `$${mov.monto.toLocaleString(
-                                              "en-US"
+                                              "de-DE",
+                                              { minimumFractionDigits: 2, maximumFractionDigits: 2 }
                                             )}`
                                           : "-"}
                                       </TableCell>
@@ -166,7 +167,8 @@ export default function DiarioPage() {
                                       >
                                         {mov.tipo === "haber"
                                           ? `$${mov.monto.toLocaleString(
-                                              "en-US"
+                                              "de-DE",
+                                              { minimumFractionDigits: 2, maximumFractionDigits: 2 }
                                             )}`
                                           : "-"}
                                       </TableCell>
@@ -188,3 +190,4 @@ export default function DiarioPage() {
     </>
   );
 }
+

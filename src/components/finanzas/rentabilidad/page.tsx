@@ -125,7 +125,7 @@ export default function RentabilidadPage() {
     };
   }, [costos, ventas, cultivos, parcelas]);
 
-  const shareSummary = `Rentabilidad total: $${rentabilidadTotal.toLocaleString("en-US")}.`;
+  const shareSummary = `Rentabilidad total: $${rentabilidadTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
 
   return (
     <>
@@ -144,7 +144,7 @@ export default function RentabilidadPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalIngresos.toLocaleString("en-US")}</div>
+              <div className="text-2xl font-bold">${totalIngresos.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </CardContent>
           </Card>
           <Card>
@@ -153,7 +153,7 @@ export default function RentabilidadPage() {
               <TrendingDown className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalCostos.toLocaleString("en-US")}</div>
+              <div className="text-2xl font-bold">${totalCostos.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </CardContent>
           </Card>
           <Card className="bg-primary/10">
@@ -162,7 +162,7 @@ export default function RentabilidadPage() {
               <DollarSign className="h-4 w-4 text-primary/70" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">${rentabilidadTotal.toLocaleString("en-US")}</div>
+              <div className="text-2xl font-bold text-primary">${rentabilidadTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </CardContent>
           </Card>
         </div>
@@ -187,10 +187,10 @@ export default function RentabilidadPage() {
                 {rentabilidadPorCultivo.map((item) => (
                   <TableRow key={item.name}>
                     <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell className="text-right">${item.ingresos.toLocaleString("en-US")}</TableCell>
-                    <TableCell className="text-right">${item.costos.toLocaleString("en-US")}</TableCell>
+                    <TableCell className="text-right">${item.ingresos.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">${item.costos.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className={cn("text-right font-semibold", item.rentabilidad > 0 ? "text-green-600" : "text-red-600")}>
-                      ${item.rentabilidad.toLocaleString("en-US")}
+                      ${item.rentabilidad.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell
                       className={cn(
@@ -226,7 +226,7 @@ export default function RentabilidadPage() {
                   <TableRow key={item.name}>
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell className={cn("text-right font-semibold", item.colorClass)}>
-                      ${item.margenNeto.toLocaleString("en-US")}
+                      ${item.margenNeto.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell className={cn("text-right font-semibold", item.colorClass)}>
                       ${item.margenPorHa.toFixed(2)}
@@ -249,7 +249,7 @@ export default function RentabilidadPage() {
                   <XAxis dataKey="name" />
                   <YAxis tickFormatter={(value) => `$${Number(value) / 1000}k`} />
                   <Tooltip
-                    formatter={(value) => `$${Number(value).toLocaleString("en-US")}`}
+                    formatter={(value) => `$${Number(value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     cursor={{ fill: "hsla(var(--muted))" }}
                     contentStyle={{ backgroundColor: "hsl(var(--background))" }}
                   />
@@ -270,7 +270,7 @@ export default function RentabilidadPage() {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `$${Number(value).toLocaleString("en-US")}`} contentStyle={{ backgroundColor: "hsl(var(--background))" }} />
+                  <Tooltip formatter={(value) => `$${Number(value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} contentStyle={{ backgroundColor: "hsl(var(--background))" }} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -281,3 +281,4 @@ export default function RentabilidadPage() {
     </>
   );
 }
+

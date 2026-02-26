@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -93,7 +93,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
-  const { role, user: usuarioApp } = useAuth();
+  const { role, permisos, user: usuarioApp } = useAuth();
   const { draft, setDraft, clearDraft } = useDraftStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -102,6 +102,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
   const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
   const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
+  const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? collection(firestore, 'insumos') : null, [firestore]));
   const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
   const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
@@ -190,15 +191,18 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     defaultValues: getInitialValues() as any,
   });
 
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "productos",
   });
   
-  const watchedValues = form.watch();
-  
-  const puedeAprobar = role === 'admin' || role === 'supervisor';
-  const isFinalizado = evento?.estado === 'aprobado' || evento?.estado === 'rechazado';
+  const roleNormalizado = (role || '').toLowerCase().trim();
+  const estadoActual = evento?.estado || 'pendiente';
+  const puedeAprobar =
+    permisos?.administracion ||
+    roleNormalizado === 'admin' ||
+    roleNormalizado === 'supervisor';
+  const isFinalizado = estadoActual === 'aprobado' || estadoActual === 'rechazado';
 
 
   useEffect(() => {
@@ -223,11 +227,74 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
   const tipoEvento = form.watch('tipo');
   const watchedHectareas = form.watch('hectareasAplicadas');
-  const watchedProductos = form.watch('productos');
+  const watchedProductos = useWatch({
+    control: form.control,
+    name: 'productos',
+  });
   const watchedCostoServicio = form.watch('costoServicioPorHa');
   const watchedParcelaId = form.watch('parcelaId');
+  const watchedCultivoId = form.watch('cultivoId');
   const watchedZafraId = form.watch('zafraId');
   const watchedFecha = form.watch('fecha');
+  const insumosPorId = useMemo(() => {
+    return new Map((insumos || []).map((insumo) => [insumo.id, insumo]));
+  }, [insumos]);
+
+  useEffect(() => {
+    if (!evento) return;
+    const productosActuales = form.getValues('productos') || [];
+    if (!Array.isArray(productosActuales) || productosActuales.length === 0) return;
+
+    let huboCambios = false;
+    const productosHidratados = productosActuales.map((producto: any) => {
+      if (!producto) return producto;
+      const insumoId = producto.insumo?.id || producto.insumoId;
+      if (!insumoId) return producto;
+
+      const insumoEncontrado = insumosPorId.get(insumoId);
+      if (insumoEncontrado) {
+        const yaHidratado =
+          producto.insumo?.id === insumoEncontrado.id &&
+          producto.insumo?.nombre === insumoEncontrado.nombre &&
+          producto.insumo?.costoUnitario === insumoEncontrado.costoUnitario &&
+          producto.insumo?.precioPromedioCalculado === insumoEncontrado.precioPromedioCalculado;
+        if (yaHidratado) return producto;
+        huboCambios = true;
+        return {
+          ...producto,
+          insumo: insumoEncontrado,
+          codigo: producto.codigo || (insumoEncontrado.numeroItem?.toString() || ''),
+        };
+      }
+
+      if (producto.insumo?.id) return producto;
+      huboCambios = true;
+
+      return {
+        ...producto,
+        insumo: { id: insumoId } as Insumo,
+      };
+    });
+
+    if (huboCambios) {
+      replace(productosHidratados as any);
+    }
+  }, [evento, form, insumosPorId, replace]);
+
+  useEffect(() => {
+    if (!watchedZafraId || !zafras || zafras.length === 0) return;
+    const zafraSeleccionada = zafras.find((z) => z.id === watchedZafraId);
+    const cultivoDesdeZafra = zafraSeleccionada?.cultivoId;
+    if (!cultivoDesdeZafra) return;
+
+    const cultivoActual = form.getValues("cultivoId");
+    if (cultivoActual === cultivoDesdeZafra) return;
+
+    form.setValue("cultivoId", cultivoDesdeZafra, {
+      shouldValidate: true,
+      shouldDirty: Boolean(cultivoActual),
+    });
+  }, [watchedZafraId, zafras, form]);
   
   const mostrarCuentaContable = useMemo(() => {
     return ['aplicacion', 'fertilización', 'plagas', 'siembra', 'cosecha', 'mantenimiento'].includes(tipoEvento);
@@ -254,34 +321,45 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     }
   }, [evento, form, mostrarCuentaContable, planDeCuentas]);
 
-  const { totalInsumos, totalServicio, totalEvento, costoPorHa } = useMemo(() => {
-    const costoProductos = watchedProductos?.reduce((acc, prod) => {
-        if (!prod || !prod.insumo || !prod.dosis) {
-            return acc;
-        }
-        const cantidad = (watchedHectareas || 0) * prod.dosis;
-        const costoUnitario = prod.insumo.precioPromedioCalculado || prod.insumo.costoUnitario || 0;
-        return acc + (cantidad * costoUnitario);
-    }, 0) || 0;
-
-    const costoServicio = (Number(watchedHectareas) || 0) * (Number(watchedCostoServicio) || 0);
-    const costoTotal = costoProductos + costoServicio;
-    const costoHa = (Number(watchedHectareas) > 0) ? costoTotal / Number(watchedHectareas) : 0;
-    
-    return {
-      totalInsumos: costoProductos,
-      totalServicio: costoServicio,
-      totalEvento: costoTotal,
-      costoPorHa: costoHa,
-    };
-  }, [watchedProductos, watchedHectareas, watchedCostoServicio]);
+  const hectareasCalculadas = Number(watchedHectareas) || 0;
+  const totalInsumos = watchedProductos?.reduce((acc, prod) => {
+    const dosis = Number(prod?.dosis) || 0;
+    const insumoId = ((prod as any)?.insumoId || prod?.insumo?.id) as string | undefined;
+    const insumoActual = insumoId ? (insumosPorId.get(insumoId) || prod?.insumo) : prod?.insumo;
+    if (!insumoActual || dosis <= 0) {
+      return acc;
+    }
+    const cantidad = hectareasCalculadas * dosis;
+    const costoUnitario = Number(insumoActual.precioPromedioCalculado ?? insumoActual.costoUnitario ?? 0) || 0;
+    return acc + (cantidad * costoUnitario);
+  }, 0) || 0;
+  const totalServicio = hectareasCalculadas * (Number(watchedCostoServicio) || 0);
+  const totalEvento = totalInsumos + totalServicio;
+  const costoPorHa = hectareasCalculadas > 0 ? totalEvento / hectareasCalculadas : 0;
 
   const analisisProps = useMemo(() => ({
-    eventoActual: { ...form.getValues(), fecha: watchedFecha, parcelaId: watchedParcelaId, zafraId: watchedZafraId } as Evento,
+    eventoActual: {
+      ...form.getValues(),
+      tipo: tipoEvento,
+      fecha: watchedFecha,
+      parcelaId: watchedParcelaId,
+      cultivoId: watchedCultivoId,
+      zafraId: watchedZafraId,
+    } as Evento,
     todosLosEventos: todosLosEventos || [],
     zafras: zafras || [],
     etapasCultivo: etapasCultivo || [],
-  }), [watchedParcelaId, watchedZafraId, watchedFecha, form, todosLosEventos, zafras, etapasCultivo]);
+  }), [
+    tipoEvento,
+    watchedParcelaId,
+    watchedCultivoId,
+    watchedZafraId,
+    watchedFecha,
+    form,
+    todosLosEventos,
+    zafras,
+    etapasCultivo,
+  ]);
 
 
   const handleSubmit = async (data: EventoFormValues) => {
@@ -375,7 +453,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   };
 
 
-  if (!parcelas || !cultivos || !zafras || !etapasCultivo) {
+  if (!parcelas || !cultivos || !zafras || !etapasCultivo || !insumos) {
     return <p>Cargando datos maestros...</p>;
   }
 
@@ -383,7 +461,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     <>
       <EventoAnalisisPanel {...analisisProps} />
 
-      {evento?.estado === 'aprobado' && (
+      {estadoActual === 'aprobado' && (
           <Card className="mb-6 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700">
               <CardHeader className="flex-row items-center gap-4 p-4">
                   <Check className="w-6 h-6 text-green-600 dark:text-green-400"/>
@@ -397,14 +475,14 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
           </Card>
       )}
 
-      {evento?.estado === 'rechazado' && (
+      {estadoActual === 'rechazado' && (
            <Card className="mb-6 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700">
                <CardHeader className="flex-row items-center gap-4 p-4">
                   <Ban className="w-6 h-6 text-red-600 dark:text-red-400"/>
                   <div>
                       <CardTitle className="text-red-800 dark:text-red-300">Evento Rechazado</CardTitle>
                       <CardDescription className="text-red-700 dark:text-red-400/80">
-                          Motivo: <strong>{evento.motivoRechazo}</strong>.
+                          Motivo: <strong>{evento?.motivoRechazo}</strong>.
                       </CardDescription>
                   </div>
               </CardHeader>
@@ -587,15 +665,15 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                         <div className="flex flex-col gap-2 p-3 rounded-lg bg-background border border-primary/20">
                             <div className="flex justify-between items-center gap-4">
                                 <span className="text-sm text-muted-foreground">Valor Total de Ítems:</span>
-                                <span className="font-mono font-semibold">${totalInsumos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="font-mono font-semibold">${totalInsumos.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="flex justify-between items-center gap-4">
                                 <span className="text-sm text-muted-foreground">Costo de Servicio:</span>
-                                <span className="font-mono font-semibold">${totalServicio.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="font-mono font-semibold">${totalServicio.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="flex justify-between items-center gap-4 border-t pt-2 mt-1">
                                 <span className="text-lg font-bold text-primary">Costo Total del Evento:</span>
-                                <span className="text-xl font-bold text-primary font-mono">${totalEvento.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="text-xl font-bold text-primary font-mono">${totalEvento.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </div>
                         <Card className="flex flex-col items-center justify-center p-4 bg-primary/5 border-primary/20">
@@ -603,7 +681,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                                <p className="text-sm text-muted-foreground">Costo por Hectárea</p>
                            </CardHeader>
                            <CardContent className="p-0">
-                                <p className="text-2xl font-bold text-green-700 dark:text-green-500 font-mono">${costoPorHa.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                <p className="text-2xl font-bold text-green-700 dark:text-green-500 font-mono">${costoPorHa.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                            </CardContent>
                         </Card>
                     </div>
@@ -623,7 +701,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
             </form>
           </Form>
 
-          {evento && evento.estado === 'pendiente' && puedeAprobar && (
+          {evento && !isFinalizado && puedeAprobar && (
              <div className="mt-6 border-t pt-6">
                 <div className="flex justify-end gap-4">
                     <AlertDialog open={isRejecting} onOpenChange={setIsRejecting}>
@@ -675,3 +753,4 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     </>
   );
 }
+

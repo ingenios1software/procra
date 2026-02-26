@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Trash2, Download, Printer, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Insumo, Compra, Evento, LoteInsumo } from "@/lib/types";
+import type { Insumo, CompraNormal, LoteInsumo } from "@/lib/types";
 import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { InsumoForm } from "./insumo-form";
 import {
@@ -28,15 +28,17 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import Link from 'next/link';
+import { calcularPrecioPromedioDesdeCompras, toPositiveNumber } from "@/lib/stock/precio-promedio-lotes";
 
 interface StockListProps {
   insumos: Insumo[];
   lotes: LoteInsumo[];
+  comprasNormal: CompraNormal[];
   isLoading: boolean;
   onImportClick: () => void;
 }
 
-export function StockList({ insumos, lotes, isLoading, onImportClick }: StockListProps) {
+export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportClick }: StockListProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -63,7 +65,11 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
     if (!insumos) return [];
 
     return insumos.map(insumo => {
-        const precioPromedio = insumo.precioPromedioCalculado ?? 0;
+        const precioDesdeCompras = calcularPrecioPromedioDesdeCompras(insumo.id, comprasNormal);
+        const precioPromedio =
+          precioDesdeCompras !== null
+            ? precioDesdeCompras
+            : toPositiveNumber(insumo.precioPromedioCalculado || insumo.costoUnitario || 0);
         const stockFinal = insumo.stockActual || 0;
         const valorStock = stockFinal * precioPromedio;
 
@@ -74,7 +80,7 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
             valorStock,
         };
     });
-  }, [insumos]);
+  }, [insumos, comprasNormal]);
   
   const filteredStockData = useMemo(() => {
     return stockData.filter(insumo => {
@@ -327,7 +333,7 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
                       <DollarSign className="h-5 w-5 text-muted-foreground" />
                       <div>
                           <p className="text-xs text-muted-foreground">Valor Total del Stock</p>
-                          <p className="text-lg font-bold">${totalStockValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          <p className="text-lg font-bold">${totalStockValue.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       </div>
                   </div>
                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border">
@@ -424,9 +430,9 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
                       <Badge variant="secondary" className="capitalize">{insumo.categoria}</Badge>
                     </TableCell>
                     <TableCell className="py-2 px-4">{insumo.principioActivo || 'N/A'}</TableCell>
-                    <TableCell className="text-right font-mono font-bold py-2 px-4">{insumo.stockFinal.toLocaleString('en-US')} {insumo.unidad}</TableCell>
-                    <TableCell className="text-right font-mono py-2 px-4">${insumo.precioPromedioCalculado.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary py-2 px-4">${insumo.valorStock.toLocaleString('en-US', { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right font-mono font-bold py-2 px-4">{insumo.stockFinal.toLocaleString('de-DE')} {insumo.unidad}</TableCell>
+                    <TableCell className="text-right font-mono py-2 px-4">${insumo.precioPromedioCalculado.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary py-2 px-4">${insumo.valorStock.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     
                     {user && (
                       <TableCell className="text-right py-2 px-4 no-print">
@@ -508,3 +514,4 @@ export function StockList({ insumos, lotes, isLoading, onImportClick }: StockLis
     </>
   );
 }
+

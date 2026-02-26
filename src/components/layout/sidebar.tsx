@@ -133,6 +133,8 @@ const navItems: NavSection[] = [
     permission: "finanzas",
     links: [
       { href: "/finanzas/dashboard", icon: PieChart, label: "Dashboard" },
+      { href: "/finanzas/cuentas-cobrar", icon: Wallet, label: "Ctas por Cobrar" },
+      { href: "/finanzas/cuentas-pagar", icon: Wallet, label: "Ctas por Pagar" },
       { href: "/finanzas/costos", icon: TrendingDown, label: "Costos" },
       { href: "/finanzas/rentabilidad", icon: LineChart, label: "Rentabilidad" },
     ],

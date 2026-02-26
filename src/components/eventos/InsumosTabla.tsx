@@ -153,7 +153,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
                     ${precioUnitario.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right font-mono font-semibold py-1 px-4 align-top">
-                    {valorTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    {valorTotal.toLocaleString("de-DE", { minimumFractionDigits: 2 })}
                   </TableCell>
 
                   <TableCell className="text-right py-1 px-4 align-top">

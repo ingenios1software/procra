@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Evento, Parcela, Zafra } from "@/lib/types";
+import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
 
 export default function CostosPage() {
   const firestore = useFirestore();
@@ -66,7 +67,7 @@ export default function CostosPage() {
   const getNombre = (id: string, coleccion: Array<{ id: string; nombre: string }> | null) =>
     coleccion?.find((item) => item.id === id)?.nombre || "N/A";
 
-  const shareSummary = `Costos totales: $${totalGeneral.toLocaleString("en-US")}.`;
+  const shareSummary = `Costos totales: $${totalGeneral.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
 
   return (
     <>
@@ -85,7 +86,7 @@ export default function CostosPage() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalGeneral.toLocaleString("en-US")}</div>
+              <div className="text-2xl font-bold">${totalGeneral.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <p className="text-xs text-muted-foreground">Suma de todos los costos de eventos</p>
             </CardContent>
           </Card>
@@ -95,7 +96,7 @@ export default function CostosPage() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalCostosEventos.toLocaleString("en-US")}</div>
+              <div className="text-2xl font-bold">${totalCostosEventos.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <p className="text-xs text-muted-foreground">Total de actividades con costos</p>
             </CardContent>
           </Card>
@@ -112,11 +113,11 @@ export default function CostosPage() {
                 <XAxis dataKey="name" stroke="#888888" fontSize={12} />
                 <YAxis stroke="#888888" fontSize={12} tickFormatter={(value) => `$${Number(value) / 1000}k`} />
                 <Tooltip
-                  formatter={(value) => `$${typeof value === "number" ? value.toLocaleString("en-US") : value}`}
+                  formatter={(value) => `$${typeof value === "number" ? value.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : value}`}
                   cursor={{ fill: "hsla(var(--muted))" }}
                   contentStyle={{ backgroundColor: "hsl(var(--background))" }}
                 />
-                <Bar dataKey="costo" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="costo" fill={COMPARATIVE_CHART_COLORS.costo} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -158,7 +159,7 @@ export default function CostosPage() {
                     <TableCell>{getNombre(costo.parcelaId, parcelas || null)}</TableCell>
                     <TableCell>{getNombre(costo.zafraId, zafras || null)}</TableCell>
                     <TableCell className="text-right font-mono font-semibold">
-                      ${(costo.monto || 0).toLocaleString("en-US")}
+                      ${(costo.monto || 0).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -177,3 +178,4 @@ export default function CostosPage() {
     </>
   );
 }
+

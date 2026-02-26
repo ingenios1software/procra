@@ -88,7 +88,7 @@ export default function LiquidacionPage() {
                             {!isLoading && liquidacionData.map(data => (
                                 <TableRow key={data.empleadoId}>
                                     <TableCell className="font-medium">{data.nombre}</TableCell>
-                                    <TableCell className="text-right font-mono font-semibold text-primary">${data.salarioBase.toLocaleString('de-DE', {minimumFractionDigits: 2})}</TableCell>
+                                    <TableCell className="text-right font-mono font-semibold text-primary">${data.salarioBase.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                 </TableRow>
                             ))}
                             {!isLoading && liquidacionData.length === 0 && <TableRow><TableCell colSpan={2} className="text-center h-24">No hay empleados registrados.</TableCell></TableRow>}
@@ -96,7 +96,7 @@ export default function LiquidacionPage() {
                         <TableFooter>
                             <TableRow className="font-bold text-lg bg-muted/50">
                                 <TableCell>Total General</TableCell>
-                                <TableCell className="text-right font-mono">${totalGeneral.toLocaleString('de-DE', {minimumFractionDigits: 2})}</TableCell>
+                                <TableCell className="text-right font-mono">${totalGeneral.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                             </TableRow>
                         </TableFooter>
                     </Table>

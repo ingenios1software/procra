@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { addDocumentNonBlocking, updateDocumentNonBlocking, useFirestore, useUser } from "@/firebase";
 import { VentaForm } from "./venta-form";
 import type { Cliente, Cultivo, Insumo, MovimientoStock, Parcela, Venta, Zafra } from "@/lib/types";
+import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
 
 interface VentasListProps {
   ventas: Venta[];
@@ -145,7 +146,7 @@ export function VentasList({
     return clientes.find((cliente) => cliente.id === id)?.nombre || "N/A";
   };
 
-  const shareSummary = `Ventas: ${ventas.length} | Ingresos: $${totalIngresos.toLocaleString("en-US")}.`;
+  const shareSummary = `Ventas: ${ventas.length} | Ingresos: $${totalIngresos.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
 
   return (
     <>
@@ -170,7 +171,7 @@ export function VentasList({
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalIngresos.toLocaleString("en-US")}</div>
+              <div className="text-2xl font-bold">${totalIngresos.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <p className="text-xs text-muted-foreground">Suma de todas las ventas registradas</p>
             </CardContent>
           </Card>
@@ -190,7 +191,7 @@ export function VentasList({
                   <XAxis dataKey="nombre" fontSize={12} />
                   <YAxis tickFormatter={(value) => `${value} kg/ha`} />
                   <Tooltip formatter={(value) => `${Number(value).toFixed(0)} kg/ha`} />
-                  <Bar dataKey="rendimiento" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="rendimiento" fill={COMPARATIVE_CHART_COLORS.rendimiento} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -225,7 +226,7 @@ export function VentasList({
                     <TableCell>{format(new Date(venta.fecha as string), "dd/MM/yyyy")}</TableCell>
                     <TableCell>{venta.numeroDocumento}</TableCell>
                     <TableCell className="font-medium">{getClienteNombre(venta.clienteId)}</TableCell>
-                    <TableCell className="text-right font-semibold">${(venta.total || 0).toLocaleString("en-US")}</TableCell>
+                    <TableCell className="text-right font-semibold">${(venta.total || 0).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     {user && (
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8 p-0" onClick={() => openDialog(venta)}>
@@ -261,3 +262,4 @@ export function VentasList({
     </>
   );
 }
+

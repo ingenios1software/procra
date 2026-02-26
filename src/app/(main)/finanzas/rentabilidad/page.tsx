@@ -21,7 +21,7 @@ const COLORS = [
 ];
 
 function formatCurrency(value: number): string {
-  return `$${value.toLocaleString("en-US")}`;
+  return `$${value.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function RentabilidadPage() {
@@ -270,7 +270,7 @@ export default function RentabilidadPage() {
                     <XAxis dataKey="name" />
                     <YAxis tickFormatter={(value) => `$${Number(value) / 1000}k`} />
                     <Tooltip
-                      formatter={(value) => `$${Number(value).toLocaleString("en-US")}`}
+                      formatter={(value) => `$${Number(value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       cursor={{ fill: "hsla(var(--muted))" }}
                       contentStyle={{ backgroundColor: "hsl(var(--background))" }}
                     />
@@ -296,7 +296,7 @@ export default function RentabilidadPage() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value) => `$${Number(value).toLocaleString("en-US")}`}
+                      formatter={(value) => `$${Number(value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       contentStyle={{ backgroundColor: "hsl(var(--background))" }}
                     />
                     <Legend />
@@ -312,3 +312,4 @@ export default function RentabilidadPage() {
     </>
   );
 }
+

@@ -16,6 +16,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 import { differenceInDays, format } from "date-fns";
+import { getEventCategoryLabel, getSowingBaseDate } from "./panel-evento-utils";
 
 interface PanelAgronomicoProps {
     parcelas: Parcela[];
@@ -65,9 +66,9 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
     }, [parcela, zafra, eventos]);
     
     const { diasDesdeSiembra, costoTotal, costoPorHa } = useMemo(() => {
-        if (!zafra || !parcela || !zafra.fechaSiembra) return { diasDesdeSiembra: 0, costoTotal: 0, costoPorHa: 0};
-        const siembra = zafra.fechaSiembra ? new Date(zafra.fechaSiembra) : null;
-        const dias = siembra ? differenceInDays(new Date(), siembra) : 0;
+        if (!zafra || !parcela) return { diasDesdeSiembra: 0, costoTotal: 0, costoPorHa: 0 };
+        const siembra = getSowingBaseDate(zafra, filteredEvents);
+        const dias = Math.max(0, differenceInDays(new Date(), siembra));
         const costo = filteredEvents.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
         const costoHa = parcela.superficie > 0 ? costo / parcela.superficie : 0;
         return { diasDesdeSiembra: dias, costoTotal: costo, costoPorHa: costoHa };
@@ -87,8 +88,8 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
             ["Superficie", `${parcela.superficie} ha`],
             ["Ciclo a Hoy", `${diasDesdeSiembra} días`],
             ["Eventos Totales", filteredEvents.length],
-            ["Costo Total Acumulado", `$${costoTotal.toLocaleString('es-AR')}`],
-            ["Costo por Hectárea", `$${costoPorHa.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`],
+            ["Costo Total Acumulado", `$${costoTotal.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+            ["Costo por Hectárea", `$${costoPorHa.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
         ];
         const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
         XLSX.utils.sheet_add_aoa(wsResumen, [["Panel Agronómico - Resumen"]], { origin: "A1"});
@@ -97,7 +98,7 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
 
         // 2. Hoja de Costos por Categoría
         const costos = filteredEvents.reduce((acc, ev) => {
-            const categoria = ev.categoria || 'Otros';
+            const categoria = getEventCategoryLabel(ev);
             acc[categoria] = (acc[categoria] || 0) + (ev.costoTotal || 0);
             return acc;
         }, {} as Record<string, number>);
@@ -126,7 +127,7 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
         // 4. Hoja de Eventos
         const eventosData = filteredEvents.map(evento => ({
             'Fecha': format(new Date(evento.fecha), 'dd/MM/yyyy'),
-            'Tipo Evento': evento.categoria || evento.tipo,
+            'Tipo Evento': getEventCategoryLabel(evento),
             'Descripción': evento.descripcion,
             'Costo Evento': evento.costoTotal || 0
         }));
@@ -224,3 +225,4 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
         </>
     )
 }
+

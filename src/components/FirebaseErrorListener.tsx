@@ -14,9 +14,22 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     // The callback now expects a strongly-typed error, matching the event payload.
-    const handleError = (error: FirestorePermissionError) => {
-      // Set error in state to trigger a re-render.
-      setError(error);
+    const handleError = (incomingError: FirestorePermissionError) => {
+      const method = incomingError.request?.method;
+      const isWriteError =
+        method === 'create' ||
+        method === 'update' ||
+        method === 'delete' ||
+        method === 'write';
+
+      if (isWriteError) {
+        // Writes are critical: keep surfacing via global error boundary.
+        setError(incomingError);
+        return;
+      }
+
+      // Read permission errors should not crash the whole app UI.
+      console.warn('[Firestore read permission denied]', incomingError.message);
     };
 
     // The typed emitter will enforce that the callback for 'permission-error'

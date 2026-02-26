@@ -14,7 +14,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
-import type { CompraNormal, Proveedor, Insumo, MovimientoStock, LoteInsumo, AsientoDiario, PlanDeCuenta } from "@/lib/types";
+import type {
+  CompraNormal,
+  Proveedor,
+  Insumo,
+  MovimientoStock,
+  LoteInsumo,
+  AsientoDiario,
+  PlanDeCuenta,
+  CuentaPorPagar,
+} from "@/lib/types";
 import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { collection, doc, writeBatch, serverTimestamp, getDocs, query, orderBy, limit, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +31,7 @@ import { SelectorUniversal } from '@/components/common';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from '@/lib/contabilidad/cuentas-base';
+import { calcularEstadoCuenta } from "@/lib/cuentas";
 
 const mercaderiaSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar una mercaderia." }),
@@ -211,8 +221,15 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
       const batch = writeBatch(firestore);
       const comprasCol = collection(firestore, "comprasNormal");
       const compraRef = compra ? doc(firestore, "comprasNormal", compra.id) : doc(comprasCol);
+      const cuentaPorPagarRef = doc(firestore, "cuentasPorPagar", compraRef.id);
       const shouldCreateWorkflowEntries = !compra;
       const shouldApplyStock = shouldCreateWorkflowEntries && !data.totalizadora;
+
+      let cuentaPorPagarActual: CuentaPorPagar | null = null;
+      const cuentaPorPagarSnap = await getDoc(cuentaPorPagarRef);
+      if (cuentaPorPagarSnap.exists()) {
+        cuentaPorPagarActual = { ...(cuentaPorPagarSnap.data() as CuentaPorPagar), id: cuentaPorPagarSnap.id };
+      }
 
       let nuevoCodigo = compra?.codigo;
       if (!nuevoCodigo) {
@@ -283,6 +300,36 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
         batch.set(compraRef, compraDataSanitized);
       }
 
+      const montoOriginal = Number(cuentaPorPagarActual?.montoOriginal ?? totalFactura) || 0;
+      const montoPagado = Number(cuentaPorPagarActual?.montoPagado ?? 0) || 0;
+      const saldoPendiente = Number(cuentaPorPagarActual?.saldoPendiente ?? totalFactura) || 0;
+      const fechaVencimiento = data.financiero_vencimiento ? data.financiero_vencimiento.toISOString() : undefined;
+      const estado = calcularEstadoCuenta({
+        montoOriginal,
+        saldoPendiente,
+        fechaVencimiento,
+      });
+
+      const cuentaPorPagarData: Omit<CuentaPorPagar, "id"> = {
+        compraId: compraRef.id,
+        compraDocumento: data.comprobante_documento,
+        proveedorId: data.entidadId,
+        fechaEmision: data.fechaEmision.toISOString(),
+        fechaVencimiento,
+        moneda: data.moneda,
+        montoOriginal,
+        montoPagado,
+        saldoPendiente,
+        estado,
+        cuentaContableId: data.financiero_cuentaPorPagarId,
+        asientoRegistroId,
+        observacion: data.observacion,
+        creadoPor: cuentaPorPagarActual?.creadoPor || user.uid,
+        creadoEn: cuentaPorPagarActual?.creadoEn || new Date().toISOString(),
+        actualizadoEn: new Date().toISOString(),
+      };
+      batch.set(cuentaPorPagarRef, omitUndefinedDeep(cuentaPorPagarData), { merge: true });
+
       if (shouldApplyStock) {
         const stateByInsumo = new Map<string, { stockActual: number; precioPromedio: number; insumoActual: Insumo }>();
 
@@ -332,6 +379,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
             const loteData: Omit<LoteInsumo, "id"> = {
               insumoId: insumoComprado.id,
               codigoLote: loteCodigo,
+              costoUnitario: precioCompra,
               fechaIngreso: data.fechaEmision.toISOString(),
               fechaVencimiento: item.sinVencimiento ? null : (item.fechaVencimiento ? item.fechaVencimiento.toISOString() : null),
               cantidadInicial: cantidadCompra,

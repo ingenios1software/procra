@@ -13,13 +13,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
-import type { Venta, Cliente, Insumo, MovimientoStock, Deposito, AsientoDiario, CuentaCajaBanco, Zafra, PlanDeCuenta } from "@/lib/types";
+import type {
+  Venta,
+  Cliente,
+  Insumo,
+  MovimientoStock,
+  Deposito,
+  AsientoDiario,
+  CuentaCajaBanco,
+  Zafra,
+  PlanDeCuenta,
+  CuentaPorCobrar,
+} from "@/lib/types";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, writeBatch, query, orderBy } from "firebase/firestore";
+import { collection, doc, writeBatch, query, orderBy, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from "@/components/common";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
+import { calcularEstadoCuenta, isFormaPagoCredito } from "@/lib/cuentas";
 
 const itemSchema = z.object({
   producto: z.any().refine((val) => val && val.id, { message: "Debe seleccionar un producto." }),
@@ -211,6 +223,18 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     const shouldCreateWorkflowEntries = !venta;
     const batch = writeBatch(firestore);
     const ventaRef = venta ? doc(firestore, "ventas", venta.id) : doc(collection(firestore, "ventas"));
+    const cuentaPorCobrarRef = doc(firestore, "cuentasPorCobrar", ventaRef.id);
+
+    let cuentaPorCobrarActual: CuentaPorCobrar | null = null;
+    if (isFormaPagoCredito(data.formaPago)) {
+      const cuentaPorCobrarSnap = await getDoc(cuentaPorCobrarRef);
+      if (cuentaPorCobrarSnap.exists()) {
+        cuentaPorCobrarActual = {
+          ...(cuentaPorCobrarSnap.data() as CuentaPorCobrar),
+          id: cuentaPorCobrarSnap.id,
+        };
+      }
+    }
 
     const itemsFinal = data.items.map((item) => {
       const subtotal = item.cantidad * item.precioUnitario * (1 - (item.descuentoPorc || 0) / 100);
@@ -240,7 +264,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
         const insumoRef = doc(firestore, "insumos", producto.id);
         batch.update(insumoRef, { stockActual: stockDespues });
 
-        const movimientoRef = doc(collection(firestore, "movimientosStock"));
+        const movimientoRef = doc(collection(firestore, "MovimientosStock"));
         const movimiento: Omit<MovimientoStock, "id"> = {
           fecha: data.fecha.toISOString(),
           tipo: "salida",
@@ -265,7 +289,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
       }
 
       let cuentaDebeId: string | undefined;
-      if (data.formaPago === "Crédito") {
+      if (isFormaPagoCredito(data.formaPago)) {
         cuentaDebeId = getCuentaIdPorCodigo(CODIGOS_CUENTAS_BASE.CLIENTES);
       } else {
         const cuentaCobro = cuentasCajaBanco.find((c) => c.id === data.financiero_cuentaId);
@@ -358,6 +382,41 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
       batch.update(ventaRef, ventaDataSanitized as any);
     } else {
       batch.set(ventaRef, ventaDataSanitized);
+    }
+
+    if (isFormaPagoCredito(data.formaPago)) {
+      const montoOriginal = Number(cuentaPorCobrarActual?.montoOriginal ?? totalGeneral) || 0;
+      const montoCobrado = Number(cuentaPorCobrarActual?.montoCobrado ?? 0) || 0;
+      const saldoPendiente = Number(cuentaPorCobrarActual?.saldoPendiente ?? totalGeneral) || 0;
+      const cuentaContableId =
+        cuentaPorCobrarActual?.cuentaContableId || getCuentaIdPorCodigo(CODIGOS_CUENTAS_BASE.CLIENTES);
+      const fechaVencimiento = data.vencimiento ? data.vencimiento.toISOString() : undefined;
+      const estado = calcularEstadoCuenta({
+        montoOriginal,
+        saldoPendiente,
+        fechaVencimiento,
+      });
+
+      const cuentaPorCobrarData: Omit<CuentaPorCobrar, "id"> = {
+        ventaId: ventaRef.id,
+        ventaDocumento: data.numeroDocumento,
+        clienteId: data.clienteId,
+        fechaEmision: data.fecha.toISOString(),
+        fechaVencimiento,
+        moneda: data.moneda,
+        montoOriginal,
+        montoCobrado,
+        saldoPendiente,
+        estado,
+        cuentaContableId,
+        asientoVentaId,
+        observacion: data.observacion,
+        creadoPor: cuentaPorCobrarActual?.creadoPor || user.uid,
+        creadoEn: cuentaPorCobrarActual?.creadoEn || new Date().toISOString(),
+        actualizadoEn: new Date().toISOString(),
+      };
+
+      batch.set(cuentaPorCobrarRef, omitUndefinedDeep(cuentaPorCobrarData), { merge: true });
     }
 
     try {

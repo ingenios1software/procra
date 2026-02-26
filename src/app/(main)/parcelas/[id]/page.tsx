@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { DollarSign, Tractor, Droplets, Sprout, Activity, CalendarDays, LineChart, PieChartIcon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, Line, ComposedChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
+import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
@@ -104,11 +105,11 @@ export default function ParcelaCostoReportePage({ params }: { params: { id: stri
       
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
-        <Card><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Costo Total</CardTitle><DollarSign /></CardHeader><CardContent><div className="text-2xl font-bold">${costoTotal?.toLocaleString('es-AR') || 0}</div></CardContent></Card>
+        <Card><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Costo Total</CardTitle><DollarSign /></CardHeader><CardContent><div className="text-2xl font-bold">${costoTotal?.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 0}</div></CardContent></Card>
         <Card><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Costo Prom./ha</CardTitle><DollarSign/></CardHeader><CardContent><div className="text-2xl font-bold">${costoPorHa?.toFixed(2) || 0}</div></CardContent></Card>
-        <Card><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Costo Insumos</CardTitle><Droplets /></CardHeader><CardContent><div className="text-2xl font-bold">${totalInsumos?.toLocaleString('es-AR') || 0}</div></CardContent></Card>
-        <Card><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Costo Servicios</CardTitle><Tractor /></CardHeader><CardContent><div className="text-2xl font-bold">${totalServicios?.toLocaleString('es-AR') || 0}</div></CardContent></Card>
-        <Card><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Último Evento</CardTitle><CalendarDays /></CardHeader><CardContent><div className="text-md font-bold">{ultimoEvento?.descripcion}</div><p className="text-xs text-muted-foreground">${(ultimoEvento?.costoTotal || 0).toLocaleString('es-AR')}</p></CardContent></Card>
+        <Card><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Costo Insumos</CardTitle><Droplets /></CardHeader><CardContent><div className="text-2xl font-bold">${totalInsumos?.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 0}</div></CardContent></Card>
+        <Card><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Costo Servicios</CardTitle><Tractor /></CardHeader><CardContent><div className="text-2xl font-bold">${totalServicios?.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 0}</div></CardContent></Card>
+        <Card><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Último Evento</CardTitle><CalendarDays /></CardHeader><CardContent><div className="text-md font-bold">{ultimoEvento?.descripcion}</div><p className="text-xs text-muted-foreground">${(ultimoEvento?.costoTotal || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></CardContent></Card>
       </div>
 
       {/* Charts */}
@@ -121,7 +122,7 @@ export default function ParcelaCostoReportePage({ params }: { params: { id: stri
                         <Pie data={costosPorTipoEvento} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                             {costosPorTipoEvento?.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                         </Pie>
-                        <Tooltip formatter={(value: number) => `$${value.toLocaleString('es-AR')}`} />
+                        <Tooltip formatter={(value: number) => `$${value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
                         <Legend />
                     </PieChart>
                 </ResponsiveContainer>
@@ -135,9 +136,9 @@ export default function ParcelaCostoReportePage({ params }: { params: { id: stri
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="fecha" />
                         <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} />
-                        <Tooltip formatter={(value: number) => `$${value.toLocaleString('es-AR')}`} />
+                        <Tooltip formatter={(value: number) => `$${value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
                         <Legend />
-                        <Line type="monotone" dataKey="costoAcumulado" stroke="#8884d8" strokeWidth={2} />
+                        <Line type="monotone" dataKey="costoAcumulado" stroke={COMPARATIVE_CHART_COLORS.costo} strokeWidth={2} />
                     </ComposedChart>
                 </ResponsiveContainer>
             </CardContent>
@@ -155,7 +156,7 @@ export default function ParcelaCostoReportePage({ params }: { params: { id: stri
                         <TableRow key={ins.nombre}>
                             <TableCell className="font-medium">{ins.nombre}</TableCell>
                             <TableCell>{ins.cantidad.toFixed(2)} {ins.unidad}</TableCell>
-                            <TableCell className="text-right font-mono">${ins.costo.toLocaleString('es-AR')}</TableCell>
+                            <TableCell className="text-right font-mono">${ins.costo.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
@@ -178,9 +179,9 @@ export default function ParcelaCostoReportePage({ params }: { params: { id: stri
                                 <TableCell>{format(new Date(ev.fecha as string), 'dd/MM/yyyy')}</TableCell>
                                 <TableCell><Badge variant="outline">{ev.categoria || ev.tipo}</Badge></TableCell>
                                 <TableCell className="font-medium">{ev.descripcion}</TableCell>
-                                <TableCell className="text-right font-mono">${costoIns.toLocaleString('es-AR')}</TableCell>
-                                <TableCell className="text-right font-mono">${costoServ.toLocaleString('es-AR')}</TableCell>
-                                <TableCell className="text-right font-bold font-mono">${(ev.costoTotal || 0).toLocaleString('es-AR')}</TableCell>
+                                <TableCell className="text-right font-mono">${costoIns.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell className="text-right font-mono">${costoServ.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell className="text-right font-bold font-mono">${(ev.costoTotal || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                 <TableCell className="text-right font-semibold font-mono">${(ev.costoPorHa || 0).toFixed(2)}</TableCell>
                             </TableRow>
                         )
@@ -192,3 +193,4 @@ export default function ParcelaCostoReportePage({ params }: { params: { id: stri
     </>
   );
 }
+

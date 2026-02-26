@@ -80,7 +80,15 @@ export function useCollection<T = any>(
         const snapshot = await getDocs(memoizedTargetRefOrQuery);
         const results: ResultItemType[] = snapshot.docs.map(doc => ({ ...(doc.data() as T), id: doc.id }));
         setData(results);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const firestoreError = error as FirestoreError;
+
+        if (firestoreError?.code !== 'permission-denied') {
+          setError(firestoreError instanceof Error ? firestoreError : new Error('Error desconocido al leer colección de Firestore.'));
+          setData(null);
+          return;
+        }
+
         let path = 'unknown_path';
         try {
           path =

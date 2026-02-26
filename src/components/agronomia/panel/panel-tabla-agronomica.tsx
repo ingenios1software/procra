@@ -10,6 +10,7 @@ import { format, differenceInDays } from "date-fns";
 import { ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
+import { getEventDate, getSowingBaseDate } from "./panel-evento-utils";
 
 interface PanelTablaAgronomicaProps {
     parcela: Parcela;
@@ -17,6 +18,12 @@ interface PanelTablaAgronomicaProps {
     eventos: Evento[];
     insumos: Insumo[];
 }
+
+type ProductoEvento = {
+  insumoId?: string;
+  cantidad?: number;
+  dosis?: number;
+};
 
 const getRowColor = (categoria?: string) => {
     switch(categoria) {
@@ -27,6 +34,32 @@ const getRowColor = (categoria?: string) => {
         case 'Fungicida': return 'bg-orange-100/50 hover:bg-orange-100/80 dark:bg-orange-900/20';
         default: return '';
     }
+}
+
+const normalizeTipo = (value?: string) =>
+  (value || "")
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+function getProductoMetrics(
+  producto: ProductoEvento,
+  insumo: Insumo | undefined,
+  evento: Evento,
+  superficieParcela: number
+) {
+  const precioUnitario = Number(insumo?.precioPromedioCalculado ?? insumo?.costoUnitario ?? 0) || 0;
+  const dosisHa = Number(producto?.dosis ?? 0) || 0;
+  const cantidadDirecta = Number(producto?.cantidad ?? 0) || 0;
+  const hectareasEvento = Number(evento.hectareasAplicadas ?? 0) || 0;
+  const baseHa = hectareasEvento > 0 ? hectareasEvento : Math.max(0, Number(superficieParcela) || 0);
+  const cantidadTotal =
+    cantidadDirecta > 0 ? cantidadDirecta : dosisHa > 0 && baseHa > 0 ? dosisHa * baseHa : 0;
+  const costoProducto = Math.max(0, cantidadTotal * precioUnitario);
+  const costoPorHa = baseHa > 0 ? costoProducto / baseHa : 0;
+
+  return { precioUnitario, dosisHa, cantidadTotal, costoProducto, costoPorHa };
 }
 
 export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: PanelTablaAgronomicaProps) {
@@ -43,8 +76,26 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
         setExpandedRows(newSet);
     }
     
-    const fechaSiembra = zafra.fechaSiembra ? new Date(zafra.fechaSiembra) : null;
+    const fechaSiembraEvento = eventos.reduce<Date | null>((acumulado, evento) => {
+      if (!normalizeTipo(evento.tipo).includes("siembra")) return acumulado;
+      const fechaEvento = getEventDate(evento);
+      if (!fechaEvento) return acumulado;
+      if (!acumulado) return fechaEvento;
+      return fechaEvento.getTime() < acumulado.getTime() ? fechaEvento : acumulado;
+    }, null);
+
+    const fechaSiembraBase = fechaSiembraEvento || getSowingBaseDate(zafra, eventos);
     let costoTotalGeneral = 0;
+
+    const getEventoRef = (evento: Evento): string | null => {
+        if (evento.numeroLanzamiento !== undefined && evento.numeroLanzamiento !== null) {
+            return `N° ${evento.numeroLanzamiento}`;
+        }
+        if (evento.numeroItem !== undefined && evento.numeroItem !== null) {
+            return `Item ${evento.numeroItem}`;
+        }
+        return null;
+    };
 
     return (
         <Card>
@@ -66,7 +117,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-12"></TableHead>
-                                <TableHead>Fecha</TableHead>
+                                <TableHead>Fecha / Evento</TableHead>
                                 <TableHead>Tipo Evento</TableHead>
                                 <TableHead>Producto</TableHead>
                                 <TableHead className="text-right">Dosis/Ha</TableHead>
@@ -82,18 +133,36 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                         <TableBody>
                             {eventos.map((evento, index) => {
                                 const isExpanded = expandedRows.has(evento.id);
-                                const diasEntreEventos = index > 0 ? differenceInDays(new Date(evento.fecha), new Date(eventos[index-1].fecha)) : 0;
-                                const cicloEvento = fechaSiembra ? differenceInDays(new Date(evento.fecha), fechaSiembra) : 0;
+                                const fechaEventoActual = getEventDate(evento);
+                                const fechaEventoAnterior = index > 0 ? getEventDate(eventos[index - 1]) : null;
+                                const diasEntreEventos =
+                                  fechaEventoActual && fechaEventoAnterior
+                                    ? Math.max(0, differenceInDays(fechaEventoActual, fechaEventoAnterior))
+                                    : 0;
+                                const cicloEvento = fechaEventoActual
+                                  ? Math.max(0, differenceInDays(fechaEventoActual, fechaSiembraBase))
+                                  : 0;
                                 const costoPorHa = parcela.superficie > 0 ? (evento.costoTotal || 0) / parcela.superficie : 0;
+                                const eventoRef = getEventoRef(evento);
                                 costoTotalGeneral += evento.costoTotal || 0;
 
-                                const productosDelEvento = evento.productos || (evento.insumoId ? [{ insumoId: evento.insumoId, cantidad: evento.cantidad, dosis: evento.dosis }] : []);
+                                const productosDelEvento: ProductoEvento[] =
+                                  evento.productos || (evento.insumoId ? [{ insumoId: evento.insumoId, cantidad: evento.cantidad, dosis: evento.dosis }] : []);
                                 
                                 return (
                                     <React.Fragment key={evento.id}>
                                         <TableRow className={cn("font-semibold cursor-pointer", getRowColor(evento.categoria))} onClick={() => toggleRow(evento.id)}>
                                             <TableCell><Button variant="ghost" size="icon" className="h-6 w-6">{isExpanded ? <ChevronDown /> : <ChevronRight />}</Button></TableCell>
-                                            <TableCell>{format(new Date(evento.fecha), 'dd/MM/yy')}</TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{fechaEventoActual ? format(fechaEventoActual, 'dd/MM/yy') : "N/A"}</span>
+                                                    {eventoRef && (
+                                                        <span className="text-xs font-medium text-muted-foreground">
+                                                            ({eventoRef})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
                                             <TableCell>{evento.categoria || evento.tipo}</TableCell>
                                             <TableCell>{productosDelEvento.length} Producto(s)</TableCell>
                                             <TableCell></TableCell>
@@ -103,11 +172,11 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                                             <TableCell className="text-right">{diasEntreEventos}</TableCell>
                                             <TableCell className="text-right">{cicloEvento}</TableCell>
                                             <TableCell className="text-right">${costoPorHa.toFixed(2)}</TableCell>
-                                            <TableCell className="text-right font-bold">${(evento.costoTotal || 0).toLocaleString('en-US')}</TableCell>
+                                            <TableCell className="text-right font-bold">${(evento.costoTotal || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         </TableRow>
                                         {isExpanded && showProducts && productosDelEvento.map((prod, prodIndex) => {
                                             const insumo = insumos.find(i => i.id === prod.insumoId);
-                                            const costoProducto = (prod.cantidad || 0) * (insumo?.costoUnitario || 0);
+                                            const metrics = getProductoMetrics(prod, insumo, evento, parcela.superficie);
 
                                             return (
                                                 <TableRow key={`${evento.id}-${prodIndex}`} className="bg-muted/10 hover:bg-muted/30">
@@ -115,13 +184,27 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                                                     <TableCell></TableCell>
                                                     <TableCell></TableCell>
                                                     <TableCell className="pl-8 text-sm">{insumo?.nombre || 'N/A'}</TableCell>
-                                                    <TableCell className="text-right text-sm">{prod.dosis?.toFixed(2)} {insumo?.unidad}/ha</TableCell>
-                                                    <TableCell className="text-right text-sm">{prod.cantidad?.toFixed(2)} {insumo?.unidad}</TableCell>
-                                                    <TableCell className="text-right text-sm">${(insumo?.costoUnitario || 0).toFixed(2)}</TableCell>
-                                                    <TableCell className="text-right text-sm">${costoProducto.toLocaleString('en-US')}</TableCell>
+                                                    <TableCell className="text-right text-sm">
+                                                      {metrics.dosisHa > 0
+                                                        ? `${metrics.dosisHa.toFixed(2)} ${insumo?.unidad || ""}/ha`
+                                                        : "-"}
+                                                    </TableCell>
+                                                    <TableCell className="text-right text-sm">
+                                                      {metrics.cantidadTotal > 0
+                                                        ? `${metrics.cantidadTotal.toFixed(2)} ${insumo?.unidad || ""}`
+                                                        : "-"}
+                                                    </TableCell>
+                                                    <TableCell className="text-right text-sm">
+                                                      ${metrics.precioUnitario.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </TableCell>
+                                                    <TableCell className="text-right text-sm">
+                                                      ${metrics.costoProducto.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </TableCell>
                                                     <TableCell></TableCell>
                                                     <TableCell></TableCell>
-                                                    <TableCell></TableCell>
+                                                    <TableCell className="text-right text-sm">
+                                                      ${metrics.costoPorHa.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </TableCell>
                                                     <TableCell></TableCell>
                                                 </TableRow>
                                             )
@@ -133,7 +216,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                         <TableFooter>
                             <TableRow className="font-bold text-lg bg-primary/10">
                                 <TableCell colSpan={11}>Costo Total Acumulado</TableCell>
-                                <TableCell className="text-right">${costoTotalGeneral.toLocaleString('en-US')}</TableCell>
+                                <TableCell className="text-right">${costoTotalGeneral.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                             </TableRow>
                         </TableFooter>
                     </Table>
@@ -142,3 +225,4 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
         </Card>
     )
 }
+

@@ -8,7 +8,15 @@ import { PlusCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import type { CompraNormal, Proveedor, AsientoDiario, PlanDeCuenta, CuentaCajaBanco } from "@/lib/types";
+import type {
+  CompraNormal,
+  Proveedor,
+  AsientoDiario,
+  PlanDeCuenta,
+  CuentaCajaBanco,
+  CuentaPorPagar,
+  PagoCuentaPorPagar,
+} from "@/lib/types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -24,7 +32,8 @@ import { MoreHorizontal } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy, writeBatch, doc, where } from 'firebase/firestore';
+import { collection, query, orderBy, writeBatch, doc, where, getDoc } from 'firebase/firestore';
+import { calcularEstadoCuenta, calcularSaldoDesdeMovimiento } from "@/lib/cuentas";
 
 
 export default function ComprasPage() {
@@ -121,6 +130,17 @@ export default function ComprasPage() {
     try {
       const batch = writeBatch(firestore);
       const compraRef = doc(firestore, 'comprasNormal', compraParaAprobar.id);
+      const cuentaPorPagarRef = doc(firestore, 'cuentasPorPagar', compraParaAprobar.id);
+      const cuentaPorPagarSnap = await getDoc(cuentaPorPagarRef);
+      const cuentaPorPagarActual = cuentaPorPagarSnap.exists()
+        ? ({ ...(cuentaPorPagarSnap.data() as CuentaPorPagar), id: cuentaPorPagarSnap.id } as CuentaPorPagar)
+        : null;
+
+      const montoOriginal = Number(cuentaPorPagarActual?.montoOriginal ?? compraParaAprobar.totalFactura) || 0;
+      const montoPagadoActual = Number(cuentaPorPagarActual?.montoPagado ?? 0) || 0;
+      const saldoPendienteActual =
+        Number(cuentaPorPagarActual?.saldoPendiente ?? (montoOriginal - montoPagadoActual)) || 0;
+
       const pagoAplicado = Boolean(cuentaPagoAprobacionId);
       if (pagoAplicado && !(planDeCuentas || []).some((c) => c.id === cuentaPagoAprobacionId)) {
         toast({
@@ -131,28 +151,99 @@ export default function ComprasPage() {
         setIsApproving(false);
         return;
       }
+      if (pagoAplicado && saldoPendienteActual <= 0.005) {
+        toast({
+          variant: 'destructive',
+          title: 'Saldo cancelado',
+          description: 'La cuenta por pagar ya no tiene saldo pendiente.',
+        });
+        setIsApproving(false);
+        return;
+      }
+
+      const fechaOperacion = new Date().toISOString();
       let asientoPagoId: string | undefined;
+      let montoPago = 0;
 
       if (pagoAplicado) {
+        montoPago = saldoPendienteActual > 0 ? saldoPendienteActual : compraParaAprobar.totalFactura;
         const asientoPagoRef = doc(collection(firestore, 'asientosDiario'));
         const asientoPago: Omit<AsientoDiario, 'id'> = {
-          fecha: new Date().toISOString(),
+          fecha: fechaOperacion,
           descripcion: `Pago compra ${compraParaAprobar.comprobante.documento}`,
           movimientos: [
-            { cuentaId: compraParaAprobar.financiero.cuentaPorPagarId, tipo: 'debe', monto: compraParaAprobar.totalFactura },
-            { cuentaId: cuentaPagoAprobacionId, tipo: 'haber', monto: compraParaAprobar.totalFactura },
+            { cuentaId: compraParaAprobar.financiero.cuentaPorPagarId, tipo: 'debe', monto: montoPago },
+            { cuentaId: cuentaPagoAprobacionId, tipo: 'haber', monto: montoPago },
           ],
         };
         batch.set(asientoPagoRef, asientoPago);
         asientoPagoId = asientoPagoRef.id;
+
+        const pagoRef = doc(collection(firestore, 'pagosCxp'));
+        const pagoData: Omit<PagoCuentaPorPagar, 'id'> = {
+          cuentaPorPagarId: compraParaAprobar.id,
+          compraId: compraParaAprobar.id,
+          proveedorId: compraParaAprobar.entidadId,
+          fecha: fechaOperacion,
+          moneda: compraParaAprobar.moneda,
+          monto: montoPago,
+          cuentaContableId: cuentaPagoAprobacionId,
+          asientoId: asientoPagoId,
+          pagadoPor: user.uid,
+          creadoEn: fechaOperacion,
+        };
+        batch.set(pagoRef, pagoData);
       }
+
+      const resultadoSaldo = pagoAplicado
+        ? calcularSaldoDesdeMovimiento({
+            montoOriginal,
+            montoAplicadoActual: montoPagadoActual,
+            montoMovimiento: montoPago,
+          })
+        : {
+            montoAplicado: montoPagadoActual,
+            saldoPendiente: Math.max(0, saldoPendienteActual),
+          };
+      const nuevoMontoPagado = resultadoSaldo.montoAplicado;
+      const nuevoSaldoPendiente = resultadoSaldo.saldoPendiente;
+      const fechaVencimiento = cuentaPorPagarActual?.fechaVencimiento || compraParaAprobar.financiero?.vencimiento;
+      const estadoCuenta = calcularEstadoCuenta({
+        montoOriginal,
+        saldoPendiente: nuevoSaldoPendiente,
+        fechaVencimiento,
+      });
+
+      batch.set(
+        cuentaPorPagarRef,
+        {
+          compraId: compraParaAprobar.id,
+          compraDocumento: compraParaAprobar.comprobante.documento,
+          proveedorId: compraParaAprobar.entidadId,
+          fechaEmision: compraParaAprobar.fechaEmision,
+          moneda: compraParaAprobar.moneda,
+          montoOriginal,
+          montoPagado: nuevoMontoPagado,
+          saldoPendiente: nuevoSaldoPendiente,
+          estado: estadoCuenta,
+          cuentaContableId: compraParaAprobar.financiero.cuentaPorPagarId,
+          asientoRegistroId: compraParaAprobar.financiero.asientoRegistroId,
+          actualizadoEn: fechaOperacion,
+          creadoPor: cuentaPorPagarActual?.creadoPor || user.uid,
+          creadoEn: cuentaPorPagarActual?.creadoEn || fechaOperacion,
+          ...(fechaVencimiento ? { fechaVencimiento } : {}),
+        } satisfies Omit<CuentaPorPagar, 'id'>,
+        { merge: true }
+      );
+
+      const saldoCancelado = nuevoSaldoPendiente <= 0.005;
 
       batch.update(compraRef, {
         estado: 'cerrado',
-        'financiero.pagoAplicado': pagoAplicado,
+        'financiero.pagoAplicado': pagoAplicado ? saldoCancelado : false,
         'financiero.cuentaPagoId': pagoAplicado ? cuentaPagoAprobacionId : null,
         'financiero.asientoPagoId': asientoPagoId || null,
-        'financiero.fechaPago': pagoAplicado ? new Date().toISOString() : null,
+        'financiero.fechaPago': pagoAplicado ? fechaOperacion : null,
       });
 
       await batch.commit();
@@ -186,11 +277,14 @@ export default function ComprasPage() {
     try {
       const batch = writeBatch(firestore);
       const compraRef = doc(firestore, 'comprasNormal', compra.id);
+      const cuentaPorPagarRef = doc(firestore, 'cuentasPorPagar', compra.id);
+      const fechaAnulacion = new Date().toISOString();
       batch.update(compraRef, {
         estado: 'anulado',
         anuladoPor: user.uid,
-        anuladoEn: new Date().toISOString(),
+        anuladoEn: fechaAnulacion,
       });
+      batch.set(cuentaPorPagarRef, { estado: 'anulada', actualizadoEn: fechaAnulacion }, { merge: true });
       await batch.commit();
       toast({ title: 'Compra anulada' });
     } catch (error: any) {
@@ -254,7 +348,7 @@ export default function ComprasPage() {
                   <TableCell>{format(new Date(compra.fechaEmision as string), "dd/MM/yyyy")}</TableCell>
                   <TableCell>{compra.comprobante.documento}</TableCell>
                   <TableCell>{getProveedorNombre(compra.entidadId)}</TableCell>
-                  <TableCell className="text-right font-mono">${compra.totalFactura.toLocaleString('en-US')}</TableCell>
+                  <TableCell className="text-right font-mono">${compra.totalFactura.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                    <TableCell>{compra.moneda}</TableCell>
                   <TableCell>{compra.usuario}</TableCell>
                   <TableCell>
@@ -326,7 +420,7 @@ export default function ComprasPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total</p>
-              <p className="font-medium">{compraParaAprobar?.totalFactura?.toLocaleString('en-US')}</p>
+              <p className="font-medium">{compraParaAprobar?.totalFactura?.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Cuenta de pago contable (opcional)</label>
@@ -353,4 +447,5 @@ export default function ComprasPage() {
     </>
   );
 }
+
 

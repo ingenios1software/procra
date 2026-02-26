@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import type { Evento, Insumo } from "@/lib/types";
 import { DollarSign, Zap, Calendar, Hash } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { getEventCategoryLabel } from "./panel-evento-utils";
 
 interface PanelAnalisisEconomicoProps {
     eventos: Evento[];
@@ -23,10 +24,10 @@ export function PanelAnalisisEconomico({ eventos, insumos }: PanelAnalisisEconom
             total += costo;
             
             if(costo > eventoCaro.costo) {
-                eventoCaro = { nombre: ev.categoria || ev.tipo, costo: costo };
+                eventoCaro = { nombre: getEventCategoryLabel(ev), costo: costo };
             }
 
-            const cat = ev.categoria || 'Otros';
+            const cat = getEventCategoryLabel(ev);
             freqCat[cat] = (freqCat[cat] || 0) + 1;
         });
 

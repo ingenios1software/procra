@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ColumnDef,
   flexRender,
@@ -17,8 +17,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Parcela, Cultivo, Zafra, Evento, Insumo, Venta } from "@/lib/types";
-import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Badge } from "@/components/ui/badge";
+import { Bar, BarChart, CartesianGrid, ComposedChart, LabelList, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
 import { formatCurrency } from "@/lib/utils";
 
 interface InformeCostosParcelaProps {
@@ -44,10 +44,56 @@ interface CostoParcelaData {
     eventos: number;
 }
 
+function resolveKgFromToneladaLike(totalToneladaLike: number, superficieHa: number): number {
+  const totalAsKgFromTon = Math.max(0, totalToneladaLike) * 1000;
+  const totalAsKgDirect = Math.max(0, totalToneladaLike);
+
+  if (superficieHa <= 0) return totalAsKgFromTon;
+
+  const rendimientoAsTon = totalAsKgFromTon / superficieHa;
+  const rendimientoAsKg = totalAsKgDirect / superficieHa;
+  const rangoMinPlausible = 300; // kg/ha
+  const rangoMaxPlausible = 30000; // kg/ha
+
+  const tonPlausible = rendimientoAsTon >= rangoMinPlausible && rendimientoAsTon <= rangoMaxPlausible;
+  const kgPlausible = rendimientoAsKg >= rangoMinPlausible && rendimientoAsKg <= rangoMaxPlausible;
+
+  if (tonPlausible && !kgPlausible) return totalAsKgFromTon;
+  if (!tonPlausible && kgPlausible) return totalAsKgDirect;
+  if (tonPlausible && kgPlausible) return totalAsKgFromTon;
+
+  // Si ambos son atípicos, usar el más conservador para evitar valores absurdos.
+  return Math.min(totalAsKgFromTon, totalAsKgDirect);
+}
+
+function buildAxisDomain(values: number[]): [number, number] {
+  if (!values.length) return [0, 1];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1];
+  if (max <= 0) return [0, 1];
+
+  if (max === min) {
+    const pad = Math.max(1, max * 0.2);
+    return [Math.max(0, min - pad), max + pad];
+  }
+
+  const pad = (max - min) * 0.15;
+  return [Math.max(0, min - pad), max + pad];
+}
+
 export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insumos, ventas, isLoading }: InformeCostosParcelaProps) {
   const [selectedCultivoId, setSelectedCultivoId] = useState<string | null>(null);
   const [selectedZafraId, setSelectedZafraId] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
+
+  useEffect(() => {
+    if (!selectedCultivoId || !selectedZafraId) return;
+    const zafraSeleccionada = zafras.find((z) => z.id === selectedZafraId);
+    if (!zafraSeleccionada || zafraSeleccionada.cultivoId !== selectedCultivoId) {
+      setSelectedZafraId(null);
+    }
+  }, [selectedCultivoId, selectedZafraId, zafras]);
 
   const zafrasFiltradas = useMemo(() => {
     return selectedCultivoId
@@ -56,29 +102,98 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
   }, [selectedCultivoId, zafras]);
 
   const data = useMemo<CostoParcelaData[]>(() => {
+    const zafraIdsDelCultivo = selectedCultivoId
+      ? new Set(zafras.filter((z) => z.cultivoId === selectedCultivoId).map((z) => z.id))
+      : null;
+
+    const insumosPorId = new Map(insumos.map((insumo) => [insumo.id, insumo]));
+
+    const eventoPasaFiltro = (evento: Evento): boolean => {
+      if (selectedZafraId) return evento.zafraId === selectedZafraId;
+      if (zafraIdsDelCultivo) return zafraIdsDelCultivo.has(evento.zafraId);
+      return true;
+    };
+
+    const isEventoRendimiento = (evento: Evento): boolean => {
+      const tipo = String(evento.tipo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return tipo.includes("cosecha") || tipo.includes("rendimiento");
+    };
+
     const parcelasActivas = selectedZafraId
         ? parcelas.filter(p => eventos.some(e => e.parcelaId === p.id && e.zafraId === selectedZafraId))
         : parcelas;
 
     return parcelasActivas.map(parcela => {
-        const eventosParcela = eventos.filter(e => e.parcelaId === parcela.id && (!selectedZafraId || e.zafraId === selectedZafraId));
-        const zafra = zafras.find(z => z.id === selectedZafraId);
-        const cultivo = cultivos.find(c => c.id === zafra?.cultivoId);
-        
-        const costoTotal = eventosParcela.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
+        const eventosParcela = eventos.filter((e) => e.parcelaId === parcela.id && eventoPasaFiltro(e));
+
+        const breakdown = eventosParcela.reduce(
+          (acc, ev) => {
+            const productosDelEvento =
+              ev.productos ||
+              (ev.insumoId
+                ? [{ insumoId: ev.insumoId, cantidad: ev.cantidad || 0, dosis: ev.dosis || 0 }]
+                : []);
+
+            const costoProductosCalculado = productosDelEvento.reduce((sumaProductos, prod) => {
+              const insumo = prod?.insumoId ? insumosPorId.get(prod.insumoId) : undefined;
+              const costoUnitario = Number(insumo?.precioPromedioCalculado ?? insumo?.costoUnitario ?? 0) || 0;
+              const cantidad = Number(prod?.cantidad ?? 0) || 0;
+              const dosis = Number(prod?.dosis ?? 0) || 0;
+              const hectareas = Number(ev.hectareasAplicadas ?? 0) || 0;
+              const cantidadFinal = cantidad > 0 ? cantidad : dosis * hectareas;
+              return sumaProductos + Math.max(0, cantidadFinal * costoUnitario);
+            }, 0);
+
+            const costoServicioExpl = (Number(ev.costoServicioPorHa ?? 0) || 0) * (Number(ev.hectareasAplicadas ?? 0) || 0);
+            const costoTotalEvento = Number(ev.costoTotal || 0);
+
+            let costoProductosEvento = 0;
+            let costoServiciosEvento = 0;
+
+            if (costoTotalEvento > 0) {
+              // Priorizar el servicio explícito cargado en el evento para respetar el dato histórico.
+              if (costoServicioExpl > 0) {
+                costoServiciosEvento = Math.min(Math.max(0, costoServicioExpl), costoTotalEvento);
+                costoProductosEvento = Math.max(0, costoTotalEvento - costoServiciosEvento);
+              } else if (costoProductosCalculado > 0) {
+                costoProductosEvento = Math.min(costoProductosCalculado, costoTotalEvento);
+                costoServiciosEvento = Math.max(0, costoTotalEvento - costoProductosEvento);
+              } else {
+                costoProductosEvento = costoTotalEvento;
+                costoServiciosEvento = 0;
+              }
+            } else {
+              costoProductosEvento = Math.max(0, costoProductosCalculado);
+              costoServiciosEvento = Math.max(0, costoServicioExpl);
+            }
+
+            const costoEventoFinal = costoTotalEvento > 0 ? costoTotalEvento : costoProductosEvento + costoServiciosEvento;
+
+            acc.costoTotal += costoEventoFinal;
+            acc.costoProductos += costoProductosEvento;
+            acc.costoServicios += costoServiciosEvento;
+            return acc;
+          },
+          { costoTotal: 0, costoProductos: 0, costoServicios: 0 }
+        );
+
+        const costoTotal = breakdown.costoTotal;
+        const costoProductos = breakdown.costoProductos;
+        const costoServicios = breakdown.costoServicios;
         const costoHa = parcela.superficie > 0 ? costoTotal / parcela.superficie : 0;
 
-        const costoProductos = eventosParcela.reduce((sum, ev) => {
-            const costoServicio = (ev.costoServicioPorHa || 0) * (ev.hectareasAplicadas || 0);
-            return sum + ((ev.costoTotal || 0) - costoServicio);
-        }, 0);
+        const zafra = selectedZafraId ? zafras.find((z) => z.id === selectedZafraId) : undefined;
+        const cultivo = zafra?.cultivoId ? cultivos.find((c) => c.id === zafra.cultivoId) : undefined;
 
-        const costoServicios = eventosParcela.reduce((sum, ev) => sum + ((ev.costoServicioPorHa || 0) * (ev.hectareasAplicadas || 0)), 0);
+        const totalToneladaLikeDesdeEventos = eventosParcela
+          .filter((ev) => isEventoRendimiento(ev))
+          .reduce((sum, ev) => sum + (Number(ev.toneladas || 0) || 0), 0);
+        const totalKgDesdeEventos = resolveKgFromToneladaLike(totalToneladaLikeDesdeEventos, parcela.superficie);
 
-        const ventasParcela = ventas.filter(v => v.parcelaId === parcela.id && (!selectedZafraId || v.zafraId === selectedZafraId));
-        const totalKg = ventasParcela.reduce((sum, v) => sum + ((v.toneladas || 0) * 1000), 0);
+        const totalKg = totalKgDesdeEventos;
         const rendimiento = parcela.superficie > 0 ? totalKg / parcela.superficie : 0;
-        const costoPorTn = rendimiento > 0 ? costoHa / (rendimiento/1000) : 0;
+        const totalToneladas = totalKg / 1000;
+        const costoPorTn = totalToneladas > 0 ? costoTotal / totalToneladas : 0;
         
         return {
             parcela,
@@ -93,7 +208,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             eventos: eventosParcela.length
         }
     }).filter(item => item.costoTotal > 0);
-  }, [parcelas, cultivos, zafras, eventos, ventas, selectedZafraId]);
+  }, [parcelas, cultivos, zafras, eventos, insumos, selectedCultivoId, selectedZafraId]);
 
    const columns: ColumnDef<CostoParcelaData>[] = [
     { accessorKey: "parcela.nombre", header: "Parcela" },
@@ -115,6 +230,21 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   });
+
+  const costoHaDomain = useMemo(() => buildAxisDomain(data.map((item) => Number(item.costoHa) || 0)), [data]);
+  const rendimientoDomain = useMemo(
+    () => buildAxisDomain(data.map((item) => Number(item.rendimiento) || 0)),
+    [data]
+  );
+  const costoColor = COMPARATIVE_CHART_COLORS.costo;
+  const rendimientoColor = COMPARATIVE_CHART_COLORS.rendimiento;
+  const insumosColor = COMPARATIVE_CHART_COLORS.insumos;
+  const serviciosColor = COMPARATIVE_CHART_COLORS.servicios;
+  const formatPercent = (value: unknown): string => `${Math.round((Number(value) || 0) * 100)}%`;
+  const formatPercentLabel = (value: unknown): string => {
+    const pct = Number(value) || 0;
+    return pct >= 0.08 ? formatPercent(pct) : "";
+  };
 
   return (
     <>
@@ -179,14 +309,59 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="parcela.nombre" />
-                <YAxis yAxisId="left" orientation="left" stroke="#8884d8" label={{ value: 'Costo/ha ($)', angle: -90, position: 'insideLeft' }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" label={{ value: 'Rendimiento (kg/ha)', angle: 90, position: 'insideRight' }}/>
-                <Tooltip formatter={(value, name) => [typeof value === 'number' ? formatCurrency(value) : value, name]}/>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="parcela.nombre" tickLine={false} />
+                <YAxis
+                  yAxisId="left"
+                  orientation="left"
+                  stroke={costoColor}
+                  domain={costoHaDomain}
+                  tick={{ fill: costoColor }}
+                  tickLine={false}
+                  axisLine={{ stroke: costoColor }}
+                  tickFormatter={(value) => `$${formatCurrency(Number(value) || 0)}`}
+                  label={{ value: 'Costo/ha ($)', angle: -90, position: 'insideLeft' }}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke={rendimientoColor}
+                  domain={rendimientoDomain}
+                  tick={{ fill: rendimientoColor }}
+                  tickLine={false}
+                  axisLine={{ stroke: rendimientoColor }}
+                  tickFormatter={(value) => `${formatCurrency(Number(value) || 0)} kg/ha`}
+                  label={{ value: 'Rendimiento (kg/ha)', angle: 90, position: 'insideRight' }}
+                />
+                <Tooltip
+                  formatter={(value, name) => {
+                    const numeric = Number(value) || 0;
+                    if (name === "Costo/ha") return [`$${formatCurrency(numeric)}`, "Costo/ha"];
+                    if (name === "Rendimiento") return [`${formatCurrency(numeric)} kg/ha`, "Rendimiento"];
+                    return [formatCurrency(numeric), String(name)];
+                  }}
+                />
                 <Legend />
-                <Bar yAxisId="left" dataKey="costoHa" name="Costo/ha" fill="#8884d8" />
-                <Line yAxisId="right" type="monotone" dataKey="rendimiento" name="Rendimiento" stroke="#82ca9d" />
+                <Bar
+                  yAxisId="left"
+                  dataKey="costoHa"
+                  name="Costo/ha"
+                  fill={costoColor}
+                  fillOpacity={0.45}
+                  stroke={costoColor}
+                  strokeWidth={1}
+                  maxBarSize={56}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="rendimiento"
+                  name="Rendimiento"
+                  stroke={rendimientoColor}
+                  strokeWidth={3}
+                  dot={{ r: 4, strokeWidth: 2, stroke: rendimientoColor, fill: "hsl(var(--background))" }}
+                  activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(var(--background))", fill: rendimientoColor }}
+                />
               </ComposedChart>
             </ResponsiveContainer>
           </CardContent>
@@ -194,14 +369,70 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
         <Card>
             <CardHeader><CardTitle>Composición de Costos</CardTitle></CardHeader>
             <CardContent>
-                 <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={data} layout="vertical" stackOffset="expand">
-                        <XAxis type="number" hide domain={[0, 1]} tickFormatter={(value) => `${value * 100}%`} />
-                        <YAxis type="category" dataKey="parcela.nombre" />
-                        <Tooltip formatter={(value) => `${(Number(value) * 100).toFixed(2)}%`}/>
+                <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={data.map((item) => ({
+                        ...item,
+                        pctProductos: item.costoTotal > 0 ? item.costoProductos / item.costoTotal : 0,
+                        pctServicios: item.costoTotal > 0 ? item.costoServicios / item.costoTotal : 0,
+                      }))}
+                      layout="vertical"
+                      margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          domain={[0, 1]}
+                          ticks={[0, 0.25, 0.5, 0.75, 1]}
+                          tickFormatter={formatPercent}
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: "hsl(var(--muted-foreground))" }}
+                        />
+                        <YAxis type="category" dataKey="parcela.nombre" width={70} tickLine={false} axisLine={false} />
+                        <Tooltip
+                          formatter={(value, name, item) => {
+                            const pct = Number(value) || 0;
+                            const payload = item.payload as CostoParcelaData;
+                            const monto = name === "Insumos" ? payload.costoProductos : payload.costoServicios;
+                            return [`${(pct * 100).toFixed(2)}% ($${formatCurrency(monto)})`, String(name)];
+                          }}
+                        />
                         <Legend />
-                        <Bar dataKey="costoProductos" name="Insumos" stackId="a" fill="hsl(var(--chart-1))" />
-                        <Bar dataKey="costoServicios" name="Servicios" stackId="a" fill="hsl(var(--chart-2))" />
+                        <Bar
+                          dataKey="pctProductos"
+                          name="Insumos"
+                          stackId="a"
+                          fill={insumosColor}
+                          stroke={insumosColor}
+                          strokeWidth={1}
+                          radius={[4, 0, 0, 4]}
+                        >
+                          <LabelList
+                            dataKey="pctProductos"
+                            position="inside"
+                            formatter={formatPercentLabel}
+                            fill="hsl(var(--primary-foreground))"
+                            fontWeight={600}
+                          />
+                        </Bar>
+                        <Bar
+                          dataKey="pctServicios"
+                          name="Servicios"
+                          stackId="a"
+                          fill={serviciosColor}
+                          stroke={serviciosColor}
+                          strokeWidth={1}
+                          radius={[0, 4, 4, 0]}
+                        >
+                          <LabelList
+                            dataKey="pctServicios"
+                            position="inside"
+                            formatter={formatPercentLabel}
+                            fill="hsl(var(--accent-foreground))"
+                            fontWeight={600}
+                          />
+                        </Bar>
                     </BarChart>
                 </ResponsiveContainer>
             </CardContent>

@@ -9,6 +9,9 @@ import { collection, getDocs, writeBatch, doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import type { Insumo, CompraNormal } from "@/lib/types";
 import { Loader2, Wrench, AlertTriangle } from "lucide-react";
+import {
+    calcularPrecioPromedioDesdeCompras,
+} from "@/lib/stock/precio-promedio-lotes";
 
 export function RecalculatePrices() {
     const firestore = useFirestore();
@@ -25,7 +28,7 @@ export function RecalculatePrices() {
         toast({ title: "Iniciando recálculo...", description: "Este proceso puede tardar unos minutos." });
 
         try {
-            // 1. Obtener todos los insumos y todas las compras
+            // 1. Obtener todos los insumos y compras
             const insumosSnapshot = await getDocs(collection(firestore, "insumos"));
             const comprasSnapshot = await getDocs(collection(firestore, "comprasNormal"));
 
@@ -37,36 +40,18 @@ export function RecalculatePrices() {
 
             // 2. Iterar por cada insumo
             for (const insumo of insumos) {
-                let cantidadTotal = 0;
-                let importeTotal = 0;
+                const precioDesdeCompras = calcularPrecioPromedioDesdeCompras(insumo.id, compras);
+                const precioPromedioReal = precioDesdeCompras;
 
-                // 3. Buscar todas las compras de este insumo
-                for (const compra of compras) {
-                    if (compra.mercaderias) {
-                        for (const item of compra.mercaderias) {
-                            if (item.insumoId === insumo.id) {
-                                const cantidad = Number(item.cantidad) || 0;
-                                const valorUnitario = Number(item.valorUnitario) || 0;
-                                
-                                if (cantidad > 0 && valorUnitario > 0) {
-                                    cantidadTotal += cantidad;
-                                    importeTotal += cantidad * valorUnitario;
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // 4. Calcular y preparar la actualización
-                if (cantidadTotal > 0) {
-                    const precioPromedioReal = importeTotal / cantidadTotal;
+                // 3. Preparar actualización
+                if (precioPromedioReal !== null) {
                     const insumoRef = doc(firestore, "insumos", insumo.id);
                     batch.update(insumoRef, { precioPromedioCalculado: precioPromedioReal });
                     updatedCount++;
                 }
             }
 
-            // 5. Ejecutar la actualización en lote
+            // 4. Ejecutar la actualización en lote
             await batch.commit();
 
             toast({
@@ -92,7 +77,7 @@ export function RecalculatePrices() {
             <CardHeader>
                 <CardTitle>Mantenimiento de Datos de Insumos</CardTitle>
                 <CardDescription>
-                    Esta herramienta recalcula el precio promedio ponderado de todos los insumos basado en el historial de compras.
+                    Esta herramienta recalcula el precio promedio ponderado desde las compras registradas.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

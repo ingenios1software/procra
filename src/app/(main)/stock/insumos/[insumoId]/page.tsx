@@ -4,8 +4,8 @@
 import { useState, useMemo } from 'react';
 import { notFound } from "next/navigation";
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { doc, collection, query, where, orderBy } from 'firebase/firestore';
-import type { Insumo, MovimientoStock, Zafra, Parcela } from '@/lib/types';
+import { doc, collection, query, where } from 'firebase/firestore';
+import type { Insumo, MovimientoStock, Zafra, Parcela, CompraNormal } from '@/lib/types';
 import { type DateRange } from "react-day-picker";
 
 import { PageHeader } from "@/components/shared/page-header";
@@ -17,9 +17,58 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Package, DollarSign, BarChart2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { calcularPrecioPromedioDesdeCompras, toPositiveNumber } from "@/lib/stock/precio-promedio-lotes";
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface MovimientoConSaldo extends MovimientoStock {
   saldoAcumulado: number;
+}
+
+function getMovimientoDelta(mov: MovimientoStock): number {
+  const cantidad = Number(mov.cantidad) || 0;
+
+  if (mov.tipo === 'entrada') return cantidad;
+  if (mov.tipo === 'salida') return -cantidad;
+
+  const stockAntes = Number((mov as { stockAntes?: number }).stockAntes);
+  const stockDespues = Number((mov as { stockDespues?: number }).stockDespues);
+  if (Number.isFinite(stockAntes) && Number.isFinite(stockDespues)) {
+    return stockDespues - stockAntes;
+  }
+
+  return cantidad;
+}
+
+function toDateSafe(value: unknown): Date | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  if (value && typeof value === 'object') {
+    const maybeTimestamp = value as { toDate?: () => Date; seconds?: number };
+
+    if (typeof maybeTimestamp.toDate === 'function') {
+      const parsed = maybeTimestamp.toDate();
+      return parsed instanceof Date && !Number.isNaN(parsed.getTime()) ? parsed : null;
+    }
+
+    if (typeof maybeTimestamp.seconds === 'number') {
+      const parsed = new Date(maybeTimestamp.seconds * 1000);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+  }
+
+  return null;
+}
+
+function formatMovimientoFecha(value: unknown): string {
+  const parsed = toDateSafe(value);
+  return parsed ? format(parsed, 'dd/MM/yyyy') : 'Sin fecha';
 }
 
 function dateToInputValue(value?: Date): string {
@@ -47,28 +96,41 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
 
   const movimientosQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    let q = query(collection(firestore, 'movimientosStock'), where('insumoId', '==', params.insumoId), orderBy('fecha', 'asc'));
-    return q;
+    return query(collection(firestore, 'MovimientosStock'), where('insumoId', '==', params.insumoId));
   }, [firestore, params.insumoId]);
 
-  const { data: movimientos, isLoading: isLoadingMovimientos } = useCollection<MovimientoStock>(movimientosQuery);
+  const { data: movimientos, isLoading: isLoadingMovimientos, error: movimientosError } = useCollection<MovimientoStock>(movimientosQuery);
   const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]));
   const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]));
+  const { data: comprasNormal, isLoading: isLoadingCompras } = useCollection<CompraNormal>(
+    useMemoFirebase(() => (firestore ? query(collection(firestore, 'comprasNormal')) : null), [firestore])
+  );
   
-  const isLoading = isLoadingInsumo || isLoadingMovimientos || isLoadingZafras || isLoadingParcelas;
+  const isLoading = isLoadingInsumo || isLoadingMovimientos || isLoadingZafras || isLoadingParcelas || isLoadingCompras;
   
   // --- Data Processing & Filtering ---
-  const { movimientosFiltrados, totales } = useMemo(() => {
-    if (!movimientos) return { movimientosFiltrados: [], totales: { entradas: 0, salidas: 0 } };
+  const { movimientosFiltrados, totales, saldoHistoricoTotal } = useMemo(() => {
+    if (!movimientos) {
+      return { movimientosFiltrados: [], totales: { entradas: 0, salidas: 0 }, saldoHistoricoTotal: 0 };
+    }
 
-    const filtered = movimientos.filter(mov => {
-      const movDate = new Date(mov.fecha as any);
-      const isAfterFrom = !dateRange?.from || movDate >= dateRange.from;
-      const isBeforeTo = !dateRange?.to || movDate <= dateRange.to;
-      const zafraMatch = selectedZafra === 'all' || mov.zafraId === selectedZafra;
-      const tipoMatch = selectedTipos.includes(mov.tipo);
-      return isAfterFrom && isBeforeTo && zafraMatch && tipoMatch;
+    const movimientosOrdenados = [...movimientos].sort((a, b) => {
+      const safeATime = toDateSafe(a.fecha)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const safeBTime = toDateSafe(b.fecha)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return safeATime - safeBTime;
     });
+
+    const saldoHistoricoTotal = movimientosOrdenados.reduce((acc, mov) => acc + getMovimientoDelta(mov), 0);
+
+    const filtered = movimientosOrdenados
+      .filter(mov => {
+        const movDate = toDateSafe(mov.fecha);
+        const isAfterFrom = !dateRange?.from || (!!movDate && movDate >= dateRange.from);
+        const isBeforeTo = !dateRange?.to || (!!movDate && movDate <= dateRange.to);
+        const zafraMatch = selectedZafra === 'all' || mov.zafraId === selectedZafra;
+        const tipoMatch = selectedTipos.includes(mov.tipo);
+        return isAfterFrom && isBeforeTo && zafraMatch && tipoMatch;
+      });
 
     let saldoAcumulado = 0;
     let totalEntradas = 0;
@@ -82,13 +144,16 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
       } else if (mov.tipo === 'salida') {
         saldoAcumulado -= cantidad;
         totalSalidas += cantidad;
+      } else if (mov.tipo === 'ajuste') {
+        saldoAcumulado += getMovimientoDelta(mov);
       }
       return { ...mov, saldoAcumulado };
     });
 
     return { 
       movimientosFiltrados: conSaldo, 
-      totales: { entradas: totalEntradas, salidas: totalSalidas }
+      totales: { entradas: totalEntradas, salidas: totalSalidas },
+      saldoHistoricoTotal,
     };
   }, [movimientos, dateRange, selectedZafra, selectedTipos]);
   
@@ -104,7 +169,20 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
   if (isLoading) return <p>Cargando ficha del insumo...</p>;
   if (!insumo) return notFound();
 
-  const valorEnStock = (insumo.stockActual || 0) * (insumo.precioPromedioCalculado || 0);
+  const precioPromedioActual =
+    calcularPrecioPromedioDesdeCompras(insumo.id, comprasNormal || []) ??
+    toPositiveNumber(insumo.precioPromedioCalculado || insumo.costoUnitario || 0);
+  const valorEnStock = (insumo.stockActual || 0) * precioPromedioActual;
+  const diferenciaStockVsHistorial = (Number(insumo.stockActual) || 0) - saldoHistoricoTotal;
+  const hayDiferenciaStockVsHistorial = Math.abs(diferenciaStockVsHistorial) > 0.0001;
+  const movimientosErrorCode = (movimientosError as { code?: string } | null)?.code;
+  const movimientosErrorMessage = !movimientosError
+    ? null
+    : movimientosError instanceof FirestorePermissionError
+      ? 'No tienes permisos para leer movimientos de stock en esta base de datos.'
+      : movimientosErrorCode === 'failed-precondition'
+        ? 'No se pudo cargar el historial porque falta un índice de Firestore para esta consulta.'
+        : 'No se pudieron cargar los movimientos de stock por un error de lectura en la base de datos.';
 
   return (
     <>
@@ -130,14 +208,14 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
               <DollarSign className="h-5 w-5 text-muted-foreground" />
               <div>
                   <p className="text-xs text-muted-foreground">Precio Promedio</p>
-                  <p className="text-lg font-bold">${insumo.precioPromedioCalculado.toLocaleString('de-DE', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-bold">${precioPromedioActual.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
           </div>
           <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border">
               <BarChart2 className="h-5 w-5 text-muted-foreground" />
               <div>
                   <p className="text-xs text-muted-foreground">Valor en Stock</p>
-                  <p className="text-lg font-bold">${valorEnStock.toLocaleString('de-DE', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-bold">${valorEnStock.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
           </div>
         </CardContent>
@@ -197,6 +275,19 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
       <Card>
         <CardHeader>
             <CardTitle>Historial de Movimientos</CardTitle>
+            <CardDescription>
+              El saldo mostrado corresponde a los movimientos visibles segun los filtros aplicados.
+            </CardDescription>
+            {!movimientosErrorMessage && hayDiferenciaStockVsHistorial && (
+              <CardDescription className="text-amber-700">
+                Diferencia detectada vs stock actual: {diferenciaStockVsHistorial > 0 ? '+' : ''}{diferenciaStockVsHistorial.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} {insumo.unidad}. Esto suele ocurrir por saldo inicial/importacion o ajustes sin trazabilidad completa.
+              </CardDescription>
+            )}
+            {movimientosErrorMessage && (
+              <CardDescription className="text-destructive">
+                {movimientosErrorMessage}
+              </CardDescription>
+            )}
         </CardHeader>
         <CardContent>
             <Table>
@@ -210,13 +301,13 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
                         <TableHead className="text-right">Salida</TableHead>
                         <TableHead className="text-right">Precio</TableHead>
                         <TableHead className="text-right">Subtotal</TableHead>
-                        <TableHead className="text-right">Saldo</TableHead>
+                        <TableHead className="text-right">Saldo filtrado ({insumo.unidad})</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {movimientosFiltrados.map(mov => (
                         <TableRow key={mov.id}>
-                            <TableCell>{format(new Date(mov.fecha as any), 'dd/MM/yyyy')}</TableCell>
+                            <TableCell>{formatMovimientoFecha(mov.fecha)}</TableCell>
                             <TableCell className='capitalize'>{mov.tipo}</TableCell>
                             <TableCell>
                                 <div className="flex flex-col">
@@ -232,19 +323,19 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
                             </TableCell>
                             <TableCell className="text-right font-mono text-green-600">{mov.tipo === 'entrada' ? mov.cantidad.toLocaleString('de-DE') : '-'}</TableCell>
                             <TableCell className="text-right font-mono text-red-600">{mov.tipo === 'salida' ? mov.cantidad.toLocaleString('de-DE') : '-'}</TableCell>
-                            <TableCell className="text-right font-mono">${(mov.precioUnitario || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}</TableCell>
-                            <TableCell className="text-right font-mono">${(mov.costoTotal || 0).toLocaleString('de-DE', {minimumFractionDigits: 2})}</TableCell>
-                            <TableCell className="text-right font-mono font-bold">${(mov.saldoAcumulado || 0).toLocaleString('de-DE')}</TableCell>
+                            <TableCell className="text-right font-mono">${(mov.precioUnitario || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                            <TableCell className="text-right font-mono">${(mov.costoTotal || 0).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                            <TableCell className="text-right font-mono font-bold">{(mov.saldoAcumulado || 0).toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
                 <TableFooter>
                     <TableRow className="font-bold text-base">
-                        <TableCell colSpan={4}>Totales del Período</TableCell>
+                        <TableCell colSpan={4}>Totales del Periodo (segun filtros)</TableCell>
                         <TableCell className="text-right font-mono text-green-600">{totales.entradas.toLocaleString('de-DE')}</TableCell>
                         <TableCell className="text-right font-mono text-red-600">{totales.salidas.toLocaleString('de-DE')}</TableCell>
                         <TableCell colSpan={2}></TableCell>
-                        <TableCell className="text-right font-mono">${(movimientosFiltrados[movimientosFiltrados.length - 1]?.saldoAcumulado || 0).toLocaleString('de-DE')}</TableCell>
+                        <TableCell className="text-right font-mono">{(movimientosFiltrados[movimientosFiltrados.length - 1]?.saldoAcumulado || 0).toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}</TableCell>
                     </TableRow>
                 </TableFooter>
             </Table>
@@ -253,5 +344,7 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
     </>
   );
 }
+
+
 
 
