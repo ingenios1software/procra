@@ -3,7 +3,17 @@
 import { useMemo, useState } from "react";
 import { format, getMonth, getYear } from "date-fns";
 import { addDoc, collection, doc, writeBatch } from "firebase/firestore";
-import { ChevronDown, ChevronRight, MoreHorizontal, PlusCircle, Printer, Upload } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FileSpreadsheet,
+  FileText,
+  MessageCircle,
+  MoreHorizontal,
+  PlusCircle,
+  Printer,
+  Upload,
+} from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +59,7 @@ import {
   type BiometricInterval,
 } from "@/lib/import/control-horario-biometrico-importer";
 import { ControlHorarioForm } from "./control-horario-form";
+import { ControlHorarioDashboard } from "./control-horario-dashboard";
 import {
   BiometricImportModal,
   type BiometricImportPayload,
@@ -73,6 +84,21 @@ type RegistroSlots = {
   amSalida: string;
   pmEntrada: string;
   pmSalida: string;
+};
+
+type ExportRegistroRow = {
+  local: string;
+  empleado: string;
+  fecha: string;
+  parcela: string;
+  tipoTrabajo: string;
+  amEntrada: string;
+  amSalida: string;
+  pmEntrada: string;
+  pmSalida: string;
+  horas: number;
+  precioHora: number;
+  total: number;
 };
 
 function parseRegistroDate(value: string): Date | null {
@@ -140,6 +166,20 @@ function formatMoney(amount: number): string {
   })}`;
 }
 
+function getSafeFileName(input: string): string {
+  return (
+    input
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "control-horario"
+  );
+}
+
+function openWhatsApp(text: string): void {
+  const encoded = encodeURIComponent(text);
+  window.open(`https://wa.me/?text=${encoded}`, "_blank", "noopener,noreferrer");
+}
+
 function dateKeyToIso(dateKey: string): string {
   const date = new Date(`${dateKey}T00:00:00`);
   return date.toISOString();
@@ -151,6 +191,11 @@ function getIntervalKey(interval: BiometricInterval): string {
 
 function normalizeLookup(value: string): string {
   return normalizeEmployeeName(value);
+}
+
+async function waitForNextPaint(): Promise<void> {
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 function getPrintableListadoHtml(target: HTMLElement, title: string): string {
@@ -168,13 +213,18 @@ function getPrintableListadoHtml(target: HTMLElement, title: string): string {
     ${headStyles}
     <style>
       @page { size: A4 landscape; margin: 10mm; }
-      body { margin: 0; background: #fff; color: #111; font-family: "Segoe UI", Arial, sans-serif; }
+      html, body { margin: 0; background: #fff; color: #111; font-family: "Segoe UI", Arial, sans-serif; }
+      .print-area, #pdf-area { position: static !important; margin: 0 !important; width: auto !important; }
       .print-root, .print-root * { box-shadow: none !important; }
       .print-root [class*="overflow-"] { overflow: visible !important; }
+      .print-root [class*="max-h-"], .print-root [class*="h-\\["] { max-height: none !important; height: auto !important; }
       .print-root table { width: 100%; border-collapse: collapse; font-size: 12px; }
       .print-root th, .print-root td { border-bottom: 1px solid #d4d4d4; padding: 6px 8px; text-align: left; }
       .print-root thead th { background: #f1f5f9; font-weight: 700; }
       .print-root tfoot td { background: #e2e8f0; font-weight: 700; }
+      .print-root thead { display: table-header-group; }
+      .print-root tfoot { display: table-footer-group; }
+      .print-root tr, .print-root td, .print-root th { page-break-inside: avoid; break-inside: avoid; }
       .print-root .no-print { display: none !important; }
     </style>
   </head>
@@ -364,6 +414,39 @@ export function ControlHorarioList({
       { totalRegistros: 0, totalMinutes: 0, totalPagar: 0 }
     );
   }, [groupedRegistros]);
+
+  const exportRows = useMemo<ExportRegistroRow[]>(() => {
+    const parcelaById = new Map(parcelas.map((parcela) => [parcela.id, parcela.nombre]));
+    const depositoById = new Map(depositos.map((deposito) => [deposito.id, deposito.nombre]));
+
+    return groupedRegistros.flatMap((group) =>
+      group.registros.map((registro) => {
+        const slots = getRegistroSlots(registro);
+        const parcelaNombre = slots.parcelaId ? parcelaById.get(slots.parcelaId) || "N/A" : "N/A";
+        const depositoNombre = registro.depositoId ? depositoById.get(registro.depositoId) : undefined;
+        const localLabel = depositoNombre || registro.local?.trim() || parcelaNombre;
+        const tipoTrabajo = slots.tipoTrabajo || "N/A";
+        const totalMinutes = getRegistroMinutes(registro);
+        const precioHora = getRegistroPrecioHora(registro);
+        const total = (totalMinutes / 60) * precioHora;
+
+        return {
+          local: localLabel,
+          empleado: group.nombre,
+          fecha: formatFecha(registro.fecha),
+          parcela: parcelaNombre,
+          tipoTrabajo,
+          amEntrada: slots.amEntrada || "-",
+          amSalida: slots.amSalida || "-",
+          pmEntrada: slots.pmEntrada || "-",
+          pmSalida: slots.pmSalida || "-",
+          horas: Number((totalMinutes / 60).toFixed(2)),
+          precioHora,
+          total: Math.round(total),
+        };
+      })
+    );
+  }, [depositos, groupedRegistros, parcelas]);
 
   const allGroupsExpanded =
     groupedRegistros.length > 0 &&
@@ -773,7 +856,192 @@ export function ControlHorarioList({
     setCollapsedGroupRows(new Set(groupedRegistros.map((group) => group.empleadoId)));
   };
 
-  const handlePrintListado = () => {
+  const expandGroupsForSnapshot = async () => {
+    if (collapsedGroupRows.size === 0) return;
+    setCollapsedGroupRows(new Set());
+    await waitForNextPaint();
+  };
+
+  const handleExportExcel = async () => {
+    if (exportRows.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No hay datos para exportar",
+        description: "Ajuste el rango de fechas y vuelva a intentar.",
+      });
+      return;
+    }
+
+    try {
+      const XLSX = await import("xlsx");
+      const fileBase = getSafeFileName(
+        `control-horario_${format(rangeStart, "yyyy-MM-dd")}_${format(rangeEnd, "yyyy-MM-dd")}`
+      );
+      const resumen = [
+        ["Control Horario Diario", ""],
+        ["Periodo", `${format(rangeStart, "dd/MM/yyyy")} al ${format(rangeEnd, "dd/MM/yyyy")}`],
+        ["Registros", periodTotals.totalRegistros],
+        ["Horas de trabajo", formatHours(periodTotals.totalMinutes)],
+        ["Total a pagar", formatMoney(periodTotals.totalPagar)],
+      ];
+      const detalle = exportRows.map((row, index) => ({
+        NRO: index + 1,
+        LOCAL: row.local,
+        "NOMBRE Y APELLIDO": row.empleado,
+        FECHA: row.fecha,
+        PARCELA: row.parcela,
+        "TIPO DE TRABAJO": row.tipoTrabajo,
+        "AM ENT.": row.amEntrada,
+        "AM SAL.": row.amSalida,
+        "PM ENT.": row.pmEntrada,
+        "PM SAL.": row.pmSalida,
+        HORAS: row.horas,
+        "PRECIO HORA (GS)": row.precioHora,
+        "TOTAL (GS)": row.total,
+      }));
+
+      const resumenSheet = XLSX.utils.aoa_to_sheet(resumen);
+      resumenSheet["!cols"] = [{ wch: 24 }, { wch: 42 }];
+
+      const detalleSheet = XLSX.utils.json_to_sheet(detalle);
+      detalleSheet["!cols"] = [
+        { wch: 6 },
+        { wch: 20 },
+        { wch: 28 },
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 26 },
+        { wch: 9 },
+        { wch: 9 },
+        { wch: 9 },
+        { wch: 9 },
+        { wch: 9 },
+        { wch: 16 },
+        { wch: 16 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, resumenSheet, "Resumen");
+      XLSX.utils.book_append_sheet(workbook, detalleSheet, "Detalle");
+      XLSX.writeFile(workbook, `${fileBase}.xlsx`);
+
+      toast({
+        title: "Excel generado",
+        description: `Se exportaron ${exportRows.length} filas.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo exportar a Excel.";
+      toast({
+        variant: "destructive",
+        title: "Error de exportacion",
+        description: message,
+      });
+    }
+  };
+
+  const handleExportPdf = async () => {
+    await expandGroupsForSnapshot();
+    const target = document.getElementById("control-horario-listado-print");
+    if (!target) {
+      toast({
+        variant: "destructive",
+        title: "No se encontro el listado",
+        description: "No se pudo preparar el PDF.",
+      });
+      return;
+    }
+
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+
+      const canvas = await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        windowWidth: Math.max(target.scrollWidth, target.clientWidth),
+        windowHeight: Math.max(target.scrollHeight, target.clientHeight),
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("l", "mm", "a4");
+      const margin = 8;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const usableWidth = pageWidth - margin * 2;
+      const usableHeight = pageHeight - margin * 2;
+      const imgHeight = (canvas.height * usableWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = margin;
+
+      pdf.addImage(imgData, "PNG", margin, position, usableWidth, imgHeight);
+      heightLeft -= usableHeight;
+
+      while (heightLeft > 0) {
+        position = margin - (imgHeight - heightLeft);
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, position, usableWidth, imgHeight);
+        heightLeft -= usableHeight;
+      }
+
+      const fileBase = getSafeFileName(
+        `control-horario_${format(rangeStart, "yyyy-MM-dd")}_${format(rangeEnd, "yyyy-MM-dd")}`
+      );
+      pdf.save(`${fileBase}.pdf`);
+
+      toast({
+        title: "PDF generado",
+        description: "El archivo se descargo correctamente.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo exportar a PDF.";
+      toast({
+        variant: "destructive",
+        title: "Error de exportacion",
+        description: message,
+      });
+    }
+  };
+
+  const handleShareWhatsApp = () => {
+    const maxRows = 12;
+    const rowsForMessage = exportRows.slice(0, maxRows);
+    const messageLines = [
+      "*Control Horario Diario*",
+      `Periodo: ${format(rangeStart, "dd/MM/yyyy")} al ${format(rangeEnd, "dd/MM/yyyy")}`,
+      `Registros: ${periodTotals.totalRegistros}`,
+      `Horas: ${formatHours(periodTotals.totalMinutes)} h`,
+      `Total: ${formatMoney(periodTotals.totalPagar)}`,
+      "",
+    ];
+
+    if (rowsForMessage.length > 0) {
+      messageLines.push("Detalle (primeros registros):");
+      rowsForMessage.forEach((row, index) => {
+        messageLines.push(
+          `${index + 1}. ${row.fecha} | ${row.empleado} | ${row.horas.toLocaleString("es-PY", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })} h | ${formatMoney(row.total)}`
+        );
+      });
+      if (exportRows.length > rowsForMessage.length) {
+        messageLines.push(`... y ${exportRows.length - rowsForMessage.length} registros mas.`);
+      }
+      messageLines.push("");
+    } else {
+      messageLines.push("Sin registros en el rango seleccionado.", "");
+    }
+
+    messageLines.push(`URL: ${window.location.href}`);
+    openWhatsApp(messageLines.join("\n"));
+  };
+
+  const handlePrintListado = async () => {
+    await expandGroupsForSnapshot();
     const target = document.getElementById("control-horario-listado-print");
     if (!target) {
       window.print();
@@ -789,17 +1057,27 @@ export function ControlHorarioList({
     popup.document.open();
     popup.document.write(getPrintableListadoHtml(target, "Listado de Control Horario"));
     popup.document.close();
-    popup.focus();
     let printed = false;
     const triggerPrint = () => {
       if (printed) return;
       printed = true;
+      popup.focus();
       popup.print();
-      popup.close();
+      window.setTimeout(() => popup.close(), 250);
     };
-    popup.addEventListener("load", triggerPrint);
-    window.setTimeout(triggerPrint, 350);
+    popup.addEventListener("load", () => {
+      const fontSet = popup.document.fonts;
+      if (fontSet?.ready) {
+        void fontSet.ready.then(triggerPrint).catch(triggerPrint);
+      } else {
+        window.setTimeout(triggerPrint, 120);
+      }
+    });
+    window.setTimeout(triggerPrint, 1000);
   };
+
+  const tableHeadClass =
+    "whitespace-nowrap bg-muted/70 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground";
 
   return (
     <>
@@ -821,14 +1099,16 @@ export function ControlHorarioList({
         )}
       </PageHeader>
 
-      <Card className="mb-6">
-        <CardHeader>
+      <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card shadow-sm">
+        <CardHeader className="pb-3">
           <CardTitle>Periodo de consulta</CardTitle>
-          <CardDescription>Filtre registros e informe por rango de fechas.</CardDescription>
+          <CardDescription>Seleccione el rango para listar, imprimir y exportar.</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row gap-4">
-          <div className="w-full sm:w-[220px]">
-            <label className="text-xs text-muted-foreground block mb-2">Desde</label>
+        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-[220px_220px_minmax(0,1fr)]">
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Desde
+            </label>
             <Input
               type="date"
               value={dateToInputValue(rangeFrom)}
@@ -838,8 +1118,10 @@ export function ControlHorarioList({
               }}
             />
           </div>
-          <div className="w-full sm:w-[220px]">
-            <label className="text-xs text-muted-foreground block mb-2">Hasta</label>
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Hasta
+            </label>
             <Input
               type="date"
               value={dateToInputValue(rangeTo)}
@@ -849,6 +1131,15 @@ export function ControlHorarioList({
               }}
             />
           </div>
+          <div className="rounded-xl border border-primary/15 bg-background/80 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Resumen rapido</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {periodTotals.totalRegistros} registros en el periodo seleccionado
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {format(rangeStart, "dd/MM/yyyy")} al {format(rangeEnd, "dd/MM/yyyy")}
+            </p>
+          </div>
         </CardContent>
         {invalidDateRange && (
           <div className="px-6 pb-4 text-sm text-destructive">
@@ -857,9 +1148,20 @@ export function ControlHorarioList({
         )}
       </Card>
 
-      <Card className="mb-6">
+      <ControlHorarioDashboard
+        registros={filteredRegistros}
+        empleados={empleados}
+        parcelas={parcelas}
+        depositos={depositos}
+        rangeStart={rangeStart}
+        rangeEnd={rangeEnd}
+        isLoading={isLoading}
+        invalidDateRange={invalidDateRange}
+      />
+
+      <Card className="mb-6 border-border/70 shadow-sm">
         <CardHeader className="gap-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <CardTitle>Listado de Registros</CardTitle>
               <CardDescription>
@@ -874,53 +1176,77 @@ export function ControlHorarioList({
                 onClick={allGroupsExpanded ? handleCollapseAllGroups : handleExpandAllGroups}
                 disabled={groupedRegistros.length === 0}
               >
-                {allGroupsExpanded ? <ChevronDown className="mr-2 h-4 w-4" /> : <ChevronRight className="mr-2 h-4 w-4" />}
+                {allGroupsExpanded ? (
+                  <ChevronDown className="mr-2 h-4 w-4" />
+                ) : (
+                  <ChevronRight className="mr-2 h-4 w-4" />
+                )}
                 {allGroupsExpanded ? "Contraer todo" : "Expandir todo"}
+              </Button>
+              <Button type="button" variant="outline" onClick={handleExportExcel}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Excel
+              </Button>
+              <Button type="button" variant="outline" onClick={handleExportPdf}>
+                <FileText className="mr-2 h-4 w-4" />
+                PDF
               </Button>
               <Button type="button" variant="outline" onClick={handlePrintListado}>
                 <Printer className="mr-2 h-4 w-4" />
-                Imprimir listado
+                Imprimir
+              </Button>
+              <Button type="button" variant="outline" onClick={handleShareWhatsApp}>
+                <MessageCircle className="mr-2 h-4 w-4" />
+                WhatsApp
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div id="control-horario-listado-print" className="space-y-3">
-            <div className="rounded-md border bg-muted/30 p-3 text-sm">
-              <p>
-                <span className="font-semibold">Periodo:</span> {format(rangeStart, "dd/MM/yyyy")} al{" "}
-                {format(rangeEnd, "dd/MM/yyyy")}
-              </p>
-              <p>
-                <span className="font-semibold">Total de horas:</span> {formatHours(periodTotals.totalMinutes)} h
-              </p>
-              <p>
-                <span className="font-semibold">Valor total a pagar:</span> {formatMoney(periodTotals.totalPagar)}
-              </p>
+        <CardContent className="space-y-4">
+          <div id="control-horario-listado-print" className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 to-background p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Periodo</p>
+                <p className="mt-2 text-sm font-semibold text-foreground">
+                  {format(rangeStart, "dd/MM/yyyy")} al {format(rangeEnd, "dd/MM/yyyy")}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Total de horas
+                </p>
+                <p className="mt-2 text-lg font-semibold text-foreground">
+                  {formatHours(periodTotals.totalMinutes)} h
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total a pagar</p>
+                <p className="mt-2 text-lg font-semibold text-foreground">{formatMoney(periodTotals.totalPagar)}</p>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto rounded-xl border border-border/70 bg-background">
+              <Table className="min-w-[1280px] text-xs md:text-sm">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>LOCAL</TableHead>
-                    <TableHead>NOMBRE Y APELLIDO</TableHead>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>PARCELA</TableHead>
-                    <TableHead>TIPO DE TRABAJO</TableHead>
-                    <TableHead>AM Ent.</TableHead>
-                    <TableHead>AM Sal.</TableHead>
-                    <TableHead>PM Ent.</TableHead>
-                    <TableHead>PM Sal.</TableHead>
-                    <TableHead>Horas de Trabajo</TableHead>
-                    <TableHead>PRECIO POR HORAS</TableHead>
-                    <TableHead>Total por Horas</TableHead>
-                    {user && <TableHead className="text-right no-print">Acciones</TableHead>}
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className={tableHeadClass}>LOCAL</TableHead>
+                    <TableHead className={tableHeadClass}>NOMBRE Y APELLIDO</TableHead>
+                    <TableHead className={tableHeadClass}>Fecha</TableHead>
+                    <TableHead className={tableHeadClass}>PARCELA</TableHead>
+                    <TableHead className={tableHeadClass}>TIPO DE TRABAJO</TableHead>
+                    <TableHead className={tableHeadClass}>AM Ent.</TableHead>
+                    <TableHead className={tableHeadClass}>AM Sal.</TableHead>
+                    <TableHead className={tableHeadClass}>PM Ent.</TableHead>
+                    <TableHead className={tableHeadClass}>PM Sal.</TableHead>
+                    <TableHead className={tableHeadClass}>Horas de Trabajo</TableHead>
+                    <TableHead className={tableHeadClass}>PRECIO POR HORAS</TableHead>
+                    <TableHead className={tableHeadClass}>Total por Horas</TableHead>
+                    {user && <TableHead className={`${tableHeadClass} text-right no-print`}>Acciones</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading && (
                     <TableRow>
-                      <TableCell colSpan={totalColumns} className="text-center">
+                      <TableCell colSpan={totalColumns} className="py-8 text-center">
                         Cargando...
                       </TableCell>
                     </TableRow>
@@ -928,7 +1254,7 @@ export function ControlHorarioList({
 
                   {!isLoading && groupedRegistros.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={totalColumns} className="text-center h-24">
+                      <TableCell colSpan={totalColumns} className="h-24 text-center">
                         {invalidDateRange
                           ? "Rango de fechas invalido."
                           : "No hay registros de control horario en este periodo."}
@@ -940,13 +1266,13 @@ export function ControlHorarioList({
                     groupedRegistros.flatMap((group) => {
                       const isExpanded = !collapsedGroupRows.has(group.empleadoId);
                       const groupHeader = (
-                        <TableRow key={`group-${group.empleadoId}`} className="bg-muted/40">
+                        <TableRow key={`group-${group.empleadoId}`} className="bg-primary/10 hover:bg-primary/10">
                           <TableCell colSpan={9} className="font-semibold">
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="mr-2 h-7 px-2"
+                              className="mr-2 h-7 rounded-md border border-primary/25 bg-background/70 px-2"
                               onClick={() => toggleGroupRow(group.empleadoId)}
                             >
                               {isExpanded ? (
@@ -957,16 +1283,14 @@ export function ControlHorarioList({
                               {group.nombre} ({group.registros.length} registros)
                             </Button>
                           </TableCell>
-                          <TableCell className="font-semibold text-right">{formatHours(group.totalMinutes)}</TableCell>
-                          <TableCell className="font-semibold text-right">Subtotal</TableCell>
-                          <TableCell className="font-semibold text-right">{formatMoney(group.totalPagar)}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatHours(group.totalMinutes)}</TableCell>
+                          <TableCell className="text-right font-semibold">Subtotal</TableCell>
+                          <TableCell className="text-right font-semibold">{formatMoney(group.totalPagar)}</TableCell>
                           {user && <TableCell className="no-print" />}
                         </TableRow>
                       );
 
-                      if (!isExpanded) {
-                        return [groupHeader];
-                      }
+                      if (!isExpanded) return [groupHeader];
 
                       const rows = group.registros.map((registro) => {
                         const precioHora = getRegistroPrecioHora(registro);
@@ -979,16 +1303,16 @@ export function ControlHorarioList({
                         const tipoTrabajo = slots.tipoTrabajo || "N/A";
 
                         return (
-                          <TableRow key={registro.id}>
+                          <TableRow key={registro.id} className="odd:bg-muted/10 hover:bg-accent/20">
                             <TableCell className="font-medium">{localLabel}</TableCell>
                             <TableCell>{getEmpleadoNombre(registro.empleadoId)}</TableCell>
                             <TableCell>{formatFecha(registro.fecha)}</TableCell>
                             <TableCell>{parcelaNombre}</TableCell>
                             <TableCell>{tipoTrabajo}</TableCell>
-                            <TableCell>{slots.amEntrada || "-"}</TableCell>
-                            <TableCell>{slots.amSalida || "-"}</TableCell>
-                            <TableCell>{slots.pmEntrada || "-"}</TableCell>
-                            <TableCell>{slots.pmSalida || "-"}</TableCell>
+                            <TableCell className="font-mono">{slots.amEntrada || "-"}</TableCell>
+                            <TableCell className="font-mono">{slots.amSalida || "-"}</TableCell>
+                            <TableCell className="font-mono">{slots.pmEntrada || "-"}</TableCell>
+                            <TableCell className="font-mono">{slots.pmSalida || "-"}</TableCell>
                             <TableCell>{formatHours(totalMinutes)}</TableCell>
                             <TableCell>{formatMoney(precioHora)}</TableCell>
                             <TableCell className="font-semibold">{formatMoney(totalJornada)}</TableCell>
@@ -1046,8 +1370,8 @@ export function ControlHorarioList({
                 </TableBody>
                 {!isLoading && groupedRegistros.length > 0 && (
                   <tfoot>
-                    <tr className="border-t bg-muted/50">
-                      <td className="p-4 font-semibold text-right" colSpan={9}>
+                    <tr className="border-t bg-muted/45">
+                      <td className="p-4 text-right font-semibold" colSpan={9}>
                         Total general ({periodTotals.totalRegistros} registros)
                       </td>
                       <td className="p-4 text-right font-semibold">{formatHours(periodTotals.totalMinutes)}</td>
