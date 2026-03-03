@@ -567,10 +567,20 @@ export type Asistencia = {
   observaciones?: string;
 };
 
+export type TipoTrabajo = {
+  id: string;
+  nombre: string;
+  activo?: boolean;
+};
+
 export type ControlHorario = {
     id: string;
     empleadoId: string;
     fecha: string;
+    depositoId?: string;
+    local?: string;
+    tipoTrabajo?: string;
+    precioHoraGs?: number;
     actividades: {
         parcelaId: string;
         horaInicio: string;
