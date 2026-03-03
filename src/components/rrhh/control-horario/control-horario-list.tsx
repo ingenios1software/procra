@@ -1041,19 +1041,7 @@ export function ControlHorarioList({
                         );
                       });
 
-                      const subtotalRow = (
-                        <TableRow key={`subtotal-${group.empleadoId}`} className="bg-muted/20">
-                          <TableCell colSpan={9} className="text-right font-medium">
-                            Total {group.nombre}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">{formatHours(group.totalMinutes)}</TableCell>
-                          <TableCell className="text-right font-semibold">Subtotal</TableCell>
-                          <TableCell className="text-right font-semibold">{formatMoney(group.totalPagar)}</TableCell>
-                          {user && <TableCell className="no-print" />}
-                        </TableRow>
-                      );
-
-                      return [groupHeader, ...rows, subtotalRow];
+                      return [groupHeader, ...rows];
                     })}
                 </TableBody>
                 {!isLoading && groupedRegistros.length > 0 && (
