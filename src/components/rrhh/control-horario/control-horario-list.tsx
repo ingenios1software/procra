@@ -179,7 +179,7 @@ function getPrintableListadoHtml(target: HTMLElement, title: string): string {
     </style>
   </head>
   <body>
-    <div class="print-root">${target.outerHTML}</div>
+    <div id="pdf-area" class="print-area print-root">${target.outerHTML}</div>
   </body>
 </html>`;
 }
