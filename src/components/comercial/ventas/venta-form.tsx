@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -268,7 +268,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
       .filter((item) => item.faltante > 0);
   }, []);
 
-  const handleSubmit = async (data: VentaFormValues, forceTotalizadora = false) => {
+  const submitVenta = async (data: VentaFormValues, forceTotalizadora = false) => {
     if (!firestore || !user) {
       toast({ variant: "destructive", title: "Error de autenticacion." });
       return;
@@ -512,13 +512,17 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     }
   };
 
+  const handleFormSubmit: SubmitHandler<VentaFormValues> = async (data) => {
+    await submitVenta(data);
+  };
+
   const handleConfirmTotalizadora = async () => {
     if (!pendingSubmitData) return;
     const data = pendingSubmitData;
     setPendingSubmitData(null);
     setIsStockConfirmOpen(false);
     setStockShortages([]);
-    await handleSubmit(data, true);
+    await submitVenta(data, true);
   };
 
   const handleCancelTotalizadora = () => {
@@ -535,7 +539,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 p-1">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 p-1">
         {isEditingExisting && (
           <div className="rounded-md border border-amber-400/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Edicion administrativa: no se modifican movimientos de stock ni asientos contables.
