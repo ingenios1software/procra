@@ -278,6 +278,7 @@ export function ControlHorarioList({
   const [isImportOpen, setImportOpen] = useState(false);
   const [selectedRegistro, setSelectedRegistro] = useState<ControlHorario | null>(null);
   const [collapsedGroupRows, setCollapsedGroupRows] = useState<Set<string>>(new Set());
+  const [showDashboard, setShowDashboard] = useState(false);
 
   const totalColumns = user ? 13 : 12;
 
@@ -1148,17 +1149,6 @@ export function ControlHorarioList({
         )}
       </Card>
 
-      <ControlHorarioDashboard
-        registros={filteredRegistros}
-        empleados={empleados}
-        parcelas={parcelas}
-        depositos={depositos}
-        rangeStart={rangeStart}
-        rangeEnd={rangeEnd}
-        isLoading={isLoading}
-        invalidDateRange={invalidDateRange}
-      />
-
       <Card className="mb-6 border-border/70 shadow-sm">
         <CardHeader className="gap-4">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -1182,6 +1172,9 @@ export function ControlHorarioList({
                   <ChevronRight className="mr-2 h-4 w-4" />
                 )}
                 {allGroupsExpanded ? "Contraer todo" : "Expandir todo"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowDashboard((prev) => !prev)}>
+                {showDashboard ? "Ocultar dashboard" : "Mostrar dashboard"}
               </Button>
               <Button type="button" variant="outline" onClick={handleExportExcel}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
@@ -1386,6 +1379,19 @@ export function ControlHorarioList({
           </div>
         </CardContent>
       </Card>
+
+      {showDashboard && (
+        <ControlHorarioDashboard
+          registros={filteredRegistros}
+          empleados={empleados}
+          parcelas={parcelas}
+          depositos={depositos}
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          isLoading={isLoading}
+          invalidDateRange={invalidDateRange}
+        />
+      )}
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-[980px]">
