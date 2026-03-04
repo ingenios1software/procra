@@ -112,7 +112,11 @@ export type Evento = {
   costoPorHa?: number;
   hectareasAplicadas?: number;
   costoServicioPorHa?: number;
+  costoServicioTotal?: number;
   cuentaContableId?: string | null;
+  asientoCosechaServicioId?: string | null;
+  stockProcesadoEn?: Date | string;
+  stockProcesadoPor?: string;
 
 
   // Campos de rendimiento y cosecha
@@ -563,6 +567,28 @@ export type PagoCuentaPorPagar = {
   creadoEn?: Date | string | FieldValue;
 };
 
+export type TipoOperacionTesoreria = "ingreso" | "egreso" | "traspaso";
+export type MedioMovimientoTesoreria = "transferencia" | "cheque" | "efectivo";
+
+export type MovimientoTesoreria = {
+  id: string;
+  fecha: Date | string;
+  tipoOperacion: TipoOperacionTesoreria;
+  medio: MedioMovimientoTesoreria;
+  moneda: "USD" | "PYG";
+  monto: number;
+  descripcion: string;
+  referencia?: string;
+  cuentaOrigenCajaBancoId?: string;
+  cuentaOrigenContableId?: string;
+  cuentaDestinoCajaBancoId?: string;
+  cuentaDestinoContableId?: string;
+  cuentaContrapartidaId?: string;
+  asientoId?: string;
+  creadoPor?: string;
+  creadoEn?: Date | string | FieldValue;
+};
+
 
 export type Plaga = {
   id: string;
@@ -626,6 +652,44 @@ export type ControlHorario = {
         horaFin: string;
         descripcion: string;
     }[];
+};
+
+export type PagoNominaHoras = {
+  id: string;
+  empleadoId: string;
+  periodoAnio: number;
+  periodoMes: number; // 1-12
+  fechaPago: Date | string;
+  moneda: "PYG";
+  horasLiquidadas: number;
+  monto: number;
+  cuentaGastoId: string;
+  cuentaCajaBancoId: string;
+  cuentaCajaContableId: string;
+  asientoId?: string;
+  movimientoTesoreriaId?: string;
+  reciboId?: string;
+  observacion?: string;
+  pagadoPor?: string;
+  creadoEn?: Date | string | FieldValue;
+};
+
+export type ReciboPagoEmpleado = {
+  id: string;
+  numero: string;
+  pagoNominaId: string;
+  empleadoId: string;
+  periodoAnio: number;
+  periodoMes: number; // 1-12
+  fecha: Date | string;
+  moneda: "PYG";
+  horasLiquidadas: number;
+  monto: number;
+  estado: "emitido" | "anulado";
+  cuentaCajaBancoId: string;
+  emitidoPor?: string;
+  observacion?: string;
+  creadoEn?: Date | string | FieldValue;
 };
 
 

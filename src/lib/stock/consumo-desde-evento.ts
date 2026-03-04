@@ -1,14 +1,17 @@
 import { collection, doc, getDoc, getDocs, query, where, writeBatch, Firestore } from "firebase/firestore";
 import type {
+  AsientoDiario,
   Cultivo,
   Evento,
   Insumo,
   MovimientoStock,
   Parcela,
+  PlanDeCuenta,
   RendimientoAgricola,
   StockGrano,
   Zafra,
 } from "@/lib/types";
+import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 import {
   CATEGORIA_GRANO,
   buildGranoInsumoCodigo,
@@ -25,6 +28,14 @@ function esEventoConIngresoDeGrano(tipo: Evento["tipo"]): boolean {
 
 function normalizarTipoEvento(tipo: Evento["tipo"] | string | undefined): string {
   return (tipo || "")
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizarTexto(value: unknown): string {
+  return String(value || "")
     .toLowerCase()
     .trim()
     .normalize("NFD")
@@ -69,6 +80,10 @@ function buildRendimientoDocId(zafraId: string, cultivoId: string, parcelaId: st
   return `${zafraId}__${cultivoId}__${parcelaId}`;
 }
 
+function buildEventoDocumento(evento: Evento & { id: string }): string {
+  return evento.numeroLanzamiento ? `EV-${evento.numeroLanzamiento}` : evento.id;
+}
+
 export async function procesarConsumoDeStockDesdeEvento(
   evento: Evento & { id: string },
   db: Firestore,
@@ -87,21 +102,32 @@ export async function procesarConsumoDeStockDesdeEvento(
     return { success: true, errors: [] };
   }
 
+  const eventoRef = doc(db, "eventos", evento.id);
   const batch = writeBatch(db);
   const parcelaRef = doc(db, "parcelas", evento.parcelaId);
   const cultivoRef = doc(db, "cultivos", evento.cultivoId);
   const zafraRef = doc(db, "zafras", evento.zafraId);
 
   try {
-    const [parcelaDoc, cultivoDoc, zafraDoc] = await Promise.all([
+    const [eventoDoc, parcelaDoc, cultivoDoc, zafraDoc] = await Promise.all([
+      getDoc(eventoRef),
       getDoc(parcelaRef),
       getDoc(cultivoRef),
       getDoc(zafraRef),
     ]);
 
+    const eventoPersistido = eventoDoc.exists() ? (eventoDoc.data() as Evento) : null;
+    if (eventoPersistido?.stockProcesadoEn) {
+      return { success: true, errors: [] };
+    }
+
     const parcela = parcelaDoc.data() as Parcela | undefined;
     const cultivo = cultivoDoc.data() as Cultivo | undefined;
     const zafra = zafraDoc.data() as Zafra | undefined;
+    const eventoUpdates: Record<string, unknown> = {
+      stockProcesadoEn: new Date().toISOString(),
+      stockProcesadoPor: userId,
+    };
 
     if (debeProcesarConsumo) {
       for (const producto of productos) {
@@ -153,6 +179,7 @@ export async function procesarConsumoDeStockDesdeEvento(
     }
 
     if (debeProcesarCosecha) {
+      const documentoEvento = buildEventoDocumento(evento);
       const insumoGranoRef = doc(db, "insumos", buildGranoInsumoId(evento.cultivoId));
       const insumoGranoDoc = await getDoc(insumoGranoRef);
 
@@ -213,7 +240,7 @@ export async function procesarConsumoDeStockDesdeEvento(
         tipo: "entrada",
         origen: "evento",
         eventoId: evento.id,
-        documentoOrigen: evento.numeroLanzamiento ? `EV-${evento.numeroLanzamiento}` : undefined,
+        documentoOrigen: documentoEvento,
         parcelaId: evento.parcelaId,
         parcelaNombre: parcela?.nombre || null,
         zafraId: evento.zafraId,
@@ -278,16 +305,9 @@ export async function procesarConsumoDeStockDesdeEvento(
         hectareasPlantadasContexto > 0 ? toneladasCosechadas / hectareasPlantadasContexto : 0;
       const rendimientoKgHaEvento = rendimientoTonHaEvento * 1000;
 
-      const eventoRef = doc(db, "eventos", evento.id);
-      batch.set(
-        eventoRef,
-        {
-          hectareasRendimiento: hectareasPlantadasContexto,
-          rendimientoTonHa: rendimientoTonHaEvento,
-          rendimientoKgHa: rendimientoKgHaEvento,
-        },
-        { merge: true }
-      );
+      eventoUpdates.hectareasRendimiento = hectareasPlantadasContexto;
+      eventoUpdates.rendimientoTonHa = rendimientoTonHaEvento;
+      eventoUpdates.rendimientoKgHa = rendimientoKgHaEvento;
 
       const rendimientoRef = doc(
         db,
@@ -326,8 +346,62 @@ export async function procesarConsumoDeStockDesdeEvento(
         actualizadoPor: userId,
       };
       batch.set(rendimientoRef, resumenRendimiento, { merge: true });
+
+      const costoServicioTotal = toPositiveNumber(evento.costoServicioTotal)
+        || (toPositiveNumber(evento.hectareasAplicadas) * toPositiveNumber(evento.costoServicioPorHa));
+
+      if (costoServicioTotal > 0) {
+        eventoUpdates.costoServicioTotal = costoServicioTotal;
+
+        const planCuentasSnap = await getDocs(collection(db, "planDeCuentas"));
+        const planDeCuentas: PlanDeCuenta[] = planCuentasSnap.docs.map((item) => ({
+          ...(item.data() as Omit<PlanDeCuenta, "id">),
+          id: item.id,
+        }));
+
+        const cuentaGastoId =
+          evento.cuentaContableId
+          || findPlanCuentaByCodigo(planDeCuentas, CODIGOS_CUENTAS_BASE.GASTOS_EVENTOS)?.id
+          || planDeCuentas.find((cuenta) => cuenta.tipo === "gasto")?.id;
+        const cuentaServicioCosechaId =
+          findPlanCuentaByCodigo(planDeCuentas, CODIGOS_CUENTAS_BASE.OBLIGACIONES_SERVICIO_COSECHA)?.id
+          || planDeCuentas.find((cuenta) => {
+            const texto = normalizarTexto(`${cuenta.codigo} ${cuenta.nombre}`);
+            const esPasivoAcreedor = cuenta.tipo === "pasivo" && cuenta.naturaleza === "acreedora";
+            const refiereServicioCosecha = texto.includes("servicio") && texto.includes("cosecha");
+            const refiereObligacion = texto.includes("obligac") || texto.includes("pagar") || texto.includes("proveedor");
+            return esPasivoAcreedor && refiereServicioCosecha && refiereObligacion;
+          })?.id
+          || findPlanCuentaByCodigo(planDeCuentas, CODIGOS_CUENTAS_BASE.PROVEEDORES)?.id
+          || planDeCuentas.find((cuenta) => cuenta.tipo === "pasivo" && cuenta.naturaleza === "acreedora")?.id;
+
+        if (cuentaServicioCosechaId === findPlanCuentaByCodigo(planDeCuentas, CODIGOS_CUENTAS_BASE.PROVEEDORES)?.id) {
+          errors.push(
+            `Se uso cuenta de Proveedores como contrapartida de servicio de cosecha (${documentoEvento}). Configure una cuenta especifica si desea separarlo.`
+          );
+        }
+
+        if (cuentaServicioCosechaId && cuentaGastoId) {
+          const asientoServicioRef = doc(collection(db, "asientosDiario"));
+          const asientoServicio: Omit<AsientoDiario, "id"> = {
+            fecha: new Date(evento.fecha as string).toISOString(),
+            descripcion: `Costo servicio cosecha ${documentoEvento} - ${cultivo?.nombre || "Cultivo"}`,
+            movimientos: [
+              { cuentaId: cuentaGastoId, tipo: "debe", monto: costoServicioTotal },
+              { cuentaId: cuentaServicioCosechaId, tipo: "haber", monto: costoServicioTotal },
+            ],
+          };
+          batch.set(asientoServicioRef, asientoServicio);
+          eventoUpdates.asientoCosechaServicioId = asientoServicioRef.id;
+        } else {
+          errors.push(
+            `No se genero el asiento del servicio de cosecha (${documentoEvento}) por falta de cuentas contables base.`
+          );
+        }
+      }
     }
 
+    batch.set(eventoRef, eventoUpdates, { merge: true });
     await batch.commit();
   } catch (e: any) {
     console.error("Error al procesar stock desde evento: ", e);

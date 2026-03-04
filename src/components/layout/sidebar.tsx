@@ -39,6 +39,7 @@ import {
   Building,
   BookOpenCheck,
   Clock3,
+  ArrowLeftRight,
 } from "lucide-react"
 import {
   Accordion,
@@ -136,6 +137,7 @@ const navItems: NavSection[] = [
       { href: "/finanzas/dashboard", icon: PieChart, label: "Dashboard" },
       { href: "/finanzas/cuentas-cobrar", icon: Wallet, label: "Ctas por Cobrar" },
       { href: "/finanzas/cuentas-pagar", icon: Wallet, label: "Ctas por Pagar" },
+      { href: "/finanzas/tesoreria", icon: ArrowLeftRight, label: "Tesoreria" },
       { href: "/finanzas/costos", icon: TrendingDown, label: "Costos" },
       { href: "/finanzas/rentabilidad", icon: LineChart, label: "Rentabilidad" },
     ],
@@ -168,6 +170,8 @@ const navItems: NavSection[] = [
     permission: "maestros",
     links: [
       { href: "/maestros/depositos", icon: Warehouse, label: "Depósitos" },
+      { href: "/maestros/monedas", icon: Wallet, label: "Monedas" },
+      { href: "/maestros/cuentas-caja-banco", icon: Landmark, label: "Ctas Caja/Banco" },
     ],
   },
   {

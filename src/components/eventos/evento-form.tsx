@@ -73,6 +73,7 @@ const formSchema = z.object({
   const toneladas = Number(data.toneladas) || 0;
   const hectareasCosechadas = Number(data.hectareasAplicadas) || 0;
   const costoServicioPorHa = Number(data.costoServicioPorHa) || 0;
+  const precioTonelada = Number(data.precioTonelada) || 0;
 
   if (esCosecha && hectareasCosechadas <= 0) {
     ctx.addIssue({
@@ -95,6 +96,14 @@ const formSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["toneladas"],
       message: "Ingrese las toneladas cosechadas.",
+    });
+  }
+
+  if (esCosecha && precioTonelada <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["precioTonelada"],
+      message: "Ingrese el precio referencial por tonelada para valorizar la cosecha.",
     });
   }
 });
@@ -475,6 +484,8 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         ? toneladasCosechadas / hectareasBaseRendimiento
         : 0;
     const rendimientoKgHa = rendimientoTonHa * 1000;
+    const costoServicioTotalEvento =
+      (Number(data.hectareasAplicadas) || 0) * (Number(data.costoServicioPorHa) || 0);
 
     const productosFinal = data.productos?.map(p => {
         const consumoCalculado = (p.dosis || 0) * (data.hectareasAplicadas || 0);
@@ -492,6 +503,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       fotos: data.fotos || [],
       costoTotal: totalEvento,
       costoPorHa: costoPorHa,
+      costoServicioTotal: costoServicioTotalEvento > 0 ? costoServicioTotalEvento : undefined,
       productos: productosFinal,
       hectareasRendimiento: tipoNormalizado === "cosecha" ? hectareasBaseRendimiento : undefined,
       rendimientoTonHa: tipoNormalizado === "cosecha" ? rendimientoTonHa : undefined,

@@ -158,10 +158,18 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
           };
           
           const { success, errors } = await procesarConsumoDeStockDesdeEvento(eventoGuardado, firestore, user.uid);
-          if (!success) {
+          const tipoNormalizado = (eventoGuardado.tipo || "").toString().toLowerCase();
+          const esCosecha = tipoNormalizado === "cosecha" || tipoNormalizado === "rendimiento";
+
+          if (success && esCosecha) {
+            toast({
+              title: "Cosecha procesada",
+              description: "Se actualizo stock de granos, rendimiento por parcela y valorizacion del servicio.",
+            });
+          } else if (!success) {
             toast({
               variant: "destructive",
-              title: "Error en el consumo de stock",
+              title: "Evento creado con advertencias",
               description: errors.join('. '),
             });
           }

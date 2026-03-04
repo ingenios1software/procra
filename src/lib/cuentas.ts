@@ -87,6 +87,18 @@ export function generarNumeroReciboCobro(date = new Date(), token?: string): str
   return `${base}-${token.toUpperCase()}`;
 }
 
+export function generarNumeroReciboPagoEmpleado(date = new Date(), token?: string): string {
+  const yyyy = `${date.getFullYear()}`;
+  const mm = `${date.getMonth() + 1}`.padStart(2, "0");
+  const dd = `${date.getDate()}`.padStart(2, "0");
+  const hh = `${date.getHours()}`.padStart(2, "0");
+  const min = `${date.getMinutes()}`.padStart(2, "0");
+  const ss = `${date.getSeconds()}`.padStart(2, "0");
+  const base = `RPE-${yyyy}${mm}${dd}-${hh}${min}${ss}`;
+  if (!token) return base;
+  return `${base}-${token.toUpperCase()}`;
+}
+
 export function calcularAntiguedadSaldos(
   cuentas: Array<{
     saldoPendiente?: number;
