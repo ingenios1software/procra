@@ -58,6 +58,7 @@ import {
   normalizeEmployeeName,
   type BiometricInterval,
 } from "@/lib/import/control-horario-biometrico-importer";
+import { defaultReportBranding, type ReportBranding } from "@/lib/report-branding";
 import { ControlHorarioForm } from "./control-horario-form";
 import { ControlHorarioDashboard } from "./control-horario-dashboard";
 import {
@@ -193,15 +194,117 @@ function normalizeLookup(value: string): string {
   return normalizeEmployeeName(value);
 }
 
-async function waitForNextPaint(): Promise<void> {
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-function getPrintableListadoHtml(target: HTMLElement, title: string): string {
-  const headStyles = Array.from(document.querySelectorAll("link[rel='stylesheet'], style"))
-    .map((node) => node.outerHTML)
-    .join("\n");
+function getPrintableListadoHtml(params: {
+  title: string;
+  periodLabel: string;
+  totalRegistros: number;
+  totalHoursLabel: string;
+  totalPagarLabel: string;
+  rows: ExportRegistroRow[];
+  branding: ReportBranding;
+}): string {
+  const { title, periodLabel, totalRegistros, totalHoursLabel, totalPagarLabel, rows, branding } = params;
+  const generatedAt = new Date().toLocaleString("es-PY", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+  const safeTitle = escapeHtml(title);
+  const safePeriod = escapeHtml(periodLabel);
+  const safeTotalHours = escapeHtml(totalHoursLabel);
+  const safeTotalPagar = escapeHtml(totalPagarLabel);
+  const safeGeneratedAt = escapeHtml(generatedAt);
+  const safeCompanyName = escapeHtml(branding.companyName);
+  const safeLegalName = branding.legalName ? escapeHtml(branding.legalName) : "";
+  const safeRuc = branding.ruc ? escapeHtml(branding.ruc) : "";
+  const safeAddress = branding.address ? escapeHtml(branding.address) : "";
+  const safeContact = branding.contact ? escapeHtml(branding.contact) : "";
+  const safePreparedBy = escapeHtml(branding.preparedBy || "Responsable");
+  const safeApprovedBy = escapeHtml(branding.approvedBy || "Aprobado por");
+  const safeLogoSrc = branding.logoSrc ? escapeHtml(branding.logoSrc) : "";
+  const safeLogoFallbacks = (branding.logoFallbackSrcList || [])
+    .map((item) => escapeHtml(item))
+    .join(",");
+  const employeeGroups = new Map<
+    string,
+    { empleado: string; registros: number; horas: number; total: number; rows: ExportRegistroRow[] }
+  >();
+
+  rows.forEach((row) => {
+    const empleadoLabel = row.empleado?.trim() || "N/A";
+    const key = normalizeLookup(empleadoLabel) || "n-a";
+    const current = employeeGroups.get(key);
+    if (!current) {
+      employeeGroups.set(key, {
+        empleado: empleadoLabel,
+        registros: 1,
+        horas: row.horas,
+        total: row.total,
+        rows: [row],
+      });
+      return;
+    }
+
+    current.registros += 1;
+    current.horas += row.horas;
+    current.total += row.total;
+    current.rows.push(row);
+    if (current.empleado === "N/A" && empleadoLabel !== "N/A") {
+      current.empleado = empleadoLabel;
+    }
+  });
+  let rowNumber = 0;
+  const bodyRows =
+    rows.length === 0
+      ? `<tr><td colspan="13" class="empty">Sin registros para el periodo seleccionado.</td></tr>`
+      : Array.from(employeeGroups.values())
+          .map((group) => {
+            const detailRows = group.rows
+              .map((row) => {
+                rowNumber += 1;
+                return `
+                  <tr>
+                    <td>${rowNumber}</td>
+                    <td>${escapeHtml(row.local)}</td>
+                    <td>${escapeHtml(row.empleado)}</td>
+                    <td>${escapeHtml(row.fecha)}</td>
+                    <td>${escapeHtml(row.parcela)}</td>
+                    <td>${escapeHtml(row.tipoTrabajo)}</td>
+                    <td>${escapeHtml(row.amEntrada)}</td>
+                    <td>${escapeHtml(row.amSalida)}</td>
+                    <td>${escapeHtml(row.pmEntrada)}</td>
+                    <td>${escapeHtml(row.pmSalida)}</td>
+                    <td class="num">${row.horas.toLocaleString("es-PY", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}</td>
+                    <td class="num">${escapeHtml(formatMoney(row.precioHora))}</td>
+                    <td class="num">${escapeHtml(formatMoney(row.total))}</td>
+                  </tr>`;
+              })
+              .join("\n");
+
+            return `
+              ${detailRows}
+              <tr class="employee-subtotal">
+                <td colspan="10"><strong>${escapeHtml(group.empleado)}</strong> (${group.registros} registros)</td>
+                <td class="num">${group.horas.toLocaleString("es-PY", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}</td>
+                <td class="num">Subtotal</td>
+                <td class="num">${escapeHtml(formatMoney(Math.round(group.total)))}</td>
+              </tr>`;
+          })
+          .join("\n");
 
   return `
 <!doctype html>
@@ -209,27 +312,192 @@ function getPrintableListadoHtml(target: HTMLElement, title: string): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${title}</title>
-    ${headStyles}
+    <title>${safeTitle}</title>
     <style>
       @page { size: A4 landscape; margin: 10mm; }
-      html, body { margin: 0; background: #fff; color: #111; font-family: "Segoe UI", Arial, sans-serif; }
-      .print-area, #pdf-area { position: static !important; margin: 0 !important; width: auto !important; }
-      .print-root, .print-root * { box-shadow: none !important; }
-      .print-root [class*="overflow-"] { overflow: visible !important; }
-      .print-root [class*="max-h-"], .print-root [class*="h-\\["] { max-height: none !important; height: auto !important; }
-      .print-root table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      .print-root th, .print-root td { border-bottom: 1px solid #d4d4d4; padding: 6px 8px; text-align: left; }
-      .print-root thead th { background: #f1f5f9; font-weight: 700; }
-      .print-root tfoot td { background: #e2e8f0; font-weight: 700; }
-      .print-root thead { display: table-header-group; }
-      .print-root tfoot { display: table-footer-group; }
-      .print-root tr, .print-root td, .print-root th { page-break-inside: avoid; break-inside: avoid; }
-      .print-root .no-print { display: none !important; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: #fff; color: #111827; font-family: "Segoe UI", Arial, sans-serif; }
+      .report-sheet {
+        width: 100%;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 14px;
+        background: #fff;
+      }
+      .report-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 10px;
+        margin-bottom: 12px;
+      }
+      .report-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .brand-logo {
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 4px;
+        background: #fff;
+      }
+      .brand-name { margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; }
+      .brand-line { margin: 2px 0 0; font-size: 10.5px; color: #475569; }
+      .report-title { margin: 0; font-size: 20px; font-weight: 700; color: #0f172a; }
+      .report-period { margin: 4px 0 0; font-size: 12px; color: #374151; }
+      .report-meta { text-align: right; font-size: 11px; color: #4b5563; }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .summary-item {
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 8px 10px;
+      }
+      .summary-label { margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: #64748b; }
+      .summary-value { margin: 4px 0 0; font-size: 14px; font-weight: 700; color: #0f172a; }
+      .section-title {
+        margin: 0 0 8px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+        color: #334155;
+      }
+      table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      th, td { border: 1px solid #d1d5db; padding: 6px; text-align: left; vertical-align: top; }
+      th { background: #f1f5f9; font-weight: 700; color: #0f172a; }
+      td.num, th.num { text-align: right; white-space: nowrap; }
+      .employee-subtotal td { background: #f8fafc; font-weight: 700; }
+      tfoot td { background: #eef2f7; font-weight: 700; }
+      td.empty { text-align: center; color: #6b7280; padding: 18px 8px; }
+      tbody tr:nth-child(even) { background: #fafafa; }
+      thead { display: table-header-group; }
+      tfoot { display: table-footer-group; }
+      tr, td, th { page-break-inside: avoid; break-inside: avoid; }
+      .report-footer {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .signature-box {
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 8px 10px;
+        min-height: 62px;
+      }
+      .signature-line {
+        display: block;
+        border-bottom: 1px solid #94a3b8;
+        margin-top: 26px;
+      }
+      .signature-label { margin: 6px 0 0; font-size: 10.5px; color: #475569; }
+      .signature-name { margin: 2px 0 0; font-size: 11.5px; font-weight: 700; color: #0f172a; }
     </style>
   </head>
   <body>
-    <div id="pdf-area" class="print-area print-root">${target.outerHTML}</div>
+    <main id="report-sheet" class="report-sheet">
+      <header class="report-header">
+        <div>
+          <div class="report-brand">
+            ${
+              safeLogoSrc
+                ? `<img
+                    src="${safeLogoSrc}"
+                    alt="Logo"
+                    class="brand-logo"
+                    data-fallbacks="${safeLogoFallbacks}"
+                    data-fallback-index="0"
+                    onerror="(function(img){var list=(img.getAttribute('data-fallbacks')||'').split(',').filter(Boolean);var idx=Number(img.getAttribute('data-fallback-index')||'0');if(idx<list.length){img.src=list[idx];img.setAttribute('data-fallback-index', String(idx+1));return;}img.style.display='none';})(this);"
+                  />`
+                : ""
+            }
+            <div>
+              <p class="brand-name">${safeCompanyName}</p>
+              ${safeLegalName ? `<p class="brand-line">${safeLegalName}</p>` : ""}
+              ${safeRuc ? `<p class="brand-line">${safeRuc}</p>` : ""}
+              ${safeAddress ? `<p class="brand-line">${safeAddress}</p>` : ""}
+              ${safeContact ? `<p class="brand-line">${safeContact}</p>` : ""}
+            </div>
+          </div>
+          <h1 class="report-title">${safeTitle}</h1>
+          <p class="report-period">Periodo: ${safePeriod}</p>
+        </div>
+        <div class="report-meta">
+          <div><strong>Documento:</strong> Control Horario</div>
+          <div><strong>Generado:</strong> ${safeGeneratedAt}</div>
+        </div>
+      </header>
+      <section class="summary-grid">
+        <article class="summary-item">
+          <p class="summary-label">Registros</p>
+          <p class="summary-value">${totalRegistros}</p>
+        </article>
+        <article class="summary-item">
+          <p class="summary-label">Horas Totales</p>
+          <p class="summary-value">${safeTotalHours}</p>
+        </article>
+        <article class="summary-item">
+          <p class="summary-label">Total a Pagar</p>
+          <p class="summary-value">${safeTotalPagar}</p>
+        </article>
+      </section>
+      <section>
+        <h2 class="section-title">Detalle de Registros</h2>
+        <table>
+          <thead>
+            <tr>
+              <th class="num">#</th>
+              <th>LOCAL</th>
+              <th>NOMBRE Y APELLIDO</th>
+              <th>Fecha</th>
+              <th>PARCELA</th>
+              <th>TIPO DE TRABAJO</th>
+              <th>AM Ent.</th>
+              <th>AM Sal.</th>
+              <th>PM Ent.</th>
+              <th>PM Sal.</th>
+              <th class="num">Horas</th>
+              <th class="num">Precio Hora</th>
+              <th class="num">Total Horas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="10" class="num">Total general (${totalRegistros} registros)</td>
+              <td class="num">${safeTotalHours}</td>
+              <td class="num">Total</td>
+              <td class="num">${safeTotalPagar}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </section>
+      <footer class="report-footer">
+        <section class="signature-box">
+          <span class="signature-line"></span>
+          <p class="signature-label">Elaborado por</p>
+          <p class="signature-name">${safePreparedBy}</p>
+        </section>
+        <section class="signature-box">
+          <span class="signature-line"></span>
+          <p class="signature-label">Aprobado por</p>
+          <p class="signature-name">${safeApprovedBy}</p>
+        </section>
+      </footer>
+    </main>
   </body>
 </html>`;
 }
@@ -857,10 +1125,166 @@ export function ControlHorarioList({
     setCollapsedGroupRows(new Set(groupedRegistros.map((group) => group.empleadoId)));
   };
 
-  const expandGroupsForSnapshot = async () => {
-    if (collapsedGroupRows.size === 0) return;
-    setCollapsedGroupRows(new Set());
-    await waitForNextPaint();
+  const buildListadoReportHtml = () =>
+    getPrintableListadoHtml({
+      title: "Listado de Control Horario",
+      periodLabel: `${format(rangeStart, "dd/MM/yyyy")} al ${format(rangeEnd, "dd/MM/yyyy")}`,
+      totalRegistros: periodTotals.totalRegistros,
+      totalHoursLabel: `${formatHours(periodTotals.totalMinutes)} h`,
+      totalPagarLabel: formatMoney(periodTotals.totalPagar),
+      rows: exportRows,
+      branding: defaultReportBranding,
+    });
+
+  const getReportFileBase = () =>
+    getSafeFileName(
+      `control-horario_${format(rangeStart, "yyyy-MM-dd")}_${format(rangeEnd, "yyyy-MM-dd")}`
+    );
+
+  const waitForDocumentAssets = async (doc: Document): Promise<void> => {
+    const images = Array.from(doc.images);
+    await Promise.all(
+      images.map(async (image) => {
+        const maxAttempts = 6;
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          if (image.complete && image.naturalWidth > 0) return;
+
+          await new Promise<void>((resolve) => {
+            const done = () => resolve();
+            image.addEventListener("load", done, { once: true });
+            image.addEventListener("error", done, { once: true });
+            window.setTimeout(done, 600);
+          });
+
+          if (image.complete && image.naturalWidth > 0) return;
+        }
+      })
+    );
+  };
+
+  const printHtmlInIframe = async (html: string): Promise<void> => {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "0";
+    iframe.style.width = "1400px";
+    iframe.style.height = "900px";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    iframe.setAttribute("aria-hidden", "true");
+    document.body.appendChild(iframe);
+
+    try {
+      iframe.srcdoc = html;
+      await new Promise<void>((resolve) => {
+        iframe.onload = () => resolve();
+      });
+
+      const frameDocument = iframe.contentDocument;
+      if (frameDocument?.fonts?.ready) {
+        await frameDocument.fonts.ready.catch(() => undefined);
+      }
+      if (frameDocument) {
+        await waitForDocumentAssets(frameDocument);
+      }
+
+      const frameWindow = iframe.contentWindow;
+      if (!frameWindow) throw new Error("No se pudo abrir el documento de impresion.");
+      await new Promise<void>((resolve) => {
+        frameWindow.requestAnimationFrame(() => resolve());
+      });
+      frameWindow.focus();
+      frameWindow.print();
+
+      await new Promise<void>((resolve) => {
+        const done = () => resolve();
+        frameWindow.addEventListener("afterprint", done, { once: true });
+        window.setTimeout(done, 2500);
+      });
+    } finally {
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    }
+  };
+
+  const printHtmlInNewWindow = async (html: string): Promise<void> => {
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1280,height=900");
+    if (!printWindow) {
+      throw new Error("El navegador bloqueo la ventana de impresion.");
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    await new Promise<void>((resolve) => {
+      const done = () => resolve();
+      if (printWindow.document.readyState === "complete") {
+        done();
+        return;
+      }
+      printWindow.addEventListener("load", done, { once: true });
+      window.setTimeout(done, 700);
+    });
+
+    if (printWindow.document.fonts?.ready) {
+      await printWindow.document.fonts.ready.catch(() => undefined);
+    }
+    await waitForDocumentAssets(printWindow.document);
+
+    printWindow.focus();
+    printWindow.print();
+
+    await new Promise<void>((resolve) => {
+      const done = () => resolve();
+      printWindow.addEventListener("afterprint", done, { once: true });
+      window.setTimeout(done, 2500);
+    });
+
+    printWindow.close();
+  };
+
+  const renderReportCanvas = async (html: string): Promise<HTMLCanvasElement> => {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "0";
+    iframe.style.width = "1400px";
+    iframe.style.height = "1px";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    iframe.setAttribute("aria-hidden", "true");
+    document.body.appendChild(iframe);
+
+    try {
+      iframe.srcdoc = html;
+      await new Promise<void>((resolve) => {
+        iframe.onload = () => resolve();
+      });
+
+      const frameDocument = iframe.contentDocument;
+      if (!frameDocument) {
+        throw new Error("No se pudo preparar el documento para exportar.");
+      }
+      if (frameDocument.fonts?.ready) {
+        await frameDocument.fonts.ready.catch(() => undefined);
+      }
+      await waitForDocumentAssets(frameDocument);
+
+      const target = frameDocument.getElementById("report-sheet") as HTMLElement | null;
+      if (!target) throw new Error("No se pudo renderizar el contenido del reporte.");
+
+      const { default: html2canvas } = await import("html2canvas");
+      return await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        windowWidth: Math.max(target.scrollWidth, target.clientWidth),
+        windowHeight: Math.max(target.scrollHeight, target.clientHeight),
+      });
+    } finally {
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    }
   };
 
   const handleExportExcel = async () => {
@@ -941,30 +1365,10 @@ export function ControlHorarioList({
   };
 
   const handleExportPdf = async () => {
-    await expandGroupsForSnapshot();
-    const target = document.getElementById("control-horario-listado-print");
-    if (!target) {
-      toast({
-        variant: "destructive",
-        title: "No se encontro el listado",
-        description: "No se pudo preparar el PDF.",
-      });
-      return;
-    }
-
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-
-      const canvas = await html2canvas(target, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        windowWidth: Math.max(target.scrollWidth, target.clientWidth),
-        windowHeight: Math.max(target.scrollHeight, target.clientHeight),
-      });
+      const [{ default: jsPDF }] = await Promise.all([import("jspdf")]);
+      const reportHtml = buildListadoReportHtml();
+      const canvas = await renderReportCanvas(reportHtml);
 
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("l", "mm", "a4");
@@ -988,10 +1392,7 @@ export function ControlHorarioList({
         heightLeft -= usableHeight;
       }
 
-      const fileBase = getSafeFileName(
-        `control-horario_${format(rangeStart, "yyyy-MM-dd")}_${format(rangeEnd, "yyyy-MM-dd")}`
-      );
-      pdf.save(`${fileBase}.pdf`);
+      pdf.save(`${getReportFileBase()}.pdf`);
 
       toast({
         title: "PDF generado",
@@ -1007,9 +1408,8 @@ export function ControlHorarioList({
     }
   };
 
-  const handleShareWhatsApp = () => {
-    const maxRows = 12;
-    const rowsForMessage = exportRows.slice(0, maxRows);
+  const handleShareWhatsApp = async () => {
+    const reportHtml = buildListadoReportHtml();
     const messageLines = [
       "*Control Horario Diario*",
       `Periodo: ${format(rangeStart, "dd/MM/yyyy")} al ${format(rangeEnd, "dd/MM/yyyy")}`,
@@ -1017,64 +1417,71 @@ export function ControlHorarioList({
       `Horas: ${formatHours(periodTotals.totalMinutes)} h`,
       `Total: ${formatMoney(periodTotals.totalPagar)}`,
       "",
+      "Reporte formal generado en imagen.",
+      `URL: ${window.location.href}`,
     ];
+    const fallbackText = messageLines.join("\n");
 
-    if (rowsForMessage.length > 0) {
-      messageLines.push("Detalle (primeros registros):");
-      rowsForMessage.forEach((row, index) => {
-        messageLines.push(
-          `${index + 1}. ${row.fecha} | ${row.empleado} | ${row.horas.toLocaleString("es-PY", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })} h | ${formatMoney(row.total)}`
-        );
-      });
-      if (exportRows.length > rowsForMessage.length) {
-        messageLines.push(`... y ${exportRows.length - rowsForMessage.length} registros mas.`);
+    try {
+      const canvas = await renderReportCanvas(reportHtml);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!blob) {
+        openWhatsApp(fallbackText);
+        return;
       }
-      messageLines.push("");
-    } else {
-      messageLines.push("Sin registros en el rango seleccionado.", "");
-    }
 
-    messageLines.push(`URL: ${window.location.href}`);
-    openWhatsApp(messageLines.join("\n"));
+      const fileName = `${getReportFileBase()}.png`;
+      const file = new File([blob], fileName, { type: "image/png" });
+      const canShareFiles =
+        typeof navigator !== "undefined" &&
+        "share" in navigator &&
+        "canShare" in navigator &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] });
+
+      if (canShareFiles && typeof navigator.share === "function") {
+        await navigator.share({
+          files: [file],
+          title: "Control Horario Diario",
+          text: fallbackText,
+        });
+        return;
+      }
+
+      const blobUrl = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = blobUrl;
+      downloadLink.download = fileName;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(blobUrl);
+
+      openWhatsApp(`${fallbackText}\nImagen descargada. Adjuntala en WhatsApp.`);
+    } catch (error) {
+      console.error("No se pudo generar la imagen para WhatsApp:", error);
+      openWhatsApp(fallbackText);
+    }
   };
 
   const handlePrintListado = async () => {
-    await expandGroupsForSnapshot();
-    const target = document.getElementById("control-horario-listado-print");
-    if (!target) {
-      window.print();
-      return;
-    }
+    const reportHtml = buildListadoReportHtml();
 
-    const popup = window.open("", "_blank", "noopener,noreferrer,width=1200,height=900");
-    if (!popup) {
-      window.print();
-      return;
-    }
-
-    popup.document.open();
-    popup.document.write(getPrintableListadoHtml(target, "Listado de Control Horario"));
-    popup.document.close();
-    let printed = false;
-    const triggerPrint = () => {
-      if (printed) return;
-      printed = true;
-      popup.focus();
-      popup.print();
-      window.setTimeout(() => popup.close(), 250);
-    };
-    popup.addEventListener("load", () => {
-      const fontSet = popup.document.fonts;
-      if (fontSet?.ready) {
-        void fontSet.ready.then(triggerPrint).catch(triggerPrint);
-      } else {
-        window.setTimeout(triggerPrint, 120);
+    try {
+      await printHtmlInIframe(reportHtml);
+    } catch (error) {
+      console.error("No se pudo imprimir el reporte:", error);
+      try {
+        await printHtmlInNewWindow(reportHtml);
+      } catch (fallbackError) {
+        console.error("No se pudo imprimir con ventana auxiliar:", fallbackError);
+        toast({
+          variant: "destructive",
+          title: "No se pudo imprimir",
+          description: "Verifique permisos de ventanas emergentes e intente nuevamente.",
+        });
       }
-    });
-    window.setTimeout(triggerPrint, 1000);
+    }
   };
 
   const tableHeadClass =

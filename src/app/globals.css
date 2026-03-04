@@ -90,29 +90,45 @@
 }
 
 @media print {
+  @page {
+    margin: 12mm;
+  }
+  html, body {
+    background: #fff !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   body * {
     visibility: hidden;
   }
   .print-area, .print-area * {
-    visibility: visible;
+    visibility: visible !important;
   }
   #pdf-area, #pdf-area * {
-    visibility: visible;
+    visibility: visible !important;
   }
   .print-area, #pdf-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 10mm;
-    background: white;
-    color: black;
+    position: static !important;
+    width: auto !important;
+    margin: 0 !important;
+    background: #fff !important;
+    color: #111 !important;
   }
   .print-area .recharts-wrapper, #pdf-area .recharts-wrapper {
     width: 100% !important;
   }
+  .print-area [class*="overflow-"], #pdf-area [class*="overflow-"] {
+    overflow: visible !important;
+  }
+  .print-area [class*="max-h-"], #pdf-area [class*="max-h-"] {
+    max-height: none !important;
+  }
   .print-area .card, .print-area .table, #pdf-area .card, #pdf-area .table {
     page-break-inside: avoid;
+    break-inside: avoid;
+    background: #fff !important;
+    box-shadow: none !important;
   }
   .no-print {
     display: none !important;

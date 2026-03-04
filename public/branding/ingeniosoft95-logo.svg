@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="220" viewBox="0 0 820 220" role="img" aria-label="IngenioSoft95">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e40af"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="820" height="220" fill="#ffffff"/>
+  <rect x="28" y="28" width="164" height="164" rx="28" fill="url(#g)"/>
+  <path d="M112 63c-23 0-41 18-41 41 0 29 41 58 41 58s41-29 41-58c0-23-18-41-41-41zm0 58c-9 0-17-8-17-17s8-17 17-17 17 8 17 17-8 17-17 17z" fill="#84cc16"/>
+  <circle cx="112" cy="104" r="10" fill="#22c55e"/>
+  <text x="220" y="128" font-family="Segoe UI, Arial, sans-serif" font-size="72" font-weight="700">
+    <tspan fill="#0f3f6e">Ingenio</tspan><tspan fill="#4f9d2f">Soft95</tspan>
+  </text>
+</svg>
