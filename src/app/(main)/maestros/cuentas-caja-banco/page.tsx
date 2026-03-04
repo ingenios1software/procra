@@ -30,6 +30,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { autoconfigurarBaseFinanzasNomina } from "@/lib/contabilidad/autoconfiguracion-finanzas";
 import type { CuentaCajaBanco, Moneda, PlanDeCuenta } from "@/lib/types";
 
 type CuentaFormState = {
@@ -47,14 +48,6 @@ const DEFAULT_FORM: CuentaFormState = {
   cuentaContableId: "",
   activo: "true",
 };
-
-function normalizeText(value?: string): string {
-  return (value || "")
-    .toLowerCase()
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
 
 export default function CuentasCajaBancoPage() {
   const firestore = useFirestore();
@@ -86,8 +79,16 @@ export default function CuentasCajaBancoPage() {
     isLoading: isLoadingCuentas,
     forceRefetch: refetchCuentas,
   } = useCollection<CuentaCajaBanco>(cuentasQuery);
-  const { data: monedas, isLoading: isLoadingMonedas } = useCollection<Moneda>(monedasQuery);
-  const { data: planDeCuentas, isLoading: isLoadingPlan } = useCollection<PlanDeCuenta>(planQuery);
+  const {
+    data: monedas,
+    isLoading: isLoadingMonedas,
+    forceRefetch: refetchMonedas,
+  } = useCollection<Moneda>(monedasQuery);
+  const {
+    data: planDeCuentas,
+    isLoading: isLoadingPlan,
+    forceRefetch: refetchPlan,
+  } = useCollection<PlanDeCuenta>(planQuery);
 
   const monedasById = useMemo(() => new Map((monedas || []).map((m) => [m.id, m])), [monedas]);
   const planById = useMemo(() => new Map((planDeCuentas || []).map((c) => [c.id, c])), [planDeCuentas]);
@@ -190,99 +191,28 @@ export default function CuentasCajaBancoPage() {
     if (!firestore) return;
     setIsAutoConfiguring(true);
     try {
-      const monedasActuales = monedas || [];
-      const cuentasActuales = cuentasCajaBanco || [];
-      const plan = planDeCuentas || [];
-
-      const planActivos = plan.filter((cuenta) => cuenta.tipo === "activo" && cuenta.naturaleza === "deudora");
-      const planCaja =
-        planActivos.find((cuenta) => normalizeText(`${cuenta.codigo} ${cuenta.nombre}`).includes("caja")) ||
-        planActivos.find((cuenta) => (cuenta.codigo || "").trim().startsWith("1.1.1")) ||
-        planActivos[0];
-      const planBanco =
-        planActivos.find((cuenta) => normalizeText(`${cuenta.codigo} ${cuenta.nombre}`).includes("banco")) ||
-        planActivos.find((cuenta) => (cuenta.codigo || "").trim().startsWith("1.1.2")) ||
-        null;
-
-      if (!planCaja) {
-        toast({
-          variant: "destructive",
-          title: "Sin cuenta contable de activo",
-          description: "Primero cree en Plan de Cuentas una cuenta de caja (activo/deudora).",
-        });
-        return;
-      }
-
-      const batch = writeBatch(firestore);
-      const createdItems: string[] = [];
-
-      let pygId =
-        monedasActuales.find((m) => normalizeText(m.codigo) === "pyg")?.id ||
-        monedasActuales.find((m) => {
-          const hint = normalizeText(`${m.codigo} ${m.descripcion}`);
-          return hint.includes("guarani") || hint.includes("gs");
-        })?.id ||
-        "";
-
-      if (!pygId) {
-        const monedaRef = doc(collection(firestore, "monedas"));
-        pygId = monedaRef.id;
-        const hasBase = monedasActuales.some((m) => m.esMonedaBase);
-        batch.set(monedaRef, {
-          codigo: "PYG",
-          descripcion: "Guarani Paraguayo",
-          tasaCambio: 1,
-          esMonedaBase: !hasBase,
-        } as Omit<Moneda, "id">);
-        createdItems.push("Moneda PYG");
-      }
-
-      const existeCajaPyg = cuentasActuales.some(
-        (cuenta) => cuenta.tipo === "CAJA" && cuenta.monedaId === pygId
-      );
-      if (!existeCajaPyg) {
-        const cajaRef = doc(collection(firestore, "cuentasCajaBanco"));
-        batch.set(cajaRef, {
-          nombre: "Caja Jornaleros Gs",
-          tipo: "CAJA",
-          monedaId: pygId,
-          cuentaContableId: planCaja.id,
-          activo: true,
-        } as Omit<CuentaCajaBanco, "id">);
-        createdItems.push("Caja Jornaleros Gs");
-      }
-
-      if (planBanco) {
-        const existeBancoPyg = cuentasActuales.some(
-          (cuenta) => cuenta.tipo === "BANCO" && cuenta.monedaId === pygId
-        );
-        if (!existeBancoPyg) {
-          const bancoRef = doc(collection(firestore, "cuentasCajaBanco"));
-          batch.set(bancoRef, {
-            nombre: "Banco Principal Gs",
-            tipo: "BANCO",
-            monedaId: pygId,
-            cuentaContableId: planBanco.id,
-            activo: true,
-          } as Omit<CuentaCajaBanco, "id">);
-          createdItems.push("Banco Principal Gs");
-        }
-      }
+      const { createdItems } = await autoconfigurarBaseFinanzasNomina({
+        firestore,
+        monedas: monedas || [],
+        cuentasCajaBanco: cuentasCajaBanco || [],
+        planDeCuentas: planDeCuentas || [],
+      });
 
       if (createdItems.length === 0) {
         toast({
           title: "Sin cambios",
-          description: "Ya existe configuracion base de moneda y cuentas caja/banco.",
+          description: "Ya existe configuracion base para caja/banco, moneda PYG y jornales.",
         });
         return;
       }
 
-      await batch.commit();
       toast({
         title: "Autoconfiguracion completada",
         description: `Creados: ${createdItems.join(", ")}.`,
       });
       refetchCuentas();
+      refetchMonedas();
+      refetchPlan();
     } catch (error: any) {
       toast({
         variant: "destructive",

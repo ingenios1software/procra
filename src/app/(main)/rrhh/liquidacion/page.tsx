@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { autoconfigurarBaseFinanzasNomina } from "@/lib/contabilidad/autoconfiguracion-finanzas";
 import { generarNumeroReciboPagoEmpleado, toDateSafe } from "@/lib/cuentas";
 import type {
   AsientoDiario,
@@ -112,14 +113,15 @@ export default function LiquidacionPage() {
   const [gastoId, setGastoId] = useState("");
   const [referencia, setReferencia] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoConfiguring, setIsAutoConfiguring] = useState(false);
   const [ultimoRecibo, setUltimoRecibo] = useState("");
 
   const { data: empleados, isLoading: l1 } = useCollection<Empleado>(useMemoFirebase(() => (firestore ? collection(firestore, "empleados") : null), [firestore]));
   const { data: registros, isLoading: l2 } = useCollection<ControlHorario>(useMemoFirebase(() => (firestore ? collection(firestore, "controlHorario") : null), [firestore]));
   const { data: pagosNomina, isLoading: l3, forceRefetch } = useCollection<PagoNominaHoras>(useMemoFirebase(() => (firestore ? collection(firestore, "pagosNominaHoras") : null), [firestore]));
-  const { data: planDeCuentas, isLoading: l4 } = useCollection<PlanDeCuenta>(useMemoFirebase(() => (firestore ? collection(firestore, "planDeCuentas") : null), [firestore]));
-  const { data: cuentasCajaBanco, isLoading: l5 } = useCollection<CuentaCajaBanco>(useMemoFirebase(() => (firestore ? collection(firestore, "cuentasCajaBanco") : null), [firestore]));
-  const { data: monedas, isLoading: l6 } = useCollection<Moneda>(useMemoFirebase(() => (firestore ? collection(firestore, "monedas") : null), [firestore]));
+  const { data: planDeCuentas, isLoading: l4, forceRefetch: refetchPlan } = useCollection<PlanDeCuenta>(useMemoFirebase(() => (firestore ? collection(firestore, "planDeCuentas") : null), [firestore]));
+  const { data: cuentasCajaBanco, isLoading: l5, forceRefetch: refetchCajas } = useCollection<CuentaCajaBanco>(useMemoFirebase(() => (firestore ? collection(firestore, "cuentasCajaBanco") : null), [firestore]));
+  const { data: monedas, isLoading: l6, forceRefetch: refetchMonedas } = useCollection<Moneda>(useMemoFirebase(() => (firestore ? collection(firestore, "monedas") : null), [firestore]));
 
   const isLoading = l1 || l2 || l3 || l4 || l5 || l6;
   const years = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
@@ -200,6 +202,44 @@ export default function LiquidacionPage() {
     acc.pend += r.montoPend;
     return acc;
   }, { dev: 0, pag: 0, pend: 0 }), [rows]);
+  const setupIncompleto = cajasPyg.length === 0 || cuentasGasto.length === 0;
+
+  const handleAutoConfig = async () => {
+    if (!firestore) return;
+    setIsAutoConfiguring(true);
+    try {
+      const { createdItems } = await autoconfigurarBaseFinanzasNomina({
+        firestore,
+        monedas: monedas || [],
+        cuentasCajaBanco: cuentasCajaBanco || [],
+        planDeCuentas: planDeCuentas || [],
+      });
+
+      if (createdItems.length === 0) {
+        toast({
+          title: "Sin cambios",
+          description: "Ya existe configuracion base para caja/banco, moneda PYG y jornales.",
+        });
+      } else {
+        toast({
+          title: "Autoconfiguracion completada",
+          description: `Creados: ${createdItems.join(", ")}.`,
+        });
+      }
+
+      refetchPlan();
+      refetchCajas();
+      refetchMonedas();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "No se pudo autoconfigurar",
+        description: error?.message || "Error inesperado.",
+      });
+    } finally {
+      setIsAutoConfiguring(false);
+    }
+  };
 
   const openPago = (row: LiquidacionRow) => {
     setSelectedRow(row);
@@ -354,10 +394,34 @@ export default function LiquidacionPage() {
           </CardContent>
         </Card>
 
+        {setupIncompleto && (
+          <Alert>
+            <AlertTitle>Configuracion pendiente para liquidar jornales</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>
+                Complete moneda/caja PYG y cuenta de gasto de jornales.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={handleAutoConfig} disabled={isAutoConfiguring}>
+                  {isAutoConfiguring ? "Autoconfigurando..." : "Autoconfigurar ahora"}
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/maestros/cuentas-caja-banco">Ir a Ctas Caja/Banco (Autoconfigurar Base)</Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/contabilidad/plan-de-cuentas">Ir a Plan de Cuentas</Link>
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {cajasPyg.length === 0 && (
           <Alert variant="destructive">
             <AlertTitle>Sin caja PYG</AlertTitle>
-            <AlertDescription>Configure una cuenta CAJA en guaranies para pagar jornales.</AlertDescription>
+            <AlertDescription>
+              Configure una cuenta CAJA en guaranies para pagar jornales.
+            </AlertDescription>
           </Alert>
         )}
 
