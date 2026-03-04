@@ -43,3 +43,6 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# local docs (no versionar PDFs de referencia)
+docs/pdf_dolphin/
