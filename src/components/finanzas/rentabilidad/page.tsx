@@ -83,9 +83,8 @@ export default function RentabilidadPage() {
         const costosParcela = costos
           .filter((costo) => costo.parcelaId === parcela.id)
           .reduce((sum, costo) => sum + costo.monto, 0);
-        const ingresosParcela = ventas
-          .filter((venta) => venta.parcelaId === parcela.id)
-          .reduce((sum, venta) => sum + (venta.toneladas || 0) * (venta.precioTonelada || 0), 0);
+        // Las ventas no se imputan por parcela en el modelo actual.
+        const ingresosParcela = 0;
         const margenNeto = ingresosParcela - costosParcela;
         const margenPorHa = parcela.superficie > 0 ? margenNeto / parcela.superficie : 0;
         const margenPercent = ingresosParcela > 0 ? (margenNeto / ingresosParcela) * 100 : 0;

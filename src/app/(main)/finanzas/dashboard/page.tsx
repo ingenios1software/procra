@@ -135,9 +135,8 @@ export default function DashboardFinancieroPage() {
         const costosParcela = eventos
           .filter((evento) => evento.parcelaId === parcela.id)
           .reduce((sum, evento) => sum + (evento.costoTotal || 0), 0);
-        const ingresosParcela = ventas
-          .filter((venta) => venta.parcelaId === parcela.id)
-          .reduce((sum, venta) => sum + getIngresoVenta(venta), 0);
+        // Las ventas ya no se imputan por parcela; se muestra margen neto de costos de campo.
+        const ingresosParcela = 0;
         return {
           nombre: parcela.nombre,
           rentabilidad: ingresosParcela - costosParcela,

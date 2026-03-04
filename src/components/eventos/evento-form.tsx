@@ -68,6 +68,35 @@ const formSchema = z.object({
   motivoRechazo: z.string().optional(),
 
   cuentaContableId: z.string().nullable().optional(),
+}).superRefine((data, ctx) => {
+  const esCosecha = data.tipo === "cosecha" || data.tipo === "rendimiento";
+  const toneladas = Number(data.toneladas) || 0;
+  const hectareasCosechadas = Number(data.hectareasAplicadas) || 0;
+  const costoServicioPorHa = Number(data.costoServicioPorHa) || 0;
+
+  if (esCosecha && hectareasCosechadas <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["hectareasAplicadas"],
+      message: "Ingrese las hectareas cosechadas.",
+    });
+  }
+
+  if (esCosecha && costoServicioPorHa <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["costoServicioPorHa"],
+      message: "Ingrese el costo de servicio por hectarea.",
+    });
+  }
+
+  if (esCosecha && toneladas <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["toneladas"],
+      message: "Ingrese las toneladas cosechadas.",
+    });
+  }
 });
 
 type EventoFormValues = z.infer<typeof formSchema>;
@@ -87,6 +116,39 @@ function inputValueToDate(value: string): Date | undefined {
   if (!value) return undefined;
   const parsed = new Date(`${value}T00:00:00`);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+function normalizarTipoEvento(tipo?: Evento["tipo"] | string): Evento["tipo"] {
+  if (!tipo) return "aplicacion";
+  return tipo === "rendimiento" ? "cosecha" : (tipo as Evento["tipo"]);
+}
+
+function calcularHectareasPlantadasContexto({
+  eventos,
+  parcelaId,
+  cultivoId,
+  zafraId,
+  superficieFallback,
+}: {
+  eventos: Evento[];
+  parcelaId?: string;
+  cultivoId?: string;
+  zafraId?: string;
+  superficieFallback?: number;
+}): number {
+  const fallback = Number(superficieFallback) || 0;
+  if (!parcelaId || !cultivoId || !zafraId) return fallback;
+
+  const hectareasSiembra = eventos.reduce((maximo, ev) => {
+    if (ev.parcelaId !== parcelaId || ev.cultivoId !== cultivoId || ev.zafraId !== zafraId) {
+      return maximo;
+    }
+    if (normalizarTipoEvento(ev.tipo) !== "siembra") return maximo;
+    const hectareasEvento = Number(ev.hectareasAplicadas) || 0;
+    return hectareasEvento > maximo ? hectareasEvento : maximo;
+  }, 0);
+
+  return hectareasSiembra > 0 ? hectareasSiembra : fallback;
 }
 
 export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
@@ -226,7 +288,10 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
 
   const tipoEvento = form.watch('tipo');
+  const tipoEventoNormalizado = normalizarTipoEvento(tipoEvento);
+  const esEventoCosecha = tipoEventoNormalizado === "cosecha";
   const watchedHectareas = form.watch('hectareasAplicadas');
+  const watchedToneladas = form.watch('toneladas');
   const watchedProductos = useWatch({
     control: form.control,
     name: 'productos',
@@ -297,8 +362,8 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   }, [watchedZafraId, zafras, form]);
   
   const mostrarCuentaContable = useMemo(() => {
-    return ['aplicacion', 'fertilización', 'plagas', 'siembra', 'cosecha', 'mantenimiento'].includes(tipoEvento);
-  }, [tipoEvento]);
+    return ['aplicacion', 'fertilización', 'plagas', 'siembra', 'cosecha', 'mantenimiento'].includes(tipoEventoNormalizado);
+  }, [tipoEventoNormalizado]);
 
   const handleTipoEventoChange = useCallback((value: string) => {
     form.setValue('tipo', value as any);
@@ -336,11 +401,38 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const totalServicio = hectareasCalculadas * (Number(watchedCostoServicio) || 0);
   const totalEvento = totalInsumos + totalServicio;
   const costoPorHa = hectareasCalculadas > 0 ? totalEvento / hectareasCalculadas : 0;
+  const parcelaSeleccionada = useMemo(
+    () => (parcelas || []).find((parcela) => parcela.id === watchedParcelaId),
+    [parcelas, watchedParcelaId]
+  );
+  const hectareasPlantadasRendimientoPreview = useMemo(
+    () =>
+      calcularHectareasPlantadasContexto({
+        eventos: todosLosEventos || [],
+        parcelaId: watchedParcelaId,
+        cultivoId: watchedCultivoId,
+        zafraId: watchedZafraId,
+        superficieFallback: Number(parcelaSeleccionada?.superficie) || 0,
+      }),
+    [
+      todosLosEventos,
+      watchedParcelaId,
+      watchedCultivoId,
+      watchedZafraId,
+      parcelaSeleccionada?.superficie,
+    ]
+  );
+  const toneladasPreview = Number(watchedToneladas) || 0;
+  const rendimientoTonHaPreview =
+    esEventoCosecha && hectareasPlantadasRendimientoPreview > 0 && toneladasPreview > 0
+      ? toneladasPreview / hectareasPlantadasRendimientoPreview
+      : 0;
+  const rendimientoKgHaPreview = rendimientoTonHaPreview * 1000;
 
   const analisisProps = useMemo(() => ({
     eventoActual: {
       ...form.getValues(),
-      tipo: tipoEvento,
+      tipo: tipoEventoNormalizado,
       fecha: watchedFecha,
       parcelaId: watchedParcelaId,
       cultivoId: watchedCultivoId,
@@ -350,7 +442,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     zafras: zafras || [],
     etapasCultivo: etapasCultivo || [],
   }), [
-    tipoEvento,
+    tipoEventoNormalizado,
     watchedParcelaId,
     watchedCultivoId,
     watchedZafraId,
@@ -368,6 +460,22 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     setIsSubmitting(true);
     toast({ title: "Guardando evento...", description: "Por favor espere." });
 
+    const tipoNormalizado = normalizarTipoEvento(data.tipo);
+    const parcelaSeleccionada = parcelas?.find((parcela) => parcela.id === data.parcelaId);
+    const hectareasBaseRendimiento = calcularHectareasPlantadasContexto({
+      eventos: todosLosEventos || [],
+      parcelaId: data.parcelaId,
+      cultivoId: data.cultivoId,
+      zafraId: data.zafraId,
+      superficieFallback: Number(parcelaSeleccionada?.superficie) || 0,
+    });
+    const toneladasCosechadas = Number(data.toneladas) || 0;
+    const rendimientoTonHa =
+      tipoNormalizado === "cosecha" && hectareasBaseRendimiento > 0 && toneladasCosechadas > 0
+        ? toneladasCosechadas / hectareasBaseRendimiento
+        : 0;
+    const rendimientoKgHa = rendimientoTonHa * 1000;
+
     const productosFinal = data.productos?.map(p => {
         const consumoCalculado = (p.dosis || 0) * (data.hectareasAplicadas || 0);
         return {
@@ -379,11 +487,15 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
     const dataConCostoTotal = {
       ...data,
+      tipo: tipoNormalizado,
       estado: data.estado || 'pendiente',
       fotos: data.fotos || [],
       costoTotal: totalEvento,
       costoPorHa: costoPorHa,
       productos: productosFinal,
+      hectareasRendimiento: tipoNormalizado === "cosecha" ? hectareasBaseRendimiento : undefined,
+      rendimientoTonHa: tipoNormalizado === "cosecha" ? rendimientoTonHa : undefined,
+      rendimientoKgHa: tipoNormalizado === "cosecha" ? rendimientoKgHa : undefined,
     };
     onSave(dataConCostoTotal);
     clearDraft();
@@ -565,7 +677,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                  <FormField name="tipo" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tipo de Evento</FormLabel><Select onValueChange={handleTipoEventoChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl><SelectContent><SelectItem value="siembra">Siembra</SelectItem><SelectItem value="aplicacion">Aplicación</SelectItem><SelectItem value="fertilización">Fertilización</SelectItem><SelectItem value="riego">Riego</SelectItem><SelectItem value="cosecha">Cosecha</SelectItem><SelectItem value="rendimiento">Rendimiento</SelectItem><SelectItem value="mantenimiento">Mantenimiento</SelectItem><SelectItem value="plagas">Control de Plagas</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                  <FormField name="tipo" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tipo de Evento</FormLabel><Select onValueChange={handleTipoEventoChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl><SelectContent><SelectItem value="siembra">Siembra</SelectItem><SelectItem value="aplicacion">Aplicación</SelectItem><SelectItem value="fertilización">Fertilización</SelectItem><SelectItem value="riego">Riego</SelectItem><SelectItem value="cosecha">Cosecha</SelectItem>{field.value === "rendimiento" && <SelectItem value="rendimiento">Rendimiento (legado)</SelectItem>}<SelectItem value="mantenimiento">Mantenimiento</SelectItem><SelectItem value="plagas">Control de Plagas</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                   <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Fecha del Evento</FormLabel><FormControl><Input type="date" lang="es-PY" value={dateToInputValue(field.value)} onChange={(e) => field.onChange(inputValueToDate(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
                 </div>
                 <FormField name="descripcion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea placeholder="Describa el evento..." {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -589,7 +701,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   />
                 )}
 
-                {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEvento) && (
+                {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEventoNormalizado) && (
                   <Card className="border-border/60">
                      <CardHeader className="p-4"><CardTitle className="text-lg">Detalles de Aplicación y Costos</CardTitle></CardHeader>
                      <CardContent className="p-4 pt-0 space-y-4">
@@ -601,7 +713,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   </Card>
                 )}
 
-                {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEvento) && (
+                {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEventoNormalizado) && (
                   <Card className="bg-muted/30 p-4">
                     <CardHeader className="p-2 flex flex-row items-center justify-between">
                       <CardTitle className="text-lg">Productos/Insumos</CardTitle>
@@ -618,7 +730,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   </Card>
                 )}
 
-                 {['aplicacion', 'fertilización', 'plagas'].includes(tipoEvento) && (
+                 {['aplicacion', 'fertilización', 'plagas'].includes(tipoEventoNormalizado) && (
                    <div>
                      <FormLabel>Condiciones Climáticas</FormLabel>
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 border p-4 rounded-md">
@@ -629,20 +741,34 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                    </div>
                 )}
 
-                {['cosecha', 'riego'].includes(tipoEvento) && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                    <FormField control={form.control} name="toneladas" render={({ field }) => (<FormItem><FormLabel>Cantidad/Volumen</FormLabel><FormControl><Input type="number" placeholder="Ej: 100" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="precioTonelada" render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><FormControl><Input placeholder="Ej: ton, mm, hs" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  </div>
-                )}
-
-                {tipoEvento === 'rendimiento' && (
-                  <Card className="bg-muted/30 p-4">
-                    <CardHeader className="p-2"><CardTitle className="text-lg">Detalles de Rendimiento</CardTitle></CardHeader>
-                    <CardContent className="p-2 space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                {esEventoCosecha && (
+                  <Card className="border-border/60">
+                    <CardHeader className="p-4">
+                      <CardTitle className="text-lg">Detalles de Cosecha</CardTitle>
+                      <CardDescription>
+                        Registre hectareas cosechadas y costo de servicio por ha. El rendimiento se calcula como kg de grano / ha plantada en la zafra y cultivo.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
+                        <FormField name="hectareasAplicadas" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Hectareas Cosechadas</FormLabel><FormControl><Input type="number" placeholder={`Ej: ${Number(parcelaSeleccionada?.superficie || 0).toLocaleString('de-DE')}`} {...field} /></FormControl><FormDescription>Dato obligatorio para calcular costo de cosecha.</FormDescription><FormMessage /></FormItem> )}/>
+                        <FormField name="costoServicioPorHa" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Costo Servicio Cosecha por Ha (USD)</FormLabel><FormControl><Input type="number" placeholder="Ej: 65" {...field} /></FormControl><FormDescription>Dato obligatorio para valorizar el servicio.</FormDescription><FormMessage /></FormItem> )}/>
                         <FormField name="toneladas" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Toneladas Cosechadas</FormLabel><FormControl><Input type="number" placeholder="Ej: 150" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                        <FormField name="precioTonelada" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Precio por Tonelada (USD)</FormLabel><FormControl><Input type="number" placeholder="Ej: 450" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                        <FormField name="precioTonelada" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Precio Referencial por Tonelada (USD)</FormLabel><FormControl><Input type="number" placeholder="Ej: 450" {...field} /></FormControl><FormDescription>Se usa para valorizacion contable del grano ingresado.</FormDescription><FormMessage /></FormItem> )}/>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 rounded-md border p-4 bg-muted/30">
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Ha Plantada (Zafra/Cultivo)</p>
+                          <p className="font-semibold">{hectareasPlantadasRendimientoPreview.toLocaleString('de-DE', { maximumFractionDigits: 2 })} ha</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Rendimiento (ton/ha)</p>
+                          <p className="font-semibold">{rendimientoTonHaPreview.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Rendimiento (kg/ha)</p>
+                          <p className="font-semibold">{rendimientoKgHaPreview.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

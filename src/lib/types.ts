@@ -118,6 +118,9 @@ export type Evento = {
   // Campos de rendimiento y cosecha
   toneladas?: number;
   precioTonelada?: number;
+  hectareasRendimiento?: number;
+  rendimientoTonHa?: number;
+  rendimientoKgHa?: number;
 
   // --- Campos depreciados / a revisar ---
   insumos?: string; // Deprecado, usar 'productos'
@@ -251,6 +254,44 @@ export type MovimientoStock = {
     creadoEn: Date;
 };
 
+export type StockGrano = {
+  id: string;
+  insumoId: string;
+  insumoNombre: string;
+  zafraId: string;
+  parcelaId: string;
+  parcelaNombre?: string | null;
+  cultivoId?: string | null;
+  cultivoNombre?: string | null;
+  unidad: "ton";
+  stockActual: number;
+  precioPromedio: number;
+  valorTotal: number;
+  creadoEn?: Date | string;
+  actualizadoEn?: Date | string;
+  actualizadoPor?: string;
+};
+
+export type RendimientoAgricola = {
+  id: string;
+  zafraId: string;
+  cultivoId: string;
+  parcelaId: string;
+  zafraNombre?: string | null;
+  cultivoNombre?: string | null;
+  parcelaNombre?: string | null;
+  hectareasBase: number;
+  toneladasAcumuladas: number;
+  kilosAcumulados: number;
+  rendimientoTonHa: number;
+  rendimientoKgHa: number;
+  ultimoEventoId?: string;
+  ultimaFecha?: Date | string;
+  creadoEn?: Date | string;
+  actualizadoEn?: Date | string;
+  actualizadoPor?: string;
+};
+
 
 export type Maquinaria = {
   id: string;
@@ -289,9 +330,7 @@ export type Venta = {
   numeroDocumento: string;
   clienteId: string;
   zafraId?: string;
-
-  parcelaId?: string;       // 🔹 NUEVO
-  cultivoId?: string;       // 🔹 NUEVO
+  cultivoId?: string; // NUEVO
 
   fecha: Date | string;
   moneda: 'USD' | 'PYG';
@@ -311,8 +350,8 @@ export type Venta = {
   }[];
   total: number;
 
-  toneladas?: number;        // 🔹 NUEVO
-  precioTonelada?: number;   // 🔹 NUEVO
+  toneladas?: number; // NUEVO
+  precioTonelada?: number; // NUEVO
 
   financiero?: {
     cuentaCobroId?: string;

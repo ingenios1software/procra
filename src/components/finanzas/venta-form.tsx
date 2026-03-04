@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Venta, Parcela, Cultivo, Zafra, Cliente, Insumo } from "@/lib/types";
+import type { Venta, Cultivo, Zafra, Cliente, Insumo } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -29,7 +29,6 @@ const formSchema = z.object({
   moneda: z.enum(['USD', 'PYG']),
   formaPago: z.enum(['Contado', 'Transferencia', 'Crédito']),
   zafraId: z.string().nonempty("Debe seleccionar una zafra."),
-  parcelaId: z.string().nonempty("Debe seleccionar una parcela."),
   cultivoId: z.string().nonempty("Debe seleccionar un cultivo."),
   items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem."),
 });
@@ -41,7 +40,6 @@ interface VentaFormProps {
   venta?: Partial<Venta> | null;
   onSubmit: (data: Omit<Venta, 'id' | 'total'> & { total: number }) => void;
   onCancel: () => void;
-  parcelas: Parcela[];
   cultivos: Cultivo[];
   zafras: Zafra[];
   clientes: Cliente[];
@@ -59,7 +57,7 @@ function inputValueToDate(value: string): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
-export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cultivos, zafras, clientes, insumos }: VentaFormProps) => {
+export const VentaForm = React.memo(({ venta, onSubmit, onCancel, cultivos, zafras, clientes, insumos }: VentaFormProps) => {
   const form = useForm<VentaFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: venta ? {
@@ -113,9 +111,8 @@ export const VentaForm = React.memo(({ venta, onSubmit, onCancel, parcelas, cult
            <FormField control={form.control} name="clienteId" render={({ field }) => ( <FormItem> <FormLabel>Cliente</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl> <SelectContent>{clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
            <FormField control={form.control} name="fecha" render={({ field }) => ( <FormItem><FormLabel>Fecha de Venta</FormLabel><FormControl><Input type="date" lang="es-PY" value={dateToInputValue(field.value)} onChange={(e) => field.onChange(inputValueToDate(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField control={form.control} name="zafraId" render={({ field }) => ( <FormItem> <FormLabel>Zafra</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione la zafra" /></SelectTrigger></FormControl> <SelectContent>{zafras.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-            <FormField control={form.control} name="parcelaId" render={({ field }) => ( <FormItem> <FormLabel>Parcela</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione la parcela" /></SelectTrigger></FormControl> <SelectContent>{parcelas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
             <FormField control={form.control} name="cultivoId" render={({ field }) => ( <FormItem> <FormLabel>Cultivo</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Seleccione el cultivo" /></SelectTrigger></FormControl> <SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

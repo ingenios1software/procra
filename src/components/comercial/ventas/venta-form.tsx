@@ -22,11 +22,13 @@ import type {
   AsientoDiario,
   CuentaCajaBanco,
   Zafra,
+  Cultivo,
   PlanDeCuenta,
   CuentaPorCobrar,
+  StockGrano,
 } from "@/lib/types";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, writeBatch, query, orderBy, getDoc } from "firebase/firestore";
+import { collection, doc, writeBatch, query, orderBy, getDoc, getDocs, where } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from "@/components/common";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,6 +44,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 import { calcularEstadoCuenta, isFormaPagoCredito } from "@/lib/cuentas";
+import { isCategoriaGrano, toNumber, toPositiveNumber } from "@/lib/stock/granos";
 
 const itemSchema = z.object({
   producto: z.any().refine((val) => val && val.id, { message: "Debe seleccionar un producto." }),
@@ -56,6 +59,7 @@ const formSchema = z
     numeroDocumento: z.string().nonempty("El numero de documento es obligatorio."),
     clienteId: z.string().nonempty("Debe seleccionar un cliente."),
     zafraId: z.string().nonempty("Debe seleccionar una zafra."),
+    cultivoId: z.string().optional(),
     fecha: z.date({ required_error: "La fecha es obligatoria." }),
     moneda: z.enum(["USD", "PYG"]),
     formaPago: z.enum(["Contado", "Transferencia", "Crédito"]),
@@ -94,6 +98,7 @@ interface VentaFormProps {
   depositos: Deposito[];
   cuentasCajaBanco: CuentaCajaBanco[];
   zafras: Zafra[];
+  cultivos: Cultivo[];
 }
 
 function omitUndefinedDeep<T>(value: T): T {
@@ -122,7 +127,7 @@ function inputValueToDate(value: string): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
-export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBanco, zafras }: VentaFormProps) {
+export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBanco, zafras, cultivos }: VentaFormProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -145,6 +150,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
           financiero_cuentaId: venta.financiero?.cuentaCobroId,
           fecha: new Date(venta.fecha as string),
           vencimiento: venta.vencimiento ? new Date(venta.vencimiento as string) : undefined,
+          cultivoId: venta.cultivoId || "",
         }
       : {
           fecha: new Date(),
@@ -153,6 +159,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
           totalizadora: false,
           items: [],
           depositoOrigenId: depositos[0]?.id || "",
+          cultivoId: "",
         },
   });
 
@@ -163,6 +170,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
 
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedFormaPago = useWatch({ control: form.control, name: "formaPago" });
+  const watchedZafraId = useWatch({ control: form.control, name: "zafraId" });
 
   useEffect(() => {
     if (form.getValues("depositoOrigenId")) return;
@@ -186,6 +194,16 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     }
     form.setValue("financiero_cuentaId", undefined, { shouldValidate: true });
   }, [watchedFormaPago, cuentasCajaBanco, form]);
+
+  useEffect(() => {
+    if (!watchedZafraId) return;
+    const zafra = zafras.find((item) => item.id === watchedZafraId);
+    const cultivoDesdeZafra = zafra?.cultivoId;
+    if (!cultivoDesdeZafra) return;
+    const cultivoActual = form.getValues("cultivoId");
+    if (cultivoActual === cultivoDesdeZafra) return;
+    form.setValue("cultivoId", cultivoDesdeZafra, { shouldValidate: true });
+  }, [watchedZafraId, zafras, form]);
 
   const handleSelectProducto = (index: number, producto: Insumo) => {
     if (disableTransactional) return;
@@ -230,6 +248,10 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
   const getCuentaIdPorCodigo = (codigo: string): string | undefined => {
     return findPlanCuentaByCodigo(planDeCuentas || [], codigo)?.id;
   };
+
+  const cultivoById = useMemo(() => {
+    return new Map((cultivos || []).map((cultivo) => [cultivo.id, cultivo]));
+  }, [cultivos]);
 
   const getStockShortages = useCallback((items: VentaFormValues["items"]): StockShortage[] => {
     const acumuladoPorProducto = new Map<
@@ -324,6 +346,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     const baseImponible = (subtotalIva10 - iva10) + (subtotalIva5 - iva5) + exenta;
     const totalIva = iva10 + iva5;
     let costoTotalCMV = 0;
+    const cultivoSeleccionado = data.cultivoId ? cultivoById.get(data.cultivoId) : undefined;
 
     let asientoVentaId: string | undefined = venta?.financiero?.asientoVentaId;
     let asientoCmvId: string | undefined = venta?.financiero?.asientoCmvId;
@@ -332,7 +355,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
       if (shouldApplyStock) {
         for (const item of data.items) {
           const producto = item.producto as Insumo;
-          const stockActual = Number(producto.stockActual) || 0;
+          const stockActual = toNumber(producto.stockActual);
           const stockDespues = stockActual - item.cantidad;
 
           const insumoRef = doc(firestore, "insumos", producto.id);
@@ -346,6 +369,8 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
             documentoOrigen: data.numeroDocumento,
             ventaId: ventaRef.id,
             depositoId: data.depositoOrigenId,
+            zafraId: data.zafraId || null,
+            cultivo: cultivoSeleccionado?.nombre || null,
             insumoId: producto.id,
             insumoNombre: producto.descripcion || producto.nombre,
             unidad: producto.unidad,
@@ -359,7 +384,70 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
             creadoEn: new Date(),
           };
           batch.set(movimientoRef, movimiento);
-          costoTotalCMV += item.cantidad * (producto.precioPromedioCalculado || 0);
+          costoTotalCMV += item.cantidad * toPositiveNumber(producto.precioPromedioCalculado || 0);
+
+          const debeAjustarStockGrano =
+            isCategoriaGrano(producto.categoria) &&
+            Boolean(data.zafraId);
+
+          if (debeAjustarStockGrano) {
+            const stockGranosQuery = query(
+              collection(firestore, "stockGranos"),
+              where("insumoId", "==", producto.id)
+            );
+            const stockGranosSnap = await getDocs(stockGranosQuery);
+            const stocksCandidatos = stockGranosSnap.docs
+              .map((docSnap) => {
+                const data = docSnap.data() as Omit<StockGrano, "id">;
+                return { id: docSnap.id, ...data };
+              })
+              .filter(
+                (stock) =>
+                  stock.zafraId === data.zafraId &&
+                  (!data.cultivoId || !stock.cultivoId || stock.cultivoId === data.cultivoId)
+              )
+              .sort((a, b) => toNumber(b.stockActual) - toNumber(a.stockActual));
+
+            let restante = toPositiveNumber(item.cantidad);
+            const disponibleTotal = stocksCandidatos.reduce(
+              (acc, stock) => acc + Math.max(0, toNumber(stock.stockActual)),
+              0
+            );
+
+            if (disponibleTotal < restante) {
+              toast({
+                variant: "destructive",
+                title: "Advertencia de stock por zafra",
+                description: `La venta supera el stock registrado de ${producto.nombre} para la zafra seleccionada.`,
+              });
+            }
+
+            for (const stock of stocksCandidatos) {
+              if (restante <= 0) break;
+              const disponible = Math.max(0, toNumber(stock.stockActual));
+              if (disponible <= 0) continue;
+
+              const cantidadADescontar = Math.min(disponible, restante);
+              const nuevoStock = disponible - cantidadADescontar;
+              const precioPromedioContexto = toPositiveNumber(
+                stock.precioPromedio || producto.precioPromedioCalculado || 0
+              );
+
+              const stockGranoRef = doc(firestore, "stockGranos", stock.id);
+              batch.set(
+                stockGranoRef,
+                {
+                  stockActual: nuevoStock,
+                  valorTotal: nuevoStock * precioPromedioContexto,
+                  actualizadoEn: new Date().toISOString(),
+                  actualizadoPor: user.uid,
+                },
+                { merge: true }
+              );
+
+              restante -= cantidadADescontar;
+            }
+          }
         }
       }
 
@@ -434,6 +522,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
       numeroDocumento: data.numeroDocumento,
       clienteId: data.clienteId,
       zafraId: data.zafraId,
+      cultivoId: data.cultivoId || undefined,
       fecha: data.fecha.toISOString(),
       moneda: data.moneda,
       formaPago: data.formaPago,
@@ -551,7 +640,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-6">
           <FormField
             name="numeroDocumento"
             control={form.control}
@@ -605,6 +694,31 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
                 <Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}>
                   <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl>
                   <SelectContent>{(zafras || []).map((z) => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="cultivoId"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cultivo</FormLabel>
+                <Select
+                  onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
+                  value={field.value || "__none__"}
+                  disabled={disableTransactional}
+                >
+                  <FormControl><SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sin asignar</SelectItem>
+                    {(cultivos || []).map((cultivo) => (
+                      <SelectItem key={cultivo.id} value={cultivo.id}>
+                        {cultivo.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
                 <FormMessage />
               </FormItem>

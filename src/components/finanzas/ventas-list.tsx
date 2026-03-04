@@ -45,11 +45,8 @@ export function VentasList({
 
     const rendimientoPorParcela = parcelas
       .map((parcela) => {
-        const toneladasVendidas = ventas
-          .filter((venta) => venta.parcelaId === parcela.id)
-          .reduce((sum, venta) => sum + (venta.toneladas || 0), 0);
-
-        const rendimientoKgHa = parcela.superficie > 0 ? (toneladasVendidas * 1000) / parcela.superficie : 0;
+        // Las ventas no se imputan por parcela en el modelo actual.
+        const rendimientoKgHa = 0;
         return {
           nombre: parcela.nombre,
           rendimiento: rendimientoKgHa,
@@ -251,7 +248,6 @@ export function VentasList({
             venta={selectedVenta}
             onSubmit={handleSave}
             onCancel={closeDialog}
-            parcelas={parcelas || []}
             cultivos={cultivos || []}
             zafras={zafras || []}
             clientes={clientes || []}

@@ -21,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { formatCurrency } from "@/lib/utils";
 import { VentaForm } from "@/components/comercial/ventas/venta-form";
-import type { Cliente, CuentaCajaBanco, Deposito, Venta, Zafra } from "@/lib/types";
+import type { Cliente, CuentaCajaBanco, Cultivo, Deposito, Venta, Zafra } from "@/lib/types";
 
 export default function VentasPage() {
   const firestore = useFirestore();
@@ -49,6 +49,9 @@ export default function VentasPage() {
   );
   const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(
     useMemoFirebase(() => (firestore ? query(collection(firestore, "zafras")) : null), [firestore])
+  );
+  const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(
+    useMemoFirebase(() => (firestore ? query(collection(firestore, "cultivos")) : null), [firestore])
   );
 
   const getClienteNombre = (id: string) => clientes?.find((cliente) => cliente.id === id)?.nombre || "N/A";
@@ -102,7 +105,7 @@ export default function VentasPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(isLoadingVentas || isLoadingClientes || isLoadingDepositos || isLoadingZafras) && (
+                {(isLoadingVentas || isLoadingClientes || isLoadingDepositos || isLoadingZafras || isLoadingCultivos) && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center">
                       Cargando...
@@ -157,6 +160,7 @@ export default function VentasPage() {
               depositos={depositos || []}
               cuentasCajaBanco={cuentasCajaBanco || []}
               zafras={zafras || []}
+              cultivos={cultivos || []}
             />
           </div>
         </DialogContent>
