@@ -3,6 +3,7 @@
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { ConnectionStatusIndicator } from '@/components/shared/connection-status';
+import { OperativoAssistant } from '@/components/assistant/operativo-assistant';
 import { useUser } from '@/firebase';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -55,6 +56,7 @@ export function AuthenticatedLayout({
         </footer>
       </div>
       <ConnectionStatusIndicator />
+      <OperativoAssistant />
     </div>
   );
 }
