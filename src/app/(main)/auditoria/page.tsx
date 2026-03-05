@@ -15,7 +15,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 type AuditStatus = "ok" | "forbidden" | "unknown" | "error";
-type AuditIntent = "stock" | "estado" | "costo" | "unknown";
+type AuditIntent = "stock" | "estado" | "costo" | "modulo" | "unknown";
 
 type AssistantAudit = {
   id: string;
@@ -49,6 +49,7 @@ const INTENT_OPTIONS = [
   { value: "stock", label: "Stock" },
   { value: "estado", label: "Estado de cuenta" },
   { value: "costo", label: "Costo parcela" },
+  { value: "modulo", label: "Modulo / informe" },
   { value: "unknown", label: "Desconocida" },
 ] as const;
 
@@ -104,6 +105,7 @@ function getIntentLabel(intent?: AuditIntent): string {
   if (intent === "stock") return "Stock";
   if (intent === "estado") return "Estado cuenta";
   if (intent === "costo") return "Costo parcela";
+  if (intent === "modulo") return "Modulo / informe";
   if (intent === "unknown") return "Desconocida";
   return "N/A";
 }
@@ -385,4 +387,3 @@ export default function AuditoriaPage() {
     </>
   );
 }
-

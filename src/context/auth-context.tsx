@@ -1,15 +1,22 @@
 ﻿'use client';
 
 import React, { createContext, useState, useMemo, ReactNode, useEffect } from 'react';
-import { Usuario, Permisos, Rol } from '@/lib/types';
+import { Usuario, Permisos, Rol, EmpresaSaaS } from '@/lib/types';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { getEstadoComercial, mergePermisosByGate, resolveModulosComprados } from '@/lib/suscripcion-saas';
 
 interface AuthContextType {
   usuarioApp: Usuario | null;
   permisos: Permisos;
   isAuthLoading: boolean;
   role: string | null;
+  empresa: EmpresaSaaS | null;
+  estadoComercial: {
+    acceso: boolean;
+    esDemo: boolean;
+    motivo: "sin_empresa" | "inactiva" | "demo_activo" | "suscripcion_activa" | "sin_suscripcion";
+  };
   // setRole is no longer needed as role comes from Firestore
 }
 
@@ -60,20 +67,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const { data: userRole, isLoading: isRoleLoading } = useDoc<Rol>(roleRef);
 
-  const isLoading = (isAuthLoading && !authTimedOut && !userError) || isProfileLoading || isRoleLoading;
+  const empresaRef = useMemoFirebase(
+    () => (usuarioApp?.empresaId && firestore ? doc(firestore, 'empresas', usuarioApp.empresaId) : null),
+    [usuarioApp?.empresaId, firestore]
+  );
+  const { data: empresaSaaS, isLoading: isEmpresaLoading } = useDoc<EmpresaSaaS>(empresaRef);
+
+  const isLoading = (isAuthLoading && !authTimedOut && !userError) || isProfileLoading || isRoleLoading || isEmpresaLoading;
 
   const value = useMemo(() => {
     // SPECIAL CASE: If the user has the 'admin' role, always grant all permissions.
     // This is a safeguard to ensure the admin is never locked out due to DB inconsistencies.
     const isAdmin = usuarioApp?.rolNombre === 'admin';
+    const estadoComercial = getEstadoComercial(empresaSaaS || null);
+    const permisosPorRol = isAdmin ? allPermissions : (userRole?.permisos || defaultPermissions);
+    const modulosComprados = resolveModulosComprados(empresaSaaS || null);
+    const gateComercial: Permisos = {
+      compras: estadoComercial.acceso,
+      stock: estadoComercial.acceso,
+      eventos: estadoComercial.acceso,
+      monitoreos: estadoComercial.acceso,
+      ventas: estadoComercial.acceso,
+      contabilidad: estadoComercial.acceso,
+      rrhh: estadoComercial.acceso,
+      finanzas: estadoComercial.acceso,
+      agronomia: estadoComercial.acceso,
+      maestros: estadoComercial.acceso,
+      // Permitir administración para gestionar planes/módulos incluso con suscripción vencida.
+      administracion: true,
+    };
+    const permisos = mergePermisosByGate(
+      mergePermisosByGate(permisosPorRol, modulosComprados),
+      gateComercial
+    );
 
     return {
       isAuthLoading: isLoading,
       usuarioApp: isLoading ? null : (usuarioApp || null),
-      permisos: isAdmin ? allPermissions : (userRole?.permisos || defaultPermissions),
+      permisos,
       role: usuarioApp?.rolNombre || null,
+      empresa: empresaSaaS || null,
+      estadoComercial,
     };
-  }, [isLoading, usuarioApp, userRole]);
+  }, [empresaSaaS, isLoading, usuarioApp, userRole]);
 
 
   if (isAuthLoading && !authTimedOut && !userError) { // Only show global loader during initial Firebase Auth check

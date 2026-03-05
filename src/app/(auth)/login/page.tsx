@@ -28,6 +28,43 @@ export default function LoginPage() {
     return lowercasedEmail === 'admin@crapro95.com' || lowercasedEmail === 'ricardo.ortellado@outlook.com';
   }
 
+  const ensureAdminEmpresa = async (uid: string) => {
+    if (!db) return null;
+    const empresaId = `empresa_${uid}`;
+    const empresaRef = doc(db, "empresas", empresaId);
+    const empresaSnap = await getDoc(empresaRef);
+
+    if (!empresaSnap.exists()) {
+      const now = new Date();
+      const demoEnd = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30);
+      await setDoc(
+        empresaRef,
+        {
+          nombre: "Empresa Demo",
+          activo: true,
+          demo: {
+            habilitado: true,
+            inicio: now.toISOString(),
+            fin: demoEnd.toISOString(),
+          },
+          suscripcion: {
+            estado: "trial",
+            plan: "demo",
+            modeloCobro: "por_empresa",
+            moneda: "USD",
+            montoMensual: 0,
+            maxUsuarios: 3,
+            proximoCobro: null,
+          },
+        },
+        { merge: true }
+      );
+    }
+
+    await setDoc(doc(db, "usuarios", uid), { empresaId }, { merge: true });
+    return empresaId;
+  };
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -73,6 +110,9 @@ export default function LoginPage() {
         if (Object.keys(updates).length > 0) {
             await setDoc(userDocRef, updates, { merge: true });
         }
+        if (isLoginAdmin && !userProfile?.empresaId) {
+            await ensureAdminEmpresa(uid);
+        }
       } else {
         // If user is authenticated but has no profile document...
         if (isLoginAdmin) {
@@ -81,8 +121,9 @@ export default function LoginPage() {
             const rolesSnapshot = await getDocs(rolesQuery);
             if (rolesSnapshot.empty) throw new Error("El rol 'admin' no existe en la base de datos.");
             const adminRole = rolesSnapshot.docs[0];
+            const empresaId = await ensureAdminEmpresa(uid);
             await setDoc(userDocRef, {
-                nombre: 'Administrador', email: email, rolId: adminRole.id, rolNombre: 'admin', activo: true,
+                nombre: 'Administrador', email: email, rolId: adminRole.id, rolNombre: 'admin', activo: true, empresaId,
             });
         } else {
             // A non-admin user without a profile is not allowed.
@@ -107,8 +148,9 @@ export default function LoginPage() {
                 if (rolesSnapshot.empty) throw new Error("El rol 'admin' no existe. No se puede crear el perfil.");
                 
                 const adminRole = rolesSnapshot.docs[0];
+                const empresaId = await ensureAdminEmpresa(uid);
                 await setDoc(userDocRef, {
-                    nombre: 'Administrador', email: email, rolId: adminRole.id, rolNombre: 'admin', activo: true,
+                    nombre: 'Administrador', email: email, rolId: adminRole.id, rolNombre: 'admin', activo: true, empresaId,
                 });
                 
                 router.push("/dashboard");

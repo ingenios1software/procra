@@ -186,6 +186,7 @@ const navItems: NavSection[] = [
       { href: "/auditoria", icon: History, label: "Auditoría" },
       { href: "/admin", icon: Wrench, label: "Herramientas" },
       { href: "/configuracion", icon: Settings, label: "Configuración" },
+      { href: "/configuracion/comercial", icon: Wallet, label: "Comercial SaaS" },
       { href: "/acerca-de", icon: Info, label: "Acerca de" },
     ],
   },

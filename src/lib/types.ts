@@ -787,3 +787,32 @@ export type FormaPago = {
   descripcion: string;
 };
 
+// --- SaaS Comercial ---
+export type ModeloCobroSaaS = "por_usuario" | "por_empresa";
+export type PlanSaaS = "demo" | "basic" | "pro" | "enterprise";
+export type EstadoSuscripcionSaaS = "trial" | "activa" | "vencida" | "suspendida";
+
+export type EmpresaSaaS = {
+  id: string;
+  nombre: string;
+  slug?: string;
+  activo: boolean;
+  modulos?: Partial<Permisos>;
+  demo: {
+    habilitado: boolean;
+    inicio?: Date | string;
+    fin?: Date | string;
+  };
+  suscripcion: {
+    estado: EstadoSuscripcionSaaS;
+    plan: PlanSaaS;
+    modeloCobro: ModeloCobroSaaS;
+    moneda: "USD" | "PYG";
+    montoMensual: number;
+    maxUsuarios?: number | null;
+    proximoCobro?: Date | string;
+  };
+  creadoEn?: Date | string | FieldValue;
+  actualizadoEn?: Date | string | FieldValue;
+};
+

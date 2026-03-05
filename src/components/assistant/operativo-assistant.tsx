@@ -3,11 +3,12 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
-import { ArrowRight, Loader2, MessageCircle, SendHorizontal, Sparkles, X } from "lucide-react";
+import { ArrowRight, Loader2, MessageCircle, Mic, SendHorizontal, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useFirestore } from "@/firebase";
 import { useAuth } from "@/hooks/use-auth";
+import { canAccessPathByPermisos } from "@/lib/route-permissions";
 import type {
   Cliente,
   CuentaPorCobrar,
@@ -35,6 +36,7 @@ type Intent =
   | { type: "stock"; term: string | null }
   | { type: "estado"; term: string | null }
   | { type: "costo"; term: string | null }
+  | { type: "modulo"; term: string | null }
   | { type: "unknown" };
 
 type AuditStatus = "ok" | "forbidden" | "unknown" | "error";
@@ -50,7 +52,42 @@ const QUICK_PROMPT_CATALOG = [
   { text: "Stock de urea", intent: "stock" as const },
   { text: "Estado de cuenta de AgroNorte", intent: "estado" as const },
   { text: "Costo de parcela 1", intent: "costo" as const },
+  { text: "Abrir informe de costos", intent: "modulo" as const },
 ];
+
+const MODULE_SHORTCUTS: Array<{ label: string; href: string; keywords: string[] }> = [
+  { label: "Dashboard", href: "/dashboard", keywords: ["inicio", "panel", "dashboard"] },
+  { label: "Monitoreo", href: "/dashboard/monitoreo", keywords: ["monitoreo", "monitor"] },
+  { label: "Stock", href: "/stock", keywords: ["stock", "inventario", "insumos"] },
+  { label: "Parcelas", href: "/parcelas", keywords: ["parcelas", "lotes", "campo"] },
+  { label: "Informe de Costos", href: "/agronomia/informe-costos", keywords: ["informe de costos", "costos parcela", "reporte costos"] },
+  { label: "Panel Agronomico", href: "/agronomia/panel", keywords: ["agronomia", "panel agronomico"] },
+  { label: "Finanzas Dashboard", href: "/finanzas/dashboard", keywords: ["finanzas", "dashboard finanzas"] },
+  { label: "Cuentas por Cobrar", href: "/finanzas/cuentas-cobrar", keywords: ["cuentas cobrar", "cxc", "cobrar"] },
+  { label: "Cuentas por Pagar", href: "/finanzas/cuentas-pagar", keywords: ["cuentas pagar", "cxp", "pagar"] },
+  { label: "Costos", href: "/finanzas/costos", keywords: ["costos", "gastos"] },
+  { label: "Rentabilidad", href: "/finanzas/rentabilidad", keywords: ["rentabilidad", "margen"] },
+  { label: "Tesoreria", href: "/finanzas/tesoreria", keywords: ["tesoreria", "caja", "banco"] },
+  { label: "Ventas Comercial", href: "/comercial/ventas", keywords: ["ventas", "facturacion ventas"] },
+  { label: "Compras Comercial", href: "/comercial/compras", keywords: ["compras", "facturas compras"] },
+  { label: "Clientes", href: "/comercial/clientes", keywords: ["clientes", "cartera clientes"] },
+  { label: "Proveedores", href: "/comercial/proveedores", keywords: ["proveedores"] },
+  { label: "Usuarios", href: "/usuarios", keywords: ["usuarios", "accesos"] },
+  { label: "Roles", href: "/roles", keywords: ["roles", "permisos"] },
+  { label: "Auditoria", href: "/auditoria", keywords: ["auditoria", "bitacora", "log"] },
+  { label: "Configuracion", href: "/configuracion", keywords: ["configuracion", "ajustes"] },
+];
+
+type SpeechRecognitionInstance = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: any) => void) | null;
+  onerror: ((event: any) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
 
 const DUST_SPECS = [
   { top: "10%", left: "18%", delay: "0s", duration: "2.4s" },
@@ -83,6 +120,17 @@ function extractTerm(input: string, patterns: RegExp[]): string | null {
 
 function detectIntent(input: string): Intent {
   const normalized = normalize(input);
+
+  if (/\b(abrir|ir|llevar|mostrar|modulo|modulos|informe|report(e|es))\b/.test(normalized)) {
+    return {
+      type: "modulo",
+      term: extractTerm(input, [
+        /(?:abrir|mostrar)\s*(?:modulo|modulos|informe|reportes?)?\s*(?:de|del|al|a)?\s*(.+)$/i,
+        /(?:ir|llevar(?:me)?)\s*(?:al|a)?\s*(?:modulo|informe)?\s*(.+)$/i,
+        /(?:modulo|modulos|informe|reportes?)\s*(?:de|del)?\s*(.+)$/i,
+      ]),
+    };
+  }
 
   if (/\b(stock|inventario|existencia)\b/.test(normalized)) {
     return {
@@ -158,7 +206,7 @@ function buildWelcomeMessage(): AssistantMessage {
   };
 }
 
-function buildMissingTermMessage(topic: "stock" | "estado" | "costo"): Omit<AssistantMessage, "id"> {
+function buildMissingTermMessage(topic: "stock" | "estado" | "costo" | "modulo"): Omit<AssistantMessage, "id"> {
   if (topic === "stock") {
     return {
       role: "assistant",
@@ -176,6 +224,16 @@ function buildMissingTermMessage(topic: "stock" | "estado" | "costo"): Omit<Assi
       ],
     };
   }
+  if (topic === "modulo") {
+    return {
+      role: "assistant",
+      text: "Indica el modulo o informe. Ejemplo: abrir informe de costos o ir a finanzas.",
+      actions: [
+        { label: "Abrir Dashboard", href: "/dashboard" },
+        { label: "Abrir Informe de Costos", href: "/agronomia/informe-costos" },
+      ],
+    };
+  }
   return {
     role: "assistant",
     text: "Indica la parcela. Ejemplo: costo de parcela Lote 1.",
@@ -186,7 +244,7 @@ function buildMissingTermMessage(topic: "stock" | "estado" | "costo"): Omit<Assi
   };
 }
 
-function buildForbiddenMessage(topic: "stock" | "estado" | "costo"): Omit<AssistantMessage, "id"> {
+function buildForbiddenMessage(topic: "stock" | "estado" | "costo" | "modulo"): Omit<AssistantMessage, "id"> {
   if (topic === "stock") {
     return {
       role: "assistant",
@@ -199,6 +257,12 @@ function buildForbiddenMessage(topic: "stock" | "estado" | "costo"): Omit<Assist
       text: "No tenes permiso para consultar estados de cuenta. Solicita habilitacion del modulo Finanzas.",
     };
   }
+  if (topic === "modulo") {
+    return {
+      role: "assistant",
+      text: "No tenes permiso para abrir ese modulo desde el asistente.",
+    };
+  }
   return {
     role: "assistant",
     text: "No tenes permiso para consultar costos por parcela. Solicita habilitacion de Agronomia o Finanzas.",
@@ -209,12 +273,19 @@ export function OperativoAssistant() {
   const firestore = useFirestore();
   const router = useRouter();
   const { user, role, permisos } = useAuth();
+  const isAdmin = useMemo(() => normalize(role || "") === "admin", [role]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [speechOutputSupported, setSpeechOutputSupported] = useState(false);
+  const [voiceOutputEnabled, setVoiceOutputEnabled] = useState(true);
+  const [isListening, setIsListening] = useState(false);
   const [messages, setMessages] = useState<AssistantMessage[]>(() => [buildWelcomeMessage()]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const lastSpokenAssistantMessageIdRef = useRef(1);
   const nextIdRef = useRef(2);
 
   const addMessage = useCallback((message: Omit<AssistantMessage, "id">) => {
@@ -223,24 +294,21 @@ export function OperativoAssistant() {
 
   const hasPermissionForIntent = useCallback(
     (intentType: Intent["type"]): boolean => {
+      if (isAdmin) return true;
       if (intentType === "stock") return Boolean(permisos.stock);
       if (intentType === "estado") return Boolean(permisos.finanzas);
       if (intentType === "costo") return Boolean(permisos.agronomia || permisos.finanzas);
+      if (intentType === "modulo") return true;
       return true;
     },
-    [permisos]
+    [isAdmin, permisos]
   );
 
   const hasRouteAccess = useCallback(
     (href: string): boolean => {
-      const path = href.toLowerCase();
-      if (path.startsWith("/stock")) return Boolean(permisos.stock);
-      if (path.startsWith("/finanzas")) return Boolean(permisos.finanzas);
-      if (path.startsWith("/agronomia")) return Boolean(permisos.agronomia);
-      if (path.startsWith("/parcelas")) return Boolean(permisos.maestros || permisos.agronomia || permisos.finanzas);
-      return true;
+      return canAccessPathByPermisos(href, permisos, role);
     },
-    [permisos]
+    [permisos, role]
   );
 
   const filterActionsByPermission = useCallback(
@@ -291,6 +359,43 @@ export function OperativoAssistant() {
   const quickPrompts = useMemo(() => {
     return QUICK_PROMPT_CATALOG.filter((prompt) => hasPermissionForIntent(prompt.intent)).map((prompt) => prompt.text);
   }, [hasPermissionForIntent]);
+
+  useEffect(() => {
+    const win = window as any;
+    setVoiceSupported(Boolean(win.SpeechRecognition || win.webkitSpeechRecognition));
+    const canSpeak = Boolean(win.speechSynthesis && win.SpeechSynthesisUtterance);
+    setSpeechOutputSupported(canSpeak);
+    setVoiceOutputEnabled(canSpeak);
+  }, []);
+
+  const speakAssistantText = useCallback(
+    (text: string) => {
+      const win = window as any;
+      if (!speechOutputSupported || !voiceOutputEnabled || !win.speechSynthesis || !win.SpeechSynthesisUtterance) {
+        return;
+      }
+
+      const normalizedText = text.replace(/\n+/g, ". ").trim();
+      if (!normalizedText) return;
+
+      try {
+        const utterance = new win.SpeechSynthesisUtterance(normalizedText);
+        utterance.lang = "es-ES";
+        utterance.rate = 1;
+        utterance.pitch = 1;
+
+        const voices = win.speechSynthesis.getVoices?.() || [];
+        const spanishVoice = voices.find((voice: any) => (voice?.lang || "").toLowerCase().startsWith("es"));
+        if (spanishVoice) utterance.voice = spanishVoice;
+
+        win.speechSynthesis.cancel();
+        win.speechSynthesis.speak(utterance);
+      } catch (error) {
+        console.error("Error al reproducir voz del asistente:", error);
+      }
+    },
+    [speechOutputSupported, voiceOutputEnabled]
+  );
 
   const stockHandler = useCallback(
     async (term: string): Promise<Omit<AssistantMessage, "id">> => {
@@ -471,6 +576,46 @@ export function OperativoAssistant() {
     [firestore]
   );
 
+  const moduloHandler = useCallback(
+    async (term: string): Promise<Omit<AssistantMessage, "id">> => {
+      const matches = rankMatches(MODULE_SHORTCUTS, term, (shortcut) => [
+        shortcut.label,
+        shortcut.href,
+        ...shortcut.keywords,
+      ]);
+
+      const uniqueMatches = Array.from(new Map(matches.map((item) => [item.href, item])).values());
+
+      if (uniqueMatches.length === 0) {
+        return {
+          role: "assistant",
+          text: `No encontre modulo o informe para "${term}".`,
+          actions: [
+            { label: "Abrir Dashboard", href: "/dashboard" },
+            { label: "Abrir Informe de Costos", href: "/agronomia/informe-costos" },
+          ],
+        };
+      }
+
+      const top = uniqueMatches.slice(0, 5);
+      if (top.length === 1) {
+        const target = top[0];
+        return {
+          role: "assistant",
+          text: `Modulo encontrado: ${target.label}.`,
+          actions: [{ label: `Abrir ${target.label}`, href: target.href }],
+        };
+      }
+
+      return {
+        role: "assistant",
+        text: `Coincidencias para "${term}":\n${top.map((item, index) => `${index + 1}. ${item.label}`).join("\n")}`,
+        actions: top.map((item) => ({ label: `Abrir ${item.label}`, href: item.href })),
+      };
+    },
+    []
+  );
+
   const resolvePrompt = useCallback(
     async (prompt: string): Promise<ResolveResult> => {
       const intent = detectIntent(prompt);
@@ -550,14 +695,46 @@ export function OperativoAssistant() {
         };
       }
 
+      if (intent.type === "modulo") {
+        if (!intent.term) {
+          return {
+            message: buildMissingTermMessage("modulo"),
+            intentType: "modulo",
+            term: null,
+            status: "ok",
+          };
+        }
+
+        const moduleResponse = await moduloHandler(intent.term);
+        const allowedActions = moduleResponse.actions?.filter((action) => hasRouteAccess(action.href));
+        if (!isAdmin && moduleResponse.actions?.length && (!allowedActions || allowedActions.length === 0)) {
+          return {
+            message: buildForbiddenMessage("modulo"),
+            intentType: "modulo",
+            term: intent.term,
+            status: "forbidden",
+          };
+        }
+
+        return {
+          message: {
+            ...moduleResponse,
+            ...(allowedActions ? { actions: allowedActions } : {}),
+          },
+          intentType: "modulo",
+          term: intent.term,
+          status: "ok",
+        };
+      }
+
       return {
         message: {
           role: "assistant",
           text:
-            "Todavia no entiendo esa consulta. Proba con:\n- stock de [producto]\n- estado de cuenta de [entidad]\n- costo de parcela [nombre]",
+            "Todavia no entiendo esa consulta. Proba con:\n- stock de [producto]\n- estado de cuenta de [entidad]\n- costo de parcela [nombre]\n- abrir [modulo o informe]",
           actions: [
+            { label: "Abrir Dashboard", href: "/dashboard" },
             { label: "Abrir modulo Stock", href: "/stock" },
-            { label: "Abrir Informe de Costos", href: "/agronomia/informe-costos" },
           ],
         },
         intentType: "unknown",
@@ -565,7 +742,7 @@ export function OperativoAssistant() {
         status: "unknown",
       };
     },
-    [costoHandler, estadoHandler, hasPermissionForIntent, stockHandler]
+    [costoHandler, estadoHandler, hasPermissionForIntent, hasRouteAccess, isAdmin, moduloHandler, stockHandler]
   );
 
   const submitPrompt = useCallback(
@@ -617,11 +794,92 @@ export function OperativoAssistant() {
     [addMessage, filterActionsByPermission, input, isLoading, persistAudit, resolvePrompt]
   );
 
+  const toggleVoiceCapture = useCallback(() => {
+    if (isLoading) return;
+
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const win = window as any;
+    const RecognitionCtor = win.SpeechRecognition || win.webkitSpeechRecognition;
+    if (!RecognitionCtor) {
+      setVoiceSupported(false);
+      addMessage({
+        role: "assistant",
+        text: "Tu navegador no soporta captura de audio para este asistente.",
+      });
+      return;
+    }
+
+    try {
+      const recognition: SpeechRecognitionInstance = new RecognitionCtor();
+      recognition.lang = "es-ES";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onresult = (event: any) => {
+        const transcript = event?.results?.[0]?.[0]?.transcript?.trim?.() || "";
+        if (!transcript) return;
+        setInput(transcript);
+        void submitPrompt(transcript);
+      };
+      recognition.onerror = () => {
+        setIsListening(false);
+        addMessage({
+          role: "assistant",
+          text: "No pude capturar el audio. Intenta de nuevo.",
+        });
+      };
+      recognition.onend = () => {
+        setIsListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognitionRef.current = recognition;
+      setVoiceSupported(true);
+      recognition.start();
+      setIsListening(true);
+    } catch (error) {
+      setIsListening(false);
+      addMessage({
+        role: "assistant",
+        text: "No se pudo iniciar el microfono en este navegador.",
+      });
+      console.error("Error iniciando reconocimiento de voz:", error);
+    }
+  }, [addMessage, isListening, isLoading, submitPrompt]);
+
   useEffect(() => {
     const node = scrollRef.current;
     if (!node) return;
     node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.role !== "assistant") return;
+    if (lastMessage.id <= lastSpokenAssistantMessageIdRef.current) return;
+
+    lastSpokenAssistantMessageIdRef.current = lastMessage.id;
+    speakAssistantText(lastMessage.text);
+  }, [messages, speakAssistantText]);
+
+  useEffect(() => {
+    if (voiceOutputEnabled) return;
+    const win = window as any;
+    win.speechSynthesis?.cancel?.();
+  }, [voiceOutputEnabled]);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+      const win = window as any;
+      win.speechSynthesis?.cancel?.();
+    };
+  }, []);
 
   const panelClassName = useMemo(
     () =>
@@ -646,9 +904,21 @@ export function OperativoAssistant() {
                 <p className="text-xs text-muted-foreground">Consulta datos y abre modulos</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} aria-label="Cerrar asistente">
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setVoiceOutputEnabled((prev) => !prev)}
+                disabled={!speechOutputSupported}
+                aria-label={voiceOutputEnabled ? "Silenciar respuestas" : "Activar respuestas por voz"}
+                title={voiceOutputEnabled ? "Silenciar respuestas" : "Activar respuestas por voz"}
+              >
+                {voiceOutputEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} aria-label="Cerrar asistente">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </header>
 
           <div ref={scrollRef} className="max-h-[52vh] space-y-3 overflow-y-auto bg-muted/20 px-3 py-3">
@@ -719,10 +989,27 @@ export function OperativoAssistant() {
                   }
                 }}
               />
+              <Button
+                size="icon"
+                variant={isListening ? "destructive" : "outline"}
+                onClick={toggleVoiceCapture}
+                disabled={isLoading || !voiceSupported}
+                title={isListening ? "Detener audio" : "Hablar por audio"}
+                aria-label={isListening ? "Detener audio" : "Hablar por audio"}
+              >
+                <Mic className={cn("h-4 w-4", isListening && "animate-pulse")} />
+              </Button>
               <Button size="icon" onClick={() => void submitPrompt()} disabled={isLoading || !input.trim()}>
                 <SendHorizontal className="h-4 w-4" />
               </Button>
             </div>
+            {isListening && <p className="text-xs text-muted-foreground">Escuchando... habla ahora.</p>}
+            {!voiceSupported && (
+              <p className="text-xs text-muted-foreground">Microfono no disponible en este navegador.</p>
+            )}
+            {!speechOutputSupported && (
+              <p className="text-xs text-muted-foreground">Voz de salida no disponible en este navegador.</p>
+            )}
           </footer>
         </section>
       )}
