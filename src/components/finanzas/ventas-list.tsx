@@ -239,8 +239,8 @@ export function VentasList({
         </Card>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-4xl">
+      <Dialog modal={false} open={isDialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent draggable className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{selectedVenta ? "Editar Venta" : "Registrar Nueva Venta"}</DialogTitle>
           </DialogHeader>

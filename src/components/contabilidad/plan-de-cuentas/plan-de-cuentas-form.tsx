@@ -23,7 +23,7 @@ import {
 import type { PlanDeCuenta } from "@/lib/types";
 
 const formSchema = z.object({
-  codigo: z.string().min(1, "El código es requerido."),
+  codigo: z.string().min(1, "El codigo es requerido."),
   nombre: z.string().min(3, "El nombre es muy corto."),
   tipo: z.enum(["activo", "pasivo", "patrimonio", "ingreso", "costo", "gasto"]),
   naturaleza: z.enum(["deudora", "acreedora"]),
@@ -54,14 +54,14 @@ export function PlanDeCuentasForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="codigo"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Código de Cuenta</FormLabel>
+                <FormLabel>Codigo de Cuenta</FormLabel>
                 <FormControl>
                   <Input placeholder="Ej: 5.1.1.01" {...field} />
                 </FormControl>
@@ -83,7 +83,8 @@ export function PlanDeCuentasForm({
             )}
           />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="tipo"
@@ -131,7 +132,8 @@ export function PlanDeCuentasForm({
             )}
           />
         </div>
-        <div className="flex justify-end gap-2 pt-4">
+
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
@@ -143,4 +145,3 @@ export function PlanDeCuentasForm({
     </Form>
   );
 }
-

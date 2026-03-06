@@ -130,6 +130,16 @@
   animation-iteration-count: infinite;
 }
 
+.report-export-only {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 1024px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
 @keyframes carbon-dust-float {
   0% {
     opacity: 0.1;

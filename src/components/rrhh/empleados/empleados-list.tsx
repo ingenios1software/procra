@@ -218,8 +218,8 @@ export function EmpleadosList({ empleados, isLoading }: EmpleadosListProps) {
           </Table>
         </CardContent>
       </Card>
-      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="sm:max-w-[725px]">
+      <Dialog modal={false} open={isFormOpen} onOpenChange={setFormOpen}>
+        <DialogContent draggable className="sm:max-w-[725px]">
           <DialogHeader>
             <DialogTitle>
               {selectedEmpleado ? "Editar Empleado" : "Registrar Nuevo Empleado"}

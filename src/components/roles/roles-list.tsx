@@ -158,8 +158,8 @@ export function RolesList({ initialRoles, onSave, onDelete }: RolesListProps) {
         </CardContent>
       </Card>
       
-      <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+      <Dialog modal={false} open={isDialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>{selectedRol ? 'Editar Rol' : 'Crear Nuevo Rol'}</DialogTitle>
             <DialogDescription>

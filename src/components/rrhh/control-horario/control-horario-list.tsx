@@ -1800,8 +1800,8 @@ export function ControlHorarioList({
         />
       )}
 
-      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="sm:max-w-[980px]">
+      <Dialog modal={false} open={isFormOpen} onOpenChange={setFormOpen}>
+        <DialogContent draggable className="sm:max-w-[980px]">
           <DialogHeader>
             <DialogTitle>
               {selectedRegistro ? "Editar Registro de Horario" : "Crear Nuevo Registro de Horario"}

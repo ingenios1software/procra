@@ -603,8 +603,8 @@ export default function CuentasCobrarPage() {
         </Card>
       </div>
 
-      <Dialog open={Boolean(cuentaSeleccionada)} onOpenChange={(open) => !open && closeCobroDialog()}>
-        <DialogContent>
+      <Dialog modal={false} open={Boolean(cuentaSeleccionada)} onOpenChange={(open) => !open && closeCobroDialog()}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>Registrar cobro</DialogTitle>
             <DialogDescription>
@@ -674,8 +674,8 @@ export default function CuentasCobrarPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isReciboOpen} onOpenChange={setIsReciboOpen}>
-        <DialogContent className="max-w-2xl">
+      <Dialog modal={false} open={isReciboOpen} onOpenChange={setIsReciboOpen}>
+        <DialogContent draggable className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Recibo de Cobro Emitido</DialogTitle>
             <DialogDescription>

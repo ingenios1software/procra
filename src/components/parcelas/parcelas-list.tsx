@@ -209,8 +209,8 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
         </Card>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+      <Dialog modal={false} open={isDialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>Crear Nueva Parcela</DialogTitle>
             <DialogDescription>Complete los detalles de la nueva parcela.</DialogDescription>

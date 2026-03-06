@@ -129,8 +129,8 @@ export function DepositosList({ initialDepositos, isLoading, onDataChange }: Dep
         </CardContent>
       </Card>
       
-      <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+      <Dialog modal={false} open={isDialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>{selectedDeposito ? 'Editar Depósito' : 'Crear Nuevo Depósito'}</DialogTitle>
           </DialogHeader>

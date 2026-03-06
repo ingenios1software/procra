@@ -80,8 +80,8 @@ export function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+    <Dialog modal={false} open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent draggable className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Importar Insumos desde Excel</DialogTitle>
           <DialogDescription>

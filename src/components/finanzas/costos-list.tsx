@@ -233,8 +233,8 @@ export function CostosList() {
         </Card>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+      <Dialog modal={false} open={isDialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>{selectedCosto ? "Editar Costo" : "Registrar Nuevo Costo"}</DialogTitle>
           </DialogHeader>

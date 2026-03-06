@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Image as ImageIcon, MessageCircle, Printer } from "lucide-react";
+import { FileDown, Image as ImageIcon, MessageCircle, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { defaultReportBranding, type ReportBranding } from "@/lib/report-branding";
+import { useAuth } from "@/hooks/use-auth";
+import { defaultReportBranding, getReportBrandingFromEmpresa, type ReportBranding } from "@/lib/report-branding";
 import { cn } from "@/lib/utils";
 
 interface ReportActionsProps {
@@ -13,6 +14,13 @@ interface ReportActionsProps {
   imageTargetId?: string;
   printTargetId?: string;
   branding?: ReportBranding;
+  documentLabel?: string;
+  showDefaultFooter?: boolean;
+}
+
+interface PrintableReportOptions {
+  documentLabel?: string;
+  showDefaultFooter?: boolean;
 }
 
 function escapeHtml(value: string): string {
@@ -102,7 +110,8 @@ function getPrintableHtml(
   target: HTMLElement,
   title: string,
   summary: string | undefined,
-  branding: ReportBranding
+  branding: ReportBranding,
+  options: PrintableReportOptions = {}
 ): string {
   const headStyles = getHeadStylesForPrint();
   const generatedAt = new Date().toLocaleString("es-PY", {
@@ -123,6 +132,8 @@ function getPrintableHtml(
   const safeLogoFallbacks = (branding.logoFallbackSrcList || [])
     .map((item) => escapeHtml(item))
     .join(",");
+  const safeDocumentLabel = escapeHtml(options.documentLabel || "Reporte");
+  const showDefaultFooter = options.showDefaultFooter ?? true;
 
   return `
 <!doctype html>
@@ -176,6 +187,15 @@ function getPrintableHtml(
       .print-root .overflow-x-hidden,
       .print-root .overflow-y-auto,
       .print-root [class*="overflow-"] { overflow: visible !important; }
+      .report-export-only {
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: auto !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        z-index: auto !important;
+      }
       .print-root [class*="max-h-"] { max-height: none !important; }
       .print-root [class*="h-\\["] { height: auto !important; }
       .print-root table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -236,23 +256,27 @@ function getPrintableHtml(
             ${safeSummary ? `<p class="report-summary">${safeSummary}</p>` : ""}
           </div>
           <div class="report-meta">
-            <div><strong>Documento:</strong> Reporte</div>
+            <div><strong>Documento:</strong> ${safeDocumentLabel}</div>
             <div><strong>Generado:</strong> ${safeGenerated}</div>
           </div>
         </header>
         <div class="print-root">${target.outerHTML}</div>
-        <footer class="report-footer">
-          <section class="signature-box">
-            <span class="signature-line"></span>
-            <p class="signature-label">Elaborado por</p>
-            <p class="signature-name">${safePreparedBy}</p>
-          </section>
-          <section class="signature-box">
-            <span class="signature-line"></span>
-            <p class="signature-label">Aprobado por</p>
-            <p class="signature-name">${safeApprovedBy}</p>
-          </section>
-        </footer>
+        ${
+          showDefaultFooter
+            ? `<footer class="report-footer">
+                <section class="signature-box">
+                  <span class="signature-line"></span>
+                  <p class="signature-label">Elaborado por</p>
+                  <p class="signature-name">${safePreparedBy}</p>
+                </section>
+                <section class="signature-box">
+                  <span class="signature-line"></span>
+                  <p class="signature-label">Aprobado por</p>
+                  <p class="signature-name">${safeApprovedBy}</p>
+                </section>
+              </footer>`
+            : ""
+        }
       </section>
     </main>
   </body>
@@ -405,6 +429,37 @@ async function renderReportCanvas(html: string): Promise<HTMLCanvasElement> {
   }
 }
 
+async function downloadPdfFromHtml(html: string, fileName: string): Promise<void> {
+  const [{ default: jsPDF }, canvas] = await Promise.all([
+    import("jspdf"),
+    renderReportCanvas(html),
+  ]);
+
+  const pdf = new jsPDF("p", "mm", "a4");
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 10;
+  const usableWidth = pageWidth - margin * 2;
+  const renderedHeight = (canvas.height * usableWidth) / canvas.width;
+  const imgData = canvas.toDataURL("image/png");
+  const printableHeight = pageHeight - margin * 2;
+
+  let remainingHeight = renderedHeight;
+  let offsetY = 0;
+
+  while (remainingHeight > 0) {
+    if (offsetY > 0) {
+      pdf.addPage();
+    }
+
+    pdf.addImage(imgData, "PNG", margin, margin - offsetY, usableWidth, renderedHeight);
+    remainingHeight -= printableHeight;
+    offsetY += printableHeight;
+  }
+
+  pdf.save(`${fileName}.pdf`);
+}
+
 export function ReportActions({
   reportTitle,
   reportSummary,
@@ -412,14 +467,19 @@ export function ReportActions({
   imageTargetId,
   printTargetId,
   branding,
+  documentLabel,
+  showDefaultFooter,
 }: ReportActionsProps) {
+  const { empresa } = useAuth();
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const reportBranding = branding || defaultReportBranding;
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const reportBranding = branding || getReportBrandingFromEmpresa(empresa) || defaultReportBranding;
+  const printableOptions = { documentLabel, showDefaultFooter };
 
   const handlePrint = async () => {
     const target = findPrintTarget(printTargetId);
     if (target) {
-      const html = getPrintableHtml(target, reportTitle, reportSummary, reportBranding);
+      const html = getPrintableHtml(target, reportTitle, reportSummary, reportBranding, printableOptions);
       try {
         await printHtmlInIframe(html);
         return;
@@ -449,7 +509,7 @@ export function ReportActions({
 
     setIsGeneratingImage(true);
     try {
-      const reportHtml = getPrintableHtml(target, reportTitle, reportSummary, reportBranding);
+      const reportHtml = getPrintableHtml(target, reportTitle, reportSummary, reportBranding, printableOptions);
       const canvas = await renderReportCanvas(reportHtml);
 
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
@@ -495,11 +555,32 @@ export function ReportActions({
     }
   };
 
+  const handleDownloadPdf = async () => {
+    const target = findPrintTarget(printTargetId);
+    if (!target) {
+      throw new Error("No se encontro contenido para exportar a PDF.");
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const reportHtml = getPrintableHtml(target, reportTitle, reportSummary, reportBranding, printableOptions);
+      await downloadPdfFromHtml(reportHtml, getSafeFileName(reportTitle));
+    } catch (error) {
+      console.error("No se pudo generar el PDF:", error);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   return (
     <div className={cn("flex w-full flex-wrap items-center justify-start gap-2 no-print md:w-auto md:justify-end", className)}>
       <Button type="button" variant="outline" onClick={() => void handlePrint()}>
         <Printer className="mr-2 h-4 w-4" />
         Imprimir
+      </Button>
+      <Button type="button" variant="outline" onClick={() => void handleDownloadPdf()} disabled={isGeneratingPdf}>
+        <FileDown className="mr-2 h-4 w-4" />
+        {isGeneratingPdf ? "Generando PDF..." : "PDF"}
       </Button>
       <Button type="button" variant="outline" onClick={handleShareWhatsApp}>
         <MessageCircle className="mr-2 h-4 w-4" />

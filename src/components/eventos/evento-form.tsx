@@ -112,7 +112,7 @@ type EventoFormValues = z.infer<typeof formSchema>;
 
 interface EventoFormProps {
   evento?: Evento | null;
-  onSave: (data: Omit<Evento, 'id'>) => void;
+  onSave: (data: Omit<Evento, 'id'>) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -509,9 +509,12 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       rendimientoTonHa: tipoNormalizado === "cosecha" ? rendimientoTonHa : undefined,
       rendimientoKgHa: tipoNormalizado === "cosecha" ? rendimientoKgHa : undefined,
     };
-    onSave(dataConCostoTotal);
-    clearDraft();
-    setIsSubmitting(false);
+    try {
+      await onSave(dataConCostoTotal);
+      clearDraft();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDiscard = () => {

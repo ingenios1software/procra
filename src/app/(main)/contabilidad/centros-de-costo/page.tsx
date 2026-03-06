@@ -185,8 +185,8 @@ export default function CentrosDeCostoPage() {
           </Table>
         </CardContent>
       </Card>
-      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="sm:max-w-[625px]">
+      <Dialog modal={false} open={isFormOpen} onOpenChange={setFormOpen}>
+        <DialogContent draggable className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>
               {selectedCentro ? "Editar Centro de Costo" : "Crear Centro de Costo"}

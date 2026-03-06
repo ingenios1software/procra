@@ -149,8 +149,8 @@ export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) 
         </CardContent>
       </Card>
       
-      <Dialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
+        <Dialog modal={false} open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen}>
+         <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>Crear Nuevo Cultivo</DialogTitle>
           </DialogHeader>
@@ -158,8 +158,8 @@ export function CultivosList({ initialCultivos, isLoading }: CultivosListProps) 
         </DialogContent>
       </Dialog>
       
-      <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
+        <Dialog modal={false} open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
+         <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>Editar Cultivo</DialogTitle>
           </DialogHeader>

@@ -144,8 +144,8 @@ export default function VentasPage() {
         </Card>
       </div>
 
-      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-6xl">
+      <Dialog modal={false} open={isFormOpen} onOpenChange={setFormOpen}>
+        <DialogContent draggable className="max-w-6xl">
           <DialogHeader>
             <DialogTitle>
               {selectedVenta ? `Editar Venta NÂ° ${selectedVenta.numeroDocumento}` : "Registrar Nueva Venta"}

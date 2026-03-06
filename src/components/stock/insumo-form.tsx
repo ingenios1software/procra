@@ -37,15 +37,15 @@ const DEFAULT_CATEGORIES = [
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
-  codigo: z.string().nonempty("El código es requerido."),
-  descripcion: z.string().nonempty("La descripción es requerida."),
-  categoria: z.string().trim().min(1, "La categoría es requerida."),
+  codigo: z.string().nonempty("El codigo es requerido."),
+  descripcion: z.string().nonempty("La descripcion es requerida."),
+  categoria: z.string().trim().min(1, "La categoria es requerida."),
   principioActivo: z.string().optional(),
   unidad: z.enum(["kg", "lt", "unidad", "ton"]),
   iva: z.enum(["0", "5", "10"]),
   precioVenta: z.coerce.number().min(0, "El precio de venta no puede ser negativo."),
   dosisRecomendada: z.coerce.number().optional(),
-  stockMinimo: z.coerce.number().min(0, "El stock mínimo no puede ser negativo."),
+  stockMinimo: z.coerce.number().min(0, "El stock minimo no puede ser negativo."),
   proveedor: z.string().optional(),
   controlaLotes: z.boolean().default(false),
   permiteMovimientoSinLote: z.boolean().default(true),
@@ -134,8 +134,8 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="nombre"
@@ -154,7 +154,7 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
             name="codigo"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Código</FormLabel>
+                <FormLabel>Codigo</FormLabel>
                 <FormControl>
                   <Input placeholder="Ej: FERT-001" {...field} />
                 </FormControl>
@@ -164,27 +164,27 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
           />
         </div>
 
-        <FormField
-          control={form.control}
-          name="descripcion"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Descripción</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Descripción detallada del producto..." {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <FormField
+            control={form.control}
+            name="descripcion"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Descripcion</FormLabel>
+                <FormControl>
+                  <Textarea className="min-h-[110px]" placeholder="Descripcion detallada del producto..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
             name="categoria"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Categoría</FormLabel>
+                <FormLabel>Categoria</FormLabel>
                 <FormControl>
                   <Input
                     list="insumo-categorias"
@@ -198,11 +198,11 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
                     <option key={cat} value={cat} />
                   ))}
                 </datalist>
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Input
                     value={newCategoryDraft}
                     onChange={(event) => setNewCategoryDraft(event.target.value)}
-                    placeholder="Agregar nueva categoría..."
+                    placeholder="Agregar nueva categoria..."
                   />
                   <Button type="button" variant="outline" onClick={handleAddCategory}>
                     Agregar
@@ -212,6 +212,9 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
               </FormItem>
             )}
           />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="principioActivo"
@@ -225,9 +228,22 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="proveedor"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Proveedor (Opcional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="AgroPro S.A." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             control={form.control}
             name="unidad"
@@ -288,13 +304,13 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             control={form.control}
             name="stockMinimo"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Stock Mínimo</FormLabel>
+                <FormLabel>Stock Minimo</FormLabel>
                 <FormControl>
                   <Input type="number" placeholder="500" {...field} />
                 </FormControl>
@@ -315,30 +331,17 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="proveedor"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Proveedor (Opcional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="AgroPro S.A." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
         </div>
 
-
-
-        <div className="grid grid-cols-1 gap-4 rounded-md border p-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 rounded-md border p-4 md:grid-cols-2">
           <FormField
             control={form.control}
             name="controlaLotes"
             render={({ field }) => (
               <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
                 <FormLabel>Controlar lotes para este insumo</FormLabel>
               </FormItem>
             )}
@@ -348,7 +351,9 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
             name="permiteMovimientoSinLote"
             render={({ field }) => (
               <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
                 <FormLabel>Permitir movimientos sin lote</FormLabel>
               </FormItem>
             )}
@@ -358,7 +363,9 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
             name="controlaVencimiento"
             render={({ field }) => (
               <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
                 <FormLabel>Controlar fecha de vencimiento</FormLabel>
               </FormItem>
             )}
@@ -368,7 +375,9 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
             name="permiteLoteSinVencimiento"
             render={({ field }) => (
               <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
                 <FormLabel>Permitir lote sin vencimiento</FormLabel>
               </FormItem>
             )}
@@ -378,15 +387,17 @@ export const InsumoForm = React.memo(({ insumo, existingCategories = [], onSubmi
             name="diasAlertaVencimiento"
             render={({ field }) => (
               <FormItem className="md:col-span-2">
-                <FormLabel>Días para alerta de vencimiento</FormLabel>
-                <FormControl><Input type="number" min={1} max={365} {...field} /></FormControl>
+                <FormLabel>Dias para alerta de vencimiento</FormLabel>
+                <FormControl>
+                  <Input type="number" min={1} max={365} {...field} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
 
-        <div className="flex justify-end gap-2 pt-4">
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>

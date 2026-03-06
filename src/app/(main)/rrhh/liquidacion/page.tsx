@@ -478,8 +478,8 @@ export default function LiquidacionPage() {
         </Card>
       </div>
 
-      <Dialog open={!!selectedRow} onOpenChange={(open) => !open && closePago()}>
-        <DialogContent>
+      <Dialog modal={false} open={!!selectedRow} onOpenChange={(open) => !open && closePago()}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>Registrar pago</DialogTitle>
             <DialogDescription>Genera asiento, salida de caja, pago de nomina y recibo.</DialogDescription>

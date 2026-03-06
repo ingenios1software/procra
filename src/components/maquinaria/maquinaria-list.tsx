@@ -186,8 +186,8 @@ export function MaquinariaList({ maquinaria, isLoading }: MaquinariaListProps) {
         </CardContent>
       </Card>
 
-      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="sm:max-w-[625px]">
+      <Dialog modal={false} open={isFormOpen} onOpenChange={setFormOpen}>
+        <DialogContent draggable className="sm:max-w-[625px]">
           <DialogHeader>
             <DialogTitle>
               {selectedMaquinaria ? "Editar Maquinaria" : "Crear Nueva Maquinaria"}

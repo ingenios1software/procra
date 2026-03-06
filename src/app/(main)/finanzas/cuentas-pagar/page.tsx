@@ -491,8 +491,8 @@ export default function CuentasPagarPage() {
         </Card>
       </div>
 
-      <Dialog open={Boolean(cuentaSeleccionada)} onOpenChange={(open) => !open && closePagoDialog()}>
-        <DialogContent>
+      <Dialog modal={false} open={Boolean(cuentaSeleccionada)} onOpenChange={(open) => !open && closePagoDialog()}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>Registrar pago</DialogTitle>
             <DialogDescription>

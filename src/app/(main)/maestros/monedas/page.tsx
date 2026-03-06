@@ -210,8 +210,8 @@ export default function MonedasPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent>
+      <Dialog modal={false} open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>{selectedMoneda ? "Editar Moneda" : "Nueva Moneda"}</DialogTitle>
             <DialogDescription>Defina codigo, descripcion, tasa y si es moneda base.</DialogDescription>

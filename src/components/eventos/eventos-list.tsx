@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useState } from "react";
+import { format } from "date-fns";
+import { addDoc, collection, doc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { FileText, MoreHorizontal, Pencil, PlusCircle, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +20,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,13 +31,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, PlusCircle, TriangleAlert } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
-import { ReportActions } from "@/components/shared/report-actions";
-import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
-import { useUser, useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -51,28 +39,47 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { EventoForm } from "./evento-form";
-import { collection, doc, getDocs, limit, orderBy, query, serverTimestamp } from "firebase/firestore";
-import Link from "next/link";
-import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "../ui/input";
 import { cn } from "@/lib/utils";
+import type { Cultivo, Evento, Parcela, Zafra } from "@/lib/types";
+import { useFirestore, useUser, deleteDocumentNonBlocking } from "@/firebase";
+import { useToast } from "@/hooks/use-toast";
 import { procesarConsumoDeStockDesdeEvento } from "@/lib/stock/consumo-desde-evento";
+import { EventoForm } from "./evento-form";
+import { EventoComprobante } from "./evento-comprobante";
+import { PageHeader } from "@/components/shared/page-header";
+import { ReportActions } from "@/components/shared/report-actions";
 
+interface EventosListProps {
+  eventos: Evento[];
+  parcelas: Parcela[];
+  zafras: Zafra[];
+  cultivos: Cultivo[];
+  isLoading: boolean;
+}
 
-export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: { eventos: Evento[], parcelas: Parcela[], zafras: Zafra[], cultivos: Cultivo[], isLoading: boolean }) {
+export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: EventosListProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
-  
+
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
-
+  const [dialogView, setDialogView] = useState<"form" | "receipt">("form");
   const [filters, setFilters] = useState({
     tipo: "",
     parcelaId: "",
@@ -81,17 +88,12 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     estado: "",
   });
 
-  const handleFilterChange = (
-    filterName: keyof typeof filters,
-    value: string
-  ) => {
-    setFilters((prev) => ({ ...prev, [filterName]: value }));
-  };
-
   const filteredEventos = useMemo(() => {
-    if (!eventos) return [];
-    return eventos.filter((evento) => {
-      const numeroMatch = filters.numeroLanzamiento ? evento.numeroLanzamiento?.toString().includes(filters.numeroLanzamiento) : true;
+    return (eventos || []).filter((evento) => {
+      const numeroMatch = filters.numeroLanzamiento
+        ? evento.numeroLanzamiento?.toString().includes(filters.numeroLanzamiento)
+        : true;
+
       return (
         numeroMatch &&
         (filters.tipo ? evento.tipo === filters.tipo : true) &&
@@ -102,114 +104,132 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     });
   }, [eventos, filters]);
 
-  const eventTypes = useMemo(() => {
-    if (!eventos) return [];
-    return [...new Set(eventos.map((e) => e.tipo))];
-  }, [eventos]);
+  const eventTypes = useMemo(() => [...new Set((eventos || []).map((evento) => evento.tipo))], [eventos]);
 
-  const handleSave = async (eventoData: Omit<Evento, 'id'>) => {
-    if (!firestore || !user) return;
-    
-    // Si estamos editando
-    if (selectedEvento) {
-        const dataToSave = {...eventoData, fecha: (eventoData.fecha as Date).toISOString() };
-        const eventoRef = doc(firestore, 'eventos', selectedEvento.id);
-        updateDocumentNonBlocking(eventoRef, dataToSave);
-        toast({ title: "Evento actualizado" });
-    } else { // Si estamos creando
-        // Lógica de creación que estaba en crear/page.tsx
-        const eventosCol = collection(firestore, 'eventos');
-        const qLanzamiento = query(eventosCol, orderBy("numeroLanzamiento", "desc"), limit(1));
-        const lanzSnapshot = await getDocs(qLanzamiento);
-        let maxLanzamiento = 0;
-        if (!lanzSnapshot.empty) {
-            maxLanzamiento = lanzSnapshot.docs[0].data().numeroLanzamiento || 0;
-        }
-
-        const qItem = query(eventosCol, orderBy("numeroItem", "desc"), limit(1));
-        const itemSnapshot = await getDocs(qItem);
-        let maxNumeroItem = 0;
-        if (!itemSnapshot.empty) {
-            maxNumeroItem = itemSnapshot.docs[0].data().numeroItem || 0;
-        }
-
-        const cleanData = Object.fromEntries(
-          Object.entries(eventoData).filter(([, value]) => value !== undefined)
-        );
-
-        const dataToSave = { 
-            ...cleanData, 
-            fecha: (eventoData.fecha as Date).toISOString(),
-            numeroLanzamiento: maxLanzamiento + 1,
-            numeroItem: maxNumeroItem + 1,
-            estado: 'pendiente' as const,
-            creadoPor: user.uid,
-            creadoEn: serverTimestamp(),
-        };
-
-        const docRef = await addDocumentNonBlocking(eventosCol, dataToSave);
-        
-        if (docRef) {
-          const eventoGuardado: Evento & { id: string } = {
-            ...(eventoData as Evento),
-            ...dataToSave,
-            id: docRef.id,
-            creadoEn: new Date(),
-          };
-          
-          const { success, errors } = await procesarConsumoDeStockDesdeEvento(eventoGuardado, firestore, user.uid);
-          const tipoNormalizado = (eventoGuardado.tipo || "").toString().toLowerCase();
-          const esCosecha = tipoNormalizado === "cosecha" || tipoNormalizado === "rendimiento";
-
-          if (success && esCosecha) {
-            toast({
-              title: "Cosecha procesada",
-              description: "Se actualizo stock de granos, rendimiento por parcela y valorizacion del servicio.",
-            });
-          } else if (!success) {
-            toast({
-              variant: "destructive",
-              title: "Evento creado con advertencias",
-              description: errors.join('. '),
-            });
-          }
-        }
-        
-        toast({
-            title: `Evento #${dataToSave.numeroLanzamiento} (Item Nº ${dataToSave.numeroItem}) creado`,
-            description: `El evento "${eventoData.descripcion}" ha sido guardado y está pendiente de aprobación.`,
-        });
-    }
-
-    closeForm();
+  const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
+    setFilters((prev) => ({ ...prev, [filterName]: value }));
   };
-
-
-  const handleDelete = (id: string) => {
-    if (!firestore) return;
-    const eventoRef = doc(firestore, 'eventos', id);
-    deleteDocumentNonBlocking(eventoRef);
-    toast({
-      variant: "destructive",
-      title: "Evento eliminado",
-      description: "El evento ha sido eliminado correctamente."
-    });
-  };
-
-  const openForm = (evento?: Evento) => {
-    setSelectedEvento(evento || null);
-    setFormOpen(true);
-  }
 
   const closeForm = () => {
     setFormOpen(false);
     setSelectedEvento(null);
-  }
+    setDialogView("form");
+  };
+
+  const openForm = (evento?: Evento) => {
+    setSelectedEvento(evento || null);
+    setDialogView("form");
+    setFormOpen(true);
+  };
+
+  const handleSave = async (eventoData: Omit<Evento, "id">) => {
+    if (!firestore || !user) {
+      throw new Error("No hay sesion o conexion a Firestore disponible.");
+    }
+
+    try {
+      if (selectedEvento) {
+        const dataToSave = {
+          ...eventoData,
+          fecha: (eventoData.fecha as Date).toISOString(),
+        };
+        await updateDoc(doc(firestore, "eventos", selectedEvento.id), dataToSave);
+        setSelectedEvento({
+          ...selectedEvento,
+          ...eventoData,
+          ...dataToSave,
+          id: selectedEvento.id,
+        });
+        setDialogView("receipt");
+        toast({ title: "Evento actualizado" });
+        return;
+      }
+
+      const eventosCol = collection(firestore, "eventos");
+      const qLanzamiento = query(eventosCol, orderBy("numeroLanzamiento", "desc"), limit(1));
+      const lanzSnapshot = await getDocs(qLanzamiento);
+      const qItem = query(eventosCol, orderBy("numeroItem", "desc"), limit(1));
+      const itemSnapshot = await getDocs(qItem);
+
+      const maxLanzamiento = lanzSnapshot.empty ? 0 : lanzSnapshot.docs[0].data().numeroLanzamiento || 0;
+      const maxNumeroItem = itemSnapshot.empty ? 0 : itemSnapshot.docs[0].data().numeroItem || 0;
+
+      const cleanData = Object.fromEntries(
+        Object.entries(eventoData).filter(([, value]) => value !== undefined)
+      );
+
+      const dataToSave = {
+        ...cleanData,
+        fecha: (eventoData.fecha as Date).toISOString(),
+        numeroLanzamiento: maxLanzamiento + 1,
+        numeroItem: maxNumeroItem + 1,
+        estado: "pendiente" as const,
+        creadoPor: user.uid,
+        creadoEn: serverTimestamp(),
+      };
+
+      const docRef = await addDoc(eventosCol, dataToSave);
+      const eventoGuardado: Evento & { id: string } = {
+        ...(eventoData as Evento),
+        ...dataToSave,
+        id: docRef.id,
+        creadoEn: new Date(),
+      };
+
+      const { success, errors } = await procesarConsumoDeStockDesdeEvento(eventoGuardado, firestore, user.uid);
+      const tipoNormalizado = (eventoGuardado.tipo || "").toString().toLowerCase();
+      const esCosecha = tipoNormalizado === "cosecha" || tipoNormalizado === "rendimiento";
+
+      if (success && esCosecha) {
+        eventoGuardado.stockProcesadoEn = new Date().toISOString();
+        eventoGuardado.stockProcesadoPor = user.uid;
+        toast({
+          title: "Cosecha procesada",
+          description: "Se actualizo stock de granos, rendimiento por parcela y valorizacion del servicio.",
+        });
+      } else if (!success) {
+        toast({
+          variant: "destructive",
+          title: "Evento creado con advertencias",
+          description: errors.join(". "),
+        });
+      }
+
+      toast({
+        title: `Evento #${dataToSave.numeroLanzamiento} (Item NÂº ${dataToSave.numeroItem}) creado`,
+        description: `El evento "${eventoData.descripcion}" ha sido guardado y estÃ¡ pendiente de aprobaciÃ³n.`,
+      });
+
+      setSelectedEvento(eventoGuardado);
+      setDialogView("receipt");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo guardar el evento.";
+      toast({
+        variant: "destructive",
+        title: "No se pudo guardar el evento",
+        description: message,
+      });
+      throw error;
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    if (!firestore) return;
+    deleteDocumentNonBlocking(doc(firestore, "eventos", id));
+    toast({
+      variant: "destructive",
+      title: "Evento eliminado",
+      description: "El evento ha sido eliminado correctamente.",
+    });
+  };
+
   const shareSummary = `Eventos: ${eventos.length}.`;
   const eventoPrintTargetId = "evento-form-print-area";
-  const selectedParcela = selectedEvento ? parcelas.find((p) => p.id === selectedEvento.parcelaId) : null;
-  const selectedZafra = selectedEvento ? zafras.find((z) => z.id === selectedEvento.zafraId) : null;
-  const selectedCultivo = selectedEvento ? cultivos.find((c) => c.id === selectedEvento.cultivoId) : null;
+  const eventoReceiptTargetId = "evento-receipt-target";
+  const selectedParcela = selectedEvento ? parcelas.find((parcela) => parcela.id === selectedEvento.parcelaId) : null;
+  const selectedZafra = selectedEvento ? zafras.find((zafra) => zafra.id === selectedEvento.zafraId) : null;
+  const selectedCultivo = selectedEvento ? cultivos.find((cultivo) => cultivo.id === selectedEvento.cultivoId) : null;
+
   const selectedEventoSummary = selectedEvento
     ? [
         `Evento #${selectedEvento.numeroLanzamiento || "N/A"}`,
@@ -222,6 +242,18 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
         `Descripcion: ${selectedEvento.descripcion || "-"}`,
       ].join(" | ")
     : "Registro de nuevo evento en campo.";
+
+  const dialogTitle = selectedEvento
+    ? dialogView === "receipt"
+      ? `Comprobante Evento #${selectedEvento.numeroLanzamiento}`
+      : `Revisar Evento #${selectedEvento.numeroLanzamiento}`
+    : "Registrar Nuevo Evento";
+
+  const dialogDescription = selectedEvento
+    ? dialogView === "receipt"
+      ? "Comprobante listo para imprimir, descargar en PDF o compartir."
+      : "Complete o revise los detalles de la actividad agricola."
+    : "Complete los detalles de la actividad agricola. El panel superior le dara contexto agronomico.";
 
   return (
     <>
@@ -239,113 +271,114 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
       </PageHeader>
 
       <div id="pdf-area" className="print-area">
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros de Búsqueda</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row items-center gap-4 py-4">
-            <Input 
-              placeholder="Buscar por N°..."
-              value={filters.numeroLanzamiento}
-              onChange={(e) => handleFilterChange("numeroLanzamiento", e.target.value)}
-              className="w-full md:w-[180px]"
-            />
-            <Select
-              value={filters.tipo}
-              onValueChange={(value) =>
-                handleFilterChange("tipo", value === "all" ? "" : value)
-              }
-            >
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Filtrar por tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los tipos</SelectItem>
-                {eventTypes.map((type) => (
-                  <SelectItem key={type} value={type} className="capitalize">
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.parcelaId}
-              onValueChange={(value) =>
-                handleFilterChange("parcelaId", value === "all" ? "" : value)
-              }
-            >
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Filtrar por parcela" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las parcelas</SelectItem>
-                {parcelas?.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-             <Select
-              value={filters.estado}
-              onValueChange={(value) =>
-                handleFilterChange("estado", value === "all" ? "" : value)
-              }
-            >
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Filtrar por estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="pendiente">Pendiente</SelectItem>
-                <SelectItem value="aprobado">Aprobado</SelectItem>
-                <SelectItem value="rechazado">Rechazado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="border-t pt-4">
-            <Table className="min-w-[980px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item Nº</TableHead>
-                  <TableHead>N° Lanz.</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Parcela</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Descripción</TableHead>
-                  {user && (
-                    <TableHead className="text-right">Acciones</TableHead>
-                  )}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading && <TableRow><TableCell colSpan={8} className="text-center">Cargando...</TableCell></TableRow>}
-                {filteredEventos.map((evento) => {
-                  const parcela = parcelas?.find((p) => p.id === evento.parcelaId);
+        <Card>
+          <CardHeader>
+            <CardTitle>Filtros de Busqueda</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center gap-4 py-4 md:flex-row">
+              <Input
+                placeholder="Buscar por NÂ°..."
+                value={filters.numeroLanzamiento}
+                onChange={(e) => handleFilterChange("numeroLanzamiento", e.target.value)}
+                className="w-full md:w-[180px]"
+              />
 
-                  return (
-                    <TableRow key={evento.id} onClick={() => openForm(evento)} className="cursor-pointer">
-                       <TableCell className="font-medium text-muted-foreground">{evento.numeroItem}</TableCell>
-                       <TableCell className="font-bold text-muted-foreground">{evento.numeroLanzamiento}</TableCell>
-                      <TableCell>
-                        {format(new Date(evento.fecha as string), "dd/MM/yyyy")}
+              <Select
+                value={filters.tipo}
+                onValueChange={(value) => handleFilterChange("tipo", value === "all" ? "" : value)}
+              >
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Filtrar por tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los tipos</SelectItem>
+                  {eventTypes.map((type) => (
+                    <SelectItem key={type} value={type} className="capitalize">
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={filters.parcelaId}
+                onValueChange={(value) => handleFilterChange("parcelaId", value === "all" ? "" : value)}
+              >
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Filtrar por parcela" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las parcelas</SelectItem>
+                  {parcelas.map((parcela) => (
+                    <SelectItem key={parcela.id} value={parcela.id}>
+                      {parcela.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={filters.estado}
+                onValueChange={(value) => handleFilterChange("estado", value === "all" ? "" : value)}
+              >
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Filtrar por estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  <SelectItem value="pendiente">Pendiente</SelectItem>
+                  <SelectItem value="aprobado">Aprobado</SelectItem>
+                  <SelectItem value="rechazado">Rechazado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="border-t pt-4">
+              <Table className="min-w-[980px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item NÂº</TableHead>
+                    <TableHead>NÂ° Lanz.</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Parcela</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Descripcion</TableHead>
+                    {user && <TableHead className="text-right">Acciones</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center">
+                        Cargando...
                       </TableCell>
-                      <TableCell className="font-medium">
-                        {parcela?.nombre || "N/A"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {evento.tipo}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                         <Badge
+                    </TableRow>
+                  )}
+
+                  {filteredEventos.map((evento) => {
+                    const parcela = parcelas.find((item) => item.id === evento.parcelaId);
+
+                    return (
+                      <TableRow key={evento.id} onClick={() => openForm(evento)} className="cursor-pointer">
+                        <TableCell className="font-medium text-muted-foreground">{evento.numeroItem}</TableCell>
+                        <TableCell className="font-bold text-muted-foreground">{evento.numeroLanzamiento}</TableCell>
+                        <TableCell>{format(new Date(evento.fecha as string), "dd/MM/yyyy")}</TableCell>
+                        <TableCell className="font-medium">{parcela?.nombre || "N/A"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {evento.tipo}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
                             variant={
-                              evento.estado === "aprobado" ? "default" :
-                              evento.estado === "rechazado" ? "destructive" :
-                              "secondary"
+                              evento.estado === "aprobado"
+                                ? "default"
+                                : evento.estado === "rechazado"
+                                  ? "destructive"
+                                  : "secondary"
                             }
                             className={cn({
                               "bg-green-600 text-white": evento.estado === "aprobado",
@@ -354,89 +387,150 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                           >
                             {evento.estado}
                           </Badge>
-                      </TableCell>
-                      <TableCell className="flex items-center gap-2">
-                        {evento.descripcion}
-                      </TableCell>
-                      {user && (
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
-                                <span className="sr-only">Abrir menú</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => openForm(evento)}>
-                                Ver / Aprobar
-                              </DropdownMenuItem>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <DropdownMenuItem
-                                    onSelect={(e) => e.preventDefault()}
-                                    className="text-destructive"
-                                  >
-                                    Eliminar
-                                  </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Esta acción es permanente y eliminará el evento del sistema.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDelete(evento.id)}
-                                      className="bg-destructive hover:bg-destructive/90"
+                        </TableCell>
+                        <TableCell className="flex items-center gap-2">
+                          {evento.descripcion}
+                          {evento.estado === "rechazado" && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <TriangleAlert className="h-4 w-4 text-destructive" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{evento.motivoRechazo || "Evento rechazado"}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </TableCell>
+                        {user && (
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
+                                  <span className="sr-only">Abrir menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => openForm(evento)}>
+                                  Ver / Aprobar
+                                </DropdownMenuItem>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem
+                                      onSelect={(e) => e.preventDefault()}
+                                      className="text-destructive"
                                     >
                                       Eliminar
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Esta seguro?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta accion es permanente y eliminara el evento del sistema.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDelete(evento.id)}
+                                        className="bg-destructive hover:bg-destructive/90"
+                                      >
+                                        Eliminar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-      
-      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-[96vw] overflow-hidden p-0 sm:max-w-5xl lg:max-w-6xl">
+
+      <Dialog modal={false} open={isFormOpen} onOpenChange={(open) => (open ? setFormOpen(true) : closeForm())}>
+        <DialogContent draggable className="max-w-[96vw] overflow-hidden p-0 sm:max-w-5xl lg:max-w-6xl">
           <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6">
-            <DialogTitle>{selectedEvento ? `Revisar Evento #${selectedEvento.numeroLanzamiento}` : 'Registrar Nuevo Evento'}</DialogTitle>
-            <DialogDescription>
-                Complete los detalles de la actividad agrícola. El panel superior le dará contexto agronómico.
-            </DialogDescription>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogDescription>{dialogDescription}</DialogDescription>
+            {selectedEvento && (
+              <div className="flex flex-wrap gap-2 no-print">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={dialogView === "receipt" ? "default" : "outline"}
+                  onClick={() => setDialogView("receipt")}
+                >
+                  <FileText className="mr-1 h-4 w-4" />
+                  Comprobante
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={dialogView === "form" ? "default" : "outline"}
+                  onClick={() => setDialogView("form")}
+                >
+                  <Pencil className="mr-1 h-4 w-4" />
+                  Editar
+                </Button>
+              </div>
+            )}
             <ReportActions
-              reportTitle={selectedEvento ? `Evento #${selectedEvento.numeroLanzamiento}` : "Nuevo Evento"}
+              reportTitle={selectedEvento ? `Comprobante Evento #${selectedEvento.numeroLanzamiento}` : "Nuevo Evento"}
               reportSummary={selectedEventoSummary}
-              imageTargetId={eventoPrintTargetId}
-              printTargetId={eventoPrintTargetId}
+              imageTargetId={selectedEvento ? eventoReceiptTargetId : eventoPrintTargetId}
+              printTargetId={selectedEvento ? eventoReceiptTargetId : eventoPrintTargetId}
+              documentLabel={selectedEvento ? "Comprobante de Evento" : "Formulario de Evento"}
+              showDefaultFooter={!selectedEvento}
             />
           </DialogHeader>
-          <div id={eventoPrintTargetId} className="max-h-[calc(92dvh-7rem)] overflow-y-auto overflow-x-hidden px-2 pb-4 sm:px-4 sm:pb-6">
-            <EventoForm 
+          {dialogView === "form" && (
+            <div id={eventoPrintTargetId} className="max-h-[calc(92dvh-7rem)] overflow-y-auto overflow-x-hidden px-2 pb-4 sm:px-4 sm:pb-6">
+              <EventoForm evento={selectedEvento} onSave={handleSave} onCancel={closeForm} />
+            </div>
+          )}
+          {selectedEvento && dialogView === "receipt" && (
+            <div className="max-h-[calc(92dvh-7rem)] overflow-y-auto overflow-x-hidden px-2 pb-4 sm:px-4 sm:pb-6">
+              <EventoComprobante
                 evento={selectedEvento}
-                onSave={handleSave}
-                onCancel={closeForm}
-            />
-          </div>
+                parcela={selectedParcela}
+                cultivo={selectedCultivo}
+                zafra={selectedZafra}
+              />
+            </div>
+          )}
+          {selectedEvento && dialogView !== "receipt" && (
+            <div id={eventoReceiptTargetId} className="report-export-only">
+              <EventoComprobante
+                evento={selectedEvento}
+                parcela={selectedParcela}
+                cultivo={selectedCultivo}
+                zafra={selectedZafra}
+              />
+            </div>
+          )}
+          {selectedEvento && dialogView === "receipt" && (
+            <div id={eventoReceiptTargetId} className="report-export-only">
+              <EventoComprobante
+                evento={selectedEvento}
+                parcela={selectedParcela}
+                cultivo={selectedCultivo}
+                zafra={selectedZafra}
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
   );
 }
-

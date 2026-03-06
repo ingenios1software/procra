@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
 import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import type { EmpresaSaaS, EstadoSuscripcionSaaS, ModeloCobroSaaS, Permisos, PlanSaaS } from "@/lib/types";
@@ -46,6 +47,44 @@ const DEFAULT_MODULES: Permisos = {
   administracion: true,
 };
 
+type EmpresaPerfilForm = {
+  razonSocial: string;
+  rubro: string;
+  ruc: string;
+  direccion: string;
+  telefono: string;
+  email: string;
+  ciudad: string;
+  pais: string;
+  contacto: string;
+  observaciones: string;
+};
+
+type EmpresaBrandingForm = {
+  logoSrc: string;
+  preparedBy: string;
+  approvedBy: string;
+};
+
+const EMPTY_EMPRESA_PERFIL: EmpresaPerfilForm = {
+  razonSocial: "",
+  rubro: "",
+  ruc: "",
+  direccion: "",
+  telefono: "",
+  email: "",
+  ciudad: "",
+  pais: "Paraguay",
+  contacto: "",
+  observaciones: "",
+};
+
+const EMPTY_EMPRESA_BRANDING: EmpresaBrandingForm = {
+  logoSrc: "",
+  preparedBy: "",
+  approvedBy: "",
+};
+
 function toInputDate(value?: Date | string | null): string {
   const date = toDateSafe(value || null);
   if (!date) return "";
@@ -61,6 +100,11 @@ function dateInputToIso(value: string): string | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
+function toOptionalText(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export default function ConfiguracionComercialPage() {
   const firestore = useFirestore();
   const { user, permisos } = useAuth();
@@ -73,6 +117,8 @@ export default function ConfiguracionComercialPage() {
   const { data: empresa, isLoading: isLoadingEmpresa } = useDoc<EmpresaSaaS>(empresaRef);
 
   const [nombre, setNombre] = useState("");
+  const [perfil, setPerfil] = useState<EmpresaPerfilForm>(EMPTY_EMPRESA_PERFIL);
+  const [branding, setBranding] = useState<EmpresaBrandingForm>(EMPTY_EMPRESA_BRANDING);
   const [plan, setPlan] = useState<PlanSaaS>("basic");
   const [estado, setEstado] = useState<EstadoSuscripcionSaaS>("trial");
   const [modeloCobro, setModeloCobro] = useState<ModeloCobroSaaS>("por_empresa");
@@ -88,7 +134,25 @@ export default function ConfiguracionComercialPage() {
 
   useEffect(() => {
     if (!empresa) return;
+
     setNombre(empresa.nombre || "");
+    setPerfil({
+      razonSocial: empresa.perfil?.razonSocial || "",
+      rubro: empresa.perfil?.rubro || "",
+      ruc: empresa.perfil?.ruc || "",
+      direccion: empresa.perfil?.direccion || "",
+      telefono: empresa.perfil?.telefono || "",
+      email: empresa.perfil?.email || "",
+      ciudad: empresa.perfil?.ciudad || "",
+      pais: empresa.perfil?.pais || "Paraguay",
+      contacto: empresa.perfil?.contacto || "",
+      observaciones: empresa.perfil?.observaciones || "",
+    });
+    setBranding({
+      logoSrc: empresa.branding?.logoSrc || "",
+      preparedBy: empresa.branding?.preparedBy || "",
+      approvedBy: empresa.branding?.approvedBy || "",
+    });
     setPlan(empresa.suscripcion?.plan || "basic");
     setEstado(empresa.suscripcion?.estado || "trial");
     setModeloCobro(empresa.suscripcion?.modeloCobro || "por_empresa");
@@ -111,26 +175,47 @@ export default function ConfiguracionComercialPage() {
   const canEdit = Boolean(permisos.administracion);
   const hasEmpresa = Boolean(empresaId);
   const accessWarning = useMemo(() => {
-    if (!canEdit) return "No tiene permisos para gestionar configuración comercial.";
-    if (!hasEmpresa) return "Este usuario aún no tiene empresa asociada.";
+    if (!canEdit) return "No tiene permisos para gestionar la configuracion de empresa.";
+    if (!hasEmpresa) return "Este usuario aun no tiene una empresa asociada.";
     return null;
   }, [canEdit, hasEmpresa]);
 
+  const handlePerfilChange = <K extends keyof EmpresaPerfilForm>(field: K, value: EmpresaPerfilForm[K]) => {
+    setPerfil((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleBrandingChange = <K extends keyof EmpresaBrandingForm>(field: K, value: EmpresaBrandingForm[K]) => {
+    setBranding((prev) => ({ ...prev, [field]: value }));
+  };
+
   const handleCrearEmpresaBase = async () => {
     if (!firestore || !user?.id) return;
+
     setIsCreatingEmpresa(true);
     try {
       const newEmpresaId = `empresa_${user.id}`;
+      const now = new Date();
+      const demoEnd = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30);
+
       await setDoc(
         doc(firestore, "empresas", newEmpresaId),
         {
-          nombre: "Empresa Demo",
+          nombre: "Mi Empresa",
           activo: true,
+          perfil: {
+            contacto: user.nombre || "",
+            email: user.email || "",
+            pais: "Paraguay",
+          },
+          branding: {
+            preparedBy: "Responsable",
+            approvedBy: "Administracion",
+          },
           modulos: DEFAULT_MODULES,
           demo: {
             habilitado: true,
-            inicio: new Date().toISOString(),
-            fin: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+            inicio: now.toISOString(),
+            fin: demoEnd.toISOString(),
           },
           suscripcion: {
             estado: "trial",
@@ -146,10 +231,11 @@ export default function ConfiguracionComercialPage() {
         },
         { merge: true }
       );
+
       await updateDoc(doc(firestore, "usuarios", user.id), { empresaId: newEmpresaId });
       toast({
         title: "Empresa base creada",
-        description: "Se creó una empresa demo y se asoció al usuario administrador.",
+        description: "Ya puede completar la ficha de empresa con sus datos reales.",
       });
     } catch (error: any) {
       toast({
@@ -164,11 +250,12 @@ export default function ConfiguracionComercialPage() {
 
   const handleGuardar = async () => {
     if (!firestore || !empresaId || !canEdit) return;
+
     if (!nombre.trim()) {
       toast({
         variant: "destructive",
         title: "Nombre requerido",
-        description: "Ingrese el nombre de la empresa.",
+        description: "Ingrese el nombre comercial de la empresa.",
       });
       return;
     }
@@ -180,6 +267,23 @@ export default function ConfiguracionComercialPage() {
         {
           nombre: nombre.trim(),
           activo: true,
+          perfil: {
+            razonSocial: toOptionalText(perfil.razonSocial),
+            rubro: toOptionalText(perfil.rubro),
+            ruc: toOptionalText(perfil.ruc),
+            direccion: toOptionalText(perfil.direccion),
+            telefono: toOptionalText(perfil.telefono),
+            email: toOptionalText(perfil.email),
+            ciudad: toOptionalText(perfil.ciudad),
+            pais: toOptionalText(perfil.pais),
+            contacto: toOptionalText(perfil.contacto),
+            observaciones: toOptionalText(perfil.observaciones),
+          },
+          branding: {
+            logoSrc: toOptionalText(branding.logoSrc),
+            preparedBy: toOptionalText(branding.preparedBy),
+            approvedBy: toOptionalText(branding.approvedBy),
+          },
           modulos,
           demo: {
             habilitado: demoHabilitado === "si",
@@ -198,9 +302,10 @@ export default function ConfiguracionComercialPage() {
         },
         { merge: true }
       );
+
       toast({
-        title: "Configuración guardada",
-        description: "La configuración comercial fue actualizada.",
+        title: "Empresa actualizada",
+        description: "La ficha de empresa y la configuracion comercial fueron guardadas.",
       });
     } catch (error: any) {
       toast({
@@ -216,8 +321,8 @@ export default function ConfiguracionComercialPage() {
   return (
     <>
       <PageHeader
-        title="Configuración Comercial SaaS"
-        description="Defina plan, cobro mensual por usuario o empresa y periodo demo."
+        title="Empresa y Configuracion Comercial"
+        description="Registre la empresa cliente, sus datos fiscales y el esquema comercial del sistema."
       />
 
       <div className="space-y-6">
@@ -227,7 +332,7 @@ export default function ConfiguracionComercialPage() {
               <p>{accessWarning}</p>
               {canEdit && !hasEmpresa && (
                 <Button className="mt-4" onClick={handleCrearEmpresaBase} disabled={isCreatingEmpresa}>
-                  {isCreatingEmpresa ? "Creando..." : "Crear empresa base demo"}
+                  {isCreatingEmpresa ? "Creando..." : "Crear empresa base"}
                 </Button>
               )}
             </CardContent>
@@ -235,146 +340,309 @@ export default function ConfiguracionComercialPage() {
         )}
 
         {canEdit && hasEmpresa && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Plan y Suscripción</CardTitle>
-              <CardDescription>
-                Configure el modelo de venta mensual para facturación por usuario o por empresa.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {isLoadingEmpresa && <p>Cargando configuración...</p>}
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Ficha de la Empresa</CardTitle>
+                <CardDescription>
+                  Complete los datos comerciales, fiscales y de contacto. Estos datos quedaran listos
+                  para futuros comprobantes, PDFs y membretes.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {isLoadingEmpresa && <p>Cargando configuracion...</p>}
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Nombre de empresa</Label>
-                  <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-nombre">Nombre comercial</Label>
+                    <Input id="empresa-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-razon-social">Razon social</Label>
+                    <Input
+                      id="empresa-razon-social"
+                      value={perfil.razonSocial}
+                      onChange={(e) => handlePerfilChange("razonSocial", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-rubro">Rubro</Label>
+                    <Input
+                      id="empresa-rubro"
+                      placeholder="Agricultura, ganaderia, agroindustria..."
+                      value={perfil.rubro}
+                      onChange={(e) => handlePerfilChange("rubro", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-ruc">RUC</Label>
+                    <Input
+                      id="empresa-ruc"
+                      placeholder="80012345-6"
+                      value={perfil.ruc}
+                      onChange={(e) => handlePerfilChange("ruc", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-contacto">Contacto principal</Label>
+                    <Input
+                      id="empresa-contacto"
+                      value={perfil.contacto}
+                      onChange={(e) => handlePerfilChange("contacto", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-telefono">Telefono</Label>
+                    <Input
+                      id="empresa-telefono"
+                      value={perfil.telefono}
+                      onChange={(e) => handlePerfilChange("telefono", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-email">Email</Label>
+                    <Input
+                      id="empresa-email"
+                      type="email"
+                      value={perfil.email}
+                      onChange={(e) => handlePerfilChange("email", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="empresa-direccion">Direccion</Label>
+                    <Input
+                      id="empresa-direccion"
+                      value={perfil.direccion}
+                      onChange={(e) => handlePerfilChange("direccion", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-ciudad">Ciudad</Label>
+                    <Input
+                      id="empresa-ciudad"
+                      value={perfil.ciudad}
+                      onChange={(e) => handlePerfilChange("ciudad", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-pais">Pais</Label>
+                    <Input
+                      id="empresa-pais"
+                      value={perfil.pais}
+                      onChange={(e) => handlePerfilChange("pais", e.target.value)}
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Plan</Label>
-                  <Select value={plan} onValueChange={(v) => setPlan(v as PlanSaaS)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione plan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PLAN_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-observaciones">Observaciones</Label>
+                    <Textarea
+                      id="empresa-observaciones"
+                      placeholder="Notas internas, referencias comerciales o informacion complementaria."
+                      value={perfil.observaciones}
+                      onChange={(e) => handlePerfilChange("observaciones", e.target.value)}
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label>Estado de suscripción</Label>
-                  <Select value={estado} onValueChange={(v) => setEstado(v as EstadoSuscripcionSaaS)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STATUS_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Modelo de cobro</Label>
-                  <Select value={modeloCobro} onValueChange={(v) => setModeloCobro(v as ModeloCobroSaaS)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione modelo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BILLING_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Moneda</Label>
-                  <Select value={moneda} onValueChange={(v) => setMoneda(v as "USD" | "PYG")}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="PYG">PYG</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Monto mensual</Label>
-                  <Input type="number" min={0} step="0.01" value={montoMensual} onChange={(e) => setMontoMensual(e.target.value)} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Máximo de usuarios (opcional)</Label>
-                  <Input type="number" min={1} step={1} value={maxUsuarios} onChange={(e) => setMaxUsuarios(e.target.value)} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Próximo cobro</Label>
-                  <Input type="date" value={proximoCobro} onChange={(e) => setProximoCobro(e.target.value)} />
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Demo habilitado</Label>
-                  <Select value={demoHabilitado} onValueChange={setDemoHabilitado}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="si">Sí</SelectItem>
-                      <SelectItem value="no">No</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Demo hasta</Label>
-                  <Input type="date" value={demoFin} onChange={(e) => setDemoFin(e.target.value)} />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label>Módulos habilitados para esta empresa</Label>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {MODULE_OPTIONS.map((moduleOption) => (
-                    <div
-                      key={moduleOption.key}
-                      className="flex items-center justify-between rounded-md border p-3"
-                    >
-                      <span className="text-sm font-medium">{moduleOption.label}</span>
-                      <Switch
-                        checked={Boolean(modulos[moduleOption.key])}
-                        onCheckedChange={(checked) =>
-                          setModulos((prev) => ({
-                            ...prev,
-                            [moduleOption.key]: Boolean(checked),
-                          }))
-                        }
+                  <div className="space-y-4 rounded-xl border p-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="empresa-logo">Logo URL (opcional)</Label>
+                      <Input
+                        id="empresa-logo"
+                        placeholder="https://... o /branding/logo.png"
+                        value={branding.logoSrc}
+                        onChange={(e) => handleBrandingChange("logoSrc", e.target.value)}
                       />
                     </div>
-                  ))}
+                    <div className="space-y-2">
+                      <Label htmlFor="empresa-prepared-by">Cargo firma 1</Label>
+                      <Input
+                        id="empresa-prepared-by"
+                        placeholder="Responsable operativo"
+                        value={branding.preparedBy}
+                        onChange={(e) => handleBrandingChange("preparedBy", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="empresa-approved-by">Cargo firma 2</Label>
+                      <Input
+                        id="empresa-approved-by"
+                        placeholder="Gerencia / Administracion"
+                        value={branding.approvedBy}
+                        onChange={(e) => handleBrandingChange("approvedBy", e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <Button onClick={handleGuardar} disabled={isSaving}>
-                {isSaving ? "Guardando..." : "Guardar configuración comercial"}
-              </Button>
-            </CardContent>
-          </Card>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/30 p-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Datos listos para reportes y comprobantes</p>
+                    <p className="text-sm text-muted-foreground">
+                      Lo que cargue aqui quedara disponible para PDFs, impresiones y membrete futuro.
+                    </p>
+                  </div>
+                  <Button onClick={handleGuardar} disabled={isSaving}>
+                    {isSaving ? "Guardando..." : "Guardar empresa"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Suscripcion y Modulos SaaS</CardTitle>
+                <CardDescription>
+                  Mantenga aqui el plan comercial, las fechas y los modulos habilitados para la empresa.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="space-y-2">
+                    <Label>Plan</Label>
+                    <Select value={plan} onValueChange={(value) => setPlan(value as PlanSaaS)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccione plan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PLAN_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Estado de suscripcion</Label>
+                    <Select value={estado} onValueChange={(value) => setEstado(value as EstadoSuscripcionSaaS)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccione estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Modelo de cobro</Label>
+                    <Select value={modeloCobro} onValueChange={(value) => setModeloCobro(value as ModeloCobroSaaS)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccione modelo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BILLING_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Moneda</Label>
+                    <Select value={moneda} onValueChange={(value) => setMoneda(value as "USD" | "PYG")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="PYG">PYG</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Monto mensual</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={montoMensual}
+                      onChange={(e) => setMontoMensual(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Maximo de usuarios</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={maxUsuarios}
+                      onChange={(e) => setMaxUsuarios(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Proximo cobro</Label>
+                    <Input type="date" value={proximoCobro} onChange={(e) => setProximoCobro(e.target.value)} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Demo hasta</Label>
+                    <Input type="date" value={demoFin} onChange={(e) => setDemoFin(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="flex items-center justify-between rounded-md border p-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Demo habilitado</p>
+                      <p className="text-sm text-muted-foreground">
+                        Mantiene acceso temporal aunque aun no haya suscripcion activa.
+                      </p>
+                    </div>
+                    <Switch checked={demoHabilitado === "si"} onCheckedChange={(checked) => setDemoHabilitado(checked ? "si" : "no")} />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Modulos habilitados para esta empresa</Label>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {MODULE_OPTIONS.map((moduleOption) => (
+                      <div
+                        key={moduleOption.key}
+                        className="flex items-center justify-between rounded-md border p-3"
+                      >
+                        <span className="text-sm font-medium">{moduleOption.label}</span>
+                        <Switch
+                          checked={Boolean(modulos[moduleOption.key])}
+                          onCheckedChange={(checked) =>
+                            setModulos((prev) => ({
+                              ...prev,
+                              [moduleOption.key]: Boolean(checked),
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Button onClick={handleGuardar} disabled={isSaving}>
+                  {isSaving ? "Guardando..." : "Guardar configuracion comercial"}
+                </Button>
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
     </>

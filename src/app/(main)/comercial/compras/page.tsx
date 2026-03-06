@@ -387,8 +387,8 @@ export default function ComprasPage() {
       </Card>
       </div>
 
-      <Dialog open={isFormOpen} onOpenChange={(open) => (open ? setFormOpen(true) : closeForm())}>
-        <DialogContent className="max-w-6xl">
+      <Dialog modal={false} open={isFormOpen} onOpenChange={(open) => (open ? setFormOpen(true) : closeForm())}>
+        <DialogContent draggable className="max-w-6xl">
            <DialogHeader>
              <DialogTitle>
                {selectedCompra
@@ -405,8 +405,8 @@ export default function ComprasPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(compraParaAprobar)} onOpenChange={(open) => !open && setCompraParaAprobar(null)}>
-        <DialogContent>
+      <Dialog modal={false} open={Boolean(compraParaAprobar)} onOpenChange={(open) => !open && setCompraParaAprobar(null)}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>Aprobar compra</DialogTitle>
             <DialogDescription>

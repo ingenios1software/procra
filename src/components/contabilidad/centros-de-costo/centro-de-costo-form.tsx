@@ -25,7 +25,7 @@ import type { CentroDeCosto } from "@/lib/types";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre es muy corto."),
-  descripcion: z.string().min(5, "La descripción es muy corta."),
+  descripcion: z.string().min(5, "La descripcion es muy corta."),
   categoria: z.enum(["campo", "parcela", "cultivo", "maquinaria", "general"]),
 });
 
@@ -53,53 +53,58 @@ export function CentroDeCostoForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="nombre"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nombre del Centro de Costo</FormLabel>
-              <FormControl>
-                <Input placeholder="Ej: Administración General" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="categoria"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Categoría</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_280px]">
+          <FormField
+            control={form.control}
+            name="nombre"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre del Centro de Costo</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione una categoría" />
-                  </SelectTrigger>
+                  <Input placeholder="Ej: Administracion General" {...field} />
                 </FormControl>
-                <SelectContent>
-                  <SelectItem value="campo">Campo</SelectItem>
-                  <SelectItem value="parcela">Parcela</SelectItem>
-                  <SelectItem value="cultivo">Cultivo</SelectItem>
-                  <SelectItem value="maquinaria">Maquinaria</SelectItem>
-                  <SelectItem value="general">General</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="categoria"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Categoria</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione una categoria" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="campo">Campo</SelectItem>
+                    <SelectItem value="parcela">Parcela</SelectItem>
+                    <SelectItem value="cultivo">Cultivo</SelectItem>
+                    <SelectItem value="maquinaria">Maquinaria</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
         <FormField
           control={form.control}
           name="descripcion"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Descripción</FormLabel>
+              <FormLabel>Descripcion</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Descripción del propósito de este centro de costo."
+                  className="min-h-[110px]"
+                  placeholder="Descripcion del proposito de este centro de costo."
                   {...field}
                 />
               </FormControl>
@@ -107,7 +112,8 @@ export function CentroDeCostoForm({
             </FormItem>
           )}
         />
-        <div className="flex justify-end gap-2 pt-4">
+
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>

@@ -351,8 +351,8 @@ export default function CuentasCajaBancoPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent>
+      <Dialog modal={false} open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>{selectedCuenta ? "Editar Cuenta" : "Nueva Cuenta"}</DialogTitle>
             <DialogDescription>Defina nombre, tipo, moneda y cuenta contable asociada.</DialogDescription>

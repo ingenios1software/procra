@@ -498,8 +498,8 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
       </Card>
       </div>
       
-      <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+      <Dialog modal={false} open={isDialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent draggable className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{selectedInsumo ? 'Editar Insumo' : 'Crear Nuevo Insumo'}</DialogTitle>
           </DialogHeader>

@@ -118,8 +118,8 @@ export function BiometricImportModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[720px]">
+    <Dialog modal={false} open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent draggable className="sm:max-w-[720px]">
         <DialogHeader>
           <DialogTitle>Importar archivo de reloj biometrico</DialogTitle>
           <DialogDescription>

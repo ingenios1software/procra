@@ -165,8 +165,8 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <Dialog modal={false} open={isDialogOpen} onOpenChange={setDialogOpen}>
+         <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>{selectedUsuario ? 'Editar Usuario' : 'Crear Nuevo Usuario'}</DialogTitle>
             <DialogDescription>

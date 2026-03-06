@@ -198,8 +198,8 @@ export default function PlagasPage() {
           </Table>
         </CardContent>
       </Card>
-      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="sm:max-w-[625px]">
+      <Dialog modal={false} open={isFormOpen} onOpenChange={setFormOpen}>
+        <DialogContent draggable className="sm:max-w-[625px]">
           <DialogHeader>
             <DialogTitle>
               {selectedPlaga ? "Editar Plaga" : "Crear Nueva Plaga"}

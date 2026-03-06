@@ -42,6 +42,13 @@ export default function LoginPage() {
         {
           nombre: "Empresa Demo",
           activo: true,
+          perfil: {
+            pais: "Paraguay",
+          },
+          branding: {
+            preparedBy: "Responsable",
+            approvedBy: "Administracion",
+          },
           demo: {
             habilitado: true,
             inicio: now.toISOString(),

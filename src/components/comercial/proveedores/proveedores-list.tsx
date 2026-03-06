@@ -137,8 +137,8 @@ export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps
         </Card>
       </div>
 
-      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent>
+      <Dialog modal={false} open={isFormOpen} onOpenChange={setFormOpen}>
+        <DialogContent draggable>
           <DialogHeader>
             <DialogTitle>{selectedProveedor ? "Editar Proveedor" : "Crear Nuevo Proveedor"}</DialogTitle>
             <DialogDescription>Complete los detalles del proveedor.</DialogDescription>

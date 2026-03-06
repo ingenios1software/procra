@@ -30,7 +30,7 @@ const profileFormSchema = z.object({
     message: "El nombre debe tener al menos 3 caracteres.",
   }),
   email: z.string().email({
-    message: "Por favor, introduce un email válido.",
+    message: "Por favor, introduce un email valido.",
   }),
 });
 
@@ -48,7 +48,7 @@ export function ProfileForm() {
     },
     mode: "onChange",
   });
-  
+
   useEffect(() => {
     if (user) {
       form.reset({
@@ -58,12 +58,9 @@ export function ProfileForm() {
     }
   }, [user, form]);
 
-
   function onSubmit(data: ProfileFormValues) {
-    // La lógica de actualización del usuario en Firebase no está implementada aún.
-    // Por ahora, solo mostramos una notificación.
     toast({
-      title: "Perfil actualizado (simulación)",
+      title: "Perfil actualizado (simulacion)",
       description: "Tus datos de perfil han sido guardados.",
     });
   }
@@ -78,40 +75,44 @@ export function ProfileForm() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <FormField
-              control={form.control}
-              name="nombre"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Tu nombre" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Este es el nombre que se mostrará en la aplicación.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Tu email" {...field} disabled />
-                  </FormControl>
-                  <FormDescription>
-                    El email no se puede cambiar.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit">Guardar Cambios</Button>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="nombre"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Tu nombre" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Este es el nombre que se mostrara en la aplicacion.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Tu email" {...field} disabled />
+                    </FormControl>
+                    <FormDescription>
+                      El email no se puede cambiar.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit">Guardar Cambios</Button>
+            </div>
           </form>
         </Form>
       </CardContent>

@@ -797,6 +797,23 @@ export type EmpresaSaaS = {
   nombre: string;
   slug?: string;
   activo: boolean;
+  perfil?: {
+    razonSocial?: string;
+    rubro?: string;
+    ruc?: string;
+    direccion?: string;
+    telefono?: string;
+    email?: string;
+    ciudad?: string;
+    pais?: string;
+    contacto?: string;
+    observaciones?: string;
+  };
+  branding?: {
+    logoSrc?: string;
+    preparedBy?: string;
+    approvedBy?: string;
+  };
   modulos?: Partial<Permisos>;
   demo: {
     habilitado: boolean;

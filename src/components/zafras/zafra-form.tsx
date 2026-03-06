@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,7 +11,7 @@ import type { Zafra, Cultivo } from "@/lib/types";
 import { format } from "date-fns";
 import React from "react";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy } from "firebase/firestore";
 
 const formSchema = z.object({
   nombre: z.string().min(5, "El nombre debe tener al menos 5 caracteres."),
@@ -26,7 +25,7 @@ type ZafraFormValues = z.infer<typeof formSchema>;
 
 interface ZafraFormProps {
   zafra?: Partial<Zafra> | null;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: ZafraFormValues) => void;
   onCancel: () => void;
 }
 
@@ -45,10 +44,10 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
   const firestore = useFirestore();
   const cultivosQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'cultivos'), orderBy('nombre'));
+    return query(collection(firestore, "cultivos"), orderBy("nombre"));
   }, [firestore]);
   const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
-  
+
   const form = useForm<ZafraFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -66,103 +65,114 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 sm:space-y-6">
-        <FormField
-          control={form.control}
-          name="nombre"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nombre de la Zafra/Campaña</FormLabel>
-              <FormControl>
-                <Input placeholder="Ej: Soja Temprana - Lote 1 - 24/25" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="nombre"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre de la Zafra/Campana</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: Soja Temprana - Lote 1 - 24/25" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
             control={form.control}
             name="cultivoId"
             render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Cultivo Asociado (Opcional)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Seleccione un cultivo" />
-                            </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            {cultivos?.map(cultivo => (
-                                <SelectItem key={cultivo.id} value={cultivo.id}>{cultivo.nombre}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <FormDescription>Asociar un cultivo ayuda a organizar y filtrar los análisis.</FormDescription>
-                    <FormMessage />
-                </FormItem>
+              <FormItem>
+                <FormLabel>Cultivo Asociado (Opcional)</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione un cultivo" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {cultivos?.map((cultivo) => (
+                      <SelectItem key={cultivo.id} value={cultivo.id}>
+                        {cultivo.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>Asociar un cultivo ayuda a organizar y filtrar los analisis.</FormDescription>
+                <FormMessage />
+              </FormItem>
             )}
-        />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="fechaInicio"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fecha de Inicio</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date" lang="es-PY"
-                      value={dateToInputValue(field.value)}
-                      onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="fechaSiembra"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fecha de Siembra (Opcional)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date" lang="es-PY"
-                      value={dateToInputValue(field.value)}
-                      onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
-                    />
-                  </FormControl>
-                   <FormDescription>Fecha real de siembra para el panel agronómico.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          />
         </div>
-        <FormField
-          control={form.control}
-          name="estado"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Estado</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <FormField
+            control={form.control}
+            name="fechaInicio"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Fecha de Inicio</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione un estado" />
-                  </SelectTrigger>
+                  <Input
+                    type="date"
+                    lang="es-PY"
+                    value={dateToInputValue(field.value)}
+                    onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
+                  />
                 </FormControl>
-                <SelectContent>
-                  <SelectItem value="planificada">Planificada</SelectItem>
-                  <SelectItem value="en curso">En Curso</SelectItem>
-                  <SelectItem value="finalizada">Finalizada</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="flex justify-end gap-2">
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="fechaSiembra"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Fecha de Siembra (Opcional)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="date"
+                    lang="es-PY"
+                    value={dateToInputValue(field.value)}
+                    onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
+                  />
+                </FormControl>
+                <FormDescription>Fecha real de siembra para el panel agronomico.</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="estado"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Estado</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione un estado" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="planificada">Planificada</SelectItem>
+                    <SelectItem value="en curso">En Curso</SelectItem>
+                    <SelectItem value="finalizada">Finalizada</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
@@ -173,6 +183,4 @@ export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormPro
   );
 });
 
-ZafraForm.displayName = 'ZafraForm';
-
-
+ZafraForm.displayName = "ZafraForm";
