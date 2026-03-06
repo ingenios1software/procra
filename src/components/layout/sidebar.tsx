@@ -149,6 +149,7 @@ const navItems: NavSection[] = [
     links: [
       { href: "/contabilidad/plan-de-cuentas", icon: ListTree, label: "Plan de Cuentas" },
       { href: "/contabilidad/centros-de-costo", icon: Landmark, label: "Centros de Costo" },
+      { href: "/contabilidad/balance", icon: Landmark, label: "Balance" },
       { href: "/contabilidad/diario", icon: BookText, label: "Diario" },
       { href: "/contabilidad/mayor", icon: BookText, label: "Mayor" },
     ],

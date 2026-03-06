@@ -1,14 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { collection, doc, orderBy, query, where, writeBatch } from "firebase/firestore";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
-import { Download, Printer } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ReciboCobro as ReciboCobroCard, type ReciboCobroViewModel } from "@/components/finanzas/recibo-cobro";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -32,6 +30,7 @@ import {
   generarNumeroReciboCobro,
   toDateSafe,
 } from "@/lib/cuentas";
+import { withZafraContext } from "@/lib/contabilidad/asientos";
 import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 import type {
@@ -62,17 +61,6 @@ type CuentaPagoOption = {
   cuentaCajaBancoId?: string;
 };
 
-type ReciboPreview = {
-  numero: string;
-  fecha: string;
-  clienteNombre: string;
-  documento: string;
-  monto: number;
-  moneda: "USD" | "PYG";
-  cuentaIngreso: string;
-  referencia?: string;
-};
-
 function getEstadoClassName(estado: CuentaPorCobrar["estado"]): string {
   if (estado === "cancelada") return "bg-green-600 text-white";
   if (estado === "vencida") return "bg-red-600 text-white";
@@ -101,9 +89,8 @@ export default function CuentasCobrarPage() {
   const [cuentaPagoId, setCuentaPagoId] = useState("");
   const [referencia, setReferencia] = useState("");
   const [isSavingCobro, setIsSavingCobro] = useState(false);
-  const [ultimoRecibo, setUltimoRecibo] = useState<ReciboPreview | null>(null);
+  const [ultimoRecibo, setUltimoRecibo] = useState<ReciboCobroViewModel | null>(null);
   const [isReciboOpen, setIsReciboOpen] = useState(false);
-  const reciboRef = useRef<HTMLDivElement | null>(null);
 
   const {
     data: cuentasPorCobrar,
@@ -201,6 +188,10 @@ export default function CuentasCobrarPage() {
   const shareSummary = `Pendiente: $${formatCurrency(resumen.pendiente)} | Vencido: $${formatCurrency(
     resumen.vencido
   )} | Canceladas: ${resumen.canceladas}.`;
+  const reciboTargetId = "finanzas-recibo-cobro-target";
+  const reciboSummary = ultimoRecibo
+    ? `${ultimoRecibo.clienteNombre} | ${ultimoRecibo.documento} | ${ultimoRecibo.moneda} ${formatCurrency(ultimoRecibo.monto)}`
+    : "";
 
   const openCobroDialog = (cuenta: CuentaPorCobrar) => {
     setCuentaSeleccionada(cuenta);
@@ -215,75 +206,6 @@ export default function CuentasCobrarPage() {
     setMontoCobro("");
     setCuentaPagoId("");
     setReferencia("");
-  };
-
-  const handleImprimirRecibo = () => {
-    if (!reciboRef.current || !ultimoRecibo) return;
-    const popup = window.open("", "_blank", "width=900,height=700");
-    if (!popup) {
-      toast({
-        variant: "destructive",
-        title: "No se pudo abrir impresion",
-        description: "Habilite ventanas emergentes para imprimir el recibo.",
-      });
-      return;
-    }
-
-    popup.document.write(`
-      <html>
-        <head>
-          <title>Recibo ${ultimoRecibo.numero}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
-            .recibo-wrap { max-width: 760px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; }
-            .head { display: flex; justify-content: space-between; margin-bottom: 16px; }
-            .title { font-size: 22px; font-weight: 700; }
-            .meta { font-size: 12px; color: #666; }
-            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-            .label { font-size: 12px; color: #666; margin-bottom: 2px; }
-            .value { font-size: 14px; font-weight: 600; }
-            .amount { font-size: 28px; font-weight: 800; margin: 8px 0 2px; }
-            .footer { margin-top: 26px; font-size: 12px; color: #555; border-top: 1px dashed #bbb; padding-top: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="recibo-wrap">
-            ${reciboRef.current.innerHTML}
-          </div>
-        </body>
-      </html>
-    `);
-    popup.document.close();
-    popup.focus();
-    popup.print();
-    popup.close();
-  };
-
-  const handleDescargarReciboPdf = async () => {
-    if (!reciboRef.current || !ultimoRecibo) return;
-    try {
-      const canvas = await html2canvas(reciboRef.current, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-      });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const maxWidth = pageWidth - margin * 2;
-      const imgHeight = (canvas.height * maxWidth) / canvas.width;
-      const renderHeight = Math.min(imgHeight, pageHeight - margin * 2);
-      pdf.addImage(imgData, "PNG", margin, margin, maxWidth, renderHeight);
-      const safeNumber = ultimoRecibo.numero.replace(/[^\w-]/g, "_");
-      pdf.save(`Recibo_${safeNumber}.pdf`);
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "No se pudo generar PDF",
-        description: error?.message || "Error al exportar el recibo.",
-      });
-    }
   };
 
   const handleRegistrarCobro = async () => {
@@ -351,20 +273,25 @@ export default function CuentasCobrarPage() {
       const numeroRecibo = generarNumeroReciboCobro(fechaAsDate, cobroRef.id.slice(-4));
       const cuentaCajaBancoId = cuentasPago.find((option) => option.id === cuentaPagoId)?.cuentaCajaBancoId;
 
-      const asientoData: Omit<AsientoDiario, "id"> = {
+      const asientoData: Omit<AsientoDiario, "id"> = withZafraContext({
         fecha: fechaIso,
         descripcion: `Cobro recibo ${numeroRecibo} - venta ${cuentaSeleccionada.ventaDocumento || cuentaSeleccionada.ventaId}`,
         movimientos: [
           { cuentaId: cuentaPagoId, tipo: "debe", monto },
           { cuentaId: cuentaClientesId, tipo: "haber", monto },
         ],
-      };
+      }, {
+        zafraId: cuentaSeleccionada.zafraId,
+        zafraNombre: cuentaSeleccionada.zafraNombre || null,
+      });
       batch.set(asientoRef, asientoData);
 
       const cobroData: Omit<CobroCuentaPorCobrar, "id"> = {
         cuentaPorCobrarId: cuentaSeleccionada.id,
         ventaId: cuentaSeleccionada.ventaId,
         clienteId: cuentaSeleccionada.clienteId,
+        zafraId: cuentaSeleccionada.zafraId,
+        zafraNombre: cuentaSeleccionada.zafraNombre || null,
         fecha: fechaIso,
         moneda: cuentaSeleccionada.moneda,
         monto,
@@ -412,6 +339,7 @@ export default function CuentasCobrarPage() {
         monto,
         moneda: cuentaSeleccionada.moneda,
         cuentaIngreso,
+        estado: "emitido",
         ...(referencia ? { referencia } : {}),
       });
       setIsReciboOpen(true);
@@ -543,6 +471,7 @@ export default function CuentasCobrarPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Documento</TableHead>
+                  <TableHead>Zafra</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Emision</TableHead>
                   <TableHead>Vencimiento</TableHead>
@@ -556,7 +485,7 @@ export default function CuentasCobrarPage() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
+                    <TableCell colSpan={10} className="text-center">
                       Cargando cuentas por cobrar...
                     </TableCell>
                   </TableRow>
@@ -572,6 +501,7 @@ export default function CuentasCobrarPage() {
                     return (
                       <TableRow key={cuenta.id}>
                         <TableCell className="font-medium">{cuenta.ventaDocumento || cuenta.ventaId}</TableCell>
+                        <TableCell>{cuenta.zafraNombre || "-"}</TableCell>
                         <TableCell>{clientesById.get(cuenta.clienteId) || "N/A"}</TableCell>
                         <TableCell>{emision ? format(emision, "dd/MM/yyyy") : "-"}</TableCell>
                         <TableCell>{vencimiento ? format(vencimiento, "dd/MM/yyyy") : "-"}</TableCell>
@@ -592,7 +522,7 @@ export default function CuentasCobrarPage() {
 
                 {!isLoading && cuentasFiltradas.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center h-24">
+                    <TableCell colSpan={10} className="text-center h-24">
                       No hay cuentas que coincidan con los filtros.
                     </TableCell>
                   </TableRow>
@@ -675,70 +605,37 @@ export default function CuentasCobrarPage() {
       </Dialog>
 
       <Dialog modal={false} open={isReciboOpen} onOpenChange={setIsReciboOpen}>
-        <DialogContent draggable className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent draggable className="max-w-[96vw] overflow-hidden p-0 sm:max-w-3xl lg:max-w-4xl">
+          <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6">
             <DialogTitle>Recibo de Cobro Emitido</DialogTitle>
             <DialogDescription>
               Puede imprimir o descargar en PDF este recibo.
             </DialogDescription>
+            <ReportActions
+              reportTitle={ultimoRecibo ? `Recibo ${ultimoRecibo.numero}` : "Recibo de Cobro"}
+              reportSummary={reciboSummary}
+              imageTargetId={reciboTargetId}
+              printTargetId={reciboTargetId}
+              documentLabel="Recibo de Cobro"
+              showDefaultFooter={false}
+            />
           </DialogHeader>
 
-          <div
-            ref={reciboRef}
-            className="rounded-md border bg-white p-5 text-black"
-          >
-            <div className="mb-4 flex items-start justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500">Recibo de cobro</p>
-                <p className="text-2xl font-bold">{ultimoRecibo?.numero || "-"}</p>
-              </div>
-              <div className="text-right text-sm">
-                <p className="text-gray-500">Fecha</p>
-                <p className="font-semibold">
-                  {ultimoRecibo?.fecha ? format(new Date(ultimoRecibo.fecha), "dd/MM/yyyy HH:mm") : "-"}
-                </p>
-              </div>
+          {ultimoRecibo && (
+            <div className="max-h-[calc(92dvh-7rem)] overflow-y-auto overflow-x-hidden px-2 pb-4 sm:px-4 sm:pb-6">
+              <ReciboCobroCard recibo={ultimoRecibo} />
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <p className="text-xs text-gray-500">Cliente</p>
-                <p className="font-semibold">{ultimoRecibo?.clienteNombre || "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Documento de venta</p>
-                <p className="font-semibold">{ultimoRecibo?.documento || "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Cuenta de ingreso</p>
-                <p className="font-semibold">{ultimoRecibo?.cuentaIngreso || "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Referencia</p>
-                <p className="font-semibold">{ultimoRecibo?.referencia || "-"}</p>
-              </div>
-            </div>
-            <div className="mt-5 border-t pt-4">
-              <p className="text-xs text-gray-500">Monto cobrado</p>
-              <p className="text-3xl font-extrabold">
-                {ultimoRecibo?.moneda || "USD"} ${formatCurrency(ultimoRecibo?.monto || 0)}
-              </p>
-            </div>
-            <div className="mt-6 border-t border-dashed pt-3 text-xs text-gray-500">
-              Emitido por sistema CRApro95.
-            </div>
-          </div>
+          )}
 
-          <DialogFooter>
+          {ultimoRecibo && (
+            <div id={reciboTargetId} className="report-export-only">
+              <ReciboCobroCard recibo={ultimoRecibo} />
+            </div>
+          )}
+
+          <DialogFooter className="px-4 pb-4 sm:px-6 sm:pb-6">
             <Button type="button" variant="outline" onClick={() => setIsReciboOpen(false)}>
               Cerrar
-            </Button>
-            <Button type="button" variant="outline" onClick={handleImprimirRecibo}>
-              <Printer className="mr-2 h-4 w-4" />
-              Imprimir
-            </Button>
-            <Button type="button" onClick={handleDescargarReciboPdf}>
-              <Download className="mr-2 h-4 w-4" />
-              Descargar PDF
             </Button>
           </DialogFooter>
         </DialogContent>

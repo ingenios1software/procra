@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc, where, getDoc } from 'firebase/firestore';
 import { calcularEstadoCuenta, calcularSaldoDesdeMovimiento } from "@/lib/cuentas";
+import { withZafraContext } from "@/lib/contabilidad/asientos";
 
 
 export default function ComprasPage() {
@@ -168,14 +169,17 @@ export default function ComprasPage() {
       if (pagoAplicado) {
         montoPago = saldoPendienteActual > 0 ? saldoPendienteActual : compraParaAprobar.totalFactura;
         const asientoPagoRef = doc(collection(firestore, 'asientosDiario'));
-        const asientoPago: Omit<AsientoDiario, 'id'> = {
+        const asientoPago: Omit<AsientoDiario, 'id'> = withZafraContext({
           fecha: fechaOperacion,
           descripcion: `Pago compra ${compraParaAprobar.comprobante.documento}`,
           movimientos: [
             { cuentaId: compraParaAprobar.financiero.cuentaPorPagarId, tipo: 'debe', monto: montoPago },
             { cuentaId: cuentaPagoAprobacionId, tipo: 'haber', monto: montoPago },
           ],
-        };
+        }, {
+          zafraId: compraParaAprobar.zafraId,
+          zafraNombre: compraParaAprobar.zafraNombre || compraParaAprobar.planFinanciacion || null,
+        });
         batch.set(asientoPagoRef, asientoPago);
         asientoPagoId = asientoPagoRef.id;
 
@@ -184,6 +188,8 @@ export default function ComprasPage() {
           cuentaPorPagarId: compraParaAprobar.id,
           compraId: compraParaAprobar.id,
           proveedorId: compraParaAprobar.entidadId,
+          zafraId: compraParaAprobar.zafraId,
+          zafraNombre: compraParaAprobar.zafraNombre || compraParaAprobar.planFinanciacion || null,
           fecha: fechaOperacion,
           moneda: compraParaAprobar.moneda,
           monto: montoPago,
@@ -220,6 +226,8 @@ export default function ComprasPage() {
           compraId: compraParaAprobar.id,
           compraDocumento: compraParaAprobar.comprobante.documento,
           proveedorId: compraParaAprobar.entidadId,
+          zafraId: compraParaAprobar.zafraId,
+          zafraNombre: compraParaAprobar.zafraNombre || compraParaAprobar.planFinanciacion || null,
           fechaEmision: compraParaAprobar.fechaEmision,
           moneda: compraParaAprobar.moneda,
           montoOriginal,
@@ -331,6 +339,7 @@ export default function ComprasPage() {
               <TableRow>
                 <TableHead>Código</TableHead>
                 <TableHead>Fecha</TableHead>
+                <TableHead>Zafra</TableHead>
                 <TableHead>Comprobante</TableHead>
                 <TableHead>Entidad (Proveedor)</TableHead>
                 <TableHead>Valor</TableHead>
@@ -341,11 +350,12 @@ export default function ComprasPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(isLoadingCompras || isLoadingProveedores) && <TableRow><TableCell colSpan={9} className="text-center">Cargando...</TableCell></TableRow>}
+              {(isLoadingCompras || isLoadingProveedores) && <TableRow><TableCell colSpan={10} className="text-center">Cargando...</TableCell></TableRow>}
               {compras?.map((compra) => (
                 <TableRow key={compra.id}>
                   <TableCell>{compra.codigo}</TableCell>
                   <TableCell>{format(new Date(compra.fechaEmision as string), "dd/MM/yyyy")}</TableCell>
+                  <TableCell>{compra.zafraNombre || compra.planFinanciacion || "-"}</TableCell>
                   <TableCell>{compra.comprobante.documento}</TableCell>
                   <TableCell>{getProveedorNombre(compra.entidadId)}</TableCell>
                   <TableCell className="text-right font-mono">${compra.totalFactura.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>

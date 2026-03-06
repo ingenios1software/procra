@@ -12,6 +12,7 @@ import type {
   Zafra,
 } from "@/lib/types";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
+import { withZafraContext } from "@/lib/contabilidad/asientos";
 import {
   CATEGORIA_GRANO,
   buildGranoInsumoCodigo,
@@ -383,14 +384,17 @@ export async function procesarConsumoDeStockDesdeEvento(
 
         if (cuentaServicioCosechaId && cuentaGastoId) {
           const asientoServicioRef = doc(collection(db, "asientosDiario"));
-          const asientoServicio: Omit<AsientoDiario, "id"> = {
+          const asientoServicio: Omit<AsientoDiario, "id"> = withZafraContext({
             fecha: new Date(evento.fecha as string).toISOString(),
             descripcion: `Costo servicio cosecha ${documentoEvento} - ${cultivo?.nombre || "Cultivo"}`,
             movimientos: [
               { cuentaId: cuentaGastoId, tipo: "debe", monto: costoServicioTotal },
               { cuentaId: cuentaServicioCosechaId, tipo: "haber", monto: costoServicioTotal },
             ],
-          };
+          }, {
+            zafraId: evento.zafraId,
+            zafraNombre: zafra?.nombre || null,
+          });
           batch.set(asientoServicioRef, asientoServicio);
           eventoUpdates.asientoCosechaServicioId = asientoServicioRef.id;
         } else {

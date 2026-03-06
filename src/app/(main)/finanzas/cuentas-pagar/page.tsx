@@ -28,6 +28,7 @@ import {
   calcularSaldoDesdeMovimiento,
   toDateSafe,
 } from "@/lib/cuentas";
+import { withZafraContext } from "@/lib/contabilidad/asientos";
 import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 import type {
@@ -261,20 +262,25 @@ export default function CuentasPagarPage() {
       });
       const cuentaCajaBancoId = cuentasPago.find((option) => option.id === cuentaPagoId)?.cuentaCajaBancoId;
 
-      const asientoData: Omit<AsientoDiario, "id"> = {
+      const asientoData: Omit<AsientoDiario, "id"> = withZafraContext({
         fecha: fechaIso,
         descripcion: `Pago cuenta ${cuentaSeleccionada.compraDocumento || cuentaSeleccionada.compraId}`,
         movimientos: [
           { cuentaId: cuentaPasivoId, tipo: "debe", monto },
           { cuentaId: cuentaPagoId, tipo: "haber", monto },
         ],
-      };
+      }, {
+        zafraId: cuentaSeleccionada.zafraId,
+        zafraNombre: cuentaSeleccionada.zafraNombre || null,
+      });
       batch.set(asientoRef, asientoData);
 
       const pagoData: Omit<PagoCuentaPorPagar, "id"> = {
         cuentaPorPagarId: cuentaSeleccionada.id,
         compraId: cuentaSeleccionada.compraId,
         proveedorId: cuentaSeleccionada.proveedorId,
+        zafraId: cuentaSeleccionada.zafraId,
+        zafraNombre: cuentaSeleccionada.zafraNombre || null,
         fecha: fechaIso,
         moneda: cuentaSeleccionada.moneda,
         monto,
@@ -431,6 +437,7 @@ export default function CuentasPagarPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Documento</TableHead>
+                  <TableHead>Zafra</TableHead>
                   <TableHead>Proveedor</TableHead>
                   <TableHead>Emision</TableHead>
                   <TableHead>Vencimiento</TableHead>
@@ -444,7 +451,7 @@ export default function CuentasPagarPage() {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
+                    <TableCell colSpan={10} className="text-center">
                       Cargando cuentas por pagar...
                     </TableCell>
                   </TableRow>
@@ -460,6 +467,7 @@ export default function CuentasPagarPage() {
                     return (
                       <TableRow key={cuenta.id}>
                         <TableCell className="font-medium">{cuenta.compraDocumento || cuenta.compraId}</TableCell>
+                        <TableCell>{cuenta.zafraNombre || "-"}</TableCell>
                         <TableCell>{proveedoresById.get(cuenta.proveedorId) || "N/A"}</TableCell>
                         <TableCell>{emision ? format(emision, "dd/MM/yyyy") : "-"}</TableCell>
                         <TableCell>{vencimiento ? format(vencimiento, "dd/MM/yyyy") : "-"}</TableCell>
@@ -480,7 +488,7 @@ export default function CuentasPagarPage() {
 
                 {!isLoading && cuentasFiltradas.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center h-24">
+                    <TableCell colSpan={10} className="text-center h-24">
                       No hay cuentas que coincidan con los filtros.
                     </TableCell>
                   </TableRow>

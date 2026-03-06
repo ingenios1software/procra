@@ -430,6 +430,8 @@ export type CompraNormal = {
   codigo?: number;
   documento?: string;
   fechaEmision: Date | string;
+  zafraId?: string;
+  zafraNombre?: string | null;
   planFinanciacion?: string;
   moneda: 'USD' | 'PYG';
   condicionCompra: 'Contado' | 'Crédito';
@@ -487,6 +489,8 @@ export type CuentaPorCobrar = {
   ventaId: string;
   ventaDocumento?: string;
   clienteId: string;
+  zafraId?: string;
+  zafraNombre?: string | null;
   fechaEmision: Date | string;
   fechaVencimiento?: Date | string;
   moneda: "USD" | "PYG";
@@ -507,6 +511,8 @@ export type CobroCuentaPorCobrar = {
   cuentaPorCobrarId: string;
   ventaId: string;
   clienteId: string;
+  zafraId?: string;
+  zafraNombre?: string | null;
   fecha: Date | string;
   moneda: "USD" | "PYG";
   monto: number;
@@ -540,6 +546,8 @@ export type CuentaPorPagar = {
   compraId: string;
   compraDocumento?: string;
   proveedorId: string;
+  zafraId?: string;
+  zafraNombre?: string | null;
   fechaEmision: Date | string;
   fechaVencimiento?: Date | string;
   moneda: "USD" | "PYG";
@@ -560,6 +568,8 @@ export type PagoCuentaPorPagar = {
   cuentaPorPagarId: string;
   compraId: string;
   proveedorId: string;
+  zafraId?: string;
+  zafraNombre?: string | null;
   fecha: Date | string;
   moneda: "USD" | "PYG";
   monto: number;
@@ -582,6 +592,8 @@ export type MovimientoTesoreria = {
   moneda: "USD" | "PYG";
   monto: number;
   descripcion: string;
+  zafraId?: string;
+  zafraNombre?: string | null;
   referencia?: string;
   cuentaOrigenCajaBancoId?: string;
   cuentaOrigenContableId?: string;
@@ -717,6 +729,8 @@ export type AsientoDiario = {
   id: string;
   fecha: Date | string;
   descripcion: string;
+  zafraId?: string;
+  zafraNombre?: string | null;
   movimientos: {
     cuentaId: string;
     tipo: 'debe' | 'haber';

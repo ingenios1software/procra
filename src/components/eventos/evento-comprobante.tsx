@@ -4,9 +4,6 @@ import { useMemo } from "react";
 import { format } from "date-fns";
 import { collection } from "firebase/firestore";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { getReportBrandingFromEmpresa } from "@/lib/report-branding";
 import type { Cultivo, Evento, Insumo, Maquinaria, Parcela, Zafra } from "@/lib/types";
@@ -93,12 +90,17 @@ function labelEstado(estado: Evento["estado"]) {
 }
 
 function estadoClasses(estado: Evento["estado"]) {
-  if (estado === "aprobado") return "bg-green-600 text-white";
-  if (estado === "rechazado") return "bg-red-600 text-white";
-  return "bg-amber-400 text-black";
+  if (estado === "aprobado") return "border-emerald-300 text-emerald-700";
+  if (estado === "rechazado") return "border-red-300 text-red-700";
+  return "border-amber-300 text-amber-700";
 }
 
-function Field({
+type InfoRow = {
+  label: string;
+  value: string;
+};
+
+function TableRow({
   label,
   value,
   className,
@@ -108,9 +110,40 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-lg border border-border/80 bg-background/70 p-3", className)}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-medium text-foreground">{value || "-"}</p>
+    <tr className={cn("border-b border-slate-200 last:border-b-0", className)}>
+      <th className="w-[38%] px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </th>
+      <td className="px-2.5 py-1.5 text-[13px] font-medium leading-5 text-slate-900">{value || "-"}</td>
+    </tr>
+  );
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div className="border-b border-slate-300 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+      {children}
+    </div>
+  );
+}
+
+function InfoTable({ rows, className }: { rows: InfoRow[]; className?: string }) {
+  return (
+    <table className={cn("w-full border-collapse text-sm", className)}>
+      <tbody>
+        {rows.map((row) => (
+          <TableRow key={row.label} label={row.label} value={row.value} />
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-slate-300 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-1 text-[14px] font-semibold text-slate-950">{value || "-"}</p>
     </div>
   );
 }
@@ -161,312 +194,247 @@ export function EventoComprobante({
     cultivo?.nombre || "Cultivo no especificado",
     zafra?.nombre || "Zafra no especificada",
   ].join(" / ");
+  const contextoRows: InfoRow[] = [
+    { label: "Parcela / cultivo", value: `${parcela?.nombre || "-"} / ${cultivo?.nombre || "-"}` },
+    { label: "Zafra / sector", value: `${zafra?.nombre || "-"} / ${parcela?.sector || "-"}` },
+    { label: "Ubicacion", value: parcela?.ubicacion || "No especificada" },
+    { label: "Archivo institucional", value: reportBranding.companyName },
+  ];
+  const documentoRows: InfoRow[] = [
+    { label: "Folio", value: documentCode },
+    { label: "Evento", value: `#${evento.numeroLanzamiento || "-"}` },
+    { label: "Item", value: evento.numeroItem ? `Nro. ${evento.numeroItem}` : "-" },
+    { label: "Fecha evento", value: formatDate(evento.fecha) },
+    { label: "Emitido", value: formatDateTime(evento.creadoEn as Date | string | null) },
+    { label: "Estado documental", value: labelEstado(evento.estado) },
+  ];
+  const detalleRows: InfoRow[] = [
+    { label: "Parcela", value: parcela?.nombre || "-" },
+    { label: "Cultivo", value: cultivo?.nombre || "-" },
+    { label: "Zafra", value: zafra?.nombre || "-" },
+    { label: "Codigo parcela", value: parcela?.codigo || "-" },
+    {
+      label: "Superficie parcela",
+      value: parcela?.superficie ? `${formatNumber(parcela.superficie)} ha` : "-",
+    },
+    { label: "Estado parcela", value: parcela?.estado || "-" },
+    {
+      label: "Hectareas aplicadas",
+      value: evento.hectareasAplicadas ? `${formatNumber(evento.hectareasAplicadas)} ha` : "-",
+    },
+    { label: "Costo servicio/ha", value: formatCurrency(evento.costoServicioPorHa) },
+  ];
+
+  if (esCosecha) {
+    detalleRows.push(
+      { label: "Toneladas cosechadas", value: evento.toneladas ? `${formatNumber(evento.toneladas)} ton` : "-" },
+      { label: "Precio por tonelada", value: formatCurrency(evento.precioTonelada) },
+      { label: "Rendimiento ton/ha", value: formatNumber(evento.rendimientoTonHa) },
+      { label: "Rendimiento kg/ha", value: formatInteger(evento.rendimientoKgHa) }
+    );
+  } else {
+    detalleRows.push(
+      { label: "Adjuntos", value: `${evento.fotos?.length || 0} archivo(s)` },
+      { label: "Estado stock", value: stockStatus }
+    );
+  }
+
+  if (evento.maquinariaId) {
+    detalleRows.push(
+      { label: "Maquinaria", value: maquinaria?.nombre || "Maquinaria vinculada" },
+      { label: "Codigo maquina", value: maquinaria?.numeroItem ? `Item ${maquinaria.numeroItem}` : "-" },
+      { label: "Hora anterior", value: formatNumber(evento.horometroAnterior, 1) },
+      { label: "Hora actual", value: formatNumber(evento.horometroActual, 1) },
+      { label: "Horas trabajadas", value: formatNumber(evento.horasTrabajadas, 1) }
+    );
+  }
+
+  const trazabilidadRows: InfoRow[] = [
+    { label: "Registrado", value: formatDateTime(evento.creadoEn as Date | string | null) },
+    { label: "Aprobado", value: formatDateTime(evento.aprobadoEn as Date | string | null) },
+    { label: "Stock / trazabilidad", value: stockStatus },
+    { label: "Evidencias", value: `${evento.fotos?.length || 0} archivo(s)` },
+    { label: "Tipo de evento", value: labelTipo(evento.tipo) },
+    { label: "Cuenta contable", value: evento.cuentaContableId || "-" },
+  ];
+  const climaRows: InfoRow[] = hasClima
+    ? [
+        {
+          label: "Temperatura",
+          value: evento.temperatura !== undefined ? `${formatNumber(evento.temperatura)} C` : "-",
+        },
+        {
+          label: "Humedad",
+          value: evento.humedad !== undefined ? `${formatNumber(evento.humedad)} %` : "-",
+        },
+        {
+          label: "Viento",
+          value: evento.viento !== undefined ? `${formatNumber(evento.viento)} km/h` : "-",
+        },
+      ]
+    : [];
+  const metricas = [
+    { label: "Costo total", value: formatCurrency(evento.costoTotal) },
+    { label: "Costo por ha", value: formatCurrency(evento.costoPorHa) },
+    { label: "Servicio total", value: formatCurrency(evento.costoServicioTotal) },
+    { label: "Resumen productivo", value: formalSummary },
+  ];
 
   return (
-    <article className={cn("w-full max-w-[1040px] bg-background text-foreground", className)}>
-      <div className="rounded-[28px] border border-border bg-card p-4 shadow-none sm:p-6">
-        <section className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className={cn("border-0", estadoClasses(evento.estado))}>{labelEstado(evento.estado)}</Badge>
-                <Badge variant="outline">{labelTipo(evento.tipo)}</Badge>
-                <Badge variant="secondary">{stockStatus}</Badge>
-              </div>
-
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
-                  Comprobante de ejecucion agricola
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold leading-tight text-slate-950 sm:text-3xl">
-                  Constancia operativa de evento
-                </h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  {evento.descripcion || "Sin descripcion registrada."}
-                </p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field
-                  label="Parcela / cultivo"
-                  value={`${parcela?.nombre || "-"} / ${cultivo?.nombre || "-"}`}
-                  className="border-slate-200 bg-white"
-                />
-                <Field
-                  label="Zafra / sector"
-                  value={`${zafra?.nombre || "-"} / ${parcela?.sector || "-"}`}
-                  className="border-slate-200 bg-white"
-                />
-                <Field
-                  label="Ubicacion"
-                  value={parcela?.ubicacion || "No especificada"}
-                  className="border-slate-200 bg-white"
-                />
-              </div>
-            </div>
-
-            <div className="w-full max-w-[360px] rounded-[24px] border border-slate-200 bg-white p-4 shadow-none">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Folio</p>
-                  <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">{documentCode}</p>
-                </div>
-                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                  Interno
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Archivo institucional
-                </p>
-                <p className="mt-1 text-sm font-medium text-slate-900">{reportBranding.companyName}</p>
-                <p className="mt-1 text-sm text-slate-600">{formalSummary}</p>
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <Field label="Evento" value={`#${evento.numeroLanzamiento || "-"}`} className="border-slate-200 bg-slate-50" />
-                <Field
-                  label="Item"
-                  value={evento.numeroItem ? `Nro. ${evento.numeroItem}` : "-"}
-                  className="border-slate-200 bg-slate-50"
-                />
-                <Field label="Fecha evento" value={formatDate(evento.fecha)} className="border-slate-200 bg-slate-50" />
-                <Field
-                  label="Emitido"
-                  value={formatDateTime(evento.creadoEn as Date | string | null)}
-                  className="border-slate-200 bg-slate-50"
-                />
-              </div>
-            </div>
+    <article className={cn("w-full max-w-[980px] bg-white text-slate-950", className)}>
+      <div className="border border-slate-400 bg-white p-4 shadow-none sm:p-5">
+        <header className="border-b-2 border-slate-300 pb-3 text-center">
+          <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <span className="border border-slate-300 px-2 py-1 text-slate-700">Documento {documentCode}</span>
+            <span className="border border-slate-300 px-2 py-1 text-slate-700">{labelTipo(evento.tipo)}</span>
+            <span className={cn("border px-2 py-1", estadoClasses(evento.estado))}>{labelEstado(evento.estado)}</span>
+            <span className="border border-slate-300 px-2 py-1 text-slate-700">{stockStatus}</span>
           </div>
-        </section>
+          <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Comprobante de ejecucion agricola
+          </p>
+          <h2 className="mt-1 text-lg font-semibold leading-tight text-slate-950 sm:text-xl">
+            Constancia operativa de evento
+          </h2>
+          <p className="mt-1 text-[13px] leading-5 text-slate-600">
+            {evento.descripcion || "Sin descripcion registrada."}
+          </p>
+        </header>
+
+        <div className="mt-3 grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+          <section className="overflow-hidden border border-slate-300">
+            <SectionLabel>Contexto productivo</SectionLabel>
+            <InfoTable rows={contextoRows} />
+          </section>
+
+          <section className="overflow-hidden border border-slate-300">
+            <SectionLabel>Control documental</SectionLabel>
+            <InfoTable rows={documentoRows} />
+          </section>
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {metricas.map((metrica) => (
+            <MetricCard key={metrica.label} label={metrica.label} value={metrica.value} />
+          ))}
+        </div>
 
         {evento.estado === "rechazado" && evento.motivoRechazo && (
-          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <div className="mt-3 border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             <p className="font-semibold">Motivo de rechazo</p>
-            <p className="mt-1 leading-6">{evento.motivoRechazo}</p>
+            <p className="mt-1 text-[13px] leading-5">{evento.motivoRechazo}</p>
           </div>
         )}
 
-        <div className="mt-6 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-          <Card className="border-slate-200 shadow-none hover:shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Datos generales</CardTitle>
-              <CardDescription>Identificacion productiva y referencias del lote intervenido.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <Field label="Parcela" value={parcela?.nombre || "-"} />
-              <Field label="Cultivo" value={cultivo?.nombre || "-"} />
-              <Field label="Zafra" value={zafra?.nombre || "-"} />
-              <Field label="Codigo parcela" value={parcela?.codigo || "-"} />
-              <Field
-                label="Superficie parcela"
-                value={parcela?.superficie ? `${formatNumber(parcela.superficie)} ha` : "-"}
-              />
-              <Field label="Estado parcela" value={parcela?.estado || "-"} />
-            </CardContent>
-          </Card>
+        <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_1fr]">
+          <section className="overflow-hidden border border-slate-300">
+            <SectionLabel>Datos generales y tecnicos</SectionLabel>
+            <InfoTable rows={detalleRows} />
+          </section>
 
-          <Card className="border-slate-200 shadow-none hover:shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Resumen economico</CardTitle>
-              <CardDescription>Valores de referencia para control administrativo.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Field label="Costo total" value={formatCurrency(evento.costoTotal)} />
-              <Field label="Costo por ha" value={formatCurrency(evento.costoPorHa)} />
-              <Field label="Servicio total" value={formatCurrency(evento.costoServicioTotal)} />
-              <Field label="Cuenta contable" value={evento.cuentaContableId || "-"} />
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_1fr]">
-          <Card className="border-slate-200 shadow-none hover:shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Datos tecnicos</CardTitle>
-              <CardDescription>Mediciones y referencias registradas durante la labor.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              <Field
-                label="Hectareas aplicadas"
-                value={evento.hectareasAplicadas ? `${formatNumber(evento.hectareasAplicadas)} ha` : "-"}
-              />
-              <Field label="Costo servicio/ha" value={formatCurrency(evento.costoServicioPorHa)} />
-              {esCosecha ? (
-                <>
-                  <Field
-                    label="Toneladas cosechadas"
-                    value={evento.toneladas ? `${formatNumber(evento.toneladas)} ton` : "-"}
-                  />
-                  <Field label="Precio por tonelada" value={formatCurrency(evento.precioTonelada)} />
-                  <Field label="Rendimiento ton/ha" value={formatNumber(evento.rendimientoTonHa)} />
-                  <Field label="Rendimiento kg/ha" value={formatInteger(evento.rendimientoKgHa)} />
-                </>
-              ) : (
-                <>
-                  <Field label="Adjuntos" value={`${evento.fotos?.length || 0} archivo(s)`} />
-                  <Field label="Estado stock" value={stockStatus} />
-                </>
-              )}
-              {evento.maquinariaId && (
-                <>
-                  <Field label="Maquinaria" value={maquinaria?.nombre || "Maquinaria vinculada"} />
-                  <Field
-                    label="Codigo maquina"
-                    value={maquinaria?.numeroItem ? `Item ${maquinaria.numeroItem}` : "-"}
-                  />
-                  <Field label="Hora anterior" value={formatNumber(evento.horometroAnterior, 1)} />
-                  <Field label="Hora actual" value={formatNumber(evento.horometroActual, 1)} />
-                  <Field label="Horas trabajadas" value={formatNumber(evento.horasTrabajadas, 1)} />
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 shadow-none hover:shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Resultado y trazabilidad</CardTitle>
-              <CardDescription>Texto operativo y referencias de control del documento.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-xl border border-border/80 bg-background/70 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Descripcion del trabajo
-                </p>
-                <p className="mt-2 text-sm leading-6">{evento.descripcion || "-"}</p>
-              </div>
-              <div className="rounded-xl border border-border/80 bg-background/70 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Resultado informado
-                </p>
-                <p className="mt-2 text-sm leading-6">{evento.resultado || "Sin observaciones registradas."}</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Registrado" value={formatDateTime(evento.creadoEn as Date | string | null)} />
-                <Field label="Aprobado" value={formatDateTime(evento.aprobadoEn as Date | string | null)} />
-                <Field label="Estado documental" value={labelEstado(evento.estado)} />
-                <Field label="Evidencias" value={`${evento.fotos?.length || 0} archivo(s)`} />
-              </div>
-            </CardContent>
-          </Card>
+          <section className="overflow-hidden border border-slate-300">
+            <SectionLabel>Resultado y trazabilidad</SectionLabel>
+            <div className="border-b border-slate-200 px-2.5 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Descripcion del trabajo
+              </p>
+              <p className="mt-1 text-[13px] leading-5 text-slate-700">{evento.descripcion || "-"}</p>
+            </div>
+            <div className="border-b border-slate-200 px-2.5 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Resultado informado
+              </p>
+              <p className="mt-1 text-[13px] leading-5 text-slate-700">
+                {evento.resultado || "Sin observaciones registradas."}
+              </p>
+            </div>
+            <InfoTable rows={trazabilidadRows} />
+          </section>
         </div>
 
         {hasClima && (
-          <>
-            <Separator className="my-6" />
-            <section>
-              <div className="mb-3">
-                <h3 className="text-lg font-semibold">Condiciones climaticas</h3>
-                <p className="text-sm text-muted-foreground">Variables registradas durante la ejecucion.</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field
-                  label="Temperatura"
-                  value={evento.temperatura !== undefined ? `${formatNumber(evento.temperatura)} C` : "-"}
-                />
-                <Field label="Humedad" value={evento.humedad !== undefined ? `${formatNumber(evento.humedad)} %` : "-"} />
-                <Field
-                  label="Viento"
-                  value={evento.viento !== undefined ? `${formatNumber(evento.viento)} km/h` : "-"}
-                />
-              </div>
-            </section>
-          </>
+          <section className="mt-3 overflow-hidden border border-slate-300">
+            <SectionLabel>Condiciones climaticas</SectionLabel>
+            <InfoTable rows={climaRows} />
+          </section>
         )}
 
         {productos.length > 0 && (
-          <>
-            <Separator className="my-6" />
-            <section>
-              <div className="mb-3">
-                <h3 className="text-lg font-semibold">Insumos registrados</h3>
-                <p className="text-sm text-muted-foreground">Detalle de dosis, categoria y cantidades aplicadas.</p>
-              </div>
-              <div className="overflow-hidden rounded-xl border border-border">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/60">
-                    <tr className="text-left">
-                      <th className="px-4 py-3 font-semibold">Insumo</th>
-                      <th className="px-4 py-3 font-semibold">Categoria</th>
-                      <th className="px-4 py-3 font-semibold">Unidad</th>
-                      <th className="px-4 py-3 font-semibold">Dosis/ha</th>
-                      <th className="px-4 py-3 font-semibold">Cantidad total</th>
+          <section className="mt-3 overflow-hidden border border-slate-300">
+            <SectionLabel>Insumos registrados</SectionLabel>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-300">
+                    <th className="px-2.5 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      Insumo
+                    </th>
+                    <th className="px-2.5 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      Categoria
+                    </th>
+                    <th className="px-2.5 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      Unidad
+                    </th>
+                    <th className="px-2.5 py-2 text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      Dosis/ha
+                    </th>
+                    <th className="px-2.5 py-2 text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      Cantidad total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productos.map((producto, index) => (
+                    <tr key={`${producto.insumoId}-${index}`} className="border-b border-slate-200 last:border-b-0">
+                      <td className="px-2.5 py-2 font-medium text-slate-900">{producto.nombre}</td>
+                      <td className="px-2.5 py-2 text-slate-700">{producto.categoria}</td>
+                      <td className="px-2.5 py-2 uppercase text-slate-700">{producto.unidad}</td>
+                      <td className="px-2.5 py-2 text-right text-slate-900">{formatNumber(producto.dosis)}</td>
+                      <td className="px-2.5 py-2 text-right text-slate-900">{formatNumber(producto.cantidad)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {productos.map((producto, index) => (
-                      <tr key={`${producto.insumoId}-${index}`} className="border-t border-border/80">
-                        <td className="px-4 py-3 font-medium">{producto.nombre}</td>
-                        <td className="px-4 py-3">{producto.categoria}</td>
-                        <td className="px-4 py-3 uppercase">{producto.unidad}</td>
-                        <td className="px-4 py-3">{formatNumber(producto.dosis)}</td>
-                        <td className="px-4 py-3">{formatNumber(producto.cantidad)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
 
-        <Separator className="my-6" />
-        <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Constancia documental
-            </p>
-            <p className="mt-2 text-sm leading-6 text-slate-700">
-              Este comprobante deja constancia de la actividad registrada en campo para fines de control
-              operativo, seguimiento tecnico y archivo administrativo.
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <Field label="Documento" value={documentCode} className="border-slate-200 bg-white" />
-              <Field label="Tipo de evento" value={labelTipo(evento.tipo)} className="border-slate-200 bg-white" />
-              <Field label="Stock / trazabilidad" value={stockStatus} className="border-slate-200 bg-white" />
-              <Field
-                label="Fecha de aprobacion"
-                value={formatDateTime(evento.aprobadoEn as Date | string | null)}
-                className="border-slate-200 bg-white"
-              />
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Validacion y firmas
-            </p>
-            <div className="mt-4 grid gap-3">
-              <div className="rounded-xl border border-slate-200 p-4">
-                <div className="h-10 border-b border-dashed border-slate-300" />
-                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Responsable operativo
-                </p>
-                <p className="mt-1 text-sm text-slate-700">Firma y aclaracion del encargado de campo.</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 p-4">
-                <div className="h-10 border-b border-dashed border-slate-300" />
-                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Supervision / conformidad
-                </p>
-                <p className="mt-1 text-sm text-slate-700">
-                  {evento.estado === "aprobado"
-                    ? "Evento con aprobacion registrada en el sistema."
-                    : "Espacio reservado para validacion del responsable."}
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 p-4">
-                <div className="h-10 border-b border-dashed border-slate-300" />
-                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Archivo / recepcion
-                </p>
-                <p className="mt-1 text-sm text-slate-700">{reportBranding.companyName}</p>
-              </div>
-            </div>
+        <section className="mt-3 border border-slate-300 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+            Constancia documental
+          </p>
+          <p className="mt-2 text-[13px] leading-5 text-slate-700">
+            Este comprobante deja constancia de la actividad registrada en campo para fines de control operativo,
+            seguimiento tecnico y archivo administrativo.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <MetricCard label="Documento" value={documentCode} />
+            <MetricCard label="Tipo de evento" value={labelTipo(evento.tipo)} />
+            <MetricCard label="Aprobacion" value={formatDateTime(evento.aprobadoEn as Date | string | null)} />
           </div>
         </section>
+
+        <div className="mt-5 grid gap-6 md:grid-cols-3">
+          <div className="pt-10 text-center">
+            <div className="mx-auto w-[88%] border-b border-slate-500" />
+            <p className="mt-2 text-[13px] font-semibold text-slate-900">Responsable operativo</p>
+            <p className="text-[11px] text-slate-500">Firma y aclaracion del encargado de campo.</p>
+          </div>
+          <div className="pt-10 text-center">
+            <div className="mx-auto w-[88%] border-b border-slate-500" />
+            <p className="mt-2 text-[13px] font-semibold text-slate-900">Supervision / conformidad</p>
+            <p className="text-[11px] text-slate-500">
+              {evento.estado === "aprobado"
+                ? "Evento con aprobacion registrada en el sistema."
+                : "Espacio reservado para validacion del responsable."}
+            </p>
+          </div>
+          <div className="pt-10 text-center">
+            <div className="mx-auto w-[88%] border-b border-slate-500" />
+            <p className="mt-2 text-[13px] font-semibold text-slate-900">Archivo / recepcion</p>
+            <p className="text-[11px] text-slate-500">{reportBranding.companyName}</p>
+          </div>
+        </div>
       </div>
     </article>
   );

@@ -13,8 +13,6 @@ import { PanelKpiCards } from "./panel-kpi-cards";
 import { PanelGraficos } from "./panel-graficos";
 import { PanelTablaAgronomica } from "./panel-tabla-agronomica";
 import { PanelAnalisisEconomico } from "./panel-analisis-economico";
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 import { differenceInDays, format } from "date-fns";
 import { getEventCategoryLabel, getSowingBaseDate } from "./panel-evento-utils";
@@ -149,49 +147,20 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
         XLSX.writeFile(wb, "panel-agronomico.xlsx");
     }, [parcela, zafra, cultivo, filteredEvents, costoTotal, costoPorHa, diasDesdeSiembra, etapas]);
 
-
-    const exportToPDF = async () => {
-       const element = document.getElementById("pdf-area");
-       if (!element) return;
-
-       const canvas = await html2canvas(element, {
-         scale: 2,
-         useCORS: true,
-         backgroundColor: '#ffffff'
-       });
-       const imgData = canvas.toDataURL("image/png");
-       const pdf = new jsPDF("p", "mm", "a4");
-
-       const imgWidth = 190; 
-       const pageHeight = 290;
-       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-       let heightLeft = imgHeight;
-       let position = 10;
-
-       pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-       heightLeft -= pageHeight;
-
-       while (heightLeft > 0) {
-         position = heightLeft - imgHeight + 10;
-         pdf.addPage();
-         pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-         heightLeft -= pageHeight;
-       }
-
-       pdf.save("panel-agronomico.pdf");
-     };
-
     return (
         <>
             <PageHeader title="Panel Agronómico Inteligente" description="Análisis detallado de la campaña agrícola, desde la siembra hasta la cosecha.">
                 <div className="flex items-center gap-2 no-print">
-                    <Button variant="outline" onClick={exportToPDF}><Download className="mr-2"/>Exportar PDF</Button>
                     <Button variant="outline" onClick={exportToExcel}><Download className="mr-2"/>Exportar Excel</Button>
-                    <ReportActions reportTitle="Panel Agronómico Inteligente" reportSummary={shareSummary} />
+                    <ReportActions
+                      reportTitle="Panel Agronómico Inteligente"
+                      reportSummary={shareSummary}
+                      imageTargetId="panel-agronomico-print"
+                      printTargetId="panel-agronomico-print"
+                    />
                 </div>
             </PageHeader>
-            <div id="pdf-area" className="print-area">
+            <div id="panel-agronomico-print" className="print-area">
                 <Card className="mb-6 no-print">
                     <CardHeader>
                         <CardTitle>Selección de Campaña</CardTitle>

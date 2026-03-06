@@ -180,6 +180,8 @@
     margin: 0 !important;
     background: #fff !important;
     color: #111 !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
   }
   .print-area .recharts-wrapper, #pdf-area .recharts-wrapper {
     width: 100% !important;
@@ -195,6 +197,31 @@
     break-inside: avoid;
     background: #fff !important;
     box-shadow: none !important;
+  }
+  .print-area article,
+  .print-area section,
+  #pdf-area article,
+  #pdf-area section,
+  .print-area .break-inside-avoid,
+  #pdf-area .break-inside-avoid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .print-area [class*="rounded"], #pdf-area [class*="rounded"] {
+    border-radius: 0 !important;
+  }
+  .print-area [class*="shadow"], #pdf-area [class*="shadow"] {
+    box-shadow: none !important;
+  }
+  .print-area table, #pdf-area table {
+    width: 100%;
+    border-collapse: collapse !important;
+  }
+  .print-area th,
+  .print-area td,
+  #pdf-area th,
+  #pdf-area td {
+    vertical-align: top;
   }
   .no-print {
     display: none !important;

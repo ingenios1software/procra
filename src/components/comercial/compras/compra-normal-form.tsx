@@ -23,6 +23,7 @@ import type {
   AsientoDiario,
   PlanDeCuenta,
   CuentaPorPagar,
+  Zafra,
 } from "@/lib/types";
 import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { collection, doc, writeBatch, serverTimestamp, getDocs, query, orderBy, limit, getDoc } from "firebase/firestore";
@@ -32,6 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from '@/lib/contabilidad/cuentas-base';
 import { calcularEstadoCuenta } from "@/lib/cuentas";
+import { resolveZafraContext, withZafraContext } from "@/lib/contabilidad/asientos";
 
 const mercaderiaSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar una mercaderia." }),
@@ -45,6 +47,7 @@ const mercaderiaSchema = z.object({
 const formSchema = z.object({
   // Datos Iniciales
   fechaEmision: z.date({ required_error: "La fecha es obligatoria." }),
+  zafraId: z.string().nonempty("Debe seleccionar una zafra."),
   moneda: z.enum(['USD', 'PYG']),
   condicionCompra: z.enum(['Contado', 'Cr\u00E9dito']).default('Cr\u00E9dito'),
   entidadId: z.string().nonempty("Debe seleccionar un proveedor."),
@@ -120,15 +123,18 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
   const lockTransactionalFields = Boolean(compra);
   const disableReadonlyOrSaving = isViewMode || isSaving;
   const disableTransactional = disableReadonlyOrSaving || lockTransactionalFields;
+  const disableZafraSelection = disableReadonlyOrSaving;
 
   const { data: proveedores } = useCollection<Proveedor>(useMemoFirebase(() => firestore ? collection(firestore, 'proveedores') : null, [firestore]));
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(useMemoFirebase(() => firestore ? query(collection(firestore, 'planDeCuentas'), orderBy('codigo')) : null, [firestore]));
+  const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras'), orderBy('nombre')) : null, [firestore]));
   
   const form = useForm<CompraFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: compra ? {
       // Mapeo explicito para evitar problemas de anidamiento y tipos
       fechaEmision: new Date(compra.fechaEmision as string),
+      zafraId: compra.zafraId || "",
       moneda: compra.moneda,
       condicionCompra: "Cr\u00E9dito",
       entidadId: compra.entidadId,
@@ -151,6 +157,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
       comprobante_timbre: compra.comprobante.timbre,
     } : {
       fechaEmision: new Date(),
+      zafraId: '',
       moneda: 'USD',
       condicionCompra: 'Cr\u00E9dito',
       totalizadora: false,
@@ -218,6 +225,11 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
 
     setIsSaving(true);
     try {
+      const zafraContext = resolveZafraContext(
+        zafras,
+        data.zafraId,
+        compra?.zafraNombre || compra?.planFinanciacion || null
+      );
       const batch = writeBatch(firestore);
       const comprasCol = collection(firestore, "comprasNormal");
       const compraRef = compra ? doc(firestore, "comprasNormal", compra.id) : doc(comprasCol);
@@ -242,21 +254,30 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
       let asientoRegistroId = compra?.financiero?.asientoRegistroId;
       if (shouldCreateWorkflowEntries) {
         const asientoCompraRef = doc(collection(firestore, "asientosDiario"));
-        const asientoCompra: Omit<AsientoDiario, "id"> = {
+        const asientoCompra: Omit<AsientoDiario, "id"> = withZafraContext({
           fecha: data.fechaEmision.toISOString(),
           descripcion: `Compra credito doc ${data.comprobante_documento}`,
           movimientos: [
             { cuentaId: data.financiero_cuentaInventarioId, tipo: "debe", monto: totalFactura },
             { cuentaId: data.financiero_cuentaPorPagarId, tipo: "haber", monto: totalFactura },
           ],
-        };
+        }, zafraContext);
         batch.set(asientoCompraRef, asientoCompra);
         asientoRegistroId = asientoCompraRef.id;
+      } else if (asientoRegistroId) {
+        batch.set(
+          doc(firestore, "asientosDiario", asientoRegistroId),
+          withZafraContext({}, zafraContext),
+          { merge: true }
+        );
       }
 
       const compraData: Omit<CompraNormal, "id"> = {
         codigo: nuevoCodigo,
         fechaEmision: data.fechaEmision.toISOString(),
+        zafraId: data.zafraId,
+        zafraNombre: zafraContext.zafraNombre || null,
+        planFinanciacion: zafraContext.zafraNombre || undefined,
         entidadId: data.entidadId,
         moneda: data.moneda,
         formaPago: data.formaPago,
@@ -314,6 +335,8 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
         compraId: compraRef.id,
         compraDocumento: data.comprobante_documento,
         proveedorId: data.entidadId,
+        zafraId: data.zafraId,
+        zafraNombre: zafraContext.zafraNombre || null,
         fechaEmision: data.fechaEmision.toISOString(),
         fechaVencimiento,
         moneda: data.moneda,
@@ -399,6 +422,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
             tipo: "entrada",
             origen: "compra",
             compraId: compraRef.id,
+            zafraId: data.zafraId,
             insumoId: insumoComprado.id,
             insumoNombre: insumoComprado.nombre,
             unidad: insumoComprado.unidad,
@@ -459,6 +483,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 <FormField name="entidadId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Proveedor</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un proveedor" /></SelectTrigger></FormControl><SelectContent>{proveedores?.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField name="fechaEmision" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Fecha Emision</FormLabel><FormControl><Input type="date" lang="es-PY" disabled={disableTransactional} value={dateToInputValue(field.value)} onChange={(e) => field.onChange(inputValueToDate(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField name="zafraId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Plan de Financiacion / Zafra</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disableZafraSelection}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl><SelectContent>{zafras?.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField name="moneda" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="PYG">PYG</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormItem><FormLabel>Condicion</FormLabel><div className="rounded-md border px-3 py-2 text-sm">Credito (flujo contable)</div></FormItem>
                 <FormField name="formaPago" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Forma de Pago</FormLabel><FormControl><Input {...field} disabled={disableReadonlyOrSaving} /></FormControl><FormMessage /></FormItem> )} />

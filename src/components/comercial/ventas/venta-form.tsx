@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 import { calcularEstadoCuenta, isFormaPagoCredito } from "@/lib/cuentas";
+import { resolveZafraContext, withZafraContext } from "@/lib/contabilidad/asientos";
 import { isCategoriaGrano, toNumber, toPositiveNumber } from "@/lib/stock/granos";
 
 const itemSchema = z.object({
@@ -347,6 +348,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     const totalIva = iva10 + iva5;
     let costoTotalCMV = 0;
     const cultivoSeleccionado = data.cultivoId ? cultivoById.get(data.cultivoId) : undefined;
+    const zafraContext = resolveZafraContext(zafras, data.zafraId);
 
     let asientoVentaId: string | undefined = venta?.financiero?.asientoVentaId;
     let asientoCmvId: string | undefined = venta?.financiero?.asientoCmvId;
@@ -495,26 +497,33 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
         movimientosVenta.push({ cuentaId: cuentaIvaDebitoId, tipo: "haber", monto: totalIva });
       }
 
-      const asientoVenta: Omit<AsientoDiario, "id"> = {
+      const asientoVenta: Omit<AsientoDiario, "id"> = withZafraContext({
         fecha: data.fecha.toISOString(),
         descripcion: `Venta s/ doc ${data.numeroDocumento}`,
         movimientos: movimientosVenta,
-      };
+      }, zafraContext);
       batch.set(asientoVentaRef, asientoVenta);
       asientoVentaId = asientoVentaRef.id;
 
       if (costoTotalCMV > 0 && cuentaCmvId && cuentaInventarioId) {
         const asientoCMVRef = doc(collection(firestore, "asientosDiario"));
-        const asientoCMV: Omit<AsientoDiario, "id"> = {
+        const asientoCMV: Omit<AsientoDiario, "id"> = withZafraContext({
           fecha: data.fecha.toISOString(),
           descripcion: `CMV por venta ${data.numeroDocumento}`,
           movimientos: [
             { cuentaId: cuentaCmvId, tipo: "debe", monto: costoTotalCMV },
             { cuentaId: cuentaInventarioId, tipo: "haber", monto: costoTotalCMV },
           ],
-        };
+        }, zafraContext);
         batch.set(asientoCMVRef, asientoCMV);
         asientoCmvId = asientoCMVRef.id;
+      }
+    } else {
+      if (asientoVentaId) {
+        batch.set(doc(firestore, "asientosDiario", asientoVentaId), withZafraContext({}, zafraContext), { merge: true });
+      }
+      if (asientoCmvId) {
+        batch.set(doc(firestore, "asientosDiario", asientoCmvId), withZafraContext({}, zafraContext), { merge: true });
       }
     }
 
@@ -566,6 +575,8 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
         ventaId: ventaRef.id,
         ventaDocumento: data.numeroDocumento,
         clienteId: data.clienteId,
+        zafraId: data.zafraId,
+        zafraNombre: zafraContext.zafraNombre || null,
         fechaEmision: data.fecha.toISOString(),
         fechaVencimiento,
         moneda: data.moneda,

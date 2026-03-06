@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, ArrowDown, ArrowUp, Trash2, Download, Printer, Eye } from "lucide-react";
+import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, Trash2, Download, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Insumo, CompraNormal, LoteInsumo } from "@/lib/types";
 import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { PageHeader } from "../shared/page-header";
+import { ReportActions } from "../shared/report-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
@@ -25,8 +26,6 @@ import { collection, doc, getDocs, query, orderBy, limit, writeBatch } from "fir
 import { ImportButton } from "./import-button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import Link from 'next/link';
 import { calcularPrecioPromedioDesdeCompras, toPositiveNumber } from "@/lib/stock/precio-promedio-lotes";
 
@@ -106,6 +105,10 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
 
   const totalStockValue = useMemo(() => filteredStockData.reduce((sum, item) => sum + item.valorStock, 0), [filteredStockData]);
   const itemsBajoMinimo = useMemo(() => filteredStockData.filter(item => item.stockFinal < item.stockMinimo).length, [filteredStockData]);
+  const shareSummary = `Items: ${filteredStockData.length} | Valor stock: $${totalStockValue.toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} | Bajo minimo: ${itemsBajoMinimo}.`;
   
   const categoriasUnicas = useMemo(
     () =>
@@ -233,26 +236,6 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
     XLSX.writeFile(workbook, "StockInsumos.xlsx");
   };
 
-  const exportToPDF = async () => {
-    const input = document.getElementById('pdf-area');
-    if (input) {
-        const canvas = await html2canvas(input, { scale: 2 });
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('l', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = imgWidth / imgHeight;
-        const width = pdfWidth - 20; // Margen
-        const height = width / ratio;
-        
-        pdf.addImage(imgData, 'PNG', 10, 10, width, height);
-        pdf.save("StockInsumos.pdf");
-    }
-  };
-
-
   return (
     <>
       <PageHeader
@@ -260,10 +243,15 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
         description="Gestione el inventario de fertilizantes, semillas y otros insumos agrícolas."
       >
         {user && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 <Button variant="outline" onClick={exportToExcel}><Download className="mr-2 h-4 w-4" />Excel</Button>
-                <Button variant="outline" onClick={exportToPDF}><Download className="mr-2 h-4 w-4" />PDF</Button>
-                <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Imprimir</Button>
+                <ReportActions
+                  reportTitle="Control de Insumos y Stock"
+                  reportSummary={shareSummary}
+                  imageTargetId="stock-print-area"
+                  printTargetId="stock-print-area"
+                  documentLabel="Reporte de Stock"
+                />
                 <ImportButton onClick={onImportClick} />
                 <Button onClick={() => openDialog()}>
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -320,7 +308,7 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
         </Card>
       )}
       
-    <div id="pdf-area" className="print-area">
+    <div id="stock-print-area" className="print-area">
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
