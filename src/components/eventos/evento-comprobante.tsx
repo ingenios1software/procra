@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { getReportBrandingFromEmpresa } from "@/lib/report-branding";
-import type { Cultivo, Evento, Insumo, Parcela, Zafra } from "@/lib/types";
+import type { Cultivo, Evento, Insumo, Maquinaria, Parcela, Zafra } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface EventoComprobanteProps {
@@ -126,11 +126,16 @@ export function EventoComprobante({
   const firestore = useFirestore();
   const insumosQuery = useMemoFirebase(() => (firestore ? collection(firestore, "insumos") : null), [firestore]);
   const { data: insumos } = useCollection<Insumo>(insumosQuery);
+  const maquinariaQuery = useMemoFirebase(() => (firestore ? collection(firestore, "maquinaria") : null), [firestore]);
+  const { data: maquinarias } = useCollection<Maquinaria>(maquinariaQuery);
   const reportBranding = useMemo(() => getReportBrandingFromEmpresa(empresa), [empresa]);
 
   const insumosById = useMemo(() => {
     return new Map((insumos || []).map((insumo) => [insumo.id, insumo]));
   }, [insumos]);
+  const maquinariasById = useMemo(() => {
+    return new Map((maquinarias || []).map((maquinaria) => [maquinaria.id, maquinaria]));
+  }, [maquinarias]);
 
   const productos = useMemo(() => {
     return (evento.productos || []).map((producto) => {
@@ -143,6 +148,7 @@ export function EventoComprobante({
       };
     });
   }, [evento.productos, insumosById]);
+  const maquinaria = evento.maquinariaId ? maquinariasById.get(evento.maquinariaId) : undefined;
 
   const hasClima =
     evento.temperatura !== undefined || evento.humedad !== undefined || evento.viento !== undefined;
@@ -302,6 +308,18 @@ export function EventoComprobante({
                 <>
                   <Field label="Adjuntos" value={`${evento.fotos?.length || 0} archivo(s)`} />
                   <Field label="Estado stock" value={stockStatus} />
+                </>
+              )}
+              {evento.maquinariaId && (
+                <>
+                  <Field label="Maquinaria" value={maquinaria?.nombre || "Maquinaria vinculada"} />
+                  <Field
+                    label="Codigo maquina"
+                    value={maquinaria?.numeroItem ? `Item ${maquinaria.numeroItem}` : "-"}
+                  />
+                  <Field label="Hora anterior" value={formatNumber(evento.horometroAnterior, 1)} />
+                  <Field label="Hora actual" value={formatNumber(evento.horometroActual, 1)} />
+                  <Field label="Horas trabajadas" value={formatNumber(evento.horasTrabajadas, 1)} />
                 </>
               )}
             </CardContent>

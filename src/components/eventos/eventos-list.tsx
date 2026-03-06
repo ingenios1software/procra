@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { addDoc, collection, doc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteField, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { FileText, MoreHorizontal, Pencil, PlusCircle, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,6 +122,24 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     setFormOpen(true);
   };
 
+  const syncMaquinariaHorometro = async (eventoData: Omit<Evento, "id">) => {
+    if (!firestore || !eventoData.maquinariaId) return;
+
+    const horometroActual = Number(eventoData.horometroActual);
+    if (Number.isNaN(horometroActual) || horometroActual < 0) return;
+
+    const maquinariaRef = doc(firestore, "maquinaria", eventoData.maquinariaId);
+    const maquinariaSnapshot = await getDoc(maquinariaRef);
+    if (!maquinariaSnapshot.exists()) return;
+
+    const horasRegistradas = Number(maquinariaSnapshot.data().horasTrabajo) || 0;
+    const horasASincronizar = Math.max(horasRegistradas, horometroActual);
+
+    if (horasASincronizar !== horasRegistradas) {
+      await updateDoc(maquinariaRef, { horasTrabajo: horasASincronizar });
+    }
+  };
+
   const handleSave = async (eventoData: Omit<Evento, "id">) => {
     if (!firestore || !user) {
       throw new Error("No hay sesion o conexion a Firestore disponible.");
@@ -129,17 +147,38 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
 
     try {
       if (selectedEvento) {
-        const dataToSave = {
-          ...eventoData,
+        const camposMaquinaria: Array<keyof Pick<Evento, "maquinariaId" | "horometroAnterior" | "horometroActual" | "horasTrabajadas">> = [
+          "maquinariaId",
+          "horometroAnterior",
+          "horometroActual",
+          "horasTrabajadas",
+        ];
+        const dataBase = Object.fromEntries(
+          Object.entries(eventoData).filter(([, value]) => value !== undefined)
+        );
+        const dataToSave: Record<string, unknown> = {
+          ...dataBase,
           fecha: (eventoData.fecha as Date).toISOString(),
         };
+        for (const campo of camposMaquinaria) {
+          if (eventoData[campo] === undefined) {
+            dataToSave[campo] = deleteField();
+          }
+        }
         await updateDoc(doc(firestore, "eventos", selectedEvento.id), dataToSave);
-        setSelectedEvento({
+        await syncMaquinariaHorometro(eventoData);
+        const eventoActualizado = {
           ...selectedEvento,
-          ...eventoData,
-          ...dataToSave,
+          ...dataBase,
+          fecha: (eventoData.fecha as Date).toISOString(),
           id: selectedEvento.id,
-        });
+        } as Evento;
+        for (const campo of camposMaquinaria) {
+          if (eventoData[campo] === undefined) {
+            delete eventoActualizado[campo];
+          }
+        }
+        setSelectedEvento(eventoActualizado);
         setDialogView("receipt");
         toast({ title: "Evento actualizado" });
         return;
@@ -175,6 +214,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
         id: docRef.id,
         creadoEn: new Date(),
       };
+      await syncMaquinariaHorometro(eventoGuardado);
 
       const { success, errors } = await procesarConsumoDeStockDesdeEvento(eventoGuardado, firestore, user.uid);
       const tipoNormalizado = (eventoGuardado.tipo || "").toString().toLowerCase();

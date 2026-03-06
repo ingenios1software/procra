@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Foto, Usuario, PlanDeCuenta } from "@/lib/types";
+import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Foto, Usuario, PlanDeCuenta, Maquinaria } from "@/lib/types";
 import { Cloud, Thermometer, Wind, Eraser, Check, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
@@ -62,6 +62,10 @@ const formSchema = z.object({
   
   toneladas: z.coerce.number().optional(),
   precioTonelada: z.coerce.number().optional(),
+
+  maquinariaId: z.string().optional(),
+  horometroAnterior: z.coerce.number().optional(),
+  horometroActual: z.coerce.number().optional(),
   
   // Workflow
   estado: z.enum(['pendiente', 'aprobado', 'rechazado']).optional(),
@@ -106,6 +110,42 @@ const formSchema = z.object({
       message: "Ingrese el precio referencial por tonelada para valorizar la cosecha.",
     });
   }
+
+  const usaCombustible = tieneProductoCombustible(data.productos as Array<{ insumo?: Partial<Insumo> | null }> | undefined);
+  const horometroAnterior = Number(data.horometroAnterior ?? 0);
+  const horometroActual = Number(data.horometroActual ?? 0);
+
+  if (usaCombustible && !data.maquinariaId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["maquinariaId"],
+      message: "Seleccione la maquinaria que consumio el combustible.",
+    });
+  }
+
+  if (usaCombustible && horometroAnterior < 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["horometroAnterior"],
+      message: "La hora anterior no puede ser negativa.",
+    });
+  }
+
+  if (usaCombustible && horometroActual <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["horometroActual"],
+      message: "Ingrese la hora actual del horometro.",
+    });
+  }
+
+  if (usaCombustible && horometroActual < horometroAnterior) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["horometroActual"],
+      message: "La hora actual no puede ser menor a la hora anterior.",
+    });
+  }
 });
 
 type EventoFormValues = z.infer<typeof formSchema>;
@@ -130,6 +170,22 @@ function inputValueToDate(value: string): Date | undefined {
 function normalizarTipoEvento(tipo?: Evento["tipo"] | string): Evento["tipo"] {
   if (!tipo) return "aplicacion";
   return tipo === "rendimiento" ? "cosecha" : (tipo as Evento["tipo"]);
+}
+
+function normalizarTexto(value?: string | null): string {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function esInsumoCombustible(insumo?: Partial<Insumo> | null): boolean {
+  if (!insumo) return false;
+  return normalizarTexto(insumo.categoria) === "combustible";
+}
+
+function tieneProductoCombustible(productos?: Array<{ insumo?: Partial<Insumo> | null }> | null): boolean {
+  return (productos || []).some((producto) => esInsumoCombustible(producto?.insumo));
 }
 
 function calcularHectareasPlantadasContexto({
@@ -174,6 +230,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
   const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
   const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? collection(firestore, 'insumos') : null, [firestore]));
+  const { data: maquinarias } = useCollection<Maquinaria>(
+    useMemoFirebase(() => (firestore ? query(collection(firestore, "maquinaria"), orderBy("nombre")) : null), [firestore])
+  );
   const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
   const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
@@ -226,6 +285,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         viento: evento.viento ?? '',
         toneladas: evento.toneladas ?? '',
         precioTonelada: evento.precioTonelada ?? '',
+        maquinariaId: evento.maquinariaId,
+        horometroAnterior: evento.horometroAnterior ?? '',
+        horometroActual: evento.horometroActual ?? '',
         resultado: evento.resultado ?? '',
         cuentaContableId: evento.cuentaContableId || null,
       };
@@ -252,6 +314,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       viento: '' as any,
       toneladas: '' as any,
       precioTonelada: '' as any,
+      maquinariaId: undefined,
+      horometroAnterior: '' as any,
+      horometroActual: '' as any,
       resultado: '',
       cuentaContableId: null,
     };
@@ -310,9 +375,23 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedCultivoId = form.watch('cultivoId');
   const watchedZafraId = form.watch('zafraId');
   const watchedFecha = form.watch('fecha');
+  const watchedMaquinariaId = form.watch('maquinariaId');
+  const watchedHorometroAnterior = form.watch('horometroAnterior');
+  const watchedHorometroActual = form.watch('horometroActual');
   const insumosPorId = useMemo(() => {
     return new Map((insumos || []).map((insumo) => [insumo.id, insumo]));
   }, [insumos]);
+  const maquinariasPorId = useMemo(() => {
+    return new Map((maquinarias || []).map((maquinaria) => [maquinaria.id, maquinaria]));
+  }, [maquinarias]);
+  const usaCombustibleEnFormulario = useMemo(
+    () => tieneProductoCombustible(watchedProductos as Array<{ insumo?: Partial<Insumo> | null }> | undefined),
+    [watchedProductos]
+  );
+  const maquinariaSeleccionada = useMemo(
+    () => (watchedMaquinariaId ? maquinariasPorId.get(watchedMaquinariaId) : undefined),
+    [maquinariasPorId, watchedMaquinariaId]
+  );
 
   useEffect(() => {
     if (!evento) return;
@@ -369,7 +448,45 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       shouldDirty: Boolean(cultivoActual),
     });
   }, [watchedZafraId, zafras, form]);
-  
+
+  useEffect(() => {
+    if (usaCombustibleEnFormulario) return;
+
+    const maquinariaIdActual = form.getValues("maquinariaId");
+    const horometroAnteriorActual = form.getValues("horometroAnterior");
+    const horometroActualValor = form.getValues("horometroActual");
+    const noHayDatos =
+      !maquinariaIdActual &&
+      (horometroAnteriorActual === undefined || `${horometroAnteriorActual}` === "") &&
+      (horometroActualValor === undefined || `${horometroActualValor}` === "");
+
+    if (noHayDatos) return;
+
+    form.setValue("maquinariaId", undefined, { shouldDirty: false, shouldValidate: false });
+    form.setValue("horometroAnterior", undefined, { shouldDirty: false, shouldValidate: false });
+    form.setValue("horometroActual", undefined, { shouldDirty: false, shouldValidate: false });
+  }, [usaCombustibleEnFormulario, form]);
+
+  useEffect(() => {
+    if (!usaCombustibleEnFormulario || !maquinariaSeleccionada) return;
+
+    const horasRegistradas = Number(maquinariaSeleccionada.horasTrabajo) || 0;
+    const horometroAnteriorActual = form.getValues("horometroAnterior");
+    const estaVacio =
+      horometroAnteriorActual === undefined ||
+      horometroAnteriorActual === null ||
+      `${horometroAnteriorActual}` === "";
+    const mantieneMaquinariaOriginal = Boolean(evento?.maquinariaId && watchedMaquinariaId === evento.maquinariaId);
+
+    if (mantieneMaquinariaOriginal && !estaVacio) return;
+    if (!estaVacio && Number(horometroAnteriorActual) === horasRegistradas) return;
+
+    form.setValue("horometroAnterior", horasRegistradas, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+  }, [usaCombustibleEnFormulario, maquinariaSeleccionada, form, evento?.maquinariaId, watchedMaquinariaId]);
+
   const mostrarCuentaContable = useMemo(() => {
     return ['aplicacion', 'fertilización', 'plagas', 'siembra', 'cosecha', 'mantenimiento'].includes(tipoEventoNormalizado);
   }, [tipoEventoNormalizado]);
@@ -437,6 +554,13 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       ? toneladasPreview / hectareasPlantadasRendimientoPreview
       : 0;
   const rendimientoKgHaPreview = rendimientoTonHaPreview * 1000;
+  const horasTrabajadasPreview = useMemo(() => {
+    if (!usaCombustibleEnFormulario) return 0;
+    const anterior = Number(watchedHorometroAnterior) || 0;
+    const actual = Number(watchedHorometroActual) || 0;
+    if (actual < anterior) return 0;
+    return actual - anterior;
+  }, [usaCombustibleEnFormulario, watchedHorometroAnterior, watchedHorometroActual]);
 
   const analisisProps = useMemo(() => ({
     eventoActual: {
@@ -486,6 +610,13 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     const rendimientoKgHa = rendimientoTonHa * 1000;
     const costoServicioTotalEvento =
       (Number(data.hectareasAplicadas) || 0) * (Number(data.costoServicioPorHa) || 0);
+    const usaCombustible = tieneProductoCombustible(data.productos as Array<{ insumo?: Partial<Insumo> | null }> | undefined);
+    const horometroAnterior = usaCombustible ? Number(data.horometroAnterior ?? 0) : undefined;
+    const horometroActual = usaCombustible ? Number(data.horometroActual ?? 0) : undefined;
+    const horasTrabajadas =
+      usaCombustible && horometroAnterior !== undefined && horometroActual !== undefined
+        ? Math.max(horometroActual - horometroAnterior, 0)
+        : undefined;
 
     const productosFinal = data.productos?.map(p => {
         const consumoCalculado = (p.dosis || 0) * (data.hectareasAplicadas || 0);
@@ -505,6 +636,10 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       costoPorHa: costoPorHa,
       costoServicioTotal: costoServicioTotalEvento > 0 ? costoServicioTotalEvento : undefined,
       productos: productosFinal,
+      maquinariaId: usaCombustible ? data.maquinariaId : undefined,
+      horometroAnterior,
+      horometroActual,
+      horasTrabajadas,
       hectareasRendimiento: tipoNormalizado === "cosecha" ? hectareasBaseRendimiento : undefined,
       rendimientoTonHa: tipoNormalizado === "cosecha" ? rendimientoTonHa : undefined,
       rendimientoKgHa: tipoNormalizado === "cosecha" ? rendimientoKgHa : undefined,
@@ -532,7 +667,11 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         viento: '' as any,
         toneladas: '' as any,
         precioTonelada: '' as any,
+        maquinariaId: undefined,
+        horometroAnterior: '' as any,
+        horometroActual: '' as any,
         resultado: '',
+        cuentaContableId: null,
     });
     toast({
         title: 'Borrador descartado',
@@ -783,6 +922,98 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground">Rendimiento (kg/ha)</p>
                           <p className="font-semibold">{rendimientoKgHaPreview.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {usaCombustibleEnFormulario && (
+                  <Card className="border-border/60">
+                    <CardHeader className="p-4">
+                      <CardTitle className="text-lg">Control de Maquinaria para Combustible</CardTitle>
+                      <CardDescription>
+                        Seleccione la maquinaria por codigo. La hora anterior se trae desde el modulo de maquinarias y debe registrar la hora actual.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="maquinariaId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Codigo de Maquina / Maquinaria</FormLabel>
+                            <FormControl>
+                              <SelectorUniversal<Maquinaria>
+                                label="maquinaria"
+                                collectionName="maquinaria"
+                                displayField="nombre"
+                                codeField="numeroItem"
+                                value={maquinarias?.find((maquinaria) => maquinaria.id === field.value)}
+                                onSelect={(maquinaria) => field.onChange(maquinaria?.id)}
+                                searchFields={["nombre", "numeroItem", "modelo"]}
+                                extraInfoFields={[
+                                  { label: "Horas", field: "horasTrabajo", format: (val) => `${val || 0} hs` },
+                                  { label: "Estado", field: "estado" },
+                                  { label: "Tipo", field: "tipo" },
+                                ]}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Use el Item N° de la maquinaria para cargar rapido el horometro.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <FormField
+                          control={form.control}
+                          name="horometroAnterior"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Hora Anterior</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" {...field} value={field.value ?? ""} readOnly />
+                              </FormControl>
+                              <FormDescription>
+                                Ultimo horometro registrado para la maquinaria seleccionada.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="horometroActual"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Hora Actual</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.1" placeholder="Ej: 1254.5" {...field} value={field.value ?? ""} />
+                              </FormControl>
+                              <FormDescription>
+                                Ingrese la lectura actual del horometro despues de cargar combustible.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="rounded-lg border border-border/80 bg-muted/30 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Horas trabajadas
+                          </p>
+                          <p className="mt-2 text-2xl font-bold">
+                            {horasTrabajadasPreview.toLocaleString("de-DE", {
+                              minimumFractionDigits: 1,
+                              maximumFractionDigits: 1,
+                            })} hs
+                          </p>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {maquinariaSeleccionada
+                              ? `Maquina: ${maquinariaSeleccionada.nombre} (Item N° ${maquinariaSeleccionada.numeroItem || "-"})`
+                              : "Seleccione una maquinaria para vincular el consumo."}
+                          </p>
                         </div>
                       </div>
                     </CardContent>

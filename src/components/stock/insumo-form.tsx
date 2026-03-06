@@ -31,6 +31,7 @@ const DEFAULT_CATEGORIES = [
   "herbicida",
   "fungicida",
   "insecticida",
+  "combustible",
   "biologico",
   "otros",
 ] as const;

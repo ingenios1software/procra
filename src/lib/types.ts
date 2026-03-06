@@ -114,6 +114,10 @@ export type Evento = {
   costoServicioPorHa?: number;
   costoServicioTotal?: number;
   cuentaContableId?: string | null;
+  maquinariaId?: string;
+  horometroAnterior?: number;
+  horometroActual?: number;
+  horasTrabajadas?: number;
   asientoCosechaServicioId?: string | null;
   stockProcesadoEn?: Date | string;
   stockProcesadoPor?: string;

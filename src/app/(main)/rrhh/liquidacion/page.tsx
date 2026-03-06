@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { collection, doc, writeBatch } from "firebase/firestore";
-import { ArrowRightLeft } from "lucide-react";
+import { collection, doc, orderBy, query, writeBatch } from "firebase/firestore";
+import { ArrowRightLeft, Eye } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { ReportActions } from "@/components/shared/report-actions";
+import { ReciboPagoEmpleado as ReciboPagoEmpleadoCard, type ReciboPagoEmpleadoViewModel } from "@/components/rrhh/recibo-pago-empleado";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,6 +52,10 @@ type LiquidacionRow = {
   horasPend: number;
   montoPend: number;
 };
+
+function buildPeriodoLabel(year: number, monthIndex: number): string {
+  return `${MONTHS[monthIndex] || monthIndex + 1} ${year}`;
+}
 
 function normalizeText(value?: string): string {
   return (value || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -99,6 +105,16 @@ function pagoEsPeriodo(pago: PagoNominaHoras, year: number, monthIndex: number):
   return !!fecha && fecha.getFullYear() === year && fecha.getMonth() === monthIndex;
 }
 
+function reciboEsPeriodo(recibo: ReciboPagoEmpleado, year: number, monthIndex: number): boolean {
+  const mes = Number(recibo.periodoMes);
+  const anio = Number(recibo.periodoAnio);
+  if (Number.isFinite(mes) && Number.isFinite(anio) && mes >= 1 && mes <= 12) {
+    return anio === year && mes === monthIndex + 1;
+  }
+  const fecha = toDateSafe(recibo.fecha);
+  return !!fecha && fecha.getFullYear() === year && fecha.getMonth() === monthIndex;
+}
+
 export default function LiquidacionPage() {
   const firestore = useFirestore();
   const { user } = useUser();
@@ -114,7 +130,8 @@ export default function LiquidacionPage() {
   const [referencia, setReferencia] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isAutoConfiguring, setIsAutoConfiguring] = useState(false);
-  const [ultimoRecibo, setUltimoRecibo] = useState("");
+  const [ultimoRecibo, setUltimoRecibo] = useState<ReciboPagoEmpleadoViewModel | null>(null);
+  const [selectedRecibo, setSelectedRecibo] = useState<ReciboPagoEmpleadoViewModel | null>(null);
 
   const { data: empleados, isLoading: l1 } = useCollection<Empleado>(useMemoFirebase(() => (firestore ? collection(firestore, "empleados") : null), [firestore]));
   const { data: registros, isLoading: l2 } = useCollection<ControlHorario>(useMemoFirebase(() => (firestore ? collection(firestore, "controlHorario") : null), [firestore]));
@@ -122,12 +139,16 @@ export default function LiquidacionPage() {
   const { data: planDeCuentas, isLoading: l4, forceRefetch: refetchPlan } = useCollection<PlanDeCuenta>(useMemoFirebase(() => (firestore ? collection(firestore, "planDeCuentas") : null), [firestore]));
   const { data: cuentasCajaBanco, isLoading: l5, forceRefetch: refetchCajas } = useCollection<CuentaCajaBanco>(useMemoFirebase(() => (firestore ? collection(firestore, "cuentasCajaBanco") : null), [firestore]));
   const { data: monedas, isLoading: l6, forceRefetch: refetchMonedas } = useCollection<Moneda>(useMemoFirebase(() => (firestore ? collection(firestore, "monedas") : null), [firestore]));
+  const { data: recibosPago, isLoading: l7, forceRefetch: refetchRecibos } = useCollection<ReciboPagoEmpleado>(
+    useMemoFirebase(() => (firestore ? query(collection(firestore, "recibosPagoEmpleado"), orderBy("fecha", "desc")) : null), [firestore])
+  );
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6;
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7;
   const years = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
-  const periodLabel = `${MONTHS[month]} ${year}`;
+  const periodLabel = buildPeriodoLabel(year, month);
 
   const empleadosById = useMemo(() => new Map((empleados || []).map((e) => [e.id, `${e.apellido}, ${e.nombre}`.replace(/^,\s*/, "").trim() || e.id])), [empleados]);
+  const empleadosDataById = useMemo(() => new Map((empleados || []).map((empleado) => [empleado.id, empleado])), [empleados]);
   const planById = useMemo(() => new Map((planDeCuentas || []).map((c) => [c.id, c])), [planDeCuentas]);
   const monedasById = useMemo(() => new Map((monedas || []).map((m) => [m.id, m])), [monedas]);
 
@@ -154,6 +175,47 @@ export default function LiquidacionPage() {
   }, [cuentasCajaBanco, monedasById, planById]);
 
   const cajaById = useMemo(() => new Map(cajasPyg.map((caja) => [caja.id, caja])), [cajasPyg]);
+  const cajaLabelById = useMemo(() => {
+    return new Map(
+      (cuentasCajaBanco || []).map((caja) => {
+        const cuenta = caja.cuentaContableId ? planById.get(caja.cuentaContableId) : undefined;
+        const label = `${caja.nombre} - ${cuenta?.codigo || ""} - ${cuenta?.nombre || ""}`.trim();
+        return [caja.id, label];
+      })
+    );
+  }, [cuentasCajaBanco, planById]);
+
+  const buildReciboView = (recibo: ReciboPagoEmpleado): ReciboPagoEmpleadoViewModel => {
+    const empleado = empleadosDataById.get(recibo.empleadoId);
+    const monthIndex = Math.max(0, Number(recibo.periodoMes || 1) - 1);
+    return {
+      id: recibo.id,
+      numero: recibo.numero,
+      empleadoNombre:
+        empleado ? `${empleado.apellido}, ${empleado.nombre}`.replace(/^,\s*/, "").trim() : recibo.empleadoId,
+      empleadoDocumento: empleado?.documento,
+      empleadoPuesto: empleado?.puesto,
+      periodoLabel: buildPeriodoLabel(Number(recibo.periodoAnio) || year, monthIndex),
+      fecha: recibo.fecha,
+      moneda: recibo.moneda,
+      horasLiquidadas: Number(recibo.horasLiquidadas) || 0,
+      monto: Number(recibo.monto) || 0,
+      estado: recibo.estado,
+      cajaLabel: cajaLabelById.get(recibo.cuentaCajaBancoId) || recibo.cuentaCajaBancoId,
+      observacion: recibo.observacion,
+    };
+  };
+
+  const recibosPeriodo = useMemo(() => {
+    return (recibosPago || [])
+      .filter((recibo) => reciboEsPeriodo(recibo, year, month))
+      .map(buildReciboView)
+      .sort((a, b) => {
+        const fechaB = toDateSafe(b.fecha)?.getTime() || 0;
+        const fechaA = toDateSafe(a.fecha)?.getTime() || 0;
+        return fechaB - fechaA;
+      });
+  }, [recibosPago, year, month, empleadosDataById, cajaLabelById]);
 
   const rows = useMemo<LiquidacionRow[]>(() => {
     const dev = new Map<string, { h: number; m: number }>();
@@ -203,6 +265,10 @@ export default function LiquidacionPage() {
     return acc;
   }, { dev: 0, pag: 0, pend: 0 }), [rows]);
   const setupIncompleto = cajasPyg.length === 0 || cuentasGasto.length === 0;
+  const reciboTargetId = "rrhh-recibo-pago-target";
+  const reciboSummary = selectedRecibo
+    ? `${selectedRecibo.empleadoNombre} | ${selectedRecibo.periodoLabel} | ${formatGs(selectedRecibo.monto)}`
+    : "";
 
   const handleAutoConfig = async () => {
     if (!firestore) return;
@@ -256,6 +322,14 @@ export default function LiquidacionPage() {
     setReferencia("");
   };
 
+  const openRecibo = (recibo: ReciboPagoEmpleadoViewModel) => {
+    setSelectedRecibo(recibo);
+  };
+
+  const closeRecibo = () => {
+    setSelectedRecibo(null);
+  };
+
   const guardarPago = async () => {
     if (!firestore || !user || !selectedRow) return;
     const monto = Number(montoPago);
@@ -284,6 +358,7 @@ export default function LiquidacionPage() {
       const fechaAsDate = toDateSafe(fechaIso) || new Date();
       const numeroRecibo = generarNumeroReciboPagoEmpleado(fechaAsDate, pagoRef.id.slice(-4));
       const horas = selectedRow.montoPend > 0 ? (selectedRow.horasPend * monto) / selectedRow.montoPend : 0;
+      const horasLiquidadas = Math.round(horas * 100) / 100;
       const descripcion = `Pago jornales por horas - ${selectedRow.nombre} - ${periodLabel}`;
       const batch = writeBatch(firestore);
 
@@ -317,7 +392,7 @@ export default function LiquidacionPage() {
         periodoMes: month + 1,
         fechaPago: fechaIso,
         moneda: "PYG",
-        horasLiquidadas: Math.round(horas * 100) / 100,
+        horasLiquidadas,
         monto,
         cuentaGastoId: gasto.id,
         cuentaCajaBancoId: caja.id,
@@ -338,7 +413,7 @@ export default function LiquidacionPage() {
         periodoMes: month + 1,
         fecha: fechaIso,
         moneda: "PYG",
-        horasLiquidadas: Math.round(horas * 100) / 100,
+        horasLiquidadas,
         monto,
         estado: "emitido",
         cuentaCajaBancoId: caja.id,
@@ -348,9 +423,26 @@ export default function LiquidacionPage() {
       } as Omit<ReciboPagoEmpleado, "id">);
 
       await batch.commit();
-      setUltimoRecibo(numeroRecibo);
+      const reciboPreview: ReciboPagoEmpleadoViewModel = {
+        id: reciboRef.id,
+        numero: numeroRecibo,
+        empleadoNombre: selectedRow.nombre,
+        empleadoDocumento: empleadosDataById.get(selectedRow.empleadoId)?.documento,
+        empleadoPuesto: empleadosDataById.get(selectedRow.empleadoId)?.puesto,
+        periodoLabel: periodLabel,
+        fecha: fechaIso,
+        moneda: "PYG",
+        horasLiquidadas,
+        monto,
+        estado: "emitido",
+        cajaLabel: caja.label,
+        observacion: referencia.trim() || undefined,
+      };
+      setUltimoRecibo(reciboPreview);
+      setSelectedRecibo(reciboPreview);
       closePago();
       forceRefetch();
+      refetchRecibos();
       toast({ title: "Pago registrado", description: `Recibo emitido: ${numeroRecibo}` });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al registrar pago", description: error?.message || "Error inesperado." });
@@ -435,7 +527,15 @@ export default function LiquidacionPage() {
         {ultimoRecibo && (
           <Alert>
             <AlertTitle>Ultimo recibo emitido</AlertTitle>
-            <AlertDescription>{ultimoRecibo}</AlertDescription>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {ultimoRecibo.numero} · {ultimoRecibo.empleadoNombre} · {formatGs(ultimoRecibo.monto)}
+              </span>
+              <Button size="sm" variant="outline" onClick={() => openRecibo(ultimoRecibo)}>
+                <Eye className="mr-2 h-4 w-4" />
+                Ver recibo
+              </Button>
+            </AlertDescription>
           </Alert>
         )}
 
@@ -476,6 +576,61 @@ export default function LiquidacionPage() {
             </Table>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="gap-3">
+            <CardTitle>Recibos emitidos - {periodLabel}</CardTitle>
+            <CardDescription>Reimprima o descargue en PDF los recibos ya emitidos en este periodo.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Recibo</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead className="text-right">Horas</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead>Caja</TableHead>
+                  <TableHead className="text-right">Accion</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-20 text-center">Cargando recibos...</TableCell>
+                  </TableRow>
+                )}
+                {!isLoading && recibosPeriodo.map((recibo) => {
+                  const fechaRecibo = toDateSafe(recibo.fecha);
+                  return (
+                    <TableRow key={recibo.id}>
+                      <TableCell className="font-medium">{recibo.numero}</TableCell>
+                      <TableCell>{fechaRecibo ? format(fechaRecibo, "dd/MM/yyyy") : "-"}</TableCell>
+                      <TableCell>{recibo.empleadoNombre}</TableCell>
+                      <TableCell className="text-right">{formatHours(recibo.horasLiquidadas)}</TableCell>
+                      <TableCell className="text-right">{formatGs(recibo.monto)}</TableCell>
+                      <TableCell>{recibo.cajaLabel}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="outline" onClick={() => openRecibo(recibo)}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Ver / Reimprimir
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {!isLoading && recibosPeriodo.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-20 text-center">
+                      No hay recibos emitidos en este periodo.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
 
       <Dialog modal={false} open={!!selectedRow} onOpenChange={(open) => !open && closePago()}>
@@ -505,6 +660,37 @@ export default function LiquidacionPage() {
             <Button variant="outline" onClick={closePago}>Cancelar</Button>
             <Button onClick={guardarPago} disabled={isSaving}>{isSaving ? "Guardando..." : "Guardar y emitir recibo"}</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog modal={false} open={!!selectedRecibo} onOpenChange={(open) => !open && closeRecibo()}>
+        <DialogContent draggable className="max-w-[96vw] overflow-hidden p-0 sm:max-w-4xl lg:max-w-5xl">
+          <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6">
+            <DialogTitle>{selectedRecibo ? `Recibo ${selectedRecibo.numero}` : "Recibo de pago"}</DialogTitle>
+            <DialogDescription>
+              Puede reimprimir o descargar en PDF el recibo emitido para este pago.
+            </DialogDescription>
+            <ReportActions
+              reportTitle={selectedRecibo ? `Recibo ${selectedRecibo.numero}` : "Recibo de Pago"}
+              reportSummary={reciboSummary}
+              imageTargetId={reciboTargetId}
+              printTargetId={reciboTargetId}
+              documentLabel="Recibo de Pago de Jornales"
+              showDefaultFooter={false}
+            />
+          </DialogHeader>
+
+          {selectedRecibo && (
+            <div className="max-h-[calc(92dvh-7rem)] overflow-y-auto overflow-x-hidden px-2 pb-4 sm:px-4 sm:pb-6">
+              <ReciboPagoEmpleadoCard recibo={selectedRecibo} />
+            </div>
+          )}
+
+          {selectedRecibo && (
+            <div id={reciboTargetId} className="report-export-only">
+              <ReciboPagoEmpleadoCard recibo={selectedRecibo} />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
