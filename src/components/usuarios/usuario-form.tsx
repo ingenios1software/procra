@@ -15,14 +15,16 @@ const formSchema = z.object({
   email: z.string().email("Email invalido."),
   rolId: z.string().nonempty("Debe seleccionar un rol."),
   activo: z.boolean(),
+  password: z.string().optional(),
 });
 
 type UsuarioFormValues = z.infer<typeof formSchema>;
+export type UsuarioFormPayload = Omit<Usuario, "id" | "rolNombre"> & { password?: string };
 
 interface UsuarioFormProps {
   usuario?: Partial<Usuario> | null;
   roles: Rol[];
-  onSubmit: (data: Omit<Usuario, "id" | "rolNombre">) => void;
+  onSubmit: (data: UsuarioFormPayload) => void;
   onCancel: () => void;
 }
 
@@ -34,12 +36,27 @@ export function UsuarioForm({ usuario, roles, onSubmit, onCancel }: UsuarioFormP
       email: usuario?.email || "",
       rolId: usuario?.rolId || "",
       activo: usuario?.activo ?? true,
+      password: "",
     },
   });
 
   const handleSubmit = (data: UsuarioFormValues) => {
+    if (!usuario && (!data.password || data.password.trim().length < 6)) {
+      form.setError("password", {
+        type: "validate",
+        message: "La clave debe tener al menos 6 caracteres.",
+      });
+      return;
+    }
+
     // El rolNombre se agrega en el componente padre.
-    onSubmit(data);
+    onSubmit({
+      nombre: data.nombre,
+      email: data.email,
+      rolId: data.rolId,
+      activo: data.activo,
+      password: usuario ? undefined : data.password?.trim(),
+    });
   };
 
   return (
@@ -78,6 +95,22 @@ export function UsuarioForm({ usuario, roles, onSubmit, onCancel }: UsuarioFormP
             )}
           />
         </div>
+
+        {!usuario && (
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Clave inicial</FormLabel>
+                <FormControl>
+                  <Input type="password" placeholder="Minimo 6 caracteres" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_240px]">
           <FormField

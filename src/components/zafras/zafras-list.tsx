@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { format } from "date-fns";
-import { collection, deleteDoc, doc, getDocs, limit, orderBy, query } from "firebase/firestore";
+import { deleteDoc, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { MoreHorizontal, PlusCircle, PowerOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,9 +33,10 @@ import { ReportActions } from "@/components/shared/report-actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { addDocumentNonBlocking, updateDocumentNonBlocking, useFirestore, useUser } from "@/firebase";
+import { addDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase";
 import { ZafraForm } from "./zafra-form";
 import type { Zafra } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 interface ZafrasListProps {
   initialZafras: Zafra[];
@@ -47,14 +48,12 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
   const [selectedZafra, setSelectedZafra] = useState<Zafra | null>(null);
 
   const { user } = useUser();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { toast } = useToast();
 
   const handleSave = async (
     zafraData: Omit<Zafra, "id" | "fechaFin" | "fechaInicio"> & { fechaInicio: Date; fechaSiembra?: Date }
   ) => {
-    if (!firestore) return;
-
     const dataToSave = {
       ...zafraData,
       fechaInicio: zafraData.fechaInicio.toISOString(),
@@ -62,10 +61,15 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
     };
 
     if (selectedZafra) {
-      updateDocumentNonBlocking(doc(firestore, "zafras", selectedZafra.id), dataToSave);
+      const docRef = tenant.doc("zafras", selectedZafra.id);
+      if (!docRef) return;
+
+      updateDocumentNonBlocking(docRef, dataToSave);
       toast({ title: "Zafra actualizada" });
     } else {
-      const zafrasCol = collection(firestore, "zafras");
+      const zafrasCol = tenant.collection("zafras");
+      if (!zafrasCol) return;
+
       const lastQuery = query(zafrasCol, orderBy("numeroItem", "desc"), limit(1));
       const snapshot = await getDocs(lastQuery);
       let maxNumeroItem = 0;
@@ -82,11 +86,10 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
   };
 
   const handleCloseZafra = (id: string) => {
-    if (!firestore) return;
-    const zafraToUpdate = initialZafras.find((zafra) => zafra.id === id);
-    if (!zafraToUpdate) return;
-    updateDocumentNonBlocking(doc(firestore, "zafras", id), {
-      ...zafraToUpdate,
+    const docRef = tenant.doc("zafras", id);
+    if (!docRef) return;
+
+    updateDocumentNonBlocking(docRef, {
       estado: "finalizada",
       fechaFin: new Date().toISOString(),
     });
@@ -94,9 +97,11 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!firestore) return;
     const zafra = initialZafras.find((item) => item.id === id);
-    await deleteDoc(doc(firestore, "zafras", id));
+    const docRef = tenant.doc("zafras", id);
+    if (!docRef) return;
+
+    await deleteDoc(docRef);
     toast({
       variant: "destructive",
       title: "Zafra eliminada",
@@ -190,7 +195,7 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
                                 <AlertDialogTrigger asChild>
                                   <DropdownMenuItem
                                     onSelect={(event) => event.preventDefault()}
-                                    className="text-amber-600 focus:text-amber-700 focus:bg-amber-50"
+                                    className="text-amber-600 focus:bg-amber-50 focus:text-amber-700"
                                   >
                                     <PowerOff className="mr-2 h-4 w-4" />
                                     Cerrar Zafra

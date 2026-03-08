@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { SelectorUniversal } from "../common";
 import { SelectorPlanDeCuentas } from "../contabilidad/SelectorPlanDeCuentas";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 
 const productoSchema = z.object({
@@ -219,6 +220,7 @@ function calcularHectareasPlantadasContexto({
 export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { user } = useUser();
   const { role, permisos, user: usuarioApp } = useAuth();
   const { draft, setDraft, clearDraft } = useDraftStore();
@@ -226,17 +228,17 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const [isRejecting, setIsRejecting] = useState(false);
   const draftRef = useRef(draft);
 
-  const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
-  const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
-  const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
-  const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => firestore ? collection(firestore, 'insumos') : null, [firestore]));
+  const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => tenant.collection('parcelas'), [tenant]));
+  const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => tenant.collection('cultivos'), [tenant]));
+  const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => tenant.collection('zafras'), [tenant]));
+  const { data: insumos } = useCollection<Insumo>(useMemoFirebase(() => tenant.collection('insumos'), [tenant]));
   const { data: maquinarias } = useCollection<Maquinaria>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "maquinaria"), orderBy("nombre")) : null), [firestore])
+    useMemoFirebase(() => tenant.query("maquinaria", orderBy("nombre")), [tenant])
   );
-  const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => firestore ? collection(firestore, 'eventos') : null, [firestore]));
-  const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'etapasCultivo') : null, [firestore]));
+  const { data: todosLosEventos } = useCollection<Evento>(useMemoFirebase(() => tenant.collection('eventos'), [tenant]));
+  const { data: etapasCultivo } = useCollection<EtapaCultivo>(useMemoFirebase(() => tenant.collection('etapasCultivo'), [tenant]));
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null), [firestore])
+    useMemoFirebase(() => tenant.query("planDeCuentas", orderBy("codigo")), [tenant])
   );
   const nombrePersistidoAprobador = (evento as any)?.aprobadoPorNombre;
   const hasNombrePersistidoValido =
@@ -680,8 +682,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   }
 
   const handleApprove = () => {
-    if (!firestore || !user || !evento) return;
-    const eventoRef = doc(firestore, 'eventos', evento.id);
+    if (!user || !evento) return;
+    const eventoRef = tenant.doc('eventos', evento.id);
+    if (!eventoRef) return;
     updateDocumentNonBlocking(eventoRef, {
       estado: 'aprobado',
       aprobadoPor: user.uid,
@@ -693,13 +696,14 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   }
 
   const handleReject = () => {
-    if (!firestore || !user || !evento) return;
+    if (!user || !evento) return;
     const motivo = form.getValues('motivoRechazo');
     if (!motivo || motivo.trim().length < 5) {
       form.setError('motivoRechazo', { type: 'manual', message: 'Debe ingresar un motivo de al menos 5 caracteres.' });
       return;
     }
-    const eventoRef = doc(firestore, 'eventos', evento.id);
+    const eventoRef = tenant.doc('eventos', evento.id);
+    if (!eventoRef) return;
     updateDocumentNonBlocking(eventoRef, {
       estado: 'rechazado',
       rechazadoPor: user.uid,

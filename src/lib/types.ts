@@ -148,6 +148,7 @@ export type Usuario = {
   rolId: string;
   rolNombre: string;
   empresaId?: string;
+  esSuperAdmin?: boolean;
   activo: boolean;
 };
 

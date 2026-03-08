@@ -2,8 +2,87 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserPath() {
+      return /databases/$(database)/documents/usuarios/$(request.auth.uid);
+    }
+
+    function hasCurrentUser() {
+      return signedIn() && exists(currentUserPath());
+    }
+
+    function currentUser() {
+      return get(currentUserPath()).data;
+    }
+
+    function isPlatformAdminEmail() {
+      return signedIn() && (
+        request.auth.token.email == "admin@crapro95.com" ||
+        request.auth.token.email == "ricardo.ortellado@outlook.com"
+      );
+    }
+
+    function isPlatformAdmin() {
+      return hasCurrentUser() && currentUser().esSuperAdmin == true || isPlatformAdminEmail();
+    }
+
+    function isSameEmpresa(empresaId) {
+      return hasCurrentUser() && currentUser().empresaId == empresaId;
+    }
+
+    function canReadEmpresa(empresaId) {
+      return isPlatformAdmin() || (isSameEmpresa(empresaId) && currentUser().activo == true);
+    }
+
+    function canManageEmpresa(empresaId) {
+      return isPlatformAdmin() || (
+        isSameEmpresa(empresaId) &&
+        currentUser().activo == true &&
+        currentUser().rolNombre == "admin"
+      );
+    }
+
+    match /usuarios/{uid} {
+      allow get: if signedIn() && (
+        uid == request.auth.uid ||
+        isPlatformAdmin() ||
+        (hasCurrentUser() &&
+          currentUser().rolNombre == "admin" &&
+          resource.data.empresaId == currentUser().empresaId)
+      );
+      allow list: if isPlatformAdmin() || (hasCurrentUser() && currentUser().rolNombre == "admin");
+      allow create: if isPlatformAdmin();
+      allow update: if isPlatformAdmin() || (
+        hasCurrentUser() &&
+        currentUser().rolNombre == "admin" &&
+        resource.data.empresaId == currentUser().empresaId &&
+        request.resource.data.empresaId == resource.data.empresaId
+      );
+      allow delete: if isPlatformAdmin();
+    }
+
+    match /roles/{roleId} {
+      allow read: if signedIn();
+      allow write: if isPlatformAdmin();
+    }
+
+    match /empresas/{empresaId} {
+      allow read: if canReadEmpresa(empresaId);
+      allow create: if isPlatformAdmin();
+      allow update: if canManageEmpresa(empresaId);
+      allow delete: if isPlatformAdmin();
+
+      match /{collectionId}/{docId} {
+        allow read: if canReadEmpresa(empresaId);
+        allow create, update, delete: if canManageEmpresa(empresaId);
+      }
+    }
+
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isPlatformAdmin();
     }
   }
 }

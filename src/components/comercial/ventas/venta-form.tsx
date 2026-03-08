@@ -27,8 +27,8 @@ import type {
   CuentaPorCobrar,
   StockGrano,
 } from "@/lib/types";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, writeBatch, query, orderBy, getDoc, getDocs, where } from "firebase/firestore";
+import { useCollection, useMemoFirebase, useUser } from "@/firebase";
+import { doc, getDoc, getDocs, orderBy, query, where, writeBatch } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from "@/components/common";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,6 +46,7 @@ import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad
 import { calcularEstadoCuenta, isFormaPagoCredito } from "@/lib/cuentas";
 import { resolveZafraContext, withZafraContext } from "@/lib/contabilidad/asientos";
 import { isCategoriaGrano, toNumber, toPositiveNumber } from "@/lib/stock/granos";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const itemSchema = z.object({
   producto: z.any().refine((val) => val && val.id, { message: "Debe seleccionar un producto." }),
@@ -130,7 +131,8 @@ function inputValueToDate(value: string): Date | undefined {
 
 export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBanco, zafras, cultivos }: VentaFormProps) {
   const { toast } = useToast();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { user } = useUser();
   const isEditingExisting = Boolean(venta);
   const disableTransactional = isEditingExisting;
@@ -139,7 +141,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
   const [stockShortages, setStockShortages] = useState<StockShortage[]>([]);
 
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null), [firestore])
+    useMemoFirebase(() => tenant.query("planDeCuentas", orderBy("codigo")), [tenant])
   );
 
   const form = useForm<VentaFormValues>({
@@ -292,7 +294,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
   }, []);
 
   const submitVenta = async (data: VentaFormValues, forceTotalizadora = false) => {
-    if (!firestore || !user) {
+    if (!firestore || !user || !tenant.isReady) {
       toast({ variant: "destructive", title: "Error de autenticacion." });
       return;
     }
@@ -318,8 +320,15 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
     const shouldCreateWorkflowEntries = !venta;
     const shouldApplyStock = shouldCreateWorkflowEntries && !forceTotalizadora;
     const batch = writeBatch(firestore);
-    const ventaRef = venta ? doc(firestore, "ventas", venta.id) : doc(collection(firestore, "ventas"));
-    const cuentaPorCobrarRef = doc(firestore, "cuentasPorCobrar", ventaRef.id);
+    const ventasCol = tenant.collection("ventas");
+    const movimientosCol = tenant.collection("MovimientosStock");
+    const stockGranosCol = tenant.collection("stockGranos");
+    const asientosCol = tenant.collection("asientosDiario");
+    if (!ventasCol || !movimientosCol || !stockGranosCol || !asientosCol) return;
+    const ventaRef = venta ? tenant.doc("ventas", venta.id) : doc(ventasCol);
+    if (!ventaRef) return;
+    const cuentaPorCobrarRef = tenant.doc("cuentasPorCobrar", ventaRef.id);
+    if (!cuentaPorCobrarRef) return;
 
     let cuentaPorCobrarActual: CuentaPorCobrar | null = null;
     if (isFormaPagoCredito(data.formaPago)) {
@@ -360,10 +369,13 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
           const stockActual = toNumber(producto.stockActual);
           const stockDespues = stockActual - item.cantidad;
 
-          const insumoRef = doc(firestore, "insumos", producto.id);
+          const insumoRef = tenant.doc("insumos", producto.id);
+          if (!insumoRef) {
+            throw new Error(`No se pudo resolver el producto ${producto.id}.`);
+          }
           batch.update(insumoRef, { stockActual: stockDespues });
 
-          const movimientoRef = doc(collection(firestore, "MovimientosStock"));
+          const movimientoRef = doc(movimientosCol);
           const movimiento: Omit<MovimientoStock, "id"> = {
             fecha: data.fecha.toISOString(),
             tipo: "salida",
@@ -394,7 +406,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
 
           if (debeAjustarStockGrano) {
             const stockGranosQuery = query(
-              collection(firestore, "stockGranos"),
+              stockGranosCol,
               where("insumoId", "==", producto.id)
             );
             const stockGranosSnap = await getDocs(stockGranosQuery);
@@ -435,7 +447,8 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
                 stock.precioPromedio || producto.precioPromedioCalculado || 0
               );
 
-              const stockGranoRef = doc(firestore, "stockGranos", stock.id);
+              const stockGranoRef = tenant.doc("stockGranos", stock.id);
+              if (!stockGranoRef) continue;
               batch.set(
                 stockGranoRef,
                 {
@@ -488,7 +501,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
         return;
       }
 
-      const asientoVentaRef = doc(collection(firestore, "asientosDiario"));
+      const asientoVentaRef = doc(asientosCol);
       const movimientosVenta: AsientoDiario["movimientos"] = [
         { cuentaId: cuentaDebeId!, tipo: "debe", monto: totalGeneral },
         { cuentaId: cuentaVentasId!, tipo: "haber", monto: baseImponible },
@@ -506,7 +519,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
       asientoVentaId = asientoVentaRef.id;
 
       if (costoTotalCMV > 0 && cuentaCmvId && cuentaInventarioId) {
-        const asientoCMVRef = doc(collection(firestore, "asientosDiario"));
+        const asientoCMVRef = doc(asientosCol);
         const asientoCMV: Omit<AsientoDiario, "id"> = withZafraContext({
           fecha: data.fecha.toISOString(),
           descripcion: `CMV por venta ${data.numeroDocumento}`,
@@ -520,10 +533,10 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
       }
     } else {
       if (asientoVentaId) {
-        batch.set(doc(firestore, "asientosDiario", asientoVentaId), withZafraContext({}, zafraContext), { merge: true });
+        batch.set(tenant.doc("asientosDiario", asientoVentaId)!, withZafraContext({}, zafraContext), { merge: true });
       }
       if (asientoCmvId) {
-        batch.set(doc(firestore, "asientosDiario", asientoCmvId), withZafraContext({}, zafraContext), { merge: true });
+        batch.set(tenant.doc("asientosDiario", asientoCmvId)!, withZafraContext({}, zafraContext), { merge: true });
       }
     }
 

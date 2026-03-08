@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { collection, doc, getDocs, limit, orderBy, query } from "firebase/firestore";
+import { getDocs, limit, orderBy, query } from "firebase/firestore";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,9 +18,10 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { ProveedorForm } from "./proveedor-form";
 import type { Proveedor } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 interface ProveedoresListProps {
   proveedores: Proveedor[];
@@ -29,25 +30,24 @@ interface ProveedoresListProps {
 
 export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps) {
   const { user } = useUser();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { toast } = useToast();
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedProveedor, setSelectedProveedor] = useState<Proveedor | null>(null);
 
   const handleSave = async (proveedorData: Omit<Proveedor, "id">) => {
-    if (!firestore) return;
+    const proveedoresCol = tenant.collection("proveedores");
+    if (!proveedoresCol) return;
 
     if (selectedProveedor) {
-      updateDocumentNonBlocking(doc(firestore, "proveedores", selectedProveedor.id), proveedorData);
+      const proveedorRef = tenant.doc("proveedores", selectedProveedor.id);
+      if (!proveedorRef) return;
+      updateDocumentNonBlocking(proveedorRef, proveedorData);
       toast({ title: "Proveedor actualizado" });
     } else {
-      const proveedoresCol = collection(firestore, "proveedores");
       const lastQuery = query(proveedoresCol, orderBy("numeroItem", "desc"), limit(1));
       const snapshot = await getDocs(lastQuery);
-      let maxNumeroItem = 0;
-      if (!snapshot.empty) {
-        maxNumeroItem = snapshot.docs[0].data().numeroItem || 0;
-      }
+      const maxNumeroItem = snapshot.empty ? 0 : Number(snapshot.docs[0].data().numeroItem || 0);
       addDocumentNonBlocking(proveedoresCol, { ...proveedorData, numeroItem: maxNumeroItem + 1 });
       toast({ title: "Proveedor creado" });
     }
@@ -68,10 +68,7 @@ export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps
 
   return (
     <>
-      <PageHeader
-        title="Proveedores"
-        description="Gestione los proveedores de insumos y servicios."
-      >
+      <PageHeader title="Proveedores" description="Gestione los proveedores de insumos y servicios.">
         <ReportActions reportTitle="Proveedores" reportSummary={shareSummary} />
         {user && (
           <Button onClick={() => openForm()}>
@@ -90,7 +87,7 @@ export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps
             <Table className="min-w-[820px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item NÂº</TableHead>
+                  <TableHead>Item No</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>RUC</TableHead>
                   <TableHead>Telefono</TableHead>

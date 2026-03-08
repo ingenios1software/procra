@@ -5,14 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,18 +13,18 @@ import type { Cliente } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { collection, doc, getDocs, query, orderBy, limit } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
+import { getDocs, limit, orderBy, query } from "firebase/firestore";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre es muy corto."),
   ruc: z.string().min(5, "El RUC/DNI es muy corto."),
   direccion: z.string().optional(),
   telefono: z.string().optional(),
-  email: z.string().email("Email inválido.").optional().or(z.literal('')),
+  email: z.string().email("Email invalido.").optional().or(z.literal("")),
   ciudad: z.string().optional(),
   pais: z.string().optional(),
-  tipoCliente: z.enum(['productor', 'acopiador', 'industria', 'exportadora', 'interno']).optional(),
+  tipoCliente: z.enum(["productor", "acopiador", "industria", "exportadora", "interno"]).optional(),
   observaciones: z.string().optional(),
   activo: z.boolean().default(true),
 });
@@ -45,44 +38,42 @@ interface ClienteFormProps {
 export function ClienteForm({ cliente }: ClienteFormProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const form = useForm<ClienteFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: cliente || {
       nombre: "",
       ruc: "",
-      tipoCliente: 'productor',
+      tipoCliente: "productor",
       activo: true,
     },
   });
 
   const handleSubmit = async (data: ClienteFormValues) => {
-    if (!firestore) return;
+    const clientesCol = tenant.collection("clientes");
+    if (!clientesCol) return;
 
     if (cliente?.id) {
-      const clienteRef = doc(firestore, 'clientes', cliente.id);
+      const clienteRef = tenant.doc("clientes", cliente.id);
+      if (!clienteRef) return;
       updateDocumentNonBlocking(clienteRef, data);
       toast({
-        title: `Cliente actualizado`,
-        description: `El cliente ${data.nombre} ha sido guardado correctamente.`,
+        title: "Cliente actualizado",
+        description: `El cliente ${data.nombre} fue guardado correctamente.`,
       });
     } else {
-      const clientesCol = collection(firestore, 'clientes');
-      const q = query(clientesCol, orderBy("numeroItem", "desc"), limit(1));
-      const querySnapshot = await getDocs(q);
-      let maxNumeroItem = 0;
-      if (!querySnapshot.empty) {
-          maxNumeroItem = querySnapshot.docs[0].data().numeroItem || 0;
-      }
+      const lastQuery = query(clientesCol, orderBy("numeroItem", "desc"), limit(1));
+      const querySnapshot = await getDocs(lastQuery);
+      const maxNumeroItem = querySnapshot.empty ? 0 : Number(querySnapshot.docs[0].data().numeroItem || 0);
       const numeroItem = maxNumeroItem + 1;
-      
+
       addDocumentNonBlocking(clientesCol, { ...data, numeroItem });
       toast({
-        title: `Cliente creado`,
-        description: `El cliente ${data.nombre} (Item Nº ${numeroItem}) ha sido guardado.`,
+        title: "Cliente creado",
+        description: `El cliente ${data.nombre} (Item No ${numeroItem}) fue guardado.`,
       });
     }
-    
+
     router.push("/comercial/clientes");
   };
 
@@ -91,18 +82,102 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
       <CardContent className="p-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField name="nombre" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Nombre o Razón Social</FormLabel><FormControl><Input placeholder="Cliente Ejemplo S.A." {...field} /></FormControl><FormMessage /></FormItem> )} />
-              <FormField name="ruc" control={form.control} render={({ field }) => ( <FormItem><FormLabel>RUC / DNI</FormLabel><FormControl><Input placeholder="80098765-3" {...field} /></FormControl><FormMessage /></FormItem> )} />
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <FormField
+                name="nombre"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre o Razon Social</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Cliente Ejemplo S.A." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                name="ruc"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>RUC / DNI</FormLabel>
+                    <FormControl>
+                      <Input placeholder="80098765-3" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
-            <FormField name="direccion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Dirección</FormLabel><FormControl><Input placeholder="Av. Siempre Viva 742" {...field} /></FormControl><FormMessage /></FormItem> )} />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField name="telefono" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input placeholder="0971 987654" {...field} /></FormControl><FormMessage /></FormItem> )} />
-              <FormField name="email" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="compras@cliente.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
+            <FormField
+              name="direccion"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Direccion</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Av. Siempre Viva 742" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <FormField
+                name="telefono"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefono</FormLabel>
+                    <FormControl>
+                      <Input placeholder="0971 987654" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                name="email"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="compras@cliente.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField name="ciudad" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input placeholder="Villeta" {...field} /></FormControl><FormMessage /></FormItem> )} />
-              <FormField name="pais" control={form.control} render={({ field }) => ( <FormItem><FormLabel>País</FormLabel><FormControl><Input placeholder="Paraguay" {...field} /></FormControl><FormMessage /></FormItem> )} />
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <FormField
+                name="ciudad"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ciudad</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Villeta" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                name="pais"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pais</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Paraguay" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             <FormField
               control={form.control}
@@ -128,8 +203,20 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
                 </FormItem>
               )}
             />
-            <FormField name="observaciones" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Notas adicionales sobre el cliente..." {...field} /></FormControl><FormMessage /></FormItem> )} />
-            
+            <FormField
+              name="observaciones"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observaciones</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Notas adicionales sobre el cliente..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => router.back()}>
                 Cancelar

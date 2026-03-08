@@ -1,16 +1,17 @@
 "use client";
 
 import { useMemo } from "react";
-import { collection, query, where } from "firebase/firestore";
+import { where } from "firebase/firestore";
 import { format, subDays } from "date-fns";
 import { Activity, AreaChart, Calendar, Map as MapIcon, Sparkles, TriangleAlert } from "lucide-react";
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Cultivo, Evento, Parcela, Zafra } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const COLORS = [
   "hsl(var(--chart-1))",
@@ -49,12 +50,12 @@ function DashboardWatermarkFooter() {
 }
 
 export default function DashboardPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { user, isUserLoading } = useUser();
 
   const zafraActivaQuery = useMemoFirebase(
-    () => (user && firestore ? query(collection(firestore, "zafras"), where("estado", "==", "en curso")) : null),
-    [user, firestore]
+    () => (user ? tenant.query("zafras", where("estado", "==", "en curso")) : null),
+    [tenant, user]
   );
   const { data: zafrasActivas, isLoading: l3 } = useCollection<Zafra>(zafraActivaQuery);
 
@@ -68,13 +69,13 @@ export default function DashboardPage() {
   }, [zafrasActivas]);
 
   const { data: parcelas, isLoading: l1 } = useCollection<Parcela>(
-    useMemoFirebase(() => (user && firestore ? collection(firestore, "parcelas") : null), [user, firestore])
+    useMemoFirebase(() => (user ? tenant.collection("parcelas") : null), [tenant, user])
   );
   const { data: cultivos, isLoading: l2 } = useCollection<Cultivo>(
-    useMemoFirebase(() => (user && firestore ? collection(firestore, "cultivos") : null), [user, firestore])
+    useMemoFirebase(() => (user ? tenant.collection("cultivos") : null), [tenant, user])
   );
   const { data: eventos, isLoading: l4 } = useCollection<Evento>(
-    useMemoFirebase(() => (user && firestore ? collection(firestore, "eventos") : null), [user, firestore])
+    useMemoFirebase(() => (user ? tenant.collection("eventos") : null), [tenant, user])
   );
 
   const {

@@ -2,8 +2,9 @@
 
 import type { PlanDeCuenta } from "@/lib/types";
 import { SelectorUniversal } from "@/components/common/SelectorUniversal";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, orderBy, query } from "firebase/firestore";
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 interface SelectorPlanDeCuentasProps {
   value?: string | null;
@@ -20,15 +21,15 @@ export function SelectorPlanDeCuentas({
   disabled,
   label = "Cuenta Contable",
 }: SelectorPlanDeCuentasProps) {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
 
   const planDeCuentasQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null),
-    [firestore]
+    () => tenant.query("planDeCuentas", orderBy("codigo")),
+    [tenant]
   );
   const { data: cuentas } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
 
-  const selectedCuenta = (cuentas || []).find((c) => c.id === value);
+  const selectedCuenta = (cuentas || []).find((cuenta) => cuenta.id === value);
   const normalizedFilter = (filter || "").toLowerCase().trim();
   const itemFilter = normalizedFilter
     ? (item: PlanDeCuenta) => (item.tipo || "").toLowerCase().trim() === normalizedFilter

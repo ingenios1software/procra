@@ -25,8 +25,8 @@ import type {
   CuentaPorPagar,
   Zafra,
 } from "@/lib/types";
-import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
-import { collection, doc, writeBatch, serverTimestamp, getDocs, query, orderBy, limit, getDoc } from "firebase/firestore";
+import { useCollection, useUser, useMemoFirebase } from "@/firebase";
+import { doc, writeBatch, serverTimestamp, getDocs, query, orderBy, limit, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from '@/components/common';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -34,6 +34,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from '@/lib/contabilidad/cuentas-base';
 import { calcularEstadoCuenta } from "@/lib/cuentas";
 import { resolveZafraContext, withZafraContext } from "@/lib/contabilidad/asientos";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const mercaderiaSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar una mercaderia." }),
@@ -114,7 +115,8 @@ interface CompraNormalFormProps {
 
 export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNormalFormProps) {
   const { toast } = useToast();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { user } = useUser();
   const [isSaving, setIsSaving] = useState(false);
 
@@ -125,9 +127,9 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
   const disableTransactional = disableReadonlyOrSaving || lockTransactionalFields;
   const disableZafraSelection = disableReadonlyOrSaving;
 
-  const { data: proveedores } = useCollection<Proveedor>(useMemoFirebase(() => firestore ? collection(firestore, 'proveedores') : null, [firestore]));
-  const { data: planDeCuentas } = useCollection<PlanDeCuenta>(useMemoFirebase(() => firestore ? query(collection(firestore, 'planDeCuentas'), orderBy('codigo')) : null, [firestore]));
-  const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras'), orderBy('nombre')) : null, [firestore]));
+  const { data: proveedores } = useCollection<Proveedor>(useMemoFirebase(() => tenant.collection('proveedores'), [tenant]));
+  const { data: planDeCuentas } = useCollection<PlanDeCuenta>(useMemoFirebase(() => tenant.query('planDeCuentas', orderBy('codigo')), [tenant]));
+  const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => tenant.query('zafras', orderBy('nombre')), [tenant]));
   
   const form = useForm<CompraFormValues>({
     resolver: zodResolver(formSchema),
@@ -218,7 +220,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
 
   const handleSubmit = async (data: CompraFormValues) => {
     if (isViewMode || isSaving) return;
-    if (!firestore || !user) {
+    if (!firestore || !user || !tenant.isReady) {
       toast({ variant: "destructive", title: "Error de autenticacion." });
       return;
     }
@@ -231,9 +233,15 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
         compra?.zafraNombre || compra?.planFinanciacion || null
       );
       const batch = writeBatch(firestore);
-      const comprasCol = collection(firestore, "comprasNormal");
-      const compraRef = compra ? doc(firestore, "comprasNormal", compra.id) : doc(comprasCol);
-      const cuentaPorPagarRef = doc(firestore, "cuentasPorPagar", compraRef.id);
+      const comprasCol = tenant.collection("comprasNormal");
+      if (!comprasCol) return;
+      const compraRef = compra ? tenant.doc("comprasNormal", compra.id) : doc(comprasCol);
+      if (!compraRef) return;
+      const cuentaPorPagarRef = tenant.doc("cuentasPorPagar", compraRef.id);
+      const asientosCol = tenant.collection("asientosDiario");
+      const lotesCol = tenant.collection("lotesInsumos");
+      const movimientosCol = tenant.collection("MovimientosStock");
+      if (!cuentaPorPagarRef || !asientosCol || !lotesCol || !movimientosCol) return;
       const shouldCreateWorkflowEntries = !compra;
       const shouldApplyStock = shouldCreateWorkflowEntries && !data.totalizadora;
 
@@ -253,7 +261,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
 
       let asientoRegistroId = compra?.financiero?.asientoRegistroId;
       if (shouldCreateWorkflowEntries) {
-        const asientoCompraRef = doc(collection(firestore, "asientosDiario"));
+        const asientoCompraRef = doc(asientosCol);
         const asientoCompra: Omit<AsientoDiario, "id"> = withZafraContext({
           fecha: data.fechaEmision.toISOString(),
           descripcion: `Compra credito doc ${data.comprobante_documento}`,
@@ -266,7 +274,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
         asientoRegistroId = asientoCompraRef.id;
       } else if (asientoRegistroId) {
         batch.set(
-          doc(firestore, "asientosDiario", asientoRegistroId),
+          tenant.doc("asientosDiario", asientoRegistroId)!,
           withZafraContext({}, zafraContext),
           { merge: true }
         );
@@ -358,7 +366,10 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
 
         for (const item of data.mercaderias) {
           const insumoComprado = item.insumo as Insumo;
-          const insumoRef = doc(firestore, "insumos", insumoComprado.id);
+          const insumoRef = tenant.doc("insumos", insumoComprado.id);
+          if (!insumoRef) {
+            throw new Error(`No se pudo resolver el insumo ${insumoComprado.id}.`);
+          }
           const cantidadCompra = Number(item.cantidad) || 0;
           const precioCompra = Number(item.valorUnitario) || 0;
           if (cantidadCompra <= 0 || precioCompra <= 0) continue;
@@ -398,7 +409,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
           const loteCodigo = item.lote?.trim();
           const controlaLotes = Boolean(state.insumoActual.controlaLotes);
           if (controlaLotes && loteCodigo) {
-            const loteRef = doc(collection(firestore, "lotesInsumos"));
+            const loteRef = doc(lotesCol);
             const loteData: Omit<LoteInsumo, "id"> = {
               insumoId: insumoComprado.id,
               codigoLote: loteCodigo,
@@ -416,7 +427,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
             batch.set(loteRef, omitUndefinedDeep(loteData));
           }
 
-          const movimientoRef = doc(collection(firestore, "MovimientosStock"));
+          const movimientoRef = doc(movimientosCol);
           const movimientoData: Omit<MovimientoStock, "id"> = {
             fecha: data.fechaEmision,
             tipo: "entrada",

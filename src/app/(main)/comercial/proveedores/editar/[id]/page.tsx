@@ -3,38 +3,31 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { ProveedorForm } from "@/components/comercial/proveedores/proveedor-form";
 import { notFound, useRouter } from "next/navigation";
-import { useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { useDoc, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import type { Proveedor } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 export default function EditarProveedorPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { toast } = useToast();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
 
-  const proveedorRef = useMemoFirebase(() => 
-    firestore ? doc(firestore, 'proveedores', params.id) : null
-  , [firestore, params.id]);
-
+  const proveedorRef = useMemoFirebase(() => tenant.doc("proveedores", params.id), [tenant, params.id]);
   const { data: proveedor, isLoading } = useDoc<Proveedor>(proveedorRef);
 
   const handleSave = (data: Omit<Proveedor, "id" | "activo">) => {
-    if (!firestore || !proveedor) return;
-    const proveedorRef = doc(firestore, 'proveedores', params.id);
-    updateDocumentNonBlocking(proveedorRef, {
-        ...data,
-        activo: proveedor.activo ?? true
+    const ref = tenant.doc("proveedores", params.id);
+    if (!ref || !proveedor) return;
+    updateDocumentNonBlocking(ref, {
+      ...data,
+      activo: proveedor.activo ?? true,
     });
     toast({
       title: "Proveedor actualizado",
-      description: `Los datos de "${data.nombre}" han sido actualizados.`,
+      description: `Los datos de "${data.nombre}" fueron actualizados.`,
     });
-    router.push("/comercial/proveedores");
-  };
-
-  const handleCancel = () => {
     router.push("/comercial/proveedores");
   };
 
@@ -48,17 +41,10 @@ export default function EditarProveedorPage({ params }: { params: { id: string }
 
   return (
     <>
-      <PageHeader
-        title="Editar Proveedor"
-        description={`Editando los detalles de ${proveedor.nombre}.`}
-      />
+      <PageHeader title="Editar Proveedor" description={`Editando los detalles de ${proveedor.nombre}.`} />
       <Card>
         <CardContent className="p-6">
-            <ProveedorForm 
-                proveedor={{...proveedor, id: params.id}} 
-                onSubmit={handleSave}
-                onCancel={handleCancel}
-            />
+          <ProveedorForm proveedor={{ ...proveedor, id: params.id }} onSubmit={handleSave} onCancel={() => router.push("/comercial/proveedores")} />
         </CardContent>
       </Card>
     </>

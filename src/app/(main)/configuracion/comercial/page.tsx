@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { doc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import type { EmpresaSaaS, EstadoSuscripcionSaaS, ModeloCobroSaaS, Permisos, PlanSaaS } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { toDateSafe } from "@/lib/suscripcion-saas";
+import { buildEmpresaBasePayload, buildTenantRoleSeeds, tenantDoc } from "@/lib/tenant";
 
 const PLAN_OPTIONS: PlanSaaS[] = ["demo", "basic", "pro", "enterprise"];
 const BILLING_OPTIONS: ModeloCobroSaaS[] = ["por_usuario", "por_empresa"];
@@ -194,45 +195,35 @@ export default function ConfiguracionComercialPage() {
     setIsCreatingEmpresa(true);
     try {
       const newEmpresaId = `empresa_${user.id}`;
-      const now = new Date();
-      const demoEnd = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30);
-
-      await setDoc(
+      const batch = writeBatch(firestore);
+      batch.set(
         doc(firestore, "empresas", newEmpresaId),
-        {
+        buildEmpresaBasePayload({
           nombre: "Mi Empresa",
-          activo: true,
-          perfil: {
-            contacto: user.nombre || "",
-            email: user.email || "",
-            pais: "Paraguay",
-          },
-          branding: {
-            preparedBy: "Responsable",
-            approvedBy: "Administracion",
-          },
+          contacto: user.nombre,
+          email: user.email,
+          pais: "Paraguay",
+          plan: "demo",
+          maxUsuarios: 3,
           modulos: DEFAULT_MODULES,
-          demo: {
-            habilitado: true,
-            inicio: now.toISOString(),
-            fin: demoEnd.toISOString(),
-          },
-          suscripcion: {
-            estado: "trial",
-            plan: "demo",
-            modeloCobro: "por_empresa",
-            moneda: "USD",
-            montoMensual: 0,
-            maxUsuarios: 3,
-            proximoCobro: null,
-          },
-          creadoEn: serverTimestamp(),
-          actualizadoEn: serverTimestamp(),
-        },
+        }),
         { merge: true }
       );
-
-      await updateDoc(doc(firestore, "usuarios", user.id), { empresaId: newEmpresaId });
+      buildTenantRoleSeeds().forEach((role) => {
+        batch.set(
+          tenantDoc(firestore, newEmpresaId, "roles", role.id),
+          {
+            nombre: role.nombre,
+            descripcion: role.descripcion,
+            permisos: role.permisos,
+            soloLectura: role.soloLectura,
+            esSistema: role.esSistema,
+          },
+          { merge: true }
+        );
+      });
+      batch.update(doc(firestore, "usuarios", user.id), { empresaId: newEmpresaId });
+      await batch.commit();
       toast({
         title: "Empresa base creada",
         description: "Ya puede completar la ficha de empresa con sus datos reales.",

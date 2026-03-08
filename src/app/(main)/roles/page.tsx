@@ -2,45 +2,47 @@
 
 import { RolesList } from "@/components/roles/roles-list";
 import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, doc } from 'firebase/firestore';
-import type { Rol } from '@/lib/types';
+import { doc, query } from "firebase/firestore";
+import type { Rol } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert } from "lucide-react";
+import { tenantCollection, tenantDoc } from "@/lib/tenant";
 
 export default function RolesPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { permisos } = useAuth();
-  
+  const { permisos, user } = useAuth();
+  const empresaId = user?.empresaId || null;
+
   const rolesQuery = useMemoFirebase(
-    () => (firestore && permisos.administracion) ? query(collection(firestore, 'roles')) : null,
-    [firestore, permisos.administracion]
+    () => (firestore && permisos.administracion && empresaId ? query(tenantCollection(firestore, empresaId, "roles")) : null),
+    [firestore, permisos.administracion, empresaId]
   );
   const { data: roles, isLoading } = useCollection<Rol>(rolesQuery);
 
-  const handleSave = (rolData: Omit<Rol, 'id'>, id?: string) => {
-    if (!firestore) return;
+  const handleSave = (rolData: Omit<Rol, "id">, id?: string) => {
+    if (!firestore || !empresaId) return;
 
     if (id) {
-        updateDocumentNonBlocking(doc(firestore, 'roles', id), rolData);
-        toast({ title: "Rol actualizado", description: `El rol "${rolData.nombre}" ha sido actualizado.` });
+      updateDocumentNonBlocking(tenantDoc(firestore, empresaId, "roles", id), rolData);
+      toast({ title: "Rol actualizado", description: `El rol "${rolData.nombre}" fue actualizado.` });
     } else {
-        addDocumentNonBlocking(collection(firestore, 'roles'), rolData);
-        toast({ title: "Rol creado", description: `El rol "${rolData.nombre}" ha sido creado.` });
+      addDocumentNonBlocking(tenantCollection(firestore, empresaId, "roles"), rolData);
+      toast({ title: "Rol creado", description: `El rol "${rolData.nombre}" fue creado.` });
     }
   };
 
   const handleDelete = (id: string) => {
-      if(!firestore) return;
-      deleteDocumentNonBlocking(doc(firestore, 'roles', id));
-      toast({ variant: "destructive", title: "Rol eliminado" });
-  }
+    if (!firestore || !empresaId) return;
+    deleteDocumentNonBlocking(tenantDoc(firestore, empresaId, "roles", id));
+    toast({ variant: "destructive", title: "Rol eliminado" });
+  };
 
   if (isLoading) {
-    return <p>Cargando roles...</p>
+    return <p>Cargando roles...</p>;
   }
 
   if (!permisos.administracion) {
@@ -55,18 +57,12 @@ export default function RolesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p>No tienes los permisos necesarios para acceder a la sección de roles.</p>
+            <p>No tienes los permisos necesarios para acceder a la seccion de roles.</p>
           </CardContent>
         </Card>
       </>
     );
   }
-  
-  return (
-    <RolesList 
-      initialRoles={roles || []}
-      onSave={handleSave}
-      onDelete={handleDelete}
-    />
-  );
+
+  return <RolesList initialRoles={roles || []} onSave={handleSave} onDelete={handleDelete} />;
 }

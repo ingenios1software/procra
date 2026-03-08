@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Zafra, Cultivo } from "@/lib/types";
 import { format } from "date-fns";
 import React from "react";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from "firebase/firestore";
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const formSchema = z.object({
   nombre: z.string().min(5, "El nombre debe tener al menos 5 caracteres."),
@@ -41,11 +42,8 @@ function inputValueToDate(value: string): Date | undefined {
 }
 
 export const ZafraForm = React.memo(({ zafra, onSubmit, onCancel }: ZafraFormProps) => {
-  const firestore = useFirestore();
-  const cultivosQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "cultivos"), orderBy("nombre"));
-  }, [firestore]);
+  const tenant = useTenantFirestore();
+  const cultivosQuery = useMemoFirebase(() => tenant.query("cultivos", orderBy("nombre")), [tenant]);
   const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
 
   const form = useForm<ZafraFormValues>({

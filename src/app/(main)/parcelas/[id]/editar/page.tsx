@@ -1,40 +1,37 @@
 "use client";
 
-import { useMemo } from 'react';
 import { notFound, useRouter } from "next/navigation";
-import { useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import type { Parcela } from '@/lib/types';
+import { useDoc, updateDocumentNonBlocking } from "@/firebase";
+import type { Parcela } from "@/lib/types";
 import { PageHeader } from "@/components/shared/page-header";
 import { ParcelaForm } from "@/components/parcelas/parcela-form";
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertTriangle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 export default function EditarParcelaPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { toast } = useToast();
   const { id } = params;
-  
-  const parcelaRef = useMemoFirebase(() => {
-    if (!firestore || !id) return null;
-    return doc(firestore, 'parcelas', id);
-  }, [firestore, id]);
 
+  const parcelaRef = tenant.doc("parcelas", id);
   const { data: parcela, isLoading } = useDoc<Parcela>(parcelaRef);
 
-  const handleSave = (data: Omit<Parcela, 'id' | 'numeroItem'>) => {
-    if (!firestore || !parcela) return;
-    const parcelaRef = doc(firestore, 'parcelas', parcela.id);
-    updateDocumentNonBlocking(parcelaRef, data);
+  const handleSave = (data: Omit<Parcela, "id" | "numeroItem">) => {
+    if (!parcela) return;
+
+    const docRef = tenant.doc("parcelas", parcela.id);
+    if (!docRef) return;
+
+    updateDocumentNonBlocking(docRef, data);
     toast({
-        title: "Parcela actualizada",
-        description: `La parcela "${data.nombre}" ha sido actualizada correctamente.`,
+      title: "Parcela actualizada",
+      description: `La parcela "${data.nombre}" ha sido actualizada correctamente.`,
     });
-    router.push('/parcelas');
+    router.push("/parcelas");
   };
 
   const handleCancel = () => {
@@ -43,29 +40,29 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
 
   if (isLoading) {
     return (
-        <div className="flex justify-center items-center h-64">
-            <p>Cargando datos de la parcela...</p>
-        </div>
+      <div className="flex h-64 items-center justify-center">
+        <p>Cargando datos de la parcela...</p>
+      </div>
     );
   }
 
   if (!parcela) {
     return (
-        <div className="flex flex-col items-center justify-center text-center py-10">
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <CardTitle className="flex items-center justify-center gap-2">
-                        <AlertTriangle className="h-6 w-6 text-destructive"/>
-                        Parcela no encontrada
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <p>La parcela que intenta editar no existe o fue eliminada.</p>
-                    <Button onClick={() => router.push('/parcelas')}>
-                        Volver a la lista
-                    </Button>
-                </CardContent>
-            </Card>
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
+              Parcela no encontrada
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p>La parcela que intenta editar no existe o fue eliminada.</p>
+            <Button onClick={() => router.push("/parcelas")}>
+              Volver a la lista
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -78,11 +75,11 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
       />
       <Card>
         <CardContent className="p-6">
-            <ParcelaForm 
-                parcela={{...parcela, id: id}}
-                onSubmit={handleSave}
-                onCancel={handleCancel}
-            />
+          <ParcelaForm
+            parcela={{ ...parcela, id }}
+            onSubmit={handleSave}
+            onCancel={handleCancel}
+          />
         </CardContent>
       </Card>
     </>

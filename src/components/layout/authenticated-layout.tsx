@@ -1,15 +1,16 @@
-﻿'use client';
+'use client';
 
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { ConnectionStatusIndicator } from '@/components/shared/connection-status';
 import { OperativoAssistant } from '@/components/assistant/operativo-assistant';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { canAccessPathByPermisos, getModuloLabelForPermission, getPermissionForPath } from '@/lib/route-permissions';
 import { useFirestore } from '@/firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { useTenantFirestore } from '@/hooks/use-tenant-firestore';
 
 export function AuthenticatedLayout({
   children,
@@ -23,8 +24,14 @@ export function AuthenticatedLayout({
   const router = useRouter();
   const pathname = usePathname();
   const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const lastDeniedLogKeyRef = useRef<string | null>(null);
   const hasPathAccess = canAccessPathByPermisos(pathname, permisos, role);
+
+  const auditCollection = useMemo(
+    () => tenant.collection('auditoriaAsistente') || (firestore ? collection(firestore, 'auditoriaAsistente') : null),
+    [firestore, tenant]
+  );
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -40,9 +47,9 @@ export function AuthenticatedLayout({
     const modulo = getModuloLabelForPermission(requiredPermission);
     const logKey = `${user.id || user.email || 'unknown'}|${blockedPath}`;
 
-    if (firestore && lastDeniedLogKeyRef.current !== logKey) {
+    if (auditCollection && lastDeniedLogKeyRef.current !== logKey) {
       lastDeniedLogKeyRef.current = logKey;
-      void addDoc(collection(firestore, 'auditoriaAsistente'), {
+      void addDoc(auditCollection, {
         prompt: `Intento acceso modulo ${modulo}`,
         promptNormalizado: `intento acceso ${blockedPath}`,
         intentType: 'modulo',
@@ -69,7 +76,7 @@ export function AuthenticatedLayout({
     if (pathname !== '/acceso-denegado') {
       router.replace(`/acceso-denegado?from=${encodeURIComponent(blockedPath)}`);
     }
-  }, [firestore, hasPathAccess, isAuthLoading, pathname, permisos, role, router, user]);
+  }, [auditCollection, hasPathAccess, isAuthLoading, pathname, permisos, role, router, user]);
 
   if (isAuthLoading) {
     return (
@@ -105,7 +112,7 @@ export function AuthenticatedLayout({
             <div className="mx-auto max-w-screen-2xl">{children}</div>
           </main>
         </div>
-        <footer className="text-center text-xs text-muted-foreground p-4 border-t">
+        <footer className="border-t p-4 text-center text-xs text-muted-foreground">
           © {copyrightYears} CRApro95 - Creado por Ricardo Ortellado. Todos los derechos reservados.
         </footer>
       </div>
@@ -114,4 +121,3 @@ export function AuthenticatedLayout({
     </div>
   );
 }
-

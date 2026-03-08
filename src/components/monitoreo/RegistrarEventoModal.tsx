@@ -11,13 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
-import { collection, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { InsumoSelector } from '../insumos/InsumoSelector';
 import type { Parcela, Zafra, Cultivo, Insumo } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { doc } from 'firebase/firestore';
 import { X } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
+import { useTenantFirestore } from '@/hooks/use-tenant-firestore';
 
 const formSchema = z.object({
   parcelaId: z.string().nonempty("La parcela es obligatoria."),
@@ -59,6 +59,7 @@ interface RegistrarEventoModalProps {
 export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, zafras, cultivos }: RegistrarEventoModalProps) {
   const { user } = useUser();
   const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { toast } = useToast();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -155,9 +156,11 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
     }
 
     const batch = writeBatch(firestore);
+    const eventosCol = tenant.collection("eventos");
+    if (!eventosCol) return;
 
     // 1. Crear el documento del evento
-    const eventoRef = doc(collection(firestore, "eventos"));
+    const eventoRef = doc(eventosCol);
     const eventoData = {
       ...data,
       fecha: data.fecha,
@@ -176,7 +179,8 @@ export function RegistrarEventoModal({ isOpen, onClose, onEventSaved, parcelas, 
       data.insumos.forEach(item => {
         if (!item.insumo || !item.insumo.id) return;
         const consumoTotal = item.dosis * (data.hectareas || 0);
-        const insumoRef = doc(firestore, "insumos", item.insumo.id);
+        const insumoRef = tenant.doc("insumos", item.insumo.id);
+        if (!insumoRef) return;
         const stockActual = item.insumo.stockActual || 0;
         batch.update(insumoRef, { stockActual: stockActual - consumoTotal });
       });

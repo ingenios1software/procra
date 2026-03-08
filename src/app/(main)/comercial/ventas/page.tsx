@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { collection, doc, orderBy, query, where, writeBatch } from "firebase/firestore";
+import { doc, orderBy, query, where, writeBatch } from "firebase/firestore";
 import { Loader2, MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { resolveZafraContext, withZafraContext } from "@/lib/contabilidad/asientos";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo, getCuentasBaseFaltantes } from "@/lib/contabilidad/cuentas-base";
@@ -38,6 +38,7 @@ import type {
   Venta,
   Zafra,
 } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const DEMO_IDS = {
   venta: "demo-venta-inicial",
@@ -59,7 +60,8 @@ function normalizeAccountCode(value: string): string {
 }
 
 export default function VentasPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { user } = useUser();
   const { toast } = useToast();
   const [isFormOpen, setFormOpen] = useState(false);
@@ -68,32 +70,32 @@ export default function VentasPage() {
 
   const { data: ventas, isLoading: isLoadingVentas } = useCollection<Venta>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "ventas"), orderBy("fecha", "desc")) : null),
-      [firestore]
+      () => tenant.query("ventas", orderBy("fecha", "desc")),
+      [tenant]
     )
   );
   const { data: clientes, isLoading: isLoadingClientes } = useCollection<Cliente>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "clientes")) : null), [firestore])
+    useMemoFirebase(() => tenant.query("clientes"), [tenant])
   );
   const { data: depositos, isLoading: isLoadingDepositos } = useCollection<Deposito>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "depositos")) : null), [firestore])
+    useMemoFirebase(() => tenant.query("depositos"), [tenant])
   );
   const { data: cuentasCajaBanco } = useCollection<CuentaCajaBanco>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "cuentasCajaBanco"), where("activo", "==", true)) : null),
-      [firestore]
+      () => tenant.query("cuentasCajaBanco", where("activo", "==", true)),
+      [tenant]
     )
   );
   const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "zafras")) : null), [firestore])
+    useMemoFirebase(() => tenant.query("zafras"), [tenant])
   );
   const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "cultivos")) : null), [firestore])
+    useMemoFirebase(() => tenant.query("cultivos"), [tenant])
   );
   const { data: planDeCuentas, isLoading: isLoadingPlanDeCuentas } = useCollection<PlanDeCuenta>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null),
-      [firestore]
+      () => tenant.query("planDeCuentas", orderBy("codigo")),
+      [tenant]
     )
   );
 
@@ -117,7 +119,7 @@ export default function VentasPage() {
   const shouldShowSimulation = Boolean(user) && !isLoadingVentas && (ventas?.length ?? 0) === 0;
 
   const handleSimularPrimeraVenta = async () => {
-    if (!firestore || !user || isSimulatingFirstSale) return;
+    if (!firestore || !user || isSimulatingFirstSale || !tenant.isReady) return;
     if (isLoadingPlanDeCuentas) {
       toast({
         title: "Espere un momento",
@@ -161,7 +163,9 @@ export default function VentasPage() {
       }
 
       for (const cuentaFaltante of getCuentasBaseFaltantes(cuentasActuales)) {
-        const cuentaRef = doc(collection(firestore, "planDeCuentas"));
+        const planCol = tenant.collection("planDeCuentas");
+        if (!planCol) throw new Error("No se pudo resolver el plan de cuentas de la empresa.");
+        const cuentaRef = doc(planCol);
         batch.set(cuentaRef, cuentaFaltante);
         cuentasPorCodigo.set(normalizeAccountCode(cuentaFaltante.codigo), cuentaRef.id);
       }
@@ -333,16 +337,16 @@ export default function VentasPage() {
         actualizadoEn: now.toISOString(),
       };
 
-      batch.set(doc(firestore, "clientes", DEMO_IDS.cliente), clienteDemo, { merge: true });
-      batch.set(doc(firestore, "depositos", DEMO_IDS.deposito), depositoDemo, { merge: true });
-      batch.set(doc(firestore, "cultivos", DEMO_IDS.cultivo), cultivoDemo, { merge: true });
-      batch.set(doc(firestore, "zafras", DEMO_IDS.zafra), zafraDemo, { merge: true });
-      batch.set(doc(firestore, "insumos", DEMO_IDS.insumo), insumoDemo, { merge: true });
-      batch.set(doc(firestore, "asientosDiario", DEMO_IDS.asientoVenta), asientoVenta, { merge: true });
-      batch.set(doc(firestore, "asientosDiario", DEMO_IDS.asientoCmv), asientoCmv, { merge: true });
-      batch.set(doc(firestore, "MovimientosStock", DEMO_IDS.movimientoStock), movimientoStock, { merge: true });
-      batch.set(doc(firestore, "ventas", DEMO_IDS.venta), ventaDemo, { merge: true });
-      batch.set(doc(firestore, "cuentasPorCobrar", DEMO_IDS.venta), cuentaPorCobrarDemo, { merge: true });
+      batch.set(tenant.doc("clientes", DEMO_IDS.cliente)!, clienteDemo, { merge: true });
+      batch.set(tenant.doc("depositos", DEMO_IDS.deposito)!, depositoDemo, { merge: true });
+      batch.set(tenant.doc("cultivos", DEMO_IDS.cultivo)!, cultivoDemo, { merge: true });
+      batch.set(tenant.doc("zafras", DEMO_IDS.zafra)!, zafraDemo, { merge: true });
+      batch.set(tenant.doc("insumos", DEMO_IDS.insumo)!, insumoDemo, { merge: true });
+      batch.set(tenant.doc("asientosDiario", DEMO_IDS.asientoVenta)!, asientoVenta, { merge: true });
+      batch.set(tenant.doc("asientosDiario", DEMO_IDS.asientoCmv)!, asientoCmv, { merge: true });
+      batch.set(tenant.doc("MovimientosStock", DEMO_IDS.movimientoStock)!, movimientoStock, { merge: true });
+      batch.set(tenant.doc("ventas", DEMO_IDS.venta)!, ventaDemo, { merge: true });
+      batch.set(tenant.doc("cuentasPorCobrar", DEMO_IDS.venta)!, cuentaPorCobrarDemo, { merge: true });
 
       await batch.commit();
       toast({

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { doc } from "firebase/firestore";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,8 +15,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useFirestore, useUser, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, updateDocumentNonBlocking } from "@/firebase";
 import type { Cliente } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 interface ClientesListProps {
   clientes: Cliente[];
@@ -25,14 +25,13 @@ interface ClientesListProps {
 }
 
 export function ClientesList({ clientes, isLoading }: ClientesListProps) {
-  const firestore = useFirestore();
   const { user } = useUser();
+  const tenant = useTenantFirestore();
 
   const handleToggleActive = (id: string) => {
-    if (!firestore) return;
     const cliente = clientes.find((item) => item.id === id);
-    if (!cliente) return;
-    const clienteRef = doc(firestore, "clientes", id);
+    const clienteRef = tenant.doc("clientes", id);
+    if (!cliente || !clienteRef) return;
     updateDocumentNonBlocking(clienteRef, { activo: !cliente.activo });
   };
 
@@ -40,10 +39,7 @@ export function ClientesList({ clientes, isLoading }: ClientesListProps) {
 
   return (
     <>
-      <PageHeader
-        title="Clientes"
-        description="Gestione la cartera de clientes de la empresa."
-      >
+      <PageHeader title="Clientes" description="Gestione la cartera de clientes de la empresa.">
         <ReportActions reportTitle="Clientes" reportSummary={shareSummary} />
         {user && (
           <Button asChild>
@@ -64,7 +60,7 @@ export function ClientesList({ clientes, isLoading }: ClientesListProps) {
             <Table className="min-w-[860px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item NÂº</TableHead>
+                  <TableHead>Item No</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>RUC</TableHead>
                   <TableHead>Telefono</TableHead>
@@ -105,7 +101,7 @@ export function ClientesList({ clientes, isLoading }: ClientesListProps) {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                             <DropdownMenuItem asChild>
-                              <Link href={`/comercial/clientes/editar/${cliente.id}`}>Editar</Link>
+                              <Link href={`/comercial/clientes/${cliente.id}/editar`}>Editar</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggleActive(cliente.id)}>
                               {cliente.activo ? "Desactivar" : "Activar"}

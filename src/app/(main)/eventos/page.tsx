@@ -1,28 +1,30 @@
 "use client";
+
 import { EventosList } from "@/components/eventos/eventos-list";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from 'firebase/firestore';
-import type { Evento, Parcela, Zafra, Cultivo } from '@/lib/types';
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
+import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 export default function EventosPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
 
-  const eventosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha', 'desc')) : null, [firestore]);
+  const eventosQuery = useMemoFirebase(() => tenant.query("eventos", orderBy("fecha", "desc")), [tenant]);
   const { data: eventos, isLoading: isLoadingEventos } = useCollection<Evento>(eventosQuery);
 
-  const parcelasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]);
+  const parcelasQuery = useMemoFirebase(() => tenant.collection("parcelas"), [tenant]);
   const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(parcelasQuery);
 
-  const zafrasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]);
+  const zafrasQuery = useMemoFirebase(() => tenant.collection("zafras"), [tenant]);
   const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(zafrasQuery);
 
-  const cultivosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]);
+  const cultivosQuery = useMemoFirebase(() => tenant.collection("cultivos"), [tenant]);
   const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
 
   const isLoading = isLoadingEventos || isLoadingParcelas || isLoadingZafras || isLoadingCultivos;
 
   return (
-    <EventosList 
+    <EventosList
       eventos={eventos || []}
       parcelas={parcelas || []}
       zafras={zafras || []}

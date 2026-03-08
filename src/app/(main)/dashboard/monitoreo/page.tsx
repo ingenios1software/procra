@@ -5,19 +5,22 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { RegistrarEventoModal } from "@/components/monitoreo/RegistrarEventoModal";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useMemoFirebase } from "@/firebase";
 import type { Evento, Parcela, Zafra, Cultivo } from "@/lib/types";
-import { collection, query, orderBy } from 'firebase/firestore';
+import { orderBy } from 'firebase/firestore';
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 export default function MonitoreoPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
 
-  const { data: eventos, isLoading, forceRefetch } = useCollection<Evento>(useMemoFirebase(() => firestore ? query(collection(firestore, 'eventos'), orderBy('fecha', 'desc')) : null, [firestore]));
+  const { data: eventos, isLoading, forceRefetch } = useCollection<Evento>(
+    useMemoFirebase(() => tenant.query('eventos', orderBy('fecha', 'desc')), [tenant])
+  );
 
-  const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? collection(firestore, 'parcelas') : null, [firestore]));
-  const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? collection(firestore, 'zafras') : null, [firestore]));
-  const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? collection(firestore, 'cultivos') : null, [firestore]));
+  const { data: parcelas } = useCollection<Parcela>(useMemoFirebase(() => tenant.collection('parcelas'), [tenant]));
+  const { data: zafras } = useCollection<Zafra>(useMemoFirebase(() => tenant.collection('zafras'), [tenant]));
+  const { data: cultivos } = useCollection<Cultivo>(useMemoFirebase(() => tenant.collection('cultivos'), [tenant]));
 
   const handleEventSaved = () => {
     setIsModalOpen(false);

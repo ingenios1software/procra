@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { format, subDays } from "date-fns";
-import { collection } from "firebase/firestore";
 import { Activity, AreaChart, Calendar, Map as MapIcon, TriangleAlert } from "lucide-react";
 import {
   Bar,
@@ -16,12 +15,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useMemoFirebase } from "@/firebase";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Cultivo, Evento, Parcela, Zafra } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const COLORS = [
   "hsl(var(--chart-1))",
@@ -39,19 +39,19 @@ function toDate(value: Date | string | undefined): Date | null {
 }
 
 export default function DashboardGeneralPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
 
   const { data: parcelas, isLoading: l1 } = useCollection<Parcela>(
-    useMemoFirebase(() => (firestore ? collection(firestore, "parcelas") : null), [firestore])
+    useMemoFirebase(() => tenant.collection("parcelas"), [tenant])
   );
   const { data: cultivos, isLoading: l2 } = useCollection<Cultivo>(
-    useMemoFirebase(() => (firestore ? collection(firestore, "cultivos") : null), [firestore])
+    useMemoFirebase(() => tenant.collection("cultivos"), [tenant])
   );
   const { data: zafras, isLoading: l3 } = useCollection<Zafra>(
-    useMemoFirebase(() => (firestore ? collection(firestore, "zafras") : null), [firestore])
+    useMemoFirebase(() => tenant.collection("zafras"), [tenant])
   );
   const { data: eventos, isLoading: l4 } = useCollection<Evento>(
-    useMemoFirebase(() => (firestore ? collection(firestore, "eventos") : null), [firestore])
+    useMemoFirebase(() => tenant.collection("eventos"), [tenant])
   );
 
   const {

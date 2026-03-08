@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { addDoc, collection, deleteField, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, deleteField, getDoc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { FileText, MoreHorizontal, Pencil, PlusCircle, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,13 +56,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "../ui/input";
 import { cn } from "@/lib/utils";
 import type { Cultivo, Evento, Parcela, Zafra } from "@/lib/types";
-import { useFirestore, useUser, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, deleteDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { procesarConsumoDeStockDesdeEvento } from "@/lib/stock/consumo-desde-evento";
 import { EventoForm } from "./evento-form";
 import { EventoComprobante } from "./evento-comprobante";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 interface EventosListProps {
   eventos: Evento[];
@@ -74,7 +75,8 @@ interface EventosListProps {
 
 export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: EventosListProps) {
   const { user } = useUser();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { toast } = useToast();
 
   const [isFormOpen, setFormOpen] = useState(false);
@@ -123,12 +125,13 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
   };
 
   const syncMaquinariaHorometro = async (eventoData: Omit<Evento, "id">) => {
-    if (!firestore || !eventoData.maquinariaId) return;
+    if (!eventoData.maquinariaId) return;
 
     const horometroActual = Number(eventoData.horometroActual);
     if (Number.isNaN(horometroActual) || horometroActual < 0) return;
 
-    const maquinariaRef = doc(firestore, "maquinaria", eventoData.maquinariaId);
+    const maquinariaRef = tenant.doc("maquinaria", eventoData.maquinariaId);
+    if (!maquinariaRef) return;
     const maquinariaSnapshot = await getDoc(maquinariaRef);
     if (!maquinariaSnapshot.exists()) return;
 
@@ -165,7 +168,9 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
             dataToSave[campo] = deleteField();
           }
         }
-        await updateDoc(doc(firestore, "eventos", selectedEvento.id), dataToSave);
+        const eventoRef = tenant.doc("eventos", selectedEvento.id);
+        if (!eventoRef) throw new Error("No se pudo resolver el evento dentro de la empresa actual.");
+        await updateDoc(eventoRef, dataToSave);
         await syncMaquinariaHorometro(eventoData);
         const eventoActualizado = {
           ...selectedEvento,
@@ -184,7 +189,10 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
         return;
       }
 
-      const eventosCol = collection(firestore, "eventos");
+      const eventosCol = tenant.collection("eventos");
+      if (!eventosCol) {
+        throw new Error("No se pudo resolver la coleccion de eventos para la empresa actual.");
+      }
       const qLanzamiento = query(eventosCol, orderBy("numeroLanzamiento", "desc"), limit(1));
       const lanzSnapshot = await getDocs(qLanzamiento);
       const qItem = query(eventosCol, orderBy("numeroItem", "desc"), limit(1));
@@ -216,7 +224,12 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
       };
       await syncMaquinariaHorometro(eventoGuardado);
 
-      const { success, errors } = await procesarConsumoDeStockDesdeEvento(eventoGuardado, firestore, user.uid);
+      const { success, errors } = await procesarConsumoDeStockDesdeEvento(
+        eventoGuardado,
+        firestore,
+        user.uid,
+        tenant.empresaId
+      );
       const tipoNormalizado = (eventoGuardado.tipo || "").toString().toLowerCase();
       const esCosecha = tipoNormalizado === "cosecha" || tipoNormalizado === "rendimiento";
 
@@ -254,8 +267,9 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore) return;
-    deleteDocumentNonBlocking(doc(firestore, "eventos", id));
+    const eventoRef = tenant.doc("eventos", id);
+    if (!eventoRef) return;
+    deleteDocumentNonBlocking(eventoRef);
     toast({
       variant: "destructive",
       title: "Evento eliminado",

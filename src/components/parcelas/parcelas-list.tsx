@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { collection, doc, getCountFromServer } from "firebase/firestore";
+import { getCountFromServer } from "firebase/firestore";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,9 +32,10 @@ import { ReportActions } from "@/components/shared/report-actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, useFirestore, useUser } from "@/firebase";
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from "@/firebase";
 import { ParcelaForm } from "@/components/parcelas/parcela-form";
 import type { Parcela } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 interface ParcelasListProps {
   parcelas: Parcela[];
@@ -43,14 +44,14 @@ interface ParcelasListProps {
 
 export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
   const { user } = useUser();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { toast } = useToast();
   const [isDialogOpen, setDialogOpen] = useState(false);
 
   const handleSave = async (data: Omit<Parcela, "id" | "numeroItem">) => {
-    if (!firestore) return;
+    const parcelasCol = tenant.collection("parcelas");
+    if (!parcelasCol) return;
 
-    const parcelasCol = collection(firestore, "parcelas");
     const snapshot = await getCountFromServer(parcelasCol);
     const numeroItem = snapshot.data().count + 1;
 
@@ -64,9 +65,11 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore) return;
+    const parcelaRef = tenant.doc("parcelas", id);
+    if (!parcelaRef) return;
+
     const parcela = parcelas.find((item) => item.id === id);
-    deleteDocumentNonBlocking(doc(firestore, "parcelas", id));
+    deleteDocumentNonBlocking(parcelaRef);
     toast({
       variant: "destructive",
       title: "Parcela eliminada",
@@ -160,7 +163,7 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
                               <Link href={`/parcelas/${parcela.id}`}>Ver Reporte de Costos</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                              <Link href={`/parcelas/editar/${parcela.id}`}>Editar</Link>
+                              <Link href={`/parcelas/${parcela.id}/editar`}>Editar</Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <AlertDialog>

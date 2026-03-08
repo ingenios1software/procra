@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, writeBatch } from "firebase/firestore";
 import { useAuth, useFirestore } from "@/firebase";
 import { Logo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { buildEmpresaBasePayload, buildTenantRoleSeeds, tenantDoc } from "@/lib/tenant";
+import { isPlatformAdminEmail } from "@/lib/platform-admins";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,52 +25,42 @@ export default function LoginPage() {
   const [showReset, setShowReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const isAdminEmail = (email: string) => {
-    const lowercasedEmail = email.toLowerCase();
-    return lowercasedEmail === 'admin@crapro95.com' || lowercasedEmail === 'ricardo.ortellado@outlook.com';
-  }
+  const isAdminEmail = (value: string) => isPlatformAdminEmail(value);
 
-  const ensureAdminEmpresa = async (uid: string) => {
+  const ensureAdminEmpresa = async (uid: string, adminEmail: string) => {
     if (!db) return null;
     const empresaId = `empresa_${uid}`;
     const empresaRef = doc(db, "empresas", empresaId);
     const empresaSnap = await getDoc(empresaRef);
 
     if (!empresaSnap.exists()) {
-      const now = new Date();
-      const demoEnd = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30);
-      await setDoc(
-        empresaRef,
-        {
-          nombre: "Empresa Demo",
-          activo: true,
-          perfil: {
-            pais: "Paraguay",
-          },
-          branding: {
-            preparedBy: "Responsable",
-            approvedBy: "Administracion",
-          },
-          demo: {
-            habilitado: true,
-            inicio: now.toISOString(),
-            fin: demoEnd.toISOString(),
-          },
-          suscripcion: {
-            estado: "trial",
-            plan: "demo",
-            modeloCobro: "por_empresa",
-            moneda: "USD",
-            montoMensual: 0,
-            maxUsuarios: 3,
-            proximoCobro: null,
-          },
-        },
-        { merge: true }
-      );
+      await setDoc(empresaRef, buildEmpresaBasePayload({
+        nombre: "Empresa Demo",
+        email: adminEmail,
+        plan: "demo",
+        maxUsuarios: 3,
+      }), { merge: true });
     }
 
-    await setDoc(doc(db, "usuarios", uid), { empresaId }, { merge: true });
+    const batch = writeBatch(db);
+    buildTenantRoleSeeds().forEach((role) => {
+      batch.set(tenantDoc(db, empresaId, "roles", role.id), {
+        nombre: role.nombre,
+        descripcion: role.descripcion,
+        permisos: role.permisos,
+        soloLectura: role.soloLectura,
+        esSistema: role.esSistema,
+      }, { merge: true });
+    });
+    batch.set(doc(db, "usuarios", uid), {
+      empresaId,
+      rolId: "admin",
+      rolNombre: "admin",
+      esSuperAdmin: true,
+      activo: true,
+      email: adminEmail.toLowerCase(),
+    }, { merge: true });
+    await batch.commit();
     return empresaId;
   };
 
@@ -94,7 +86,7 @@ export default function LoginPage() {
 
       if (userDoc.exists()) {
         const userProfile = userDoc.data();
-        const updates: { activo?: boolean, rolId?: string, rolNombre?: string } = {};
+        const updates: { activo?: boolean, rolId?: string, rolNombre?: string, esSuperAdmin?: boolean } = {};
 
         // If user is admin and inactive, activate them.
         if (isLoginAdmin && userProfile?.activo === false) {
@@ -103,34 +95,24 @@ export default function LoginPage() {
 
         // ALSO, if user is admin, ensure they have the admin role.
         if (isLoginAdmin && userProfile?.rolNombre !== 'admin') {
-            const rolesQuery = query(collection(db, 'roles'), where('nombre', '==', 'admin'));
-            const rolesSnapshot = await getDocs(rolesQuery);
-            if (!rolesSnapshot.empty) {
-                const adminRole = rolesSnapshot.docs[0];
-                updates.rolId = adminRole.id;
-                updates.rolNombre = 'admin';
-            } else {
-                console.error("El rol 'admin' no existe en la base de datos. No se pudo asignar el rol de administrador.");
-            }
+            updates.rolId = 'admin';
+            updates.rolNombre = 'admin';
+            updates.esSuperAdmin = true;
         }
         
         if (Object.keys(updates).length > 0) {
             await setDoc(userDocRef, updates, { merge: true });
         }
         if (isLoginAdmin && !userProfile?.empresaId) {
-            await ensureAdminEmpresa(uid);
+            await ensureAdminEmpresa(uid, email);
         }
       } else {
         // If user is authenticated but has no profile document...
         if (isLoginAdmin) {
             // ...and they are an admin, create a profile for them.
-            const rolesQuery = query(collection(db, 'roles'), where('nombre', '==', 'admin'));
-            const rolesSnapshot = await getDocs(rolesQuery);
-            if (rolesSnapshot.empty) throw new Error("El rol 'admin' no existe en la base de datos.");
-            const adminRole = rolesSnapshot.docs[0];
-            const empresaId = await ensureAdminEmpresa(uid);
+            const empresaId = await ensureAdminEmpresa(uid, email);
             await setDoc(userDocRef, {
-                nombre: 'Administrador', email: email, rolId: adminRole.id, rolNombre: 'admin', activo: true, empresaId,
+                nombre: 'Administrador', email: email, rolId: 'admin', rolNombre: 'admin', activo: true, empresaId, esSuperAdmin: true,
             });
         } else {
             // A non-admin user without a profile is not allowed.
@@ -150,14 +132,9 @@ export default function LoginPage() {
                 const uid = newUserCredential.user.uid;
                 const userDocRef = doc(db, "usuarios", uid);
 
-                const rolesQuery = query(collection(db, 'roles'), where('nombre', '==', 'admin'));
-                const rolesSnapshot = await getDocs(rolesQuery);
-                if (rolesSnapshot.empty) throw new Error("El rol 'admin' no existe. No se puede crear el perfil.");
-                
-                const adminRole = rolesSnapshot.docs[0];
-                const empresaId = await ensureAdminEmpresa(uid);
+                const empresaId = await ensureAdminEmpresa(uid, email);
                 await setDoc(userDocRef, {
-                    nombre: 'Administrador', email: email, rolId: adminRole.id, rolNombre: 'admin', activo: true, empresaId,
+                    nombre: 'Administrador', email: email, rolId: 'admin', rolNombre: 'admin', activo: true, empresaId, esSuperAdmin: true,
                 });
                 
                 router.push("/dashboard");

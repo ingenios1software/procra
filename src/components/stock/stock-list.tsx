@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal, PlusCircle, AlertCircle, Package, DollarSign, Trash2, Download, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Insumo, CompraNormal, LoteInsumo } from "@/lib/types";
-import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { InsumoForm } from "./insumo-form";
 import {
   Tooltip,
@@ -22,12 +22,13 @@ import { ReportActions } from "../shared/report-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
-import { collection, doc, getDocs, query, orderBy, limit, writeBatch } from "firebase/firestore";
+import { doc, getDocs, query, orderBy, limit, writeBatch } from "firebase/firestore";
 import { ImportButton } from "./import-button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
 import { calcularPrecioPromedioDesdeCompras, toPositiveNumber } from "@/lib/stock/precio-promedio-lotes";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 interface StockListProps {
   insumos: Insumo[];
@@ -39,7 +40,8 @@ interface StockListProps {
 
 export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportClick }: StockListProps) {
   const { user } = useUser();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { toast } = useToast();
   
   const [isDialogOpen, setDialogOpen] = useState(false);
@@ -136,7 +138,8 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
   }, [lotes, insumos]);
 
   const handleSaveInsumo = useCallback(async (insumoData: Omit<Insumo, 'id' | 'precioPromedioCalculado' | 'stockActual' | 'costoUnitario'>) => {
-    if (!firestore) return;
+    const insumosCol = tenant.collection('insumos');
+    if (!firestore || !insumosCol) return;
 
     const dataToSave = {
       ...insumoData,
@@ -146,11 +149,11 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
     };
     
     if (selectedInsumo) {
-      const insumoRef = doc(firestore, 'insumos', selectedInsumo.id);
+      const insumoRef = tenant.doc('insumos', selectedInsumo.id);
+      if (!insumoRef) return;
       updateDocumentNonBlocking(insumoRef, dataToSave);
       toast({ title: "Insumo actualizado" });
     } else {
-      const insumosCol = collection(firestore, 'insumos');
       const q = query(insumosCol, orderBy("numeroItem", "desc"), limit(1));
       const querySnapshot = await getDocs(q);
       let maxNumeroItem = 0;
@@ -169,7 +172,8 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
   const handleDelete = (id: string) => {
     if (!firestore) return;
     const insumo = insumos.find(i => i.id === id);
-    const insumoRef = doc(firestore, "insumos", id);
+    const insumoRef = tenant.doc("insumos", id);
+    if (!insumoRef) return;
     deleteDocumentNonBlocking(insumoRef);
     toast({
       variant: "destructive",
@@ -179,10 +183,10 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
   };
 
   const handleDeleteAll = async () => {
-    if (!firestore || insumos.length === 0) return;
+    const insumosCollection = tenant.collection('insumos');
+    if (!firestore || !insumosCollection || insumos.length === 0) return;
 
     try {
-        const insumosCollection = collection(firestore, 'insumos');
         const insumosSnapshot = await getDocs(insumosCollection);
         const batch = writeBatch(firestore);
         insumosSnapshot.docs.forEach(doc => {

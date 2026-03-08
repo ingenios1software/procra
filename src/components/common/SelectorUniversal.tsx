@@ -30,6 +30,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "../ui/badge";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
+import { LEGACY_TENANT_COLLECTIONS } from "@/lib/tenant";
 
 interface SelectorUniversalProps<T> {
   label?: string;
@@ -59,16 +61,23 @@ export function SelectorUniversal<T extends { id: string }>({
   itemFilter,
 }: SelectorUniversalProps<T>) {
   const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [codeQuery, setCodeQuery] = React.useState<string>((value?.[codeField] as string) || "");
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isTenantCollection = LEGACY_TENANT_COLLECTIONS.includes(collectionName as (typeof LEGACY_TENANT_COLLECTIONS)[number]);
+
+  const collectionRef = React.useMemo(() => {
+    if (isTenantCollection) return tenant.collection(collectionName);
+    return firestore ? collection(firestore, collectionName) : null;
+  }, [collectionName, firestore, isTenantCollection, tenant]);
 
   const itemsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, collectionName));
-  }, [collectionName, firestore]);
+    if (!collectionRef) return null;
+    return query(collectionRef);
+  }, [collectionRef]);
 
   const { data: allItems, isLoading } = useCollection<T>(itemsQuery);
 
@@ -132,7 +141,7 @@ export function SelectorUniversal<T extends { id: string }>({
 
   const handleCodeSearch = React.useCallback(async () => {
     if (!String(codeQuery).trim()) return;
-    if (!firestore) return;
+    if (!collectionRef) return;
 
     const numericCode = Number(codeQuery);
     if (Number.isNaN(numericCode)) {
@@ -150,12 +159,8 @@ export function SelectorUniversal<T extends { id: string }>({
       return;
     }
 
-    const q = query(
-      collection(firestore, collectionName),
-      where(codeField as string, "==", numericCode),
-      limit(1)
-    );
-    const querySnapshot = await getDocs(q);
+    const codeQueryRef = query(collectionRef, where(codeField as string, "==", numericCode), limit(1));
+    const querySnapshot = await getDocs(codeQueryRef);
 
     if (!querySnapshot.empty) {
       const foundDoc = querySnapshot.docs[0];
@@ -169,7 +174,7 @@ export function SelectorUniversal<T extends { id: string }>({
       title: "Registro no encontrado",
       description: `No se encontro un registro con el codigo "${codeQuery}".`,
     });
-  }, [baseItems, codeField, codeQuery, collectionName, firestore, handleItemSelect, toast]);
+  }, [baseItems, codeField, codeQuery, collectionRef, handleItemSelect, toast]);
 
   const handleCodeKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -326,4 +331,3 @@ export function SelectorUniversal<T extends { id: string }>({
     </>
   );
 }
-

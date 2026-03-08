@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -7,100 +6,83 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function userPath() {
-      return /databases/$(database)/documents/users/$(request.auth.uid);
+    function currentUserPath() {
+      return /databases/$(database)/documents/usuarios/$(request.auth.uid);
     }
 
-    function hasUserDoc() {
-      return signedIn() && exists(userPath());
+    function hasCurrentUser() {
+      return signedIn() && exists(currentUserPath());
     }
 
-    function userDoc() {
-      return get(userPath()).data;
+    function currentUser() {
+      return get(currentUserPath()).data;
     }
 
-    function roleIs(role) {
-      return hasUserDoc() && userDoc().role == role;
-    }
-
-    function admin() {
-      return roleIs('admin');
-    }
-
-    function supervisor() {
-      return roleIs('supervisor');
-    }
-
-    function capataz() {
-      return roleIs('capataz');
-    }
-
-    function canOperateSite(siteId) {
-      return hasUserDoc() && (
-        admin() ||
-        supervisor() ||
-        (capataz() && ('siteIds' in userDoc()) && (siteId in userDoc().siteIds))
+    function isPlatformAdminEmail() {
+      return signedIn() && (
+        request.auth.token.email == "admin@crapro95.com" ||
+        request.auth.token.email == "ricardo.ortellado@outlook.com"
       );
     }
 
-    match /users/{uid} {
-      allow read: if signedIn() && (uid == request.auth.uid || admin());
-      allow create, update, delete: if admin();
+    function isPlatformAdmin() {
+      return hasCurrentUser() && currentUser().esSuperAdmin == true || isPlatformAdminEmail();
     }
 
-    match /workers/{workerId} {
-      allow read: if signedIn();
-      allow create, update: if admin() || supervisor();
-      allow delete: if admin();
+    function isSameEmpresa(empresaId) {
+      return hasCurrentUser() && currentUser().empresaId == empresaId;
     }
 
-    match /sites/{siteId} {
-      allow read: if signedIn();
-      allow create, update: if admin() || supervisor();
-      allow delete: if admin();
+    function canReadEmpresa(empresaId) {
+      return isPlatformAdmin() || (isSameEmpresa(empresaId) && currentUser().activo == true);
     }
 
-    match /periods/{periodId} {
-      allow read: if signedIn();
-      allow create, update, delete: if admin();
-    }
-
-    match /attendances/{attendanceId} {
-      allow read: if signedIn();
-
-      allow create: if signedIn() &&
-        (admin() || supervisor() || capataz()) &&
-        request.resource.data.createdBy == request.auth.uid &&
-        request.resource.data.status == 'draft' &&
-        canOperateSite(request.resource.data.siteId);
-
-      allow update: if (
-        (admin() || supervisor()) &&
-        canOperateSite(request.resource.data.siteId)
-      ) || (
-        capataz() &&
-        resource.data.createdBy == request.auth.uid &&
-        resource.data.status == 'draft' &&
-        request.resource.data.status == 'draft' &&
-        canOperateSite(request.resource.data.siteId)
+    function canManageEmpresa(empresaId) {
+      return isPlatformAdmin() || (
+        isSameEmpresa(empresaId) &&
+        currentUser().activo == true &&
+        currentUser().rolNombre == "admin"
       );
-
-      allow delete: if admin();
     }
 
-    match /adjustments/{adjustmentId} {
-      allow read: if signedIn();
-      allow create, update: if admin() || supervisor();
-      allow delete: if admin();
+    match /usuarios/{uid} {
+      allow get: if signedIn() && (
+        uid == request.auth.uid ||
+        isPlatformAdmin() ||
+        (hasCurrentUser() &&
+          currentUser().rolNombre == "admin" &&
+          resource.data.empresaId == currentUser().empresaId)
+      );
+      allow list: if isPlatformAdmin() || (hasCurrentUser() && currentUser().rolNombre == "admin");
+      allow create: if isPlatformAdmin();
+      allow update: if isPlatformAdmin() || (
+        hasCurrentUser() &&
+        currentUser().rolNombre == "admin" &&
+        resource.data.empresaId == currentUser().empresaId &&
+        request.resource.data.empresaId == resource.data.empresaId
+      );
+      allow delete: if isPlatformAdmin();
     }
 
-    match /settlements/{settlementId} {
+    match /roles/{roleId} {
       allow read: if signedIn();
-      allow create, update, delete: if admin();
+      allow write: if isPlatformAdmin();
+    }
+
+    match /empresas/{empresaId} {
+      allow read: if canReadEmpresa(empresaId);
+      allow create: if isPlatformAdmin();
+      allow update: if canManageEmpresa(empresaId);
+      allow delete: if isPlatformAdmin();
+
+      match /{collectionId}/{docId} {
+        allow read: if canReadEmpresa(empresaId);
+        allow create, update, delete: if canManageEmpresa(empresaId);
+      }
     }
 
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if isPlatformAdmin();
     }
   }
 }

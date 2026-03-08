@@ -13,6 +13,7 @@ import type {
 } from "@/lib/types";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 import { withZafraContext } from "@/lib/contabilidad/asientos";
+import { tenantCollection, tenantDoc } from "@/lib/tenant";
 import {
   CATEGORIA_GRANO,
   buildGranoInsumoCodigo,
@@ -43,8 +44,17 @@ function normalizarTexto(value: unknown): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+function scopedCollection(db: Firestore, empresaId: string | null | undefined, collectionName: string) {
+  return empresaId ? tenantCollection(db, empresaId, collectionName) : collection(db, collectionName);
+}
+
+function scopedDoc(db: Firestore, empresaId: string | null | undefined, collectionName: string, documentId: string) {
+  return empresaId ? tenantDoc(db, empresaId, collectionName, documentId) : doc(db, collectionName, documentId);
+}
+
 async function obtenerHectareasPlantadasContexto(
   db: Firestore,
+  empresaId: string | null | undefined,
   {
     zafraId,
     cultivoId,
@@ -57,7 +67,7 @@ async function obtenerHectareasPlantadasContexto(
     superficieFallback?: number;
   }
 ): Promise<number> {
-  const eventosZafraQuery = query(collection(db, "eventos"), where("zafraId", "==", zafraId));
+  const eventosZafraQuery = query(scopedCollection(db, empresaId, "eventos"), where("zafraId", "==", zafraId));
   const eventosZafraSnap = await getDocs(eventosZafraQuery);
 
   let hectareasSiembra = 0;
@@ -88,7 +98,8 @@ function buildEventoDocumento(evento: Evento & { id: string }): string {
 export async function procesarConsumoDeStockDesdeEvento(
   evento: Evento & { id: string },
   db: Firestore,
-  userId: string
+  userId: string,
+  empresaId?: string | null
 ): Promise<{ success: boolean; errors: string[] }> {
   const errors: string[] = [];
 
@@ -103,11 +114,11 @@ export async function procesarConsumoDeStockDesdeEvento(
     return { success: true, errors: [] };
   }
 
-  const eventoRef = doc(db, "eventos", evento.id);
+  const eventoRef = scopedDoc(db, empresaId, "eventos", evento.id);
   const batch = writeBatch(db);
-  const parcelaRef = doc(db, "parcelas", evento.parcelaId);
-  const cultivoRef = doc(db, "cultivos", evento.cultivoId);
-  const zafraRef = doc(db, "zafras", evento.zafraId);
+  const parcelaRef = scopedDoc(db, empresaId, "parcelas", evento.parcelaId);
+  const cultivoRef = scopedDoc(db, empresaId, "cultivos", evento.cultivoId);
+  const zafraRef = scopedDoc(db, empresaId, "zafras", evento.zafraId);
 
   try {
     const [eventoDoc, parcelaDoc, cultivoDoc, zafraDoc] = await Promise.all([
@@ -132,7 +143,7 @@ export async function procesarConsumoDeStockDesdeEvento(
 
     if (debeProcesarConsumo) {
       for (const producto of productos) {
-        const insumoRef = doc(db, "insumos", producto.insumoId);
+        const insumoRef = scopedDoc(db, empresaId, "insumos", producto.insumoId);
         const insumoDoc = await getDoc(insumoRef);
 
         if (!insumoDoc.exists()) {
@@ -148,7 +159,7 @@ export async function procesarConsumoDeStockDesdeEvento(
         const stockDespues = stockAntes - consumoCalculado;
         const precioUnitario = toPositiveNumber(insumo.precioPromedioCalculado || insumo.costoUnitario);
 
-        const movimientoRef = doc(collection(db, "MovimientosStock"));
+        const movimientoRef = doc(scopedCollection(db, empresaId, "MovimientosStock"));
         const nuevoMovimiento: Omit<MovimientoStock, "id"> = {
           fecha: new Date(evento.fecha as string),
           tipo: "salida",
@@ -181,7 +192,7 @@ export async function procesarConsumoDeStockDesdeEvento(
 
     if (debeProcesarCosecha) {
       const documentoEvento = buildEventoDocumento(evento);
-      const insumoGranoRef = doc(db, "insumos", buildGranoInsumoId(evento.cultivoId));
+      const insumoGranoRef = scopedDoc(db, empresaId, "insumos", buildGranoInsumoId(evento.cultivoId));
       const insumoGranoDoc = await getDoc(insumoGranoRef);
 
       const precioReferenciaEvento = toPositiveNumber(evento.precioTonelada);
@@ -235,7 +246,7 @@ export async function procesarConsumoDeStockDesdeEvento(
       );
 
       const precioMovimiento = precioIngreso || precioPromedioDespues;
-      const movimientoGranoRef = doc(collection(db, "MovimientosStock"));
+      const movimientoGranoRef = doc(scopedCollection(db, empresaId, "MovimientosStock"));
       const movimientoGrano: Omit<MovimientoStock, "id"> = {
         fecha: new Date(evento.fecha as string),
         tipo: "entrada",
@@ -260,8 +271,9 @@ export async function procesarConsumoDeStockDesdeEvento(
       };
       batch.set(movimientoGranoRef, movimientoGrano);
 
-      const stockGranoRef = doc(
+      const stockGranoRef = scopedDoc(
         db,
+        empresaId,
         "stockGranos",
         buildStockGranoDocId(insumoGranoRef.id, evento.zafraId, evento.parcelaId)
       );
@@ -296,7 +308,7 @@ export async function procesarConsumoDeStockDesdeEvento(
       };
       batch.set(stockGranoRef, resumenStockGrano, { merge: true });
 
-      const hectareasPlantadasContexto = await obtenerHectareasPlantadasContexto(db, {
+      const hectareasPlantadasContexto = await obtenerHectareasPlantadasContexto(db, empresaId, {
         zafraId: evento.zafraId,
         cultivoId: evento.cultivoId,
         parcelaId: evento.parcelaId,
@@ -310,8 +322,9 @@ export async function procesarConsumoDeStockDesdeEvento(
       eventoUpdates.rendimientoTonHa = rendimientoTonHaEvento;
       eventoUpdates.rendimientoKgHa = rendimientoKgHaEvento;
 
-      const rendimientoRef = doc(
+      const rendimientoRef = scopedDoc(
         db,
+        empresaId,
         "rendimientosAgricolas",
         buildRendimientoDocId(evento.zafraId, evento.cultivoId, evento.parcelaId)
       );
@@ -354,7 +367,7 @@ export async function procesarConsumoDeStockDesdeEvento(
       if (costoServicioTotal > 0) {
         eventoUpdates.costoServicioTotal = costoServicioTotal;
 
-        const planCuentasSnap = await getDocs(collection(db, "planDeCuentas"));
+        const planCuentasSnap = await getDocs(scopedCollection(db, empresaId, "planDeCuentas"));
         const planDeCuentas: PlanDeCuenta[] = planCuentasSnap.docs.map((item) => ({
           ...(item.data() as Omit<PlanDeCuenta, "id">),
           id: item.id,
@@ -383,7 +396,7 @@ export async function procesarConsumoDeStockDesdeEvento(
         }
 
         if (cuentaServicioCosechaId && cuentaGastoId) {
-          const asientoServicioRef = doc(collection(db, "asientosDiario"));
+          const asientoServicioRef = doc(scopedCollection(db, empresaId, "asientosDiario"));
           const asientoServicio: Omit<AsientoDiario, "id"> = withZafraContext({
             fecha: new Date(evento.fecha as string).toISOString(),
             descripcion: `Costo servicio cosecha ${documentoEvento} - ${cultivo?.nombre || "Cultivo"}`,

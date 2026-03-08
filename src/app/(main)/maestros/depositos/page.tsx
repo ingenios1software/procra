@@ -1,26 +1,15 @@
 "use client";
 
 import { DepositosList } from "@/components/maestros/depositos/depositos-list";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from 'firebase/firestore';
-import type { Deposito } from '@/lib/types';
-
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
+import type { Deposito } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 export default function DepositosPage() {
-  const firestore = useFirestore();
-
-  const depositosQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'depositos'), orderBy('nombre')) : null
-  , [firestore]);
+  const tenant = useTenantFirestore();
+  const depositosQuery = useMemoFirebase(() => tenant.query("depositos", orderBy("nombre")), [tenant]);
   const { data: depositos, isLoading, forceRefetch } = useCollection<Deposito>(depositosQuery);
 
-  return (
-    <DepositosList
-      initialDepositos={depositos || []}
-      isLoading={isLoading}
-      onDataChange={forceRefetch}
-    />
-  );
+  return <DepositosList initialDepositos={depositos || []} isLoading={isLoading} onDataChange={forceRefetch} />;
 }
-
-    

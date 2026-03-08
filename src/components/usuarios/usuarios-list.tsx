@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -6,11 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { UsuarioForm } from "./usuario-form";
+import { UsuarioForm, type UsuarioFormPayload } from "./usuario-form";
 import type { Usuario, Rol } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 interface UsuariosListProps {
   initialUsuarios: Usuario[];
   roles: Rol[];
-  onSave: (data: Omit<Usuario, 'id' | 'rolNombre'>, id?: string) => void;
+  onSave: (data: UsuarioFormPayload, id?: string) => void;
   onDelete: (id: string) => void;
   isLoading: boolean;
 }
@@ -30,7 +39,7 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
 
   const canModify = permisos.administracion;
 
-  const handleSave = (usuarioData: Omit<Usuario, 'id' | 'rolNombre'>) => {
+  const handleSave = (usuarioData: UsuarioFormPayload) => {
     if (selectedUsuario) {
       onSave(usuarioData, selectedUsuario.id);
     } else {
@@ -47,10 +56,7 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
 
   return (
     <>
-      <PageHeader
-        title="Gestión de Usuarios"
-        description="Administración de cuentas y roles del sistema."
-      >
+      <PageHeader title="Gestion de Usuarios" description="Administracion de cuentas y roles del sistema.">
         {canModify && (
           <Button onClick={() => openDialog()}>
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -58,13 +64,11 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
           </Button>
         )}
       </PageHeader>
-  
+
       {!canModify && (
-        <Card className="mb-4 bg-amber-50 border-amber-200">
+        <Card className="mb-4 border-amber-200 bg-amber-50">
           <CardContent className="p-4">
-            <p className="text-amber-800 font-medium">
-              Solo los administradores o supervisores pueden gestionar usuarios.
-            </p>
+            <p className="font-medium text-amber-800">Solo los administradores pueden gestionar usuarios.</p>
           </CardContent>
         </Card>
       )}
@@ -87,7 +91,7 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
+                  <TableCell colSpan={5} className="h-24 text-center">
                     Cargando usuarios...
                   </TableCell>
                 </TableRow>
@@ -97,14 +101,11 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
                   <TableCell className="font-medium">{usuario.nombre}</TableCell>
                   <TableCell>{usuario.email}</TableCell>
                   <TableCell className="capitalize">
-                  {roles.find(r => r.id === usuario.rolId)?.nombre || usuario.rolNombre || "—"}
+                    {roles.find((rol) => rol.id === usuario.rolId)?.nombre || usuario.rolNombre || "-"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={usuario.activo ? 'default' : "destructive"}>
-                      {usuario.activo ? 'Activo' : 'Inactivo'}
-                    </Badge>
+                    <Badge variant={usuario.activo ? "default" : "destructive"}>{usuario.activo ? "Activo" : "Inactivo"}</Badge>
                   </TableCell>
-
                   {canModify && (
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -116,23 +117,18 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openDialog(usuario)}>
-                            Editar
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openDialog(usuario)}>Editar</DropdownMenuItem>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <DropdownMenuItem
-                                onSelect={(e) => e.preventDefault()}
-                                className="text-destructive"
-                              >
-                                Eliminar
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                Desactivar
                               </DropdownMenuItem>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                <AlertDialogTitle>Confirmar desactivacion</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Esta acción eliminará al usuario permanentemente.
+                                  Esta accion dejara al usuario sin acceso hasta que vuelva a activarse.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -141,7 +137,7 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
                                   onClick={() => onDelete(usuario.id)}
                                   className="bg-destructive hover:bg-destructive/90"
                                 >
-                                  Eliminar
+                                  Desactivar
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -155,7 +151,7 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
 
               {!isLoading && initialUsuarios.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
+                  <TableCell colSpan={5} className="h-24 text-center">
                     No hay usuarios registrados.
                   </TableCell>
                 </TableRow>
@@ -165,19 +161,20 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
         </CardContent>
       </Card>
 
-        <Dialog modal={false} open={isDialogOpen} onOpenChange={setDialogOpen}>
-         <DialogContent draggable>
+      <Dialog modal={false} open={isDialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent draggable>
           <DialogHeader>
-            <DialogTitle>{selectedUsuario ? 'Editar Usuario' : 'Crear Nuevo Usuario'}</DialogTitle>
-            <DialogDescription>
-              Complete los datos del perfil y asigne un rol.
-            </DialogDescription>
+            <DialogTitle>{selectedUsuario ? "Editar Usuario" : "Crear Nuevo Usuario"}</DialogTitle>
+            <DialogDescription>Complete los datos del perfil y asigne un rol.</DialogDescription>
           </DialogHeader>
           <UsuarioForm
             usuario={selectedUsuario}
             roles={roles}
             onSubmit={handleSave}
-            onCancel={() => { setDialogOpen(false); setSelectedUsuario(null); }}
+            onCancel={() => {
+              setDialogOpen(false);
+              setSelectedUsuario(null);
+            }}
           />
         </DialogContent>
       </Dialog>

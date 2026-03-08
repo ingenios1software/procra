@@ -31,14 +31,16 @@ import { CompraNormalForm } from "@/components/comercial/compras/compra-normal-f
 import { MoreHorizontal } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy, writeBatch, doc, where, getDoc } from 'firebase/firestore';
+import { useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { doc, getDoc, orderBy, query, where, writeBatch } from 'firebase/firestore';
 import { calcularEstadoCuenta, calcularSaldoDesdeMovimiento } from "@/lib/cuentas";
 import { withZafraContext } from "@/lib/contabilidad/asientos";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 
 export default function ComprasPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { user } = useUser();
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState<CompraNormal | null>(null);
@@ -49,21 +51,21 @@ export default function ComprasPage() {
   const { toast } = useToast();
 
   const comprasQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'comprasNormal'), orderBy('fechaEmision', 'desc')) : null
-  , [firestore]);
+    tenant.query('comprasNormal', orderBy('fechaEmision', 'desc'))
+  , [tenant]);
   const { data: compras, isLoading: isLoadingCompras } = useCollection<CompraNormal>(comprasQuery);
 
   const proveedoresQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'proveedores')) : null
-  , [firestore]);
+    tenant.query('proveedores')
+  , [tenant]);
   const { data: proveedores, isLoading: isLoadingProveedores } = useCollection<Proveedor>(proveedoresQuery);
   const planDeCuentasQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'planDeCuentas'), orderBy('codigo')) : null
-  , [firestore]);
+    tenant.query('planDeCuentas', orderBy('codigo'))
+  , [tenant]);
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
   const cuentasCajaBancoQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'cuentasCajaBanco'), where('activo', '==', true)) : null
-  , [firestore]);
+    tenant.query('cuentasCajaBanco', where('activo', '==', true))
+  , [tenant]);
   const { data: cuentasCajaBanco } = useCollection<CuentaCajaBanco>(cuentasCajaBancoQuery);
 
   const getProveedorNombre = (id: string) => {
@@ -117,7 +119,7 @@ export default function ComprasPage() {
   };
 
   const handleApproveCompra = async () => {
-    if (!firestore || !compraParaAprobar || !user) return;
+    if (!firestore || !compraParaAprobar || !user || !tenant.isReady) return;
     if (compraParaAprobar.estado !== 'abierto') {
       toast({ variant: 'destructive', title: 'Estado invalido', description: 'Solo se pueden aprobar compras abiertas.' });
       return;
@@ -130,8 +132,11 @@ export default function ComprasPage() {
     setIsApproving(true);
     try {
       const batch = writeBatch(firestore);
-      const compraRef = doc(firestore, 'comprasNormal', compraParaAprobar.id);
-      const cuentaPorPagarRef = doc(firestore, 'cuentasPorPagar', compraParaAprobar.id);
+      const compraRef = tenant.doc('comprasNormal', compraParaAprobar.id);
+      const cuentaPorPagarRef = tenant.doc('cuentasPorPagar', compraParaAprobar.id);
+      const asientosCol = tenant.collection('asientosDiario');
+      const pagosCol = tenant.collection('pagosCxp');
+      if (!compraRef || !cuentaPorPagarRef || !asientosCol || !pagosCol) return;
       const cuentaPorPagarSnap = await getDoc(cuentaPorPagarRef);
       const cuentaPorPagarActual = cuentaPorPagarSnap.exists()
         ? ({ ...(cuentaPorPagarSnap.data() as CuentaPorPagar), id: cuentaPorPagarSnap.id } as CuentaPorPagar)
@@ -168,7 +173,7 @@ export default function ComprasPage() {
 
       if (pagoAplicado) {
         montoPago = saldoPendienteActual > 0 ? saldoPendienteActual : compraParaAprobar.totalFactura;
-        const asientoPagoRef = doc(collection(firestore, 'asientosDiario'));
+        const asientoPagoRef = doc(asientosCol);
         const asientoPago: Omit<AsientoDiario, 'id'> = withZafraContext({
           fecha: fechaOperacion,
           descripcion: `Pago compra ${compraParaAprobar.comprobante.documento}`,
@@ -183,7 +188,7 @@ export default function ComprasPage() {
         batch.set(asientoPagoRef, asientoPago);
         asientoPagoId = asientoPagoRef.id;
 
-        const pagoRef = doc(collection(firestore, 'pagosCxp'));
+        const pagoRef = doc(pagosCol);
         const pagoData: Omit<PagoCuentaPorPagar, 'id'> = {
           cuentaPorPagarId: compraParaAprobar.id,
           compraId: compraParaAprobar.id,
@@ -266,7 +271,7 @@ export default function ComprasPage() {
   };
 
   const handleAnularCompra = async (compra: CompraNormal) => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || !tenant.isReady) return;
     if (compra.estado !== 'abierto') {
       toast({ variant: 'destructive', title: 'No se puede anular', description: 'Solo se pueden anular compras abiertas.' });
       return;
@@ -284,8 +289,9 @@ export default function ComprasPage() {
 
     try {
       const batch = writeBatch(firestore);
-      const compraRef = doc(firestore, 'comprasNormal', compra.id);
-      const cuentaPorPagarRef = doc(firestore, 'cuentasPorPagar', compra.id);
+      const compraRef = tenant.doc('comprasNormal', compra.id);
+      const cuentaPorPagarRef = tenant.doc('cuentasPorPagar', compra.id);
+      if (!compraRef || !cuentaPorPagarRef) return;
       const fechaAnulacion = new Date().toISOString();
       batch.update(compraRef, {
         estado: 'anulado',

@@ -5,6 +5,7 @@ import { Usuario, Permisos, Rol, EmpresaSaaS } from '@/lib/types';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { getEstadoComercial, mergePermisosByGate, resolveModulosComprados } from '@/lib/suscripcion-saas';
+import { tenantDoc } from '@/lib/tenant';
 
 interface AuthContextType {
   usuarioApp: Usuario | null;
@@ -61,11 +62,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: usuarioApp, isLoading: isProfileLoading } = useDoc<Usuario>(userProfileRef);
 
   // Fetch role permissions from Firestore
-  const roleRef = useMemoFirebase(() => 
-    (usuarioApp && firestore) ? doc(firestore, 'roles', usuarioApp.rolId) : null,
-    [usuarioApp, firestore]
+  const roleRef = useMemoFirebase(() =>
+    usuarioApp?.empresaId && usuarioApp?.rolId && firestore
+      ? tenantDoc(firestore, usuarioApp.empresaId, 'roles', usuarioApp.rolId)
+      : null,
+    [usuarioApp?.empresaId, usuarioApp?.rolId, firestore]
   );
-  const { data: userRole, isLoading: isRoleLoading } = useDoc<Rol>(roleRef);
+  const { data: tenantRole, isLoading: isTenantRoleLoading } = useDoc<Rol>(roleRef);
+  const legacyRoleRef = useMemoFirebase(
+    () => (usuarioApp?.rolId && firestore ? doc(firestore, 'roles', usuarioApp.rolId) : null),
+    [usuarioApp?.rolId, firestore]
+  );
+  const { data: legacyRole, isLoading: isLegacyRoleLoading } = useDoc<Rol>(legacyRoleRef);
 
   const empresaRef = useMemoFirebase(
     () => (usuarioApp?.empresaId && firestore ? doc(firestore, 'empresas', usuarioApp.empresaId) : null),
@@ -73,14 +81,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const { data: empresaSaaS, isLoading: isEmpresaLoading } = useDoc<EmpresaSaaS>(empresaRef);
 
-  const isLoading = (isAuthLoading && !authTimedOut && !userError) || isProfileLoading || isRoleLoading || isEmpresaLoading;
+  const resolvedRole = tenantRole || legacyRole;
+  const isLoading =
+    (isAuthLoading && !authTimedOut && !userError) ||
+    isProfileLoading ||
+    isTenantRoleLoading ||
+    isLegacyRoleLoading ||
+    isEmpresaLoading;
 
   const value = useMemo(() => {
     // SPECIAL CASE: If the user has the 'admin' role, always grant all permissions.
     // This is a safeguard to ensure the admin is never locked out due to DB inconsistencies.
     const isAdmin = usuarioApp?.rolNombre === 'admin';
     const estadoComercial = getEstadoComercial(empresaSaaS || null);
-    const permisosPorRol = isAdmin ? allPermissions : (userRole?.permisos || defaultPermissions);
+    const permisosPorRol = isAdmin ? allPermissions : (resolvedRole?.permisos || defaultPermissions);
     const modulosComprados = resolveModulosComprados(empresaSaaS || null);
     const gateComercial: Permisos = {
       compras: estadoComercial.acceso,
@@ -109,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       empresa: empresaSaaS || null,
       estadoComercial,
     };
-  }, [empresaSaaS, isLoading, usuarioApp, userRole]);
+  }, [empresaSaaS, isLoading, resolvedRole, usuarioApp]);
 
 
   if (isAuthLoading && !authTimedOut && !userError) { // Only show global loader during initial Firebase Auth check

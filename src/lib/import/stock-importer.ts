@@ -1,6 +1,6 @@
-import { collection, doc, getDocs, writeBatch, query, orderBy, limit } from "firebase/firestore";
-import { initializeFirebase } from "@/firebase";
+import { doc, getDocs, writeBatch, query, orderBy, limit, type Firestore } from "firebase/firestore";
 import type { Insumo } from "@/lib/types";
+import { tenantCollection, tenantDoc } from "@/lib/tenant";
 
 // --- Mapeo de columnas flexibles ---
 const COLUMN_ALIASES = {
@@ -29,10 +29,13 @@ function hasAnyColumn(headers: string[], aliases: string[]): boolean {
 }
 
 
-export async function importarStockDesdeExcel(file: File): Promise<{ success: boolean; errors: string[] }> {
+export async function importarStockDesdeExcel(
+    file: File,
+    db: Firestore,
+    empresaId: string
+): Promise<{ success: boolean; errors: string[] }> {
     const XLSX = await import("xlsx");
     const errors: string[] = [];
-    const { firestore: db } = initializeFirebase();
 
     // 1. Leer el archivo
     const data = await file.arrayBuffer();
@@ -55,7 +58,7 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
     }
 
     // 3. Obtener el último numeroItem para continuar la secuencia
-    const insumosCollection = collection(db, "insumos");
+    const insumosCollection = tenantCollection(db, empresaId, "insumos");
     const q = query(insumosCollection, orderBy("numeroItem", "desc"), limit(1));
     const lastItemSnapshot = await getDocs(q);
     let maxNumeroItem = 0;
@@ -93,7 +96,7 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
     
     // 5. Procesar en Firestore
     try {
-        const querySnapshot = await getDocs(collection(db, "insumos"));
+        const querySnapshot = await getDocs(tenantCollection(db, empresaId, "insumos"));
         const existingInsumos = new Map(querySnapshot.docs.map(d => [d.data().nombre, { id: d.id, ...d.data() } as Insumo]));
         const batch = writeBatch(db);
 
@@ -124,7 +127,7 @@ export async function importarStockDesdeExcel(file: File): Promise<{ success: bo
             };
 
             if (existing) {
-                const docRef = doc(db, "insumos", existing.id);
+                const docRef = tenantDoc(db, empresaId, "insumos", existing.id);
                 batch.update(docRef, finalItemData);
             } else {
                 const docRef = doc(insumosCollection);

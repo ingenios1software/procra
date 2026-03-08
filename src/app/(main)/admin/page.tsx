@@ -1,6 +1,7 @@
 "use client";
 
 import { RecalculatePrices } from "@/components/admin/recalculate-prices";
+import { TenantAdminTools } from "@/components/admin/tenant-admin-tools";
 import { PageHeader } from "@/components/shared/page-header";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +36,7 @@ export default function AdminPage() {
         description="Tareas de mantenimiento y corrección de datos del sistema."
       />
       <div className="grid gap-6">
+        <TenantAdminTools />
         <RecalculatePrices />
       </div>
     </>
