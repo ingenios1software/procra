@@ -69,9 +69,6 @@ export function canAccessPathByPermisos(
   permisos: Permisos,
   role?: string | null
 ): boolean {
-  const normalizedRole = (role || "").toLowerCase().trim();
-  if (normalizedRole === "admin") return true;
-
   const permission = getPermissionForPath(pathname);
   if (!permission) return true;
   return Boolean(permisos[permission]);

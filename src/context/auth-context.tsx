@@ -2,10 +2,10 @@
 
 import React, { createContext, useState, useMemo, ReactNode, useEffect } from 'react';
 import { Usuario, Permisos, Rol, EmpresaSaaS } from '@/lib/types';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, query, where } from 'firebase/firestore';
 import { getEstadoComercial, mergePermisosByGate, resolveModulosComprados } from '@/lib/suscripcion-saas';
-import { tenantDoc } from '@/lib/tenant';
+import { tenantCollection, tenantDoc } from '@/lib/tenant';
 
 interface AuthContextType {
   usuarioApp: Usuario | null;
@@ -32,6 +32,41 @@ const allPermissions: Permisos = {
     ventas: true, contabilidad: true, rrhh: true,
     finanzas: true, agronomia: true, maestros: true, administracion: true,
 };
+
+const TENANT_ROLE_ALIASES: Record<string, string> = {
+  admin: "admin",
+  tecnico: "tecnico",
+  tecnicocampo: "tecnico",
+  supervisor: "tecnico",
+  capataz: "tecnico",
+  operador: "operador",
+  gerente: "consulta",
+  auditor: "consulta",
+  consulta: "consulta",
+};
+
+function normalizeRoleKey(value?: string | null): string {
+  if (!value) return "";
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function resolveTenantRoleAliasId(usuarioApp: Usuario | null | undefined): string | null {
+  const directRoleName = normalizeRoleKey(usuarioApp?.rolNombre);
+  if (directRoleName && TENANT_ROLE_ALIASES[directRoleName]) {
+    return TENANT_ROLE_ALIASES[directRoleName];
+  }
+
+  const normalizedRoleId = normalizeRoleKey(usuarioApp?.rolId);
+  if (normalizedRoleId && TENANT_ROLE_ALIASES[normalizedRoleId]) {
+    return TENANT_ROLE_ALIASES[normalizedRoleId];
+  }
+
+  return null;
+}
 
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,16 +97,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: usuarioApp, isLoading: isProfileLoading } = useDoc<Usuario>(userProfileRef);
 
   // Fetch role permissions from Firestore
-  const roleRef = useMemoFirebase(() =>
+  const tenantRoleAliasId = resolveTenantRoleAliasId(usuarioApp || null);
+  const directTenantRoleRef = useMemoFirebase(() =>
     usuarioApp?.empresaId && usuarioApp?.rolId && firestore
       ? tenantDoc(firestore, usuarioApp.empresaId, 'roles', usuarioApp.rolId)
       : null,
-    [usuarioApp?.empresaId, usuarioApp?.rolId, firestore]
+    [firestore, usuarioApp?.empresaId, usuarioApp?.rolId]
   );
-  const { data: tenantRole, isLoading: isTenantRoleLoading } = useDoc<Rol>(roleRef);
+  const { data: directTenantRole, isLoading: isDirectTenantRoleLoading } = useDoc<Rol>(directTenantRoleRef);
+  const namedTenantRoleQuery = useMemoFirebase(
+    () =>
+      usuarioApp?.empresaId &&
+      usuarioApp?.rolNombre &&
+      firestore
+        ? query(tenantCollection(firestore, usuarioApp.empresaId, 'roles'), where('nombre', '==', usuarioApp.rolNombre))
+        : null,
+    [firestore, usuarioApp?.empresaId, usuarioApp?.rolNombre]
+  );
+  const { data: namedTenantRoles, isLoading: isNamedTenantRolesLoading } = useCollection<Rol>(namedTenantRoleQuery);
+  const namedTenantRole = namedTenantRoles?.[0] || null;
+  const aliasTenantRoleRef = useMemoFirebase(
+    () =>
+      usuarioApp?.empresaId &&
+      tenantRoleAliasId &&
+      tenantRoleAliasId !== usuarioApp?.rolId &&
+      firestore
+        ? tenantDoc(firestore, usuarioApp.empresaId, 'roles', tenantRoleAliasId)
+        : null,
+    [firestore, tenantRoleAliasId, usuarioApp?.empresaId, usuarioApp?.rolId]
+  );
+  const { data: aliasTenantRole, isLoading: isAliasTenantRoleLoading } = useDoc<Rol>(aliasTenantRoleRef);
   const legacyRoleRef = useMemoFirebase(
-    () => (usuarioApp?.rolId && firestore ? doc(firestore, 'roles', usuarioApp.rolId) : null),
-    [usuarioApp?.rolId, firestore]
+    () => (!usuarioApp?.empresaId && usuarioApp?.rolId && firestore ? doc(firestore, 'roles', usuarioApp.rolId) : null),
+    [usuarioApp?.empresaId, usuarioApp?.rolId, firestore]
   );
   const { data: legacyRole, isLoading: isLegacyRoleLoading } = useDoc<Rol>(legacyRoleRef);
 
@@ -81,20 +139,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const { data: empresaSaaS, isLoading: isEmpresaLoading } = useDoc<EmpresaSaaS>(empresaRef);
 
-  const resolvedRole = tenantRole || legacyRole;
+  const resolvedRole = usuarioApp?.empresaId
+    ? (directTenantRole || namedTenantRole || aliasTenantRole || null)
+    : (legacyRole || null);
   const isLoading =
     (isAuthLoading && !authTimedOut && !userError) ||
     isProfileLoading ||
-    isTenantRoleLoading ||
+    isDirectTenantRoleLoading ||
+    isNamedTenantRolesLoading ||
+    isAliasTenantRoleLoading ||
     isLegacyRoleLoading ||
     isEmpresaLoading;
 
   const value = useMemo(() => {
-    // SPECIAL CASE: If the user has the 'admin' role, always grant all permissions.
-    // This is a safeguard to ensure the admin is never locked out due to DB inconsistencies.
-    const isAdmin = usuarioApp?.rolNombre === 'admin';
+    const isPlatformAdmin = Boolean(usuarioApp?.esSuperAdmin);
+    const isTenantAdmin =
+      Boolean(usuarioApp?.empresaId) &&
+      (normalizeRoleKey(usuarioApp?.rolId) === 'admin' || normalizeRoleKey(usuarioApp?.rolNombre) === 'admin');
     const estadoComercial = getEstadoComercial(empresaSaaS || null);
-    const permisosPorRol = isAdmin ? allPermissions : (resolvedRole?.permisos || defaultPermissions);
+    const permisosPorRol = isPlatformAdmin || isTenantAdmin ? allPermissions : (resolvedRole?.permisos || defaultPermissions);
     const modulosComprados = resolveModulosComprados(empresaSaaS || null);
     const gateComercial: Permisos = {
       compras: estadoComercial.acceso,
@@ -119,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthLoading: isLoading,
       usuarioApp: isLoading ? null : (usuarioApp || null),
       permisos,
-      role: usuarioApp?.rolNombre || null,
+      role: resolvedRole?.nombre || usuarioApp?.rolNombre || null,
       empresa: empresaSaaS || null,
       estadoComercial,
     };

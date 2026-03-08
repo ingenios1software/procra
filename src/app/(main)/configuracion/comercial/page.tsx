@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenantSelection } from "@/hooks/use-tenant-selection";
 import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import type { EmpresaSaaS, EstadoSuscripcionSaaS, ModeloCobroSaaS, Permisos, PlanSaaS } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -109,8 +110,8 @@ function toOptionalText(value: string): string | undefined {
 export default function ConfiguracionComercialPage() {
   const firestore = useFirestore();
   const { user, permisos } = useAuth();
+  const { empresaId, canSelectEmpresa } = useTenantSelection();
   const { toast } = useToast();
-  const empresaId = user?.empresaId || null;
   const empresaRef = useMemoFirebase(
     () => (firestore && empresaId ? doc(firestore, "empresas", empresaId) : null),
     [firestore, empresaId]
@@ -177,9 +178,10 @@ export default function ConfiguracionComercialPage() {
   const hasEmpresa = Boolean(empresaId);
   const accessWarning = useMemo(() => {
     if (!canEdit) return "No tiene permisos para gestionar la configuracion de empresa.";
+    if (canSelectEmpresa && !hasEmpresa) return "Seleccione una empresa cliente para administrar su configuracion.";
     if (!hasEmpresa) return "Este usuario aun no tiene una empresa asociada.";
     return null;
-  }, [canEdit, hasEmpresa]);
+  }, [canEdit, canSelectEmpresa, hasEmpresa]);
 
   const handlePerfilChange = <K extends keyof EmpresaPerfilForm>(field: K, value: EmpresaPerfilForm[K]) => {
     setPerfil((prev) => ({ ...prev, [field]: value }));
@@ -321,7 +323,7 @@ export default function ConfiguracionComercialPage() {
           <Card>
             <CardContent className="p-6">
               <p>{accessWarning}</p>
-              {canEdit && !hasEmpresa && (
+              {canEdit && !hasEmpresa && !canSelectEmpresa && (
                 <Button className="mt-4" onClick={handleCrearEmpresaBase} disabled={isCreatingEmpresa}>
                   {isCreatingEmpresa ? "Creando..." : "Crear empresa base"}
                 </Button>

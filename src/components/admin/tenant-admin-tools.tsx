@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCallableFunction } from "@/firebase/functions";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenantSelection } from "@/hooks/use-tenant-selection";
 import { isPlatformAdminEmail } from "@/lib/platform-admins";
 
 type CreateTenantResponse = {
@@ -25,8 +26,32 @@ type MigrateResponse = {
   collections: string[];
 };
 
+function formatCallableError(error: unknown): string {
+  if (!error || typeof error !== "object") {
+    return "Error inesperado.";
+  }
+
+  const candidate = error as {
+    message?: unknown;
+    code?: unknown;
+    details?: unknown;
+  };
+
+  const message = typeof candidate.message === "string" ? candidate.message.trim() : "";
+  const code = typeof candidate.code === "string" ? candidate.code.trim() : "";
+  const details =
+    typeof candidate.details === "string"
+      ? candidate.details.trim()
+      : candidate.details !== undefined && candidate.details !== null
+        ? JSON.stringify(candidate.details)
+        : "";
+
+  return [message, code, details].filter(Boolean).join(" | ") || "Error inesperado.";
+}
+
 export function TenantAdminTools() {
   const { user } = useAuth();
+  const { empresaId, refreshEmpresas, setEmpresaId } = useTenantSelection();
   const { toast } = useToast();
   const [nombreEmpresa, setNombreEmpresa] = useState("");
   const [adminNombre, setAdminNombre] = useState("");
@@ -50,7 +75,6 @@ export function TenantAdminTools() {
   >("createTenantCompany");
   const migrateLegacyData = useCallableFunction<{ empresaId: string }, MigrateResponse>("migrateLegacyDataToTenant");
 
-  const empresaId = user?.empresaId || "";
   const canCreateCompanies = Boolean(user?.esSuperAdmin || isPlatformAdminEmail(user?.email));
   const canMigrateCurrentCompany = Boolean(empresaId);
 
@@ -80,6 +104,8 @@ export function TenantAdminTools() {
         title: "Empresa creada",
         description: `Se creo ${payload.empresaId} con el admin ${payload.adminEmail}.`,
       });
+      refreshEmpresas();
+      setEmpresaId(payload.empresaId);
       setNombreEmpresa("");
       setAdminNombre("");
       setAdminEmail("");
@@ -90,7 +116,7 @@ export function TenantAdminTools() {
       toast({
         variant: "destructive",
         title: "No se pudo crear la empresa",
-        description: error?.message || "Error inesperado.",
+        description: formatCallableError(error),
       });
     } finally {
       setIsCreating(false);
@@ -111,7 +137,7 @@ export function TenantAdminTools() {
       toast({
         variant: "destructive",
         title: "No se pudo migrar la data",
-        description: error?.message || "Error inesperado.",
+        description: formatCallableError(error),
       });
     } finally {
       setIsMigrating(false);

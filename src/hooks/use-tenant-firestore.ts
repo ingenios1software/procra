@@ -3,13 +3,12 @@
 import { useMemo } from "react";
 import type { QueryConstraint } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { useAuth } from "@/hooks/use-auth";
+import { useTenantSelection } from "@/hooks/use-tenant-selection";
 import { tenantCollection, tenantDoc, tenantQuery } from "@/lib/tenant";
 
 export function useTenantFirestore() {
   const firestore = useFirestore();
-  const { user } = useAuth();
-  const empresaId = user?.empresaId || null;
+  const { empresaId } = useTenantSelection();
 
   return useMemo(
     () => ({

@@ -1,7 +1,7 @@
 {
   "name": "procra-functions",
   "private": true,
-  "main": "lib/index.js",
+  "main": "dist/index.js",
   "engines": {
     "node": "20"
   },
@@ -10,9 +10,9 @@
     "watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
-    "seed:demo": "npm run build && node lib/scripts/seed-demo.js",
+    "seed:demo": "npm run build && node dist/scripts/seed-demo.js",
     "seed:demo:reset": "npm run seed:demo -- --reset",
-    "seed:clean": "npm run build && node lib/scripts/seed-clean.js"
+    "seed:clean": "npm run build && node dist/scripts/seed-clean.js"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",

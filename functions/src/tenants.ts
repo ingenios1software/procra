@@ -1,7 +1,12 @@
 import { randomUUID } from "crypto";
+import { getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore, type DocumentData } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+
+if (!getApps().length) {
+  initializeApp();
+}
 
 const db = getFirestore();
 const adminAuth = getAuth();
@@ -159,6 +164,47 @@ function parsePositiveNumber(value: unknown): number | null {
     if (Number.isFinite(parsed) && parsed > 0) return parsed;
   }
   return null;
+}
+
+function getAuthErrorCode(error: unknown): string {
+  if (typeof error === "object" && error && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? code : "";
+  }
+  return "";
+}
+
+function toAuthHttpsError(error: unknown, fallbackMessage: string): HttpsError {
+  const code = getAuthErrorCode(error);
+
+  if (code === "auth/email-already-exists") {
+    return new HttpsError("already-exists", "Ya existe un usuario con ese correo electronico.");
+  }
+  if (code === "auth/invalid-email") {
+    return new HttpsError("invalid-argument", "El correo electronico no es valido.");
+  }
+  if (code === "auth/invalid-password") {
+    return new HttpsError("invalid-argument", "La clave indicada no es valida.");
+  }
+
+  return new HttpsError("internal", fallbackMessage);
+}
+
+async function assertEmailAvailable(email: string): Promise<void> {
+  try {
+    await adminAuth.getUserByEmail(email);
+    throw new HttpsError("already-exists", "Ya existe un usuario con ese correo electronico.");
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+
+    if (getAuthErrorCode(error) === "auth/user-not-found") {
+      return;
+    }
+
+    throw toAuthHttpsError(error, "No se pudo validar el correo electronico indicado.");
+  }
 }
 
 async function getRequesterProfile(uid: string): Promise<AppUser | null> {
@@ -352,21 +398,19 @@ export const createTenantCompany = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "La clave del administrador debe tener al menos 6 caracteres.");
   }
 
-  try {
-    await adminAuth.getUserByEmail(adminEmail);
-    throw new HttpsError("already-exists", "Ya existe un usuario con ese correo electronico.");
-  } catch (error) {
-    if (!(error instanceof HttpsError) && (error as { code?: string }).code !== "auth/user-not-found") {
-      throw error;
-    }
-  }
+  await assertEmailAvailable(adminEmail);
 
   const empresaId = `empresa_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
-  const createdUser = await adminAuth.createUser({
-    email: adminEmail,
-    password: adminPassword,
-    displayName: adminNombre,
-  });
+  let createdUser;
+  try {
+    createdUser = await adminAuth.createUser({
+      email: adminEmail,
+      password: adminPassword,
+      displayName: adminNombre,
+    });
+  } catch (error) {
+    throw toAuthHttpsError(error, "No se pudo crear el usuario administrador inicial.");
+  }
 
   const empresaPayload = buildEmpresaPayload({
     ...request.data,
@@ -442,21 +486,19 @@ export const createTenantUser = onCall(async (request) => {
   }
   const roleName = normalizeText(roleSnap.get("nombre")) || rolId;
 
-  try {
-    await adminAuth.getUserByEmail(email);
-    throw new HttpsError("already-exists", "Ya existe un usuario con ese correo electronico.");
-  } catch (error) {
-    if (!(error instanceof HttpsError) && (error as { code?: string }).code !== "auth/user-not-found") {
-      throw error;
-    }
-  }
+  await assertEmailAvailable(email);
 
-  const createdUser = await adminAuth.createUser({
-    email,
-    password,
-    displayName: nombre,
-    disabled: !activo,
-  });
+  let createdUser;
+  try {
+    createdUser = await adminAuth.createUser({
+      email,
+      password,
+      displayName: nombre,
+      disabled: !activo,
+    });
+  } catch (error) {
+    throw toAuthHttpsError(error, "No se pudo crear el usuario indicado.");
+  }
 
   await db.doc(`usuarios/${createdUser.uid}`).set(
     {

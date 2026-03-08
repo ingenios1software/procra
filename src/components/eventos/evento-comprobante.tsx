@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { format } from "date-fns";
 import { useCollection, useMemoFirebase } from "@/firebase";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenantSelection } from "@/hooks/use-tenant-selection";
 import { getReportBrandingFromEmpresa } from "@/lib/report-branding";
 import type { Cultivo, Evento, Insumo, Maquinaria, Parcela, Zafra } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -156,12 +157,13 @@ export function EventoComprobante({
   className,
 }: EventoComprobanteProps) {
   const { empresa } = useAuth();
+  const { empresa: selectedEmpresa } = useTenantSelection();
   const tenant = useTenantFirestore();
   const insumosQuery = useMemoFirebase(() => tenant.collection("insumos"), [tenant]);
   const { data: insumos } = useCollection<Insumo>(insumosQuery);
   const maquinariaQuery = useMemoFirebase(() => tenant.collection("maquinaria"), [tenant]);
   const { data: maquinarias } = useCollection<Maquinaria>(maquinariaQuery);
-  const reportBranding = useMemo(() => getReportBrandingFromEmpresa(empresa), [empresa]);
+  const reportBranding = useMemo(() => getReportBrandingFromEmpresa(selectedEmpresa || empresa), [empresa, selectedEmpresa]);
 
   const insumosById = useMemo(() => {
     return new Map((insumos || []).map((insumo) => [insumo.id, insumo]));

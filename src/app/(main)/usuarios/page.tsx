@@ -6,6 +6,7 @@ import { collection, doc, query, where } from "firebase/firestore";
 import type { Rol, Usuario } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenantSelection } from "@/hooks/use-tenant-selection";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert } from "lucide-react";
@@ -16,8 +17,8 @@ import type { UsuarioFormPayload } from "@/components/usuarios/usuario-form";
 export default function UsuariosPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { permisos, user } = useAuth();
-  const empresaId = user?.empresaId || null;
+  const { permisos } = useAuth();
+  const { empresaId } = useTenantSelection();
   const createTenantUser = useCallableFunction<
     { empresaId: string; nombre: string; email: string; password: string; rolId: string; activo: boolean },
     { ok: boolean; uid: string; empresaId: string }

@@ -5,6 +5,7 @@ import { Menu } from "lucide-react"
 import { Button } from "../ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "../ui/sheet"
 import { Sidebar } from "./sidebar"
+import { TenantSwitcher } from "./tenant-switcher"
 import { UserNav } from "./user-nav"
 import { Logo } from "../icons"
 import { useState } from "react"
@@ -36,8 +37,8 @@ export function Header() {
         </Sheet>
       </div>
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-        <div className="ml-auto flex-1 sm:flex-initial">
-          {/* Future search bar can go here */}
+        <div className="ml-auto flex flex-1 items-center justify-end gap-3 sm:flex-initial">
+          <TenantSwitcher />
         </div>
         <UserNav />
       </div>

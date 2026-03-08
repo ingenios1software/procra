@@ -6,6 +6,7 @@ import { doc, query } from "firebase/firestore";
 import type { Rol } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenantSelection } from "@/hooks/use-tenant-selection";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert } from "lucide-react";
@@ -14,8 +15,8 @@ import { tenantCollection, tenantDoc } from "@/lib/tenant";
 export default function RolesPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { permisos, user } = useAuth();
-  const empresaId = user?.empresaId || null;
+  const { permisos } = useAuth();
+  const { empresaId } = useTenantSelection();
 
   const rolesQuery = useMemoFirebase(
     () => (firestore && permisos.administracion && empresaId ? query(tenantCollection(firestore, empresaId, "roles")) : null),

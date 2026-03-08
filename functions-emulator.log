@@ -1,0 +1,91 @@
+[2026-03-08T15:53:22.522Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+Failed to authenticate, have you run firebase login?
+!  emulators: You are not currently authenticated so some features may not work correctly. Please run firebase login to authenticate the CLI. 
+i  emulators: Starting emulators: functions {"metadata":{"emulator":{"name":"hub"},"message":"Starting emulators: functions"}}
+[2026-03-08T15:53:22.587Z] [logging] Logging Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[2026-03-08T15:53:22.588Z] assigned listening specs for emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}]},"metadata":{"message":"assigned listening specs for emulators"}}
+[2026-03-08T15:53:22.592Z] Found emulator hub locator: {"version":"15.7.0","origins":["http://127.0.0.1:4400","http://[::1]:4400"],"pid":15080}
+[2026-03-08T15:53:22.593Z] Write emulator hub locator at C:\Users\DELL\AppData\Local\Temp\hub-studio-7905412770-89bf5.json
+[2026-03-08T15:53:22.606Z] [functions] Functions Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[2026-03-08T15:53:22.606Z] [eventarc] Eventarc Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[2026-03-08T15:53:22.607Z] [tasks] Cloud Tasks Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[2026-03-08T15:53:22.608Z] late-assigned ports for functions and eventarc emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"functions":[{"address":"127.0.0.1","family":"IPv4","port":5001}],"eventarc":[{"address":"127.0.0.1","family":"IPv4","port":9299}],"tasks":[{"address":"127.0.0.1","family":"IPv4","port":9499}]},"metadata":{"message":"late-assigned ports for functions and eventarc emulators"}}
+!  functions: The following emulators are not running, calls to these services from the Functions emulator will affect production: apphosting, auth, firestore, database, hosting, pubsub, storage, dataconnect {"metadata":{"emulator":{"name":"functions"},"message":"The following emulators are not running, calls to these services from the Functions emulator will affect production: \u001b[1mapphosting, auth, firestore, database, hosting, pubsub, storage, dataconnect\u001b[22m"}}
+[2026-03-08T15:53:22.610Z] No OAuth tokens found
+[2026-03-08T15:53:22.611Z] No OAuth tokens found
+[2026-03-08T15:53:22.611Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[2026-03-08T15:53:22.612Z] Failed to get Admin SDK config for studio-7905412770-89bf5, falling back to cache Failed to get Admin SDK for Firebase project studio-7905412770-89bf5. Please make sure the project exists and your account has permission to access it. {"name":"FirebaseError","children":[],"exit":2,"message":"Failed to get Admin SDK for Firebase project studio-7905412770-89bf5. Please make sure the project exists and your account has permission to access it.","original":{"name":"FirebaseError","children":[],"exit":1,"message":"Failed to authenticate, have you run \u001b[1mfirebase login\u001b[22m?","original":{},"status":500},"status":500}
+!  functions: Unable to fetch project Admin SDK configuration, Admin SDK behavior in Cloud Functions emulator may be incorrect. {"metadata":{"emulator":{"name":"functions"},"message":"Unable to fetch project Admin SDK configuration, Admin SDK behavior in Cloud Functions emulator may be incorrect."}}
+i  functions: Watching "C:\procra\functions" for Cloud Functions... {"metadata":{"emulator":{"name":"functions"},"message":"Watching \"C:\\procra\\functions\" for Cloud Functions..."}}
+[2026-03-08T15:53:22.634Z] Validating nodejs source
+!  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+!  functions: Please note that there will be breaking changes when you upgrade. 
+[2026-03-08T15:53:24.261Z] > [functions] package.json contents: {
+  "name": "procra-functions",
+  "private": true,
+  "main": "dist/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions",
+    "seed:demo": "npm run build && node dist/scripts/seed-demo.js",
+    "seed:demo:reset": "npm run seed:demo -- --reset",
+    "seed:clean": "npm run build && node dist/scripts/seed-clean.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^5.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.24",
+    "typescript": "^5.7.3"
+  }
+}
+[2026-03-08T15:53:24.262Z] Building nodejs source
+[2026-03-08T15:53:24.262Z] Failed to find version of module node: reached end of search path C:\procra\functions\node_modules
++  functions: Using node@20 from host. 
+[2026-03-08T15:53:24.266Z] Could not find functions.yaml. Must use http discovery
+[2026-03-08T15:53:24.276Z] Found firebase-functions binary at 'C:\procra\functions\node_modules\.bin\firebase-functions'
+Serving at port 8158
+
+[2026-03-08T15:53:24.911Z] Got response from /__/functions.yaml {"endpoints":{"createTenantCompany":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"createTenantCompany"},"createTenantUser":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"createTenantUser"},"migrateLegacyDataToTenant":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"migrateLegacyDataToTenant"},"liquidatePeriod":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"liquidatePeriod"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{}}
++  functions: Loaded functions definitions from source: createTenantCompany, createTenantUser, migrateLegacyDataToTenant, liquidatePeriod. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: createTenantCompany, createTenantUser, migrateLegacyDataToTenant, liquidatePeriod."}}
++  functions[us-central1-createTenantCompany]: http function initialized (http://127.0.0.1:5001/studio-7905412770-89bf5/us-central1/createTenantCompany). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/studio-7905412770-89bf5/us-central1/createTenantCompany)."}}
++  functions[us-central1-createTenantUser]: http function initialized (http://127.0.0.1:5001/studio-7905412770-89bf5/us-central1/createTenantUser). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/studio-7905412770-89bf5/us-central1/createTenantUser)."}}
++  functions[us-central1-migrateLegacyDataToTenant]: http function initialized (http://127.0.0.1:5001/studio-7905412770-89bf5/us-central1/migrateLegacyDataToTenant). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/studio-7905412770-89bf5/us-central1/migrateLegacyDataToTenant)."}}
++  functions[us-central1-liquidatePeriod]: http function initialized (http://127.0.0.1:5001/studio-7905412770-89bf5/us-central1/liquidatePeriod). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/studio-7905412770-89bf5/us-central1/liquidatePeriod)."}}
+[2026-03-08T15:53:29.969Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase Data Connect VSCode extension, this is expected and not an issue.
+
+┌─────────────────────────────────────────────────────────────┐
+│ ✔  All emulators ready! It is now safe to connect your app. │
+│ i  View Emulator UI at http://127.0.0.1:4000/               │
+└─────────────────────────────────────────────────────────────┘
+
+┌───────────┬────────────────┬─────────────────────────────────┐
+│ Emulator  │ Host:Port      │ View in Emulator UI             │
+├───────────┼────────────────┼─────────────────────────────────┤
+│ Functions │ 127.0.0.1:5001 │ http://127.0.0.1:4000/functions │
+└───────────┴────────────────┴─────────────────────────────────┘
+  Emulator Hub host: 127.0.0.1 port: 4400
+  Other reserved ports: 4500
+
+Issues? Report them at https://github.com/firebase/firebase-tools/issues and attach the *-debug.log files.
+ 
+[2026-03-08T16:00:33.200Z] Received signal SIGHUP 1
+ 
+i  emulators: Received SIGHUP for the first time. Starting a clean shutdown. 
+i  emulators: Please wait for a clean shutdown or send the SIGHUP signal again to stop right now. 
+i  emulators: Shutting down emulators. {"metadata":{"emulator":{"name":"hub"},"message":"Shutting down emulators."}}
+i  ui: Stopping Emulator UI {"metadata":{"emulator":{"name":"ui"},"message":"Stopping Emulator UI"}}
+i  functions: Stopping Functions Emulator {"metadata":{"emulator":{"name":"functions"},"message":"Stopping Functions Emulator"}}
+i  eventarc: Stopping Eventarc Emulator {"metadata":{"emulator":{"name":"eventarc"},"message":"Stopping Eventarc Emulator"}}
+i  tasks: Stopping Cloud Tasks Emulator {"metadata":{"emulator":{"name":"tasks"},"message":"Stopping Cloud Tasks Emulator"}}
+i  hub: Stopping emulator hub {"metadata":{"emulator":{"name":"hub"},"message":"Stopping emulator hub"}}
+i  logging: Stopping Logging Emulator {"metadata":{"emulator":{"name":"logging"},"message":"Stopping Logging Emulator"}}
+[2026-03-08T16:00:33.221Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase Data Connect VSCode extension, this is expected and not an issue.
+[2026-03-08T16:00:33.242Z] Found emulator hub locator: {"version":"15.7.0","origins":["http://127.0.0.1:4400","http://[::1]:4400"],"pid":19452}
+[2026-03-08T16:00:33.243Z] Delete emulator hub locator file: C:\Users\DELL\AppData\Local\Temp\hub-studio-7905412770-89bf5.json

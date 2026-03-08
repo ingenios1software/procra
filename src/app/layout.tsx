@@ -3,6 +3,7 @@ import './globals.css';
 import { Alegreya, PT_Sans } from 'next/font/google';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/context/auth-context';
+import { TenantSelectionProvider } from '@/context/tenant-selection-context';
 import { ThemeProvider } from '@/context/theme-provider';
 import { SidebarProvider } from '@/context/sidebar-context';
 import { PWALifecycle } from '@/components/pwa-lifecycle';
@@ -47,10 +48,12 @@ export default function RootLayout({
         <ThemeProvider>
           <FirebaseClientProvider>
             <AuthProvider>
-              <SidebarProvider>
-                {children}
-              </SidebarProvider>
-              <Toaster />
+              <TenantSelectionProvider>
+                <SidebarProvider>
+                  {children}
+                </SidebarProvider>
+                <Toaster />
+              </TenantSelectionProvider>
             </AuthProvider>
           </FirebaseClientProvider>
         </ThemeProvider>

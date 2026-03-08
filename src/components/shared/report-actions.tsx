@@ -5,6 +5,7 @@ import { FileDown, Image as ImageIcon, MessageCircle, Printer } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { defaultReportBranding, getReportBrandingFromEmpresa, type ReportBranding } from "@/lib/report-branding";
+import { useTenantSelection } from "@/hooks/use-tenant-selection";
 import { cn } from "@/lib/utils";
 
 interface ReportActionsProps {
@@ -487,9 +488,11 @@ export function ReportActions({
   showDefaultFooter,
 }: ReportActionsProps) {
   const { empresa } = useAuth();
+  const { empresa: selectedEmpresa } = useTenantSelection();
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const reportBranding = branding || getReportBrandingFromEmpresa(empresa) || defaultReportBranding;
+  const reportBranding =
+    branding || getReportBrandingFromEmpresa(selectedEmpresa || empresa) || defaultReportBranding;
   const printableOptions = { documentLabel, showDefaultFooter };
 
   const handlePrint = async () => {
