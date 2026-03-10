@@ -17,8 +17,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Plaga, Cultivo } from "@/lib/types";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre es muy corto."),
@@ -43,11 +44,8 @@ export function PlagaForm({
   onSubmit,
   onCancel,
 }: PlagaFormProps) {
-  const firestore = useFirestore();
-  const cultivosQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'cultivos'), orderBy('nombre'));
-  }, [firestore]);
+  const tenant = useTenantFirestore();
+  const cultivosQuery = useMemoFirebase(() => tenant.query("cultivos", orderBy("nombre")), [tenant]);
   const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
   
   const form = useForm<PlagaFormValues>({

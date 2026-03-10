@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { format, getMonth, getYear } from "date-fns";
-import { addDoc, collection, doc, writeBatch } from "firebase/firestore";
+import { addDoc, doc, writeBatch } from "firebase/firestore";
 import {
   ChevronDown,
   ChevronRight,
@@ -49,10 +49,10 @@ import {
   addDocumentNonBlocking,
   deleteDocumentNonBlocking,
   updateDocumentNonBlocking,
-  useFirestore,
   useUser,
 } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 import {
   parseBiometricWorkbook,
   normalizeEmployeeName,
@@ -527,7 +527,7 @@ export function ControlHorarioList({
   tiposTrabajo,
   isLoading,
 }: ControlHorarioListProps) {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { user } = useUser();
   const { toast } = useToast();
 
@@ -757,7 +757,8 @@ export function ControlHorarioList({
   };
 
   const handleCreateTipoTrabajo = async (nombreRaw: string): Promise<TipoTrabajo | null> => {
-    if (!firestore) return null;
+    const tiposTrabajoCol = tenant.collection("tiposTrabajo");
+    if (!tiposTrabajoCol) return null;
 
     const nombre = nombreRaw.trim();
     if (nombre.length < 3) {
@@ -782,7 +783,7 @@ export function ControlHorarioList({
         nombre,
         activo: true,
       };
-      const docRef = await addDoc(collection(firestore, "tiposTrabajo"), data);
+      const docRef = await addDoc(tiposTrabajoCol, data);
       const created: TipoTrabajo = { id: docRef.id, ...data };
 
       toast({
@@ -825,7 +826,7 @@ export function ControlHorarioList({
   const handleBiometricImport = async (
     payload: BiometricImportPayload
   ): Promise<BiometricImportResult> => {
-    if (!firestore) {
+    if (!tenant.isReady || !tenant.firestore) {
       return {
         success: false,
         summary: "No hay conexion activa con Firestore.",
@@ -1006,20 +1007,37 @@ export function ControlHorarioList({
       }
 
       const BATCH_SIZE = 400;
-      let batch = writeBatch(firestore);
+      const controlHorarioCol = tenant.collection("controlHorario");
+      if (!controlHorarioCol) {
+        return {
+          success: false,
+          summary: "No se pudo resolver la empresa activa para importar.",
+          errors: ["La coleccion de control horario no esta disponible."],
+        };
+      }
+
+      let batch = writeBatch(tenant.firestore);
       let writes = 0;
 
       for (const operation of operations) {
         if (operation.type === "update") {
-          batch.update(doc(firestore, "controlHorario", operation.id), operation.data);
+          const registroRef = tenant.doc("controlHorario", operation.id);
+          if (!registroRef) {
+            return {
+              success: false,
+              summary: "No se pudo resolver la empresa activa para importar.",
+              errors: ["La referencia de control horario no esta disponible."],
+            };
+          }
+          batch.update(registroRef, operation.data);
         } else {
-          batch.set(doc(collection(firestore, "controlHorario")), operation.data);
+          batch.set(doc(controlHorarioCol), operation.data);
         }
 
         writes++;
         if (writes >= BATCH_SIZE) {
           await batch.commit();
-          batch = writeBatch(firestore);
+          batch = writeBatch(tenant.firestore);
           writes = 0;
         }
       }
@@ -1069,17 +1087,17 @@ export function ControlHorarioList({
   };
 
   const handleSave = (registroData: Omit<ControlHorario, "id">) => {
-    if (!firestore) return;
-
     if (selectedRegistro) {
-      const registroRef = doc(firestore, "controlHorario", selectedRegistro.id);
+      const registroRef = tenant.doc("controlHorario", selectedRegistro.id);
+      if (!registroRef) return;
       updateDocumentNonBlocking(registroRef, registroData);
       toast({
         title: "Registro actualizado",
         description: "El registro de control horario fue actualizado correctamente.",
       });
     } else {
-      const registroCol = collection(firestore, "controlHorario");
+      const registroCol = tenant.collection("controlHorario");
+      if (!registroCol) return;
       addDocumentNonBlocking(registroCol, registroData);
       toast({
         title: "Registro creado",
@@ -1092,8 +1110,8 @@ export function ControlHorarioList({
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore) return;
-    const registroRef = doc(firestore, "controlHorario", id);
+    const registroRef = tenant.doc("controlHorario", id);
+    if (!registroRef) return;
     deleteDocumentNonBlocking(registroRef);
     toast({
       variant: "destructive",

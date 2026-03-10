@@ -63,6 +63,44 @@ service cloud.firestore {
       );
     }
 
+    function isLegacyTenantWriteRole() {
+      return hasCurrentUser() && (
+        currentUser().rolId == "operador" ||
+        currentUser().rolNombre == "operador" ||
+        currentUser().rolId == "tecnico" ||
+        currentUser().rolNombre == "tecnico" ||
+        currentUser().rolId == "tecnicoCampo" ||
+        currentUser().rolNombre == "tecnicoCampo" ||
+        currentUser().rolId == "supervisor" ||
+        currentUser().rolNombre == "supervisor" ||
+        currentUser().rolId == "capataz" ||
+        currentUser().rolNombre == "capataz"
+      );
+    }
+
+    function isLegacyTenantReadOnlyRole() {
+      return hasCurrentUser() && (
+        currentUser().rolId == "consulta" ||
+        currentUser().rolNombre == "consulta" ||
+        currentUser().rolId == "gerente" ||
+        currentUser().rolNombre == "gerente" ||
+        currentUser().rolId == "auditor" ||
+        currentUser().rolNombre == "auditor"
+      );
+    }
+
+    function hasTenantWriteAccess(empresaId) {
+      return canManageEmpresa(empresaId) || (
+        isSameEmpresa(empresaId) &&
+        currentUser().activo == true &&
+        !isLegacyTenantReadOnlyRole() &&
+        (
+          (hasCurrentTenantRole(empresaId) && currentTenantRole(empresaId).soloLectura != true) ||
+          isLegacyTenantWriteRole()
+        )
+      );
+    }
+
     match /usuarios/{uid} {
       allow get: if signedIn() && (
         uid == request.auth.uid ||
@@ -94,9 +132,14 @@ service cloud.firestore {
       allow update: if canManageEmpresa(empresaId);
       allow delete: if isPlatformAdmin();
 
-      match /{collectionId}/{docId} {
+      match /roles/{docId} {
         allow read: if canReadEmpresa(empresaId);
         allow create, update, delete: if canManageEmpresa(empresaId);
+      }
+
+      match /{collectionId}/{docId} {
+        allow read: if canReadEmpresa(empresaId);
+        allow create, update, delete: if collectionId != "roles" && hasTenantWriteAccess(empresaId);
       }
     }
 

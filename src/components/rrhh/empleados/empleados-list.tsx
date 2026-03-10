@@ -45,12 +45,12 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmpleadoForm } from "./empleado-form";
 import type { Empleado } from "@/lib/types";
-import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useFirestore } from "@/firebase";
+import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { collection, doc } from 'firebase/firestore';
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 interface EmpleadosListProps {
   empleados: Empleado[];
@@ -58,18 +58,17 @@ interface EmpleadosListProps {
 }
 
 export function EmpleadosList({ empleados, isLoading }: EmpleadosListProps) {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedEmpleado, setSelectedEmpleado] = useState<Empleado | null>(null);
   const { user } = useUser();
   const { toast } = useToast();
   
   const handleSave = (empleadoData: Omit<Empleado, "id">) => {
-    if (!firestore) return;
-
     if (selectedEmpleado) {
       // Update
-      const empleadoRef = doc(firestore, 'empleados', selectedEmpleado.id);
+      const empleadoRef = tenant.doc("empleados", selectedEmpleado.id);
+      if (!empleadoRef) return;
       updateDocumentNonBlocking(empleadoRef, empleadoData);
       toast({
         title: "Empleado actualizado",
@@ -77,7 +76,8 @@ export function EmpleadosList({ empleados, isLoading }: EmpleadosListProps) {
       });
     } else {
       // Create
-      const empleadosCol = collection(firestore, 'empleados');
+      const empleadosCol = tenant.collection("empleados");
+      if (!empleadosCol) return;
       addDocumentNonBlocking(empleadosCol, empleadoData);
       toast({
         title: "Empleado creado",
@@ -89,9 +89,9 @@ export function EmpleadosList({ empleados, isLoading }: EmpleadosListProps) {
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore) return;
     const empleado = empleados.find((e) => e.id === id);
-    const empleadoRef = doc(firestore, 'empleados', id);
+    const empleadoRef = tenant.doc("empleados", id);
+    if (!empleadoRef) return;
     deleteDocumentNonBlocking(empleadoRef);
     toast({
       variant: "destructive",

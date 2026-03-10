@@ -8,8 +8,8 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, orderBy, query } from "firebase/firestore";
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
 import type { AsientoDiario, PlanDeCuenta, Zafra } from "@/lib/types";
 import {
   getAsientoZafraLabel,
@@ -17,27 +17,28 @@ import {
   ZAFRA_FILTER_ALL,
   ZAFRA_FILTER_NONE,
 } from "@/lib/contabilidad/asientos";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 export default function MayorPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [selectedZafraId, setSelectedZafraId] = useState<string>(ZAFRA_FILTER_ALL);
 
   const planDeCuentasQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null),
-    [firestore]
+    () => tenant.query("planDeCuentas", orderBy("codigo")),
+    [tenant]
   );
   const { data: planDeCuentas, isLoading: isLoadingCuentas } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
 
   const asientosQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "asientosDiario"), orderBy("fecha")) : null),
-    [firestore]
+    () => tenant.query("asientosDiario", orderBy("fecha")),
+    [tenant]
   );
   const { data: asientosDiario, isLoading: isLoadingAsientos } = useCollection<AsientoDiario>(asientosQuery);
 
   const zafrasQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "zafras"), orderBy("nombre")) : null),
-    [firestore]
+    () => tenant.query("zafras", orderBy("nombre")),
+    [tenant]
   );
   const { data: zafras } = useCollection<Zafra>(zafrasQuery);
 

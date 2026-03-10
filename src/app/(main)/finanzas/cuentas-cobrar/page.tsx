@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { collection, doc, orderBy, query, where, writeBatch } from "firebase/firestore";
+import { doc, orderBy, where, writeBatch } from "firebase/firestore";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ import { ReportActions } from "@/components/shared/report-actions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { useCollection, useMemoFirebase, useUser } from "@/firebase";
 import {
   calcularAntiguedadSaldos,
   calcularEstadoCuenta,
@@ -43,6 +43,7 @@ import type {
   ReciboCobro,
 } from "@/lib/types";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const ESTADO_OPTIONS = [
   { value: "todos", label: "Todos" },
@@ -77,7 +78,8 @@ function parseDateInputToIso(value: string): string | null {
 }
 
 export default function CuentasCobrarPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { user } = useUser();
   const { toast } = useToast();
 
@@ -98,23 +100,23 @@ export default function CuentasCobrarPage() {
     forceRefetch: refetchCxc,
   } = useCollection<CuentaPorCobrar>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "cuentasPorCobrar"), orderBy("fechaEmision", "desc")) : null),
-      [firestore]
+      () => tenant.query("cuentasPorCobrar", orderBy("fechaEmision", "desc")),
+      [tenant]
     )
   );
   const { data: clientes, isLoading: isLoadingClientes } = useCollection<Cliente>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "clientes")) : null), [firestore])
+    useMemoFirebase(() => tenant.collection("clientes"), [tenant])
   );
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null),
-      [firestore]
+      () => tenant.query("planDeCuentas", orderBy("codigo")),
+      [tenant]
     )
   );
   const { data: cuentasCajaBanco } = useCollection<CuentaCajaBanco>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "cuentasCajaBanco"), where("activo", "==", true)) : null),
-      [firestore]
+      () => tenant.query("cuentasCajaBanco", where("activo", "==", true)),
+      [tenant]
     )
   );
 
@@ -253,10 +255,14 @@ export default function CuentasCobrarPage() {
 
     setIsSavingCobro(true);
     try {
-      const cuentaRef = doc(firestore, "cuentasPorCobrar", cuentaSeleccionada.id);
-      const cobroRef = doc(collection(firestore, "cobrosCxc"));
-      const reciboRef = doc(collection(firestore, "recibosCobro"));
-      const asientoRef = doc(collection(firestore, "asientosDiario"));
+      const cuentaRef = tenant.doc("cuentasPorCobrar", cuentaSeleccionada.id);
+      const cobrosCol = tenant.collection("cobrosCxc");
+      const recibosCol = tenant.collection("recibosCobro");
+      const asientosCol = tenant.collection("asientosDiario");
+      if (!cuentaRef || !cobrosCol || !recibosCol || !asientosCol) return;
+      const cobroRef = doc(cobrosCol);
+      const reciboRef = doc(recibosCol);
+      const asientoRef = doc(asientosCol);
       const batch = writeBatch(firestore);
 
       const saldoResult = calcularSaldoDesdeMovimiento({

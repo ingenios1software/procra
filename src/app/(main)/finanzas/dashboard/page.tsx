@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { addMonths, format } from "date-fns";
-import { collection } from "firebase/firestore";
 import {
   Percent,
   DollarSign,
@@ -26,7 +25,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useMemoFirebase } from "@/firebase";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +33,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Cultivo, Evento, Parcela, Venta } from "@/lib/types";
 import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const COLORS = [
   "hsl(var(--chart-1))",
@@ -87,19 +87,19 @@ function normalizarCategoriaEvento(evento: Evento): string {
 }
 
 export default function DashboardFinancieroPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
 
   const { data: eventos, isLoading: l1 } = useCollection<Evento>(
-    useMemoFirebase(() => (firestore ? collection(firestore, "eventos") : null), [firestore])
+    useMemoFirebase(() => tenant.collection("eventos"), [tenant])
   );
   const { data: ventas, isLoading: l2 } = useCollection<Venta>(
-    useMemoFirebase(() => (firestore ? collection(firestore, "ventas") : null), [firestore])
+    useMemoFirebase(() => tenant.collection("ventas"), [tenant])
   );
   const { data: parcelas, isLoading: l3 } = useCollection<Parcela>(
-    useMemoFirebase(() => (firestore ? collection(firestore, "parcelas") : null), [firestore])
+    useMemoFirebase(() => tenant.collection("parcelas"), [tenant])
   );
   const { data: cultivos, isLoading: l4 } = useCollection<Cultivo>(
-    useMemoFirebase(() => (firestore ? collection(firestore, "cultivos") : null), [firestore])
+    useMemoFirebase(() => tenant.collection("cultivos"), [tenant])
   );
 
   const {

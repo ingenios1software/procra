@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { format, startOfMonth } from "date-fns";
-import { collection, doc, limit, orderBy, query, writeBatch } from "firebase/firestore";
+import { doc, limit, orderBy, where, writeBatch } from "firebase/firestore";
 import { ArrowLeftRight, Landmark, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { ReportActions } from "@/components/shared/report-actions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { toDateSafe } from "@/lib/cuentas";
 import type {
   AsientoDiario,
@@ -27,6 +27,7 @@ import type {
   TipoOperacionTesoreria,
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 type CuentaFinancieraOption = {
   id: string;
@@ -85,7 +86,8 @@ function toMonthAmount<T extends { fecha: Date | string; monto: number }>(items:
 }
 
 export default function TesoreriaPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { user } = useUser();
   const { toast } = useToast();
 
@@ -102,18 +104,18 @@ export default function TesoreriaPage() {
 
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null),
-      [firestore]
+      () => tenant.query("planDeCuentas", orderBy("codigo")),
+      [tenant]
     )
   );
   const { data: cuentasCajaBanco } = useCollection<CuentaCajaBanco>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "cuentasCajaBanco"), orderBy("nombre")) : null),
-      [firestore]
+      () => tenant.query("cuentasCajaBanco", orderBy("nombre")),
+      [tenant]
     )
   );
   const { data: monedas } = useCollection<Moneda>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "monedas")) : null), [firestore])
+    useMemoFirebase(() => tenant.collection("monedas"), [tenant])
   );
   const {
     data: movimientosTesoreria,
@@ -121,23 +123,20 @@ export default function TesoreriaPage() {
     forceRefetch: refetchMovs,
   } = useCollection<MovimientoTesoreria>(
     useMemoFirebase(
-      () =>
-        firestore
-          ? query(collection(firestore, "movimientosTesoreria"), orderBy("fecha", "desc"), limit(200))
-          : null,
-      [firestore]
+      () => tenant.query("movimientosTesoreria", orderBy("fecha", "desc"), limit(200)),
+      [tenant]
     )
   );
   const { data: cobrosCxc } = useCollection<CobroCuentaPorCobrar>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "cobrosCxc"), orderBy("fecha", "desc"), limit(500)) : null),
-      [firestore]
+      () => tenant.query("cobrosCxc", orderBy("fecha", "desc"), limit(500)),
+      [tenant]
     )
   );
   const { data: pagosCxp } = useCollection<PagoCuentaPorPagar>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "pagosCxp"), orderBy("fecha", "desc"), limit(500)) : null),
-      [firestore]
+      () => tenant.query("pagosCxp", orderBy("fecha", "desc"), limit(500)),
+      [tenant]
     )
   );
 
@@ -446,8 +445,11 @@ export default function TesoreriaPage() {
     setIsSaving(true);
     try {
       const batch = writeBatch(firestore);
-      const movimientoRef = doc(collection(firestore, "movimientosTesoreria"));
-      const asientoRef = doc(collection(firestore, "asientosDiario"));
+      const movimientosCol = tenant.collection("movimientosTesoreria");
+      const asientosCol = tenant.collection("asientosDiario");
+      if (!movimientosCol || !asientosCol) return;
+      const movimientoRef = doc(movimientosCol);
+      const asientoRef = doc(asientosCol);
       const asientoData: Omit<AsientoDiario, "id"> = {
         fecha: fechaIso,
         descripcion: descripcionFinal,

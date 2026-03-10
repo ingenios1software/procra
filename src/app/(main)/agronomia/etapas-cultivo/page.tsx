@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,25 +45,26 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { EtapaCultivoForm } from "@/components/agronomia/etapas-cultivo/etapa-cultivo-form";
 import type { EtapaCultivo, Cultivo } from "@/lib/types";
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { orderBy } from "firebase/firestore";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 
 export default function EtapasCultivoPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { toast } = useToast();
   const { user } = useUser();
 
   const etapasCultivoQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'etapasCultivo'), orderBy('orden')) : null
-  , [firestore]);
+    tenant.query("etapasCultivo", orderBy("orden"))
+  , [tenant]);
   const { data: etapasCultivo, isLoading: isLoadingEtapas } = useCollection<EtapaCultivo>(etapasCultivoQuery);
   
   const cultivosQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'cultivos'), orderBy('nombre')) : null
-  , [firestore]);
+    tenant.query("cultivos", orderBy("nombre"))
+  , [tenant]);
   const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
 
   const [isFormOpen, setFormOpen] = useState(false);
@@ -74,17 +75,17 @@ export default function EtapasCultivoPage() {
   };
 
   const handleSave = (etapaData: Omit<EtapaCultivo, 'id'>) => {
-    if (!firestore) return;
-
     if (selectedEtapa) {
-      const etapaRef = doc(firestore, "etapasCultivo", selectedEtapa.id);
+      const etapaRef = tenant.doc("etapasCultivo", selectedEtapa.id);
+      if (!etapaRef) return;
       updateDocumentNonBlocking(etapaRef, etapaData);
       toast({
         title: "Etapa actualizada",
         description: `La etapa "${etapaData.nombre}" ha sido actualizada.`,
       });
     } else {
-      const etapasCultivoCol = collection(firestore, 'etapasCultivo');
+      const etapasCultivoCol = tenant.collection("etapasCultivo");
+      if (!etapasCultivoCol) return;
       addDocumentNonBlocking(etapasCultivoCol, etapaData);
       toast({
         title: "Etapa creada",
@@ -96,9 +97,9 @@ export default function EtapasCultivoPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore) return;
     const etapa = etapasCultivo?.find((e) => e.id === id);
-    const etapaRef = doc(firestore, "etapasCultivo", id);
+    const etapaRef = tenant.doc("etapasCultivo", id);
+    if (!etapaRef) return;
     deleteDocumentNonBlocking(etapaRef);
     toast({
       variant: "destructive",

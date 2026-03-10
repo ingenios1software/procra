@@ -1,14 +1,14 @@
 "use client";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, getCountFromServer } from "firebase/firestore";
+import { getCountFromServer } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 import { 
     Entidad, 
     Insumo, 
@@ -41,16 +41,19 @@ interface MasterStatus {
 }
 
 export default function ChecklistPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const [statuses, setStatuses] = useState<MasterStatus[]>(masterCollections.map(m => ({ ...m, count: 0, isLoading: true })));
 
   useEffect(() => {
-    if (!firestore) return;
+    if (!tenant.isReady) return;
 
     const fetchCounts = async () => {
       const counts = await Promise.all(masterCollections.map(async (master) => {
         try {
-          const coll = collection(firestore, master.collection);
+          const coll = tenant.collection(master.collection);
+          if (!coll) {
+            return { name: master.name, count: 0, isLoading: false, path: master.path };
+          }
           const snapshot = await getCountFromServer(coll);
           return { name: master.name, count: snapshot.data().count, isLoading: false, path: master.path };
         } catch (error) {
@@ -62,7 +65,7 @@ export default function ChecklistPage() {
     };
 
     fetchCounts();
-  }, [firestore]);
+  }, [tenant]);
   
 
   return (

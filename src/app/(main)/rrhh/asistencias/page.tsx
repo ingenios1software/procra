@@ -45,20 +45,21 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { AsistenciaForm } from "@/components/rrhh/asistencias/asistencia-form";
 import type { Asistencia, Empleado } from "@/lib/types";
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { orderBy } from 'firebase/firestore';
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 
 export default function AsistenciasPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { user } = useUser();
 
-  const asistenciasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'asistencias'), orderBy('fecha', 'desc')) : null, [firestore]);
+  const asistenciasQuery = useMemoFirebase(() => tenant.query('asistencias', orderBy('fecha', 'desc')), [tenant]);
   const { data: asistencias, isLoading: isLoadingAsistencias } = useCollection<Asistencia>(asistenciasQuery);
 
-  const empleadosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'empleados')) : null, [firestore]);
+  const empleadosQuery = useMemoFirebase(() => tenant.collection('empleados'), [tenant]);
   const { data: empleados, isLoading: isLoadingEmpleados } = useCollection<Empleado>(empleadosQuery);
   
   const [isFormOpen, setFormOpen] = useState(false);
@@ -85,19 +86,17 @@ export default function AsistenciasPage() {
   };
 
   const handleSave = (asistenciaData: Omit<Asistencia, "id">) => {
-    if (!firestore) return;
-
     if (selectedAsistencia) {
-      // Update
-      const asistenciaRef = doc(firestore, 'asistencias', selectedAsistencia.id);
+      const asistenciaRef = tenant.doc('asistencias', selectedAsistencia.id);
+      if (!asistenciaRef) return;
       updateDocumentNonBlocking(asistenciaRef, asistenciaData);
       toast({
         title: "Registro actualizado",
         description: `La asistencia ha sido actualizada.`,
       });
     } else {
-      // Create
-      const asistenciasCol = collection(firestore, 'asistencias');
+      const asistenciasCol = tenant.collection('asistencias');
+      if (!asistenciasCol) return;
       addDocumentNonBlocking(asistenciasCol, asistenciaData);
       toast({
         title: "Asistencia registrada",
@@ -109,8 +108,8 @@ export default function AsistenciasPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore) return;
-    const asistenciaRef = doc(firestore, 'asistencias', id);
+    const asistenciaRef = tenant.doc('asistencias', id);
+    if (!asistenciaRef) return;
     deleteDocumentNonBlocking(asistenciaRef);
     toast({
       variant: "destructive",

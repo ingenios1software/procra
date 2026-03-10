@@ -32,11 +32,12 @@ import {
 import { MoreHorizontal, PlusCircle, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Maquinaria } from "@/lib/types";
-import { useUser, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { cn } from "@/lib/utils";
 import { MaquinariaForm } from "./maquinaria-form";
 import { useToast } from "@/hooks/use-toast";
-import { collection, doc, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { getDocs, query, orderBy, limit } from "firebase/firestore";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 interface MaquinariaListProps {
   maquinaria: Maquinaria[];
@@ -47,17 +48,18 @@ export function MaquinariaList({ maquinaria, isLoading }: MaquinariaListProps) {
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedMaquinaria, setSelectedMaquinaria] = useState<Maquinaria | null>(null);
   const { user } = useUser();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { toast } = useToast();
 
   const handleSave = async (maquinariaData: Omit<Maquinaria, "id">) => {
-    if (!firestore) return;
     if (selectedMaquinaria) {
-      const maquinariaRef = doc(firestore, 'maquinaria', selectedMaquinaria.id);
+      const maquinariaRef = tenant.doc("maquinaria", selectedMaquinaria.id);
+      if (!maquinariaRef) return;
       updateDocumentNonBlocking(maquinariaRef, maquinariaData);
       toast({ title: "Maquinaria actualizada", description: `Los datos de "${maquinariaData.nombre}" han sido actualizados.` });
     } else {
-      const maquinariaCol = collection(firestore, 'maquinaria');
+      const maquinariaCol = tenant.collection("maquinaria");
+      if (!maquinariaCol) return;
       const q = query(maquinariaCol, orderBy("numeroItem", "desc"), limit(1));
       const querySnapshot = await getDocs(q);
       let maxNumeroItem = 0;
@@ -74,9 +76,9 @@ export function MaquinariaList({ maquinaria, isLoading }: MaquinariaListProps) {
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore) return;
     const maq = maquinaria.find(m => m.id === id);
-    const maquinariaRef = doc(firestore, 'maquinaria', id);
+    const maquinariaRef = tenant.doc("maquinaria", id);
+    if (!maquinariaRef) return;
     deleteDocumentNonBlocking(maquinariaRef);
     toast({ variant: "destructive", title: "Maquinaria eliminada", description: `La maquinaria "${maq?.nombre}" ha sido eliminada.` });
   };

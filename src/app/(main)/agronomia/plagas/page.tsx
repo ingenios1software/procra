@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -40,24 +40,25 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PlagaForm } from "@/components/agronomia/plagas/plaga-form";
 import type { Plaga, Cultivo } from "@/lib/types";
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { orderBy } from "firebase/firestore";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 export default function PlagasPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { toast } = useToast();
   const { user } = useUser();
   
   const plagasQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'plagas'), orderBy('nombre')) : null
-  , [firestore]);
+    tenant.query("plagas", orderBy("nombre"))
+  , [tenant]);
   const { data: plagas, isLoading: isLoadingPlagas } = useCollection<Plaga>(plagasQuery);
 
   const cultivosQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'cultivos'), orderBy('nombre')) : null
-  , [firestore]);
+    tenant.query("cultivos", orderBy("nombre"))
+  , [tenant]);
   const { data: cultivos, isLoading: isLoadingCultivos } = useCollection<Cultivo>(cultivosQuery);
   
   const [isFormOpen, setFormOpen] = useState(false);
@@ -72,13 +73,14 @@ export default function PlagasPage() {
   };
 
   const handleSave = (plagaData: Omit<Plaga, 'id'>) => {
-    if (!firestore) return;
     if (selectedPlaga) {
-      const plagaRef = doc(firestore, 'plagas', selectedPlaga.id);
+      const plagaRef = tenant.doc("plagas", selectedPlaga.id);
+      if (!plagaRef) return;
       updateDocumentNonBlocking(plagaRef, plagaData);
       toast({ title: "Plaga actualizada", description: `La plaga "${plagaData.nombre}" ha sido actualizada.` });
     } else {
-      const plagasCol = collection(firestore, 'plagas');
+      const plagasCol = tenant.collection("plagas");
+      if (!plagasCol) return;
       addDocumentNonBlocking(plagasCol, plagaData);
       toast({ title: "Plaga creada", description: `La plaga "${plagaData.nombre}" ha sido creada.` });
     }
@@ -87,9 +89,9 @@ export default function PlagasPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore) return;
     const plaga = plagas?.find(p => p.id === id);
-    const plagaRef = doc(firestore, 'plagas', id);
+    const plagaRef = tenant.doc("plagas", id);
+    if (!plagaRef) return;
     deleteDocumentNonBlocking(plagaRef);
     toast({ variant: "destructive", title: "Plaga eliminada", description: `La plaga "${plaga?.nombre}" ha sido eliminada.` });
   };

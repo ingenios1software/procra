@@ -2,14 +2,15 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { MaquinariaList } from "@/components/maquinaria/maquinaria-list";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from 'firebase/firestore';
-import type { Maquinaria } from '@/lib/types';
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
+import type { Maquinaria } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 
 export default function MaquinariaPage() {
-  const firestore = useFirestore();
-  const maquinariaQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'maquinaria'), orderBy('nombre')) : null, [firestore]);
+  const tenant = useTenantFirestore();
+  const maquinariaQuery = useMemoFirebase(() => tenant.query("maquinaria", orderBy("nombre")), [tenant]);
   const { data: maquinaria, isLoading } = useCollection<Maquinaria>(maquinariaQuery);
 
   return (

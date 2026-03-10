@@ -34,17 +34,18 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { CentroDeCostoForm } from "@/components/contabilidad/centros-de-costo/centro-de-costo-form";
 import type { CentroDeCosto } from "@/lib/types";
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { orderBy } from "firebase/firestore";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 export default function CentrosDeCostoPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const centrosDeCostoQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'centrosDeCosto'), orderBy('nombre')) : null
-  , [firestore]);
+    tenant.query("centrosDeCosto", orderBy("nombre"))
+  , [tenant]);
   const { data: centros, isLoading } = useCollection<CentroDeCosto>(centrosDeCostoQuery);
   
   const [isFormOpen, setFormOpen] = useState(false);
@@ -55,10 +56,10 @@ export default function CentrosDeCostoPage() {
   const { toast } = useToast();
 
   const handleSave = (centroData: Omit<CentroDeCosto, "id">) => {
-    if (!firestore) return;
     if (selectedCentro) {
       // Update
-      const centroRef = doc(firestore, 'centrosDeCosto', selectedCentro.id);
+      const centroRef = tenant.doc("centrosDeCosto", selectedCentro.id);
+      if (!centroRef) return;
       updateDocumentNonBlocking(centroRef, centroData);
       toast({
         title: "Centro de costo actualizado",
@@ -66,7 +67,8 @@ export default function CentrosDeCostoPage() {
       });
     } else {
       // Create
-      const centrosCol = collection(firestore, 'centrosDeCosto');
+      const centrosCol = tenant.collection("centrosDeCosto");
+      if (!centrosCol) return;
       addDocumentNonBlocking(centrosCol, centroData);
       toast({
         title: "Centro de costo creado",
@@ -78,9 +80,10 @@ export default function CentrosDeCostoPage() {
   };
 
   const handleDelete = (id: string) => {
-    if(!firestore || !centros) return;
+    if (!centros) return;
     const centro = centros.find((c) => c.id === id);
-    const centroRef = doc(firestore, 'centrosDeCosto', id);
+    const centroRef = tenant.doc("centrosDeCosto", id);
+    if (!centroRef) return;
     deleteDocumentNonBlocking(centroRef);
     toast({
       variant: "destructive",

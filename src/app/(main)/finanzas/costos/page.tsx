@@ -2,10 +2,10 @@
 
 import { useMemo } from "react";
 import { format } from "date-fns";
-import { collection, orderBy, query } from "firebase/firestore";
+import { orderBy } from "firebase/firestore";
 import { DollarSign, FileText } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useMemoFirebase } from "@/firebase";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Badge } from "@/components/ui/badge";
@@ -13,18 +13,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Evento, Parcela, Zafra } from "@/lib/types";
 import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 export default function CostosPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
 
   const { data: eventos, isLoading: l1 } = useCollection<Evento>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "eventos"), orderBy("fecha", "desc")) : null), [firestore])
+    useMemoFirebase(() => tenant.query("eventos", orderBy("fecha", "desc")), [tenant])
   );
   const { data: parcelas, isLoading: l2 } = useCollection<Parcela>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "parcelas")) : null), [firestore])
+    useMemoFirebase(() => tenant.collection("parcelas"), [tenant])
   );
   const { data: zafras, isLoading: l3 } = useCollection<Zafra>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "zafras")) : null), [firestore])
+    useMemoFirebase(() => tenant.collection("zafras"), [tenant])
   );
 
   const isLoading = l1 || l2 || l3;

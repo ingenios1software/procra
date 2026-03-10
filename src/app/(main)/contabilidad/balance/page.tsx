@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { collection, orderBy, query } from "firebase/firestore";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
+import { useCollection, useMemoFirebase } from "@/firebase";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
   ZAFRA_FILTER_ALL,
   ZAFRA_FILTER_NONE,
 } from "@/lib/contabilidad/asientos";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 type BalanceRow = {
   cuentaId: string;
@@ -87,24 +88,24 @@ function renderSection(title: string, description: string, rows: BalanceRow[], t
 }
 
 export default function BalancePage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const [selectedZafraId, setSelectedZafraId] = useState<string>(ZAFRA_FILTER_ALL);
 
   const asientosQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "asientosDiario"), orderBy("fecha", "desc")) : null),
-    [firestore]
+    () => tenant.query("asientosDiario", orderBy("fecha", "desc")),
+    [tenant]
   );
   const { data: asientosDiario, isLoading: isLoadingAsientos } = useCollection<AsientoDiario>(asientosQuery);
 
   const planDeCuentasQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null),
-    [firestore]
+    () => tenant.query("planDeCuentas", orderBy("codigo")),
+    [tenant]
   );
   const { data: planDeCuentas, isLoading: isLoadingCuentas } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
 
   const zafrasQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "zafras"), orderBy("nombre")) : null),
-    [firestore]
+    () => tenant.query("zafras", orderBy("nombre")),
+    [tenant]
   );
   const { data: zafras } = useCollection<Zafra>(zafrasQuery);
 

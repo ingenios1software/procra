@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { collection, doc, orderBy, query, where, writeBatch } from "firebase/firestore";
+import { doc, orderBy, where, writeBatch } from "firebase/firestore";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { ReportActions } from "@/components/shared/report-actions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { useCollection, useMemoFirebase, useUser } from "@/firebase";
 import {
   calcularAntiguedadSaldos,
   calcularEstadoCuenta,
@@ -40,6 +40,7 @@ import type {
   Proveedor,
 } from "@/lib/types";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const ESTADO_OPTIONS = [
   { value: "todos", label: "Todos" },
@@ -74,7 +75,8 @@ function parseDateInputToIso(value: string): string | null {
 }
 
 export default function CuentasPagarPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { user } = useUser();
   const { toast } = useToast();
 
@@ -93,23 +95,23 @@ export default function CuentasPagarPage() {
     forceRefetch: refetchCxp,
   } = useCollection<CuentaPorPagar>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "cuentasPorPagar"), orderBy("fechaEmision", "desc")) : null),
-      [firestore]
+      () => tenant.query("cuentasPorPagar", orderBy("fechaEmision", "desc")),
+      [tenant]
     )
   );
   const { data: proveedores, isLoading: isLoadingProveedores } = useCollection<Proveedor>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "proveedores")) : null), [firestore])
+    useMemoFirebase(() => tenant.collection("proveedores"), [tenant])
   );
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null),
-      [firestore]
+      () => tenant.query("planDeCuentas", orderBy("codigo")),
+      [tenant]
     )
   );
   const { data: cuentasCajaBanco } = useCollection<CuentaCajaBanco>(
     useMemoFirebase(
-      () => (firestore ? query(collection(firestore, "cuentasCajaBanco"), where("activo", "==", true)) : null),
-      [firestore]
+      () => tenant.query("cuentasCajaBanco", where("activo", "==", true)),
+      [tenant]
     )
   );
 
@@ -244,10 +246,13 @@ export default function CuentasPagarPage() {
 
     setIsSavingPago(true);
     try {
-      const cuentaRef = doc(firestore, "cuentasPorPagar", cuentaSeleccionada.id);
-      const pagoRef = doc(collection(firestore, "pagosCxp"));
-      const asientoRef = doc(collection(firestore, "asientosDiario"));
-      const compraRef = doc(firestore, "comprasNormal", cuentaSeleccionada.compraId);
+      const cuentaRef = tenant.doc("cuentasPorPagar", cuentaSeleccionada.id);
+      const pagosCol = tenant.collection("pagosCxp");
+      const asientosCol = tenant.collection("asientosDiario");
+      const compraRef = tenant.doc("comprasNormal", cuentaSeleccionada.compraId);
+      if (!cuentaRef || !pagosCol || !asientosCol || !compraRef) return;
+      const pagoRef = doc(pagosCol);
+      const asientoRef = doc(asientosCol);
       const batch = writeBatch(firestore);
 
       const saldoResult = calcularSaldoDesdeMovimiento({

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { collection, doc, orderBy, query, writeBatch } from "firebase/firestore";
+import { doc, orderBy, writeBatch } from "firebase/firestore";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +19,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useMemoFirebase } from "@/firebase";
 import type { Moneda } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 type MonedaFormState = {
   codigo: string;
@@ -37,7 +38,8 @@ const DEFAULT_FORM: MonedaFormState = {
 };
 
 export default function MonedasPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { toast } = useToast();
 
   const [isDialogOpen, setDialogOpen] = useState(false);
@@ -46,8 +48,8 @@ export default function MonedasPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const monedasQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "monedas"), orderBy("codigo")) : null),
-    [firestore]
+    () => tenant.query("monedas", orderBy("codigo")),
+    [tenant]
   );
   const { data: monedas, isLoading, forceRefetch } = useCollection<Moneda>(monedasQuery);
 
@@ -112,12 +114,16 @@ export default function MonedasPage() {
     setIsSaving(true);
     try {
       const batch = writeBatch(firestore);
+      const monedasCol = tenant.collection("monedas");
+      if (!monedasCol) return;
 
       if (esMonedaBase) {
         for (const m of monedas || []) {
           if (selectedMoneda && m.id === selectedMoneda.id) continue;
           if (m.esMonedaBase) {
-            batch.update(doc(firestore, "monedas", m.id), { esMonedaBase: false });
+            const monedaRef = tenant.doc("monedas", m.id);
+            if (!monedaRef) continue;
+            batch.update(monedaRef, { esMonedaBase: false });
           }
         }
       }
@@ -130,9 +136,11 @@ export default function MonedasPage() {
       };
 
       if (selectedMoneda) {
-        batch.update(doc(firestore, "monedas", selectedMoneda.id), payload);
+        const monedaRef = tenant.doc("monedas", selectedMoneda.id);
+        if (!monedaRef) return;
+        batch.update(monedaRef, payload);
       } else {
-        batch.set(doc(collection(firestore, "monedas")), payload);
+        batch.set(doc(monedasCol), payload);
       }
 
       await batch.commit();

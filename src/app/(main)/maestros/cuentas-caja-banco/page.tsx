@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { collection, deleteDoc, doc, getDocs, limit, orderBy, query, where, writeBatch } from "firebase/firestore";
+import { deleteDoc, doc, getDocs, limit, orderBy, query, where, writeBatch } from "firebase/firestore";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,9 +29,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useMemoFirebase } from "@/firebase";
 import { autoconfigurarBaseFinanzasNomina } from "@/lib/contabilidad/autoconfiguracion-finanzas";
 import type { CuentaCajaBanco, Moneda, PlanDeCuenta } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 type CuentaFormState = {
   nombre: string;
@@ -50,7 +51,8 @@ const DEFAULT_FORM: CuentaFormState = {
 };
 
 export default function CuentasCajaBancoPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { toast } = useToast();
 
   const [isDialogOpen, setDialogOpen] = useState(false);
@@ -62,16 +64,16 @@ export default function CuentasCajaBancoPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const cuentasQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "cuentasCajaBanco"), orderBy("nombre")) : null),
-    [firestore]
+    () => tenant.query("cuentasCajaBanco", orderBy("nombre")),
+    [tenant]
   );
   const monedasQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "monedas"), orderBy("codigo")) : null),
-    [firestore]
+    () => tenant.query("monedas", orderBy("codigo")),
+    [tenant]
   );
   const planQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "planDeCuentas"), orderBy("codigo")) : null),
-    [firestore]
+    () => tenant.query("planDeCuentas", orderBy("codigo")),
+    [tenant]
   );
 
   const {
@@ -150,9 +152,13 @@ export default function CuentasCajaBancoPage() {
 
       const batch = writeBatch(firestore);
       if (selectedCuenta) {
-        batch.update(doc(firestore, "cuentasCajaBanco", selectedCuenta.id), payload);
+        const cuentaRef = tenant.doc("cuentasCajaBanco", selectedCuenta.id);
+        if (!cuentaRef) return;
+        batch.update(cuentaRef, payload);
       } else {
-        batch.set(doc(collection(firestore, "cuentasCajaBanco")), payload);
+        const cuentasCol = tenant.collection("cuentasCajaBanco");
+        if (!cuentasCol) return;
+        batch.set(doc(cuentasCol), payload);
       }
       await batch.commit();
 
@@ -173,8 +179,10 @@ export default function CuentasCajaBancoPage() {
   const toggleActiva = async (cuenta: CuentaCajaBanco) => {
     if (!firestore) return;
     try {
+      const cuentaRef = tenant.doc("cuentasCajaBanco", cuenta.id);
+      if (!cuentaRef) return;
       await writeBatch(firestore)
-        .update(doc(firestore, "cuentasCajaBanco", cuenta.id), { activo: !cuenta.activo })
+        .update(cuentaRef, { activo: !cuenta.activo })
         .commit();
       toast({ title: `Cuenta ${!cuenta.activo ? "activada" : "desactivada"}` });
       refetchCuentas();
@@ -193,6 +201,7 @@ export default function CuentasCajaBancoPage() {
     try {
       const { createdItems } = await autoconfigurarBaseFinanzasNomina({
         firestore,
+        empresaId: tenant.empresaId,
         monedas: monedas || [],
         cuentasCajaBanco: cuentasCajaBanco || [],
         planDeCuentas: planDeCuentas || [],
@@ -236,7 +245,9 @@ export default function CuentasCajaBancoPage() {
 
     const usedIn: string[] = [];
     for (const check of checks) {
-      const q = query(collection(firestore, check.coleccion), where(check.campo, "==", cuentaId), limit(1));
+      const scopedCollection = tenant.collection(check.coleccion);
+      if (!scopedCollection) continue;
+      const q = query(scopedCollection, where(check.campo, "==", cuentaId), limit(1));
       const snap = await getDocs(q);
       if (!snap.empty) usedIn.push(check.etiqueta);
     }
@@ -257,7 +268,9 @@ export default function CuentasCajaBancoPage() {
         return;
       }
 
-      await deleteDoc(doc(firestore, "cuentasCajaBanco", cuentaToDelete.id));
+      const cuentaRef = tenant.doc("cuentasCajaBanco", cuentaToDelete.id);
+      if (!cuentaRef) return;
+      await deleteDoc(cuentaRef);
       toast({ title: "Cuenta eliminada" });
       refetchCuentas();
     } catch (error: any) {

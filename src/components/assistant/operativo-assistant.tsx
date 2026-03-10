@@ -2,12 +2,12 @@
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
+import { addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { ArrowRight, Loader2, MessageCircle, Mic, SendHorizontal, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useFirestore } from "@/firebase";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 import { canAccessPathByPermisos } from "@/lib/route-permissions";
 import type {
   Cliente,
@@ -270,7 +270,7 @@ function buildForbiddenMessage(topic: "stock" | "estado" | "costo" | "modulo"): 
 }
 
 export function OperativoAssistant() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const router = useRouter();
   const { user, role, permisos } = useAuth();
   const isAdmin = useMemo(() => normalize(role || "") === "admin", [role]);
@@ -330,8 +330,11 @@ export function OperativoAssistant() {
       responsePreview?: string;
       errorMessage?: string;
     }) => {
+      const auditoriaCol = tenant.collection("auditoriaAsistente");
+      if (!auditoriaCol) return;
+
       try {
-        await addDoc(collection(firestore, "auditoriaAsistente"), {
+        await addDoc(auditoriaCol, {
           prompt: payload.prompt,
           promptNormalizado: normalize(payload.prompt),
           intentType: payload.intentType,
@@ -353,7 +356,7 @@ export function OperativoAssistant() {
         console.warn("No se pudo registrar auditoria de asistente:", auditError);
       }
     },
-    [firestore, permisos, role, user?.email, user?.id, user?.nombre]
+    [permisos, role, tenant, user?.email, user?.id, user?.nombre]
   );
 
   const quickPrompts = useMemo(() => {
@@ -399,7 +402,16 @@ export function OperativoAssistant() {
 
   const stockHandler = useCallback(
     async (term: string): Promise<Omit<AssistantMessage, "id">> => {
-      const snapshot = await getDocs(collection(firestore, "insumos"));
+      const insumosCol = tenant.collection("insumos");
+      if (!insumosCol) {
+        return {
+          role: "assistant",
+          text: "No hay una empresa activa para consultar stock.",
+          actions: [{ label: "Abrir modulo Stock", href: "/stock" }],
+        };
+      }
+
+      const snapshot = await getDocs(insumosCol);
       const insumos = snapshot.docs.map((doc) => ({ ...(doc.data() as Insumo), id: doc.id }));
       const matches = rankMatches(insumos, term, (insumo) => [
         insumo.nombre,
@@ -436,16 +448,31 @@ export function OperativoAssistant() {
         actions,
       };
     },
-    [firestore]
+    [tenant]
   );
 
   const estadoHandler = useCallback(
     async (term: string): Promise<Omit<AssistantMessage, "id">> => {
+      const clientesCol = tenant.collection("clientes");
+      const proveedoresCol = tenant.collection("proveedores");
+      const cobrarCol = tenant.collection("cuentasPorCobrar");
+      const pagarCol = tenant.collection("cuentasPorPagar");
+      if (!clientesCol || !proveedoresCol || !cobrarCol || !pagarCol) {
+        return {
+          role: "assistant",
+          text: "No hay una empresa activa para consultar estados de cuenta.",
+          actions: [
+            { label: "Abrir Cuentas por Cobrar", href: "/finanzas/cuentas-cobrar" },
+            { label: "Abrir Cuentas por Pagar", href: "/finanzas/cuentas-pagar" },
+          ],
+        };
+      }
+
       const [clientesSnap, proveedoresSnap, cobrarSnap, pagarSnap] = await Promise.all([
-        getDocs(collection(firestore, "clientes")),
-        getDocs(collection(firestore, "proveedores")),
-        getDocs(collection(firestore, "cuentasPorCobrar")),
-        getDocs(collection(firestore, "cuentasPorPagar")),
+        getDocs(clientesCol),
+        getDocs(proveedoresCol),
+        getDocs(cobrarCol),
+        getDocs(pagarCol),
       ]);
 
       const clientes = clientesSnap.docs.map((doc) => ({ ...(doc.data() as Cliente), id: doc.id }));
@@ -507,14 +534,27 @@ export function OperativoAssistant() {
         actions,
       };
     },
-    [firestore]
+    [tenant]
   );
 
   const costoHandler = useCallback(
     async (term: string): Promise<Omit<AssistantMessage, "id">> => {
+      const parcelasCol = tenant.collection("parcelas");
+      const eventosCol = tenant.collection("eventos");
+      if (!parcelasCol || !eventosCol) {
+        return {
+          role: "assistant",
+          text: "No hay una empresa activa para consultar costos por parcela.",
+          actions: [
+            { label: "Abrir Parcelas", href: "/parcelas" },
+            { label: "Abrir Informe de Costos", href: "/agronomia/informe-costos" },
+          ],
+        };
+      }
+
       const [parcelasSnap, eventosSnap] = await Promise.all([
-        getDocs(collection(firestore, "parcelas")),
-        getDocs(collection(firestore, "eventos")),
+        getDocs(parcelasCol),
+        getDocs(eventosCol),
       ]);
 
       const parcelas = parcelasSnap.docs.map((doc) => ({ ...(doc.data() as Parcela), id: doc.id }));
@@ -573,7 +613,7 @@ export function OperativoAssistant() {
         actions,
       };
     },
-    [firestore]
+    [tenant]
   );
 
   const moduloHandler = useCallback(

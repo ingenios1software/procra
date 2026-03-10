@@ -1,16 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
-import { collection, query } from "firebase/firestore";
 import { Bar, BarChart, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { DollarSign, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useMemoFirebase } from "@/firebase";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Cultivo, Evento, Parcela, Venta } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const COLORS = [
   "hsl(var(--chart-1))",
@@ -25,19 +25,19 @@ function formatCurrency(value: number): string {
 }
 
 export default function RentabilidadPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
 
   const { data: eventos, isLoading: l1 } = useCollection<Evento>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "eventos")) : null), [firestore])
+    useMemoFirebase(() => tenant.collection("eventos"), [tenant])
   );
   const { data: ventas, isLoading: l2 } = useCollection<Venta>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "ventas")) : null), [firestore])
+    useMemoFirebase(() => tenant.collection("ventas"), [tenant])
   );
   const { data: parcelas, isLoading: l3 } = useCollection<Parcela>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "parcelas")) : null), [firestore])
+    useMemoFirebase(() => tenant.collection("parcelas"), [tenant])
   );
   const { data: cultivos, isLoading: l4 } = useCollection<Cultivo>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "cultivos")) : null), [firestore])
+    useMemoFirebase(() => tenant.collection("cultivos"), [tenant])
   );
 
   const isLoading = l1 || l2 || l3 || l4;

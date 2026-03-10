@@ -23,8 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, orderBy, query } from "firebase/firestore";
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
 import type { AsientoDiario, CentroDeCosto, PlanDeCuenta, Zafra } from "@/lib/types";
 import {
   getAsientoZafraLabel,
@@ -32,6 +32,7 @@ import {
   ZAFRA_FILTER_ALL,
   ZAFRA_FILTER_NONE,
 } from "@/lib/contabilidad/asientos";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 function normalizeText(value: unknown): string {
   return String(value || "")
@@ -48,33 +49,33 @@ function esAsientoServicioCosecha(asiento: AsientoDiario): boolean {
 }
 
 export default function DiarioPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<"todos" | "servicio_cosecha">("servicio_cosecha");
   const [selectedZafraId, setSelectedZafraId] = useState<string>(ZAFRA_FILTER_ALL);
 
   const asientosQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "asientosDiario"), orderBy("fecha", "desc")) : null),
-    [firestore]
+    () => tenant.query("asientosDiario", orderBy("fecha", "desc")),
+    [tenant]
   );
   const { data: asientosDiario, isLoading: isLoadingAsientos } = useCollection<AsientoDiario>(asientosQuery);
 
   const planDeCuentasQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "planDeCuentas")) : null),
-    [firestore]
+    () => tenant.collection("planDeCuentas"),
+    [tenant]
   );
   const { data: planDeCuentas, isLoading: isLoadingCuentas } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
 
   const centrosDeCostoQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "centrosDeCosto")) : null),
-    [firestore]
+    () => tenant.collection("centrosDeCosto"),
+    [tenant]
   );
   const { data: centrosDeCosto, isLoading: isLoadingCentros } = useCollection<CentroDeCosto>(centrosDeCostoQuery);
 
   const zafrasQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "zafras"), orderBy("nombre")) : null),
-    [firestore]
+    () => tenant.query("zafras", orderBy("nombre")),
+    [tenant]
   );
   const { data: zafras } = useCollection<Zafra>(zafrasQuery);
 

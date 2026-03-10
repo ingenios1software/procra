@@ -3,8 +3,8 @@
 
 import { useState, useMemo } from 'react';
 import { notFound } from "next/navigation";
-import { useDoc, useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { doc, collection, query, where } from 'firebase/firestore';
+import { useDoc, useCollection, useMemoFirebase } from "@/firebase";
+import { where } from 'firebase/firestore';
 import type { Insumo, MovimientoStock, Zafra, Parcela, CompraNormal } from '@/lib/types';
 import { type DateRange } from "react-day-picker";
 
@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { calcularPrecioPromedioDesdeCompras, toPositiveNumber } from "@/lib/stock/precio-promedio-lotes";
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 interface MovimientoConSaldo extends MovimientoStock {
   saldoAcumulado: number;
@@ -83,7 +84,7 @@ function inputValueToDate(value: string): Date | undefined {
 }
 
 export default function FichaInsumoPage({ params }: { params: { insumoId: string } }) {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
 
   // --- State for Filters ---
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -91,19 +92,18 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
   const [selectedTipos, setSelectedTipos] = useState<string[]>(['entrada', 'salida', 'ajuste']);
 
   // --- Data Fetching ---
-  const insumoRef = useMemoFirebase(() => firestore ? doc(firestore, 'insumos', params.insumoId) : null, [firestore, params.insumoId]);
+  const insumoRef = useMemoFirebase(() => tenant.doc('insumos', params.insumoId), [tenant, params.insumoId]);
   const { data: insumo, isLoading: isLoadingInsumo } = useDoc<Insumo>(insumoRef);
 
   const movimientosQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'MovimientosStock'), where('insumoId', '==', params.insumoId));
-  }, [firestore, params.insumoId]);
+    return tenant.query('MovimientosStock', where('insumoId', '==', params.insumoId));
+  }, [tenant, params.insumoId]);
 
   const { data: movimientos, isLoading: isLoadingMovimientos, error: movimientosError } = useCollection<MovimientoStock>(movimientosQuery);
-  const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]));
-  const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]));
+  const { data: zafras, isLoading: isLoadingZafras } = useCollection<Zafra>(useMemoFirebase(() => tenant.collection('zafras'), [tenant]));
+  const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(useMemoFirebase(() => tenant.collection('parcelas'), [tenant]));
   const { data: comprasNormal, isLoading: isLoadingCompras } = useCollection<CompraNormal>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, 'comprasNormal')) : null), [firestore])
+    useMemoFirebase(() => tenant.collection('comprasNormal'), [tenant])
   );
   
   const isLoading = isLoadingInsumo || isLoadingMovimientos || isLoadingZafras || isLoadingParcelas || isLoadingCompras;

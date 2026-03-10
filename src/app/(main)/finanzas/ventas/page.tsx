@@ -1,18 +1,19 @@
 "use client";
 
 import { VentasList } from "@/components/finanzas/ventas-list";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
 import type { Venta, Parcela, Zafra, Cultivo, Cliente } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 export default function VentasFinanzasPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
 
-  const { data: ventas, isLoading: l1 } = useCollection<Venta>(useMemoFirebase(() => firestore ? query(collection(firestore, 'ventas'), orderBy('fecha', 'desc')) : null, [firestore]));
-  const { data: parcelas, isLoading: l2 } = useCollection<Parcela>(useMemoFirebase(() => firestore ? query(collection(firestore, 'parcelas')) : null, [firestore]));
-  const { data: cultivos, isLoading: l3 } = useCollection<Cultivo>(useMemoFirebase(() => firestore ? query(collection(firestore, 'cultivos')) : null, [firestore]));
-  const { data: zafras, isLoading: l4 } = useCollection<Zafra>(useMemoFirebase(() => firestore ? query(collection(firestore, 'zafras')) : null, [firestore]));
-  const { data: clientes, isLoading: l5 } = useCollection<Cliente>(useMemoFirebase(() => firestore ? query(collection(firestore, 'clientes')) : null, [firestore]));
+  const { data: ventas, isLoading: l1 } = useCollection<Venta>(useMemoFirebase(() => tenant.query("ventas", orderBy("fecha", "desc")), [tenant]));
+  const { data: parcelas, isLoading: l2 } = useCollection<Parcela>(useMemoFirebase(() => tenant.collection("parcelas"), [tenant]));
+  const { data: cultivos, isLoading: l3 } = useCollection<Cultivo>(useMemoFirebase(() => tenant.collection("cultivos"), [tenant]));
+  const { data: zafras, isLoading: l4 } = useCollection<Zafra>(useMemoFirebase(() => tenant.collection("zafras"), [tenant]));
+  const { data: clientes, isLoading: l5 } = useCollection<Cliente>(useMemoFirebase(() => tenant.collection("clientes"), [tenant]));
 
 
   return (

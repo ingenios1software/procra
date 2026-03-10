@@ -1,8 +1,10 @@
 import { collection, doc, writeBatch, type Firestore } from "firebase/firestore";
 import type { CuentaCajaBanco, Moneda, PlanDeCuenta } from "@/lib/types";
+import { tenantCollection } from "@/lib/tenant";
 
 type AutoConfigFinanzasInput = {
   firestore: Firestore;
+  empresaId?: string | null;
   monedas: Moneda[];
   cuentasCajaBanco: CuentaCajaBanco[];
   planDeCuentas: PlanDeCuenta[];
@@ -36,10 +38,13 @@ function pickNextCodigo(plan: Array<{ codigo: string }>, preferred: string, pref
 
 export async function autoconfigurarBaseFinanzasNomina({
   firestore,
+  empresaId,
   monedas,
   cuentasCajaBanco,
   planDeCuentas,
 }: AutoConfigFinanzasInput): Promise<AutoConfigFinanzasResult> {
+  const scopedCollection = (collectionName: string) =>
+    empresaId ? tenantCollection(firestore, empresaId, collectionName) : collection(firestore, collectionName);
   const planActual: PlanDeCuenta[] = [...(planDeCuentas || [])];
   const createdItems: string[] = [];
   const batch = writeBatch(firestore);
@@ -52,7 +57,7 @@ export async function autoconfigurarBaseFinanzasNomina({
     null;
 
   if (!planCaja) {
-    const cuentaRef = doc(collection(firestore, "planDeCuentas"));
+    const cuentaRef = doc(scopedCollection("planDeCuentas"));
     const codigo = pickNextCodigo(planActual, "1.1.1", "1.1.");
     const payload: Omit<PlanDeCuenta, "id"> = {
       codigo,
@@ -72,7 +77,7 @@ export async function autoconfigurarBaseFinanzasNomina({
     null;
 
   if (!planBanco) {
-    const cuentaRef = doc(collection(firestore, "planDeCuentas"));
+    const cuentaRef = doc(scopedCollection("planDeCuentas"));
     const codigo = pickNextCodigo(planActual, "1.1.2", "1.1.");
     const payload: Omit<PlanDeCuenta, "id"> = {
       codigo,
@@ -94,7 +99,7 @@ export async function autoconfigurarBaseFinanzasNomina({
     }) || null;
 
   if (!cuentaJornales) {
-    const cuentaRef = doc(collection(firestore, "planDeCuentas"));
+    const cuentaRef = doc(scopedCollection("planDeCuentas"));
     const codigo = pickNextCodigo(planActual, "5.2.2", "5.2.");
     const payload: Omit<PlanDeCuenta, "id"> = {
       codigo,
@@ -116,7 +121,7 @@ export async function autoconfigurarBaseFinanzasNomina({
     "";
 
   if (!pygId) {
-    const monedaRef = doc(collection(firestore, "monedas"));
+    const monedaRef = doc(scopedCollection("monedas"));
     pygId = monedaRef.id;
     const hasBase = monedas.some((m) => m.esMonedaBase);
     batch.set(monedaRef, {
@@ -130,7 +135,7 @@ export async function autoconfigurarBaseFinanzasNomina({
 
   const existeCajaPyg = cuentasCajaBanco.some((cuenta) => cuenta.tipo === "CAJA" && cuenta.monedaId === pygId);
   if (!existeCajaPyg) {
-    const cajaRef = doc(collection(firestore, "cuentasCajaBanco"));
+    const cajaRef = doc(scopedCollection("cuentasCajaBanco"));
     batch.set(cajaRef, {
       nombre: "Caja Jornaleros Gs",
       tipo: "CAJA",
@@ -144,7 +149,7 @@ export async function autoconfigurarBaseFinanzasNomina({
   if (planBanco) {
     const existeBancoPyg = cuentasCajaBanco.some((cuenta) => cuenta.tipo === "BANCO" && cuenta.monedaId === pygId);
     if (!existeBancoPyg) {
-      const bancoRef = doc(collection(firestore, "cuentasCajaBanco"));
+      const bancoRef = doc(scopedCollection("cuentasCajaBanco"));
       batch.set(bancoRef, {
         nombre: "Banco Principal Gs",
         tipo: "BANCO",

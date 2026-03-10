@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { collection } from "firebase/firestore";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Badge } from "@/components/ui/badge";
@@ -10,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useMemoFirebase } from "@/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 type AuditStatus = "ok" | "forbidden" | "unknown" | "error";
 type AuditIntent = "stock" | "estado" | "costo" | "modulo" | "unknown";
@@ -132,7 +132,7 @@ function passesRangeFilter(date: Date | null, range: RangeFilter): boolean {
 }
 
 export default function AuditoriaPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { permisos, isAuthLoading } = useAuth();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
@@ -140,7 +140,7 @@ export default function AuditoriaPage() {
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>("7");
 
   const { data: auditoria, isLoading } = useCollection<AssistantAudit>(
-    useMemoFirebase(() => (firestore ? collection(firestore, "auditoriaAsistente") : null), [firestore])
+    useMemoFirebase(() => tenant.collection("auditoriaAsistente"), [tenant])
   );
 
   const rows = useMemo(() => {

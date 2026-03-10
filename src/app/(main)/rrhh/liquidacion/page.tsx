@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { collection, doc, orderBy, query, writeBatch } from "firebase/firestore";
+import { doc, orderBy, writeBatch } from "firebase/firestore";
 import { ArrowRightLeft, Eye } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { autoconfigurarBaseFinanzasNomina } from "@/lib/contabilidad/autoconfiguracion-finanzas";
 import { generarNumeroReciboPagoEmpleado, toDateSafe } from "@/lib/cuentas";
 import type {
@@ -38,6 +38,7 @@ import type {
   PlanDeCuenta,
   ReciboPagoEmpleado,
 } from "@/lib/types";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
@@ -116,7 +117,8 @@ function reciboEsPeriodo(recibo: ReciboPagoEmpleado, year: number, monthIndex: n
 }
 
 export default function LiquidacionPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const { user } = useUser();
   const { toast } = useToast();
 
@@ -133,14 +135,14 @@ export default function LiquidacionPage() {
   const [ultimoRecibo, setUltimoRecibo] = useState<ReciboPagoEmpleadoViewModel | null>(null);
   const [selectedRecibo, setSelectedRecibo] = useState<ReciboPagoEmpleadoViewModel | null>(null);
 
-  const { data: empleados, isLoading: l1 } = useCollection<Empleado>(useMemoFirebase(() => (firestore ? collection(firestore, "empleados") : null), [firestore]));
-  const { data: registros, isLoading: l2 } = useCollection<ControlHorario>(useMemoFirebase(() => (firestore ? collection(firestore, "controlHorario") : null), [firestore]));
-  const { data: pagosNomina, isLoading: l3, forceRefetch } = useCollection<PagoNominaHoras>(useMemoFirebase(() => (firestore ? collection(firestore, "pagosNominaHoras") : null), [firestore]));
-  const { data: planDeCuentas, isLoading: l4, forceRefetch: refetchPlan } = useCollection<PlanDeCuenta>(useMemoFirebase(() => (firestore ? collection(firestore, "planDeCuentas") : null), [firestore]));
-  const { data: cuentasCajaBanco, isLoading: l5, forceRefetch: refetchCajas } = useCollection<CuentaCajaBanco>(useMemoFirebase(() => (firestore ? collection(firestore, "cuentasCajaBanco") : null), [firestore]));
-  const { data: monedas, isLoading: l6, forceRefetch: refetchMonedas } = useCollection<Moneda>(useMemoFirebase(() => (firestore ? collection(firestore, "monedas") : null), [firestore]));
+  const { data: empleados, isLoading: l1 } = useCollection<Empleado>(useMemoFirebase(() => tenant.collection("empleados"), [tenant]));
+  const { data: registros, isLoading: l2 } = useCollection<ControlHorario>(useMemoFirebase(() => tenant.collection("controlHorario"), [tenant]));
+  const { data: pagosNomina, isLoading: l3, forceRefetch } = useCollection<PagoNominaHoras>(useMemoFirebase(() => tenant.collection("pagosNominaHoras"), [tenant]));
+  const { data: planDeCuentas, isLoading: l4, forceRefetch: refetchPlan } = useCollection<PlanDeCuenta>(useMemoFirebase(() => tenant.collection("planDeCuentas"), [tenant]));
+  const { data: cuentasCajaBanco, isLoading: l5, forceRefetch: refetchCajas } = useCollection<CuentaCajaBanco>(useMemoFirebase(() => tenant.collection("cuentasCajaBanco"), [tenant]));
+  const { data: monedas, isLoading: l6, forceRefetch: refetchMonedas } = useCollection<Moneda>(useMemoFirebase(() => tenant.collection("monedas"), [tenant]));
   const { data: recibosPago, isLoading: l7, forceRefetch: refetchRecibos } = useCollection<ReciboPagoEmpleado>(
-    useMemoFirebase(() => (firestore ? query(collection(firestore, "recibosPagoEmpleado"), orderBy("fecha", "desc")) : null), [firestore])
+    useMemoFirebase(() => tenant.query("recibosPagoEmpleado", orderBy("fecha", "desc")), [tenant])
   );
 
   const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7;
@@ -276,6 +278,7 @@ export default function LiquidacionPage() {
     try {
       const { createdItems } = await autoconfigurarBaseFinanzasNomina({
         firestore,
+        empresaId: tenant.empresaId,
         monedas: monedas || [],
         cuentasCajaBanco: cuentasCajaBanco || [],
         planDeCuentas: planDeCuentas || [],
@@ -351,10 +354,15 @@ export default function LiquidacionPage() {
 
     setIsSaving(true);
     try {
-      const pagoRef = doc(collection(firestore, "pagosNominaHoras"));
-      const reciboRef = doc(collection(firestore, "recibosPagoEmpleado"));
-      const asientoRef = doc(collection(firestore, "asientosDiario"));
-      const movRef = doc(collection(firestore, "movimientosTesoreria"));
+      const pagosCol = tenant.collection("pagosNominaHoras");
+      const recibosCol = tenant.collection("recibosPagoEmpleado");
+      const asientosCol = tenant.collection("asientosDiario");
+      const movimientosCol = tenant.collection("movimientosTesoreria");
+      if (!pagosCol || !recibosCol || !asientosCol || !movimientosCol) return;
+      const pagoRef = doc(pagosCol);
+      const reciboRef = doc(recibosCol);
+      const asientoRef = doc(asientosCol);
+      const movRef = doc(movimientosCol);
       const fechaAsDate = toDateSafe(fechaIso) || new Date();
       const numeroRecibo = generarNumeroReciboPagoEmpleado(fechaAsDate, pagoRef.id.slice(-4));
       const horas = selectedRow.montoPend > 0 ? (selectedRow.horasPend * monto) / selectedRow.montoPend : 0;

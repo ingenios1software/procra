@@ -22,10 +22,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { EtapaCultivo, Cultivo } from "@/lib/types";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { orderBy } from "firebase/firestore";
 import React, { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 const formSchema = z.object({
   cultivoId: z.string().min(1, "Debe seleccionar un cultivo."),
@@ -65,11 +66,8 @@ export function EtapaCultivoForm({
   onSubmit,
   onCancel,
 }: EtapaCultivoFormProps) {
-  const firestore = useFirestore();
-  const cultivosQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'cultivos'), orderBy('nombre'));
-  }, [firestore]);
+  const tenant = useTenantFirestore();
+  const cultivosQuery = useMemoFirebase(() => tenant.query("cultivos", orderBy("nombre")), [tenant]);
   const { data: cultivos } = useCollection<Cultivo>(cultivosQuery);
   
   const form = useForm<EtapaCultivoFormValues>({

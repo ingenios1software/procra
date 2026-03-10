@@ -34,18 +34,20 @@ import {
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { PlanDeCuentasForm } from "@/components/contabilidad/plan-de-cuentas/plan-de-cuentas-form";
 import type { PlanDeCuenta, AsientoDiario } from "@/lib/types";
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { collection, doc, query, orderBy, writeBatch, getDocs } from 'firebase/firestore';
+import { doc, orderBy, writeBatch, getDocs } from "firebase/firestore";
 import { findPlanCuentaByCodigo, getCuentasBaseFaltantes } from "@/lib/contabilidad/cuentas-base";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
 
 export default function PlanDeCuentasPage() {
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
+  const firestore = tenant.firestore;
   const planDeCuentasQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'planDeCuentas'), orderBy('codigo')) : null
-  , [firestore]);
+    tenant.query("planDeCuentas", orderBy("codigo"))
+  , [tenant]);
   const { data: cuentas, isLoading } = useCollection<PlanDeCuenta>(planDeCuentasQuery);
 
   const [isFormOpen, setFormOpen] = useState(false);
@@ -56,11 +58,10 @@ export default function PlanDeCuentasPage() {
   const { toast } = useToast();
 
   const handleSave = (cuentaData: Omit<PlanDeCuenta, "id">) => {
-    if (!firestore) return;
-
     if (selectedCuenta) {
       // Update
-      const cuentaRef = doc(firestore, 'planDeCuentas', selectedCuenta.id);
+      const cuentaRef = tenant.doc("planDeCuentas", selectedCuenta.id);
+      if (!cuentaRef) return;
       updateDocumentNonBlocking(cuentaRef, cuentaData);
       toast({
         title: "Cuenta actualizada",
@@ -68,7 +69,8 @@ export default function PlanDeCuentasPage() {
       });
     } else {
       // Create
-      const cuentasCol = collection(firestore, 'planDeCuentas');
+      const cuentasCol = tenant.collection("planDeCuentas");
+      if (!cuentasCol) return;
       addDocumentNonBlocking(cuentasCol, cuentaData);
       toast({
         title: "Cuenta creada",
@@ -80,9 +82,10 @@ export default function PlanDeCuentasPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!firestore || !cuentas) return;
+    if (!cuentas) return;
     const cuenta = cuentas.find((c) => c.id === id);
-    const cuentaRef = doc(firestore, 'planDeCuentas', id);
+    const cuentaRef = tenant.doc("planDeCuentas", id);
+    if (!cuentaRef) return;
     deleteDocumentNonBlocking(cuentaRef);
     toast({
       variant: "destructive",
@@ -104,7 +107,8 @@ export default function PlanDeCuentasPage() {
 
     try {
       const batch = writeBatch(firestore);
-      const cuentasCol = collection(firestore, "planDeCuentas");
+      const cuentasCol = tenant.collection("planDeCuentas");
+      if (!cuentasCol) return;
       for (const cuenta of faltantes) {
         const ref = doc(cuentasCol);
         batch.set(ref, cuenta);
@@ -128,7 +132,9 @@ export default function PlanDeCuentasPage() {
 
     try {
       const cuentasPorId = new Set(cuentas.map((c) => c.id));
-      const asientosSnap = await getDocs(collection(firestore, "asientosDiario"));
+      const asientosCol = tenant.collection("asientosDiario");
+      if (!asientosCol) return;
+      const asientosSnap = await getDocs(asientosCol);
       if (asientosSnap.empty) {
         toast({ title: "Sin asientos", description: "No hay asientos para normalizar." });
         return;

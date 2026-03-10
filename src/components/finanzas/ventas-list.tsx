@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { collection, doc, getDoc, writeBatch } from "firebase/firestore";
+import { doc, getDoc, writeBatch } from "firebase/firestore";
 import { MoreHorizontal, Package, PlusCircle, TrendingUp } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { addDocumentNonBlocking, updateDocumentNonBlocking, useFirestore, useUser } from "@/firebase";
+import { useUser } from "@/firebase";
+import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 import { VentaForm } from "./venta-form";
 import type { Cliente, Cultivo, Insumo, MovimientoStock, Parcela, Venta, Zafra } from "@/lib/types";
 import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
@@ -37,7 +38,7 @@ export function VentasList({
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState<Venta | null>(null);
   const { user } = useUser();
-  const firestore = useFirestore();
+  const tenant = useTenantFirestore();
   const { toast } = useToast();
 
   const { totalIngresos, rendimientoPorParcela } = useMemo(() => {
@@ -59,10 +60,15 @@ export function VentasList({
 
   const handleSave = useCallback(
     async (ventaData: Omit<Venta, "id">) => {
-      if (!firestore || !user) return;
+      if (!tenant.isReady || !tenant.firestore || !user) return;
 
-      const batch = writeBatch(firestore);
-      const ventaRef = selectedVenta ? doc(firestore, "ventas", selectedVenta.id) : doc(collection(firestore, "ventas"));
+      const ventasCol = tenant.collection("ventas");
+      const movimientosCol = tenant.collection("MovimientosStock");
+      if (!ventasCol || !movimientosCol) return;
+
+      const batch = writeBatch(tenant.firestore);
+      const ventaRef = selectedVenta ? tenant.doc("ventas", selectedVenta.id) : doc(ventasCol);
+      if (!ventaRef) return;
       const dataToSave = { ...ventaData, fecha: (ventaData.fecha as Date).toISOString() };
 
       if (selectedVenta) {
@@ -72,7 +78,8 @@ export function VentasList({
       }
 
       for (const item of ventaData.items) {
-        const insumoRef = doc(firestore, "insumos", item.productoId);
+        const insumoRef = tenant.doc("insumos", item.productoId);
+        if (!insumoRef) continue;
         const insumoDoc = await getDoc(insumoRef);
         if (!insumoDoc.exists()) {
           toast({
@@ -89,7 +96,7 @@ export function VentasList({
 
         batch.update(insumoRef, { stockActual: stockDespues });
 
-        const movimientoRef = doc(collection(firestore, "MovimientosStock"));
+        const movimientoRef = doc(movimientosCol);
         const nuevoMovimiento: Omit<MovimientoStock, "id"> = {
           fecha: dataToSave.fecha,
           tipo: "salida",
@@ -125,7 +132,7 @@ export function VentasList({
         });
       }
     },
-    [selectedVenta, firestore, toast, user]
+    [selectedVenta, tenant, toast, user]
   );
 
   const openDialog = useCallback((venta?: Venta) => {
