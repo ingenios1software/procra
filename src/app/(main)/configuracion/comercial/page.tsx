@@ -15,7 +15,7 @@ import { useTenantSelection } from "@/hooks/use-tenant-selection";
 import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import type { EmpresaSaaS, EstadoSuscripcionSaaS, ModeloCobroSaaS, Permisos, PlanSaaS } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { toDateSafe } from "@/lib/suscripcion-saas";
+import { normalizePermisos, toDateSafe } from "@/lib/suscripcion-saas";
 import { buildEmpresaBasePayload, buildTenantRoleSeeds, tenantDoc } from "@/lib/tenant";
 
 const PLAN_OPTIONS: PlanSaaS[] = ["demo", "basic", "pro", "enterprise"];
@@ -32,6 +32,8 @@ const MODULE_OPTIONS: Array<{ key: keyof Permisos; label: string }> = [
   { key: "finanzas", label: "Finanzas" },
   { key: "agronomia", label: "Agronomia" },
   { key: "maestros", label: "Maestros" },
+  { key: "usuarios", label: "Usuarios" },
+  { key: "roles", label: "Roles" },
   { key: "administracion", label: "Administracion" },
 ];
 
@@ -46,6 +48,8 @@ const DEFAULT_MODULES: Permisos = {
   finanzas: true,
   agronomia: true,
   maestros: true,
+  usuarios: true,
+  roles: true,
   administracion: true,
 };
 
@@ -168,10 +172,10 @@ export default function ConfiguracionComercialPage() {
     setProximoCobro(toInputDate(empresa.suscripcion?.proximoCobro));
     setDemoHabilitado(empresa.demo?.habilitado ? "si" : "no");
     setDemoFin(toInputDate(empresa.demo?.fin));
-    setModulos({
+    setModulos(normalizePermisos({
       ...DEFAULT_MODULES,
       ...(empresa.modulos || {}),
-    });
+    }));
   }, [empresa]);
 
   const canEdit = Boolean(permisos.administracion);

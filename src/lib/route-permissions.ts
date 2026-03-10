@@ -34,10 +34,10 @@ export function getPermissionForPath(pathname: string): keyof Permisos | null {
   if (path.startsWith("/contabilidad")) return "contabilidad";
   if (path.startsWith("/rrhh")) return "rrhh";
   if (path.startsWith("/maestros")) return "maestros";
+  if (path.startsWith("/usuarios")) return "usuarios";
+  if (path.startsWith("/roles")) return "roles";
 
   if (
-    path.startsWith("/usuarios") ||
-    path.startsWith("/roles") ||
     path.startsWith("/auditoria") ||
     path.startsWith("/admin") ||
     path.startsWith("/configuracion") ||
@@ -60,6 +60,8 @@ export function getModuloLabelForPermission(permission: keyof Permisos | null): 
   if (permission === "finanzas") return "Finanzas";
   if (permission === "agronomia") return "Agronomia";
   if (permission === "maestros") return "Maestros";
+  if (permission === "usuarios") return "Usuarios";
+  if (permission === "roles") return "Roles";
   if (permission === "administracion") return "Administracion";
   return "General";
 }

@@ -27,6 +27,8 @@ const DEFAULT_COMPANY_MODULES = {
   finanzas: true,
   agronomia: true,
   maestros: true,
+  usuarios: true,
+  roles: true,
   administracion: true,
 };
 
@@ -50,12 +52,14 @@ const DEFAULT_TENANT_ROLES = [
       monitoreos: true,
       ventas: true,
       contabilidad: false,
-      rrhh: false,
-      finanzas: false,
-      agronomia: true,
-      maestros: true,
-      administracion: false,
-    },
+        rrhh: false,
+        finanzas: false,
+        agronomia: true,
+        maestros: true,
+        usuarios: false,
+        roles: false,
+        administracion: false,
+      },
     soloLectura: false,
     esSistema: true,
   },
@@ -70,12 +74,14 @@ const DEFAULT_TENANT_ROLES = [
       monitoreos: true,
       ventas: true,
       contabilidad: false,
-      rrhh: false,
-      finanzas: true,
-      agronomia: true,
-      maestros: true,
-      administracion: false,
-    },
+        rrhh: false,
+        finanzas: true,
+        agronomia: true,
+        maestros: true,
+        usuarios: false,
+        roles: false,
+        administracion: false,
+      },
     soloLectura: false,
     esSistema: true,
   },
@@ -83,7 +89,11 @@ const DEFAULT_TENANT_ROLES = [
     id: "consulta",
     nombre: "consulta",
     descripcion: "Consulta general sin capacidad de modificacion.",
-    permisos: { ...DEFAULT_COMPANY_MODULES },
+    permisos: {
+      ...DEFAULT_COMPANY_MODULES,
+      usuarios: false,
+      roles: false,
+    },
     soloLectura: true,
     esSistema: true,
   },
@@ -225,16 +235,55 @@ function isPlatformAdminRequest(request: CallableAuthRequest, profile: AppUser |
   return PLATFORM_ADMIN_EMAILS.has(email) || Boolean(profile?.esSuperAdmin);
 }
 
-async function tenantRoleAllowsAdministration(profile: AppUser, empresaId: string): Promise<boolean> {
+type CompanyPermissionKey = "administracion" | "usuarios" | "roles";
+
+async function companyModuleAllowsPermission(
+  empresaId: string,
+  permission: CompanyPermissionKey
+): Promise<boolean> {
+  const empresaSnap = await db.doc(`empresas/${empresaId}`).get();
+  if (!empresaSnap.exists) return false;
+
+  const administracionEnabled = empresaSnap.get("modulos.administracion") !== false;
+  if (permission === "administracion") {
+    return administracionEnabled;
+  }
+
+  return administracionEnabled || empresaSnap.get(`modulos.${permission}`) !== false;
+}
+
+async function tenantRoleAllowsPermission(
+  profile: AppUser,
+  empresaId: string,
+  permission: CompanyPermissionKey
+): Promise<boolean> {
   const rolId = normalizeText(profile.rolId);
   if (!rolId) return false;
 
   const roleSnap = await db.doc(`empresas/${empresaId}/roles/${rolId}`).get();
-  return roleSnap.exists && roleSnap.get("permisos.administracion") === true;
+  if (!roleSnap.exists) return false;
+
+  if (roleSnap.get("permisos.administracion") === true) {
+    return true;
+  }
+
+  return roleSnap.get(`permisos.${permission}`) === true;
 }
 
 async function canManageCompany(profile: AppUser, empresaId: string): Promise<boolean> {
+  return canManageCompanyPermission(profile, empresaId, "administracion");
+}
+
+async function canManageCompanyPermission(
+  profile: AppUser,
+  empresaId: string,
+  permission: CompanyPermissionKey
+): Promise<boolean> {
   if (!profile.activo || normalizeText(profile.empresaId) !== empresaId) {
+    return false;
+  }
+
+  if (!(await companyModuleAllowsPermission(empresaId, permission))) {
     return false;
   }
 
@@ -244,7 +293,7 @@ async function canManageCompany(profile: AppUser, empresaId: string): Promise<bo
     return true;
   }
 
-  return tenantRoleAllowsAdministration(profile, empresaId);
+  return tenantRoleAllowsPermission(profile, empresaId, permission);
 }
 
 function assertAuthenticated(request: CallableAuthRequest): { uid: string } {
@@ -258,6 +307,14 @@ function assertAuthenticated(request: CallableAuthRequest): { uid: string } {
 async function assertCompanyAdminAccess(
   request: CallableAuthRequest,
   empresaId?: string | null
+): Promise<{ uid: string; profile: AppUser; empresaId: string; isPlatformAdmin: boolean }> {
+  return assertCompanyPermissionAccess(request, empresaId, "administracion");
+}
+
+async function assertCompanyPermissionAccess(
+  request: CallableAuthRequest,
+  empresaId: string | null | undefined,
+  permission: CompanyPermissionKey
 ): Promise<{ uid: string; profile: AppUser; empresaId: string; isPlatformAdmin: boolean }> {
   const { uid } = assertAuthenticated(request);
   const profile = await getRequesterProfile(uid);
@@ -275,10 +332,10 @@ async function assertCompanyAdminAccess(
     return { uid, profile, empresaId: resolvedEmpresaId, isPlatformAdmin };
   }
 
-  if (!(await canManageCompany(profile, resolvedEmpresaId))) {
+  if (!(await canManageCompanyPermission(profile, resolvedEmpresaId, permission))) {
     throw new HttpsError(
       "permission-denied",
-      "Solo los usuarios con permisos de administracion de la empresa pueden realizar esta accion."
+      `Solo los usuarios con permisos de ${permission} o administracion de la empresa pueden realizar esta accion.`
     );
   }
 
@@ -482,7 +539,7 @@ export const createTenantCompany = onCall(async (request) => {
 });
 
 export const createTenantUser = onCall(async (request) => {
-  const access = await assertCompanyAdminAccess(request, request.data?.empresaId as string | undefined);
+  const access = await assertCompanyPermissionAccess(request, request.data?.empresaId as string | undefined, "usuarios");
 
   const nombre = normalizeText(request.data?.nombre);
   const email = normalizeEmail(request.data?.email);

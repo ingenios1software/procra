@@ -49,7 +49,7 @@ export function UsuariosList({
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const { permisos } = useAuth();
 
-  const canModify = permisos.administracion;
+  const canModify = permisos.administracion || permisos.usuarios;
   const hasUserLimit = typeof maxUsers === "number" && Number.isFinite(maxUsers);
   const hasReachedUserLimit = hasUserLimit && activeUsersCount >= maxUsers;
   const tableColSpan = canModify ? 5 : 4;
@@ -83,7 +83,7 @@ export function UsuariosList({
       {!canModify && (
         <Card className="mb-4 border-amber-200 bg-amber-50">
           <CardContent className="p-4">
-            <p className="font-medium text-amber-800">Solo los administradores pueden gestionar usuarios.</p>
+            <p className="font-medium text-amber-800">Solo los usuarios con permiso de usuarios o administracion pueden gestionar usuarios.</p>
           </CardContent>
         </Card>
       )}

@@ -19,6 +19,7 @@ export default function UsuariosPage() {
   const { toast } = useToast();
   const { permisos } = useAuth();
   const { empresaId } = useTenantSelection();
+  const canManageUsers = permisos.administracion || permisos.usuarios;
   const createTenantUser = useCallableFunction<
     { empresaId: string; nombre: string; email: string; password: string; rolId: string; activo: boolean },
     { ok: boolean; uid: string; empresaId: string }
@@ -27,24 +28,24 @@ export default function UsuariosPage() {
   const { data: usuarios, isLoading: loadingUsuarios } = useCollection<Usuario>(
     useMemoFirebase(
       () =>
-        firestore && permisos.administracion && empresaId
+        firestore && canManageUsers && empresaId
           ? query(collection(firestore, "usuarios"), where("empresaId", "==", empresaId))
           : null,
-      [firestore, permisos.administracion, empresaId]
+      [canManageUsers, firestore, empresaId]
     )
   );
   const { data: roles, isLoading: loadingRoles } = useCollection<Rol>(
     useMemoFirebase(
       () =>
-        firestore && permisos.administracion && empresaId
+        firestore && canManageUsers && empresaId
           ? query(tenantCollection(firestore, empresaId, "roles"))
           : null,
-      [firestore, permisos.administracion, empresaId]
+      [canManageUsers, firestore, empresaId]
     )
   );
   const empresaRef = useMemoFirebase(
-    () => (firestore && permisos.administracion && empresaId ? doc(firestore, "empresas", empresaId) : null),
-    [firestore, permisos.administracion, empresaId]
+    () => (firestore && canManageUsers && empresaId ? doc(firestore, "empresas", empresaId) : null),
+    [canManageUsers, firestore, empresaId]
   );
   const { data: empresa, isLoading: loadingEmpresa } = useDoc<EmpresaSaaS>(empresaRef);
 
@@ -106,7 +107,7 @@ export default function UsuariosPage() {
     toast({ variant: "destructive", title: "Usuario desactivado" });
   };
 
-  if (!permisos.administracion) {
+  if (!canManageUsers) {
     return (
       <>
         <PageHeader title="Acceso Denegado" />

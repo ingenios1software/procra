@@ -49,7 +49,7 @@ export function RolesList({ initialRoles, onSave, onDelete }: RolesListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedRol, setSelectedRol] = useState<Rol | null>(null);
   const { permisos } = useAuth();
-  const canModify = permisos.administracion;
+  const canModify = permisos.administracion || permisos.roles;
 
   const handleSaveWrapper = (rolData: Omit<Rol, 'id'>) => {
     if (selectedRol) {
@@ -83,7 +83,7 @@ export function RolesList({ initialRoles, onSave, onDelete }: RolesListProps) {
       {!canModify && (
         <Card className="mb-4 bg-yellow-50 border-yellow-200">
             <CardContent className="p-4">
-                <p className="text-yellow-800">Solo los administradores pueden gestionar roles.</p>
+                <p className="text-yellow-800">Solo los usuarios con permiso de roles o administracion pueden gestionar roles.</p>
             </CardContent>
         </Card>
       )}

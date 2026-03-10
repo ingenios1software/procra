@@ -52,13 +52,35 @@ service cloud.firestore {
     }
 
     function canManageEmpresa(empresaId) {
+      return canManagePermission(empresaId, "administracion");
+    }
+
+    function empresaDocPath(empresaId) {
+      return /databases/$(database)/documents/empresas/$(empresaId);
+    }
+
+    function companyModuleAllowsPermission(empresaId, permission) {
+      let empresaData = get(empresaDocPath(empresaId)).data;
+      let administracionEnabled = empresaData.modulos.administracion != false;
+      return permission == "administracion"
+        ? administracionEnabled
+        : administracionEnabled || empresaData.modulos[permission] != false;
+    }
+
+    function tenantHasPermission(empresaId, permission) {
+      return hasCurrentTenantRole(empresaId) && currentTenantRole(empresaId).permisos[permission] == true;
+    }
+
+    function canManagePermission(empresaId, permission) {
       return isPlatformAdmin() || (
         isSameEmpresa(empresaId) &&
         currentUser().activo == true &&
+        companyModuleAllowsPermission(empresaId, permission) &&
         (
           currentUser().rolNombre == "admin" ||
           currentUser().rolId == "admin" ||
-          (hasCurrentTenantRole(empresaId) && currentTenantRole(empresaId).permisos.administracion == true)
+          tenantHasPermission(empresaId, "administracion") ||
+          tenantHasPermission(empresaId, permission)
         )
       );
     }
@@ -105,17 +127,17 @@ service cloud.firestore {
       allow get: if signedIn() && (
         uid == request.auth.uid ||
         isPlatformAdmin() ||
-        (hasCurrentUser() && canManageEmpresa(resource.data.empresaId))
+        (hasCurrentUser() && canManagePermission(resource.data.empresaId, "usuarios"))
       );
       allow list: if isPlatformAdmin() || (
         hasCurrentUser() &&
         currentUser().empresaId != null &&
-        canManageEmpresa(currentUser().empresaId)
+        canManagePermission(currentUser().empresaId, "usuarios")
       );
       allow create: if isPlatformAdmin();
       allow update: if isPlatformAdmin() || (
         hasCurrentUser() &&
-        canManageEmpresa(resource.data.empresaId) &&
+        canManagePermission(resource.data.empresaId, "usuarios") &&
         request.resource.data.empresaId == resource.data.empresaId
       );
       allow delete: if isPlatformAdmin();
@@ -134,7 +156,7 @@ service cloud.firestore {
 
       match /roles/{docId} {
         allow read: if canReadEmpresa(empresaId);
-        allow create, update, delete: if canManageEmpresa(empresaId);
+        allow create, update, delete: if canManagePermission(empresaId, "roles");
       }
 
       match /{collectionId}/{docId} {

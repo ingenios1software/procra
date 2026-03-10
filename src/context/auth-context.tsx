@@ -4,7 +4,7 @@ import React, { createContext, useState, useMemo, ReactNode, useEffect } from 'r
 import { Usuario, Permisos, Rol, EmpresaSaaS } from '@/lib/types';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, query, where } from 'firebase/firestore';
-import { getEstadoComercial, mergePermisosByGate, resolveModulosComprados } from '@/lib/suscripcion-saas';
+import { getEstadoComercial, mergePermisosByGate, normalizePermisos, resolveModulosComprados } from '@/lib/suscripcion-saas';
 import { tenantCollection, tenantDoc } from '@/lib/tenant';
 
 interface AuthContextType {
@@ -24,13 +24,15 @@ interface AuthContextType {
 const defaultPermissions: Permisos = {
     compras: false, stock: false, eventos: false, monitoreos: false,
     ventas: false, contabilidad: false, rrhh: false,
-    finanzas: false, agronomia: false, maestros: false, administracion: false,
+    finanzas: false, agronomia: false, maestros: false,
+    usuarios: false, roles: false, administracion: false,
 };
 
 const allPermissions: Permisos = {
     compras: true, stock: true, eventos: true, monitoreos: true,
     ventas: true, contabilidad: true, rrhh: true,
-    finanzas: true, agronomia: true, maestros: true, administracion: true,
+    finanzas: true, agronomia: true, maestros: true,
+    usuarios: true, roles: true, administracion: true,
 };
 
 const TENANT_ROLE_ALIASES: Record<string, string> = {
@@ -157,7 +159,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       Boolean(usuarioApp?.empresaId) &&
       (normalizeRoleKey(usuarioApp?.rolId) === 'admin' || normalizeRoleKey(usuarioApp?.rolNombre) === 'admin');
     const estadoComercial = getEstadoComercial(empresaSaaS || null);
-    const permisosPorRol = isPlatformAdmin || isTenantAdmin ? allPermissions : (resolvedRole?.permisos || defaultPermissions);
+    const permisosPorRol =
+      isPlatformAdmin || isTenantAdmin
+        ? allPermissions
+        : normalizePermisos(resolvedRole?.permisos || defaultPermissions);
     const modulosComprados = resolveModulosComprados(empresaSaaS || null);
     const gateComercial: Permisos = {
       compras: estadoComercial.acceso,
@@ -170,6 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       finanzas: estadoComercial.acceso,
       agronomia: estadoComercial.acceso,
       maestros: estadoComercial.acceso,
+      usuarios: estadoComercial.acceso,
+      roles: estadoComercial.acceso,
       // Permitir administración para gestionar planes/módulos incluso con suscripción vencida.
       administracion: true,
     };

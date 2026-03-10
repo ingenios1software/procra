@@ -11,6 +11,8 @@ export type Permisos = {
   finanzas: boolean;
   agronomia: boolean;
   maestros: boolean;
+  usuarios: boolean;
+  roles: boolean;
   administracion: boolean;
 };
 

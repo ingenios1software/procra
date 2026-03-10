@@ -11,8 +11,30 @@ export const ALL_MODULES_ENABLED: Permisos = {
   finanzas: true,
   agronomia: true,
   maestros: true,
+  usuarios: true,
+  roles: true,
   administracion: true,
 };
+
+export function normalizePermisos(source?: Partial<Permisos> | null): Permisos {
+  const administracion = source?.administracion === true;
+
+  return {
+    compras: source?.compras === true,
+    stock: source?.stock === true,
+    eventos: source?.eventos === true,
+    monitoreos: source?.monitoreos === true,
+    ventas: source?.ventas === true,
+    contabilidad: source?.contabilidad === true,
+    rrhh: source?.rrhh === true,
+    finanzas: source?.finanzas === true,
+    agronomia: source?.agronomia === true,
+    maestros: source?.maestros === true,
+    usuarios: source?.usuarios ?? administracion,
+    roles: source?.roles ?? administracion,
+    administracion,
+  };
+}
 
 export function toDateSafe(value?: Date | string | null): Date | null {
   if (!value) return null;
@@ -58,10 +80,10 @@ export function getEstadoComercial(empresa: EmpresaSaaS | null | undefined, refe
 }
 
 export function resolveModulosComprados(empresa: EmpresaSaaS | null | undefined): Permisos {
-  return {
+  return normalizePermisos({
     ...ALL_MODULES_ENABLED,
     ...(empresa?.modulos || {}),
-  };
+  });
 }
 
 export function mergePermisosByGate(base: Permisos, gate: Permisos): Permisos {
@@ -76,7 +98,8 @@ export function mergePermisosByGate(base: Permisos, gate: Permisos): Permisos {
     finanzas: base.finanzas && gate.finanzas,
     agronomia: base.agronomia && gate.agronomia,
     maestros: base.maestros && gate.maestros,
+    usuarios: base.usuarios && gate.usuarios,
+    roles: base.roles && gate.roles,
     administracion: base.administracion && gate.administracion,
   };
 }
-

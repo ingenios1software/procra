@@ -17,10 +17,11 @@ export default function RolesPage() {
   const { toast } = useToast();
   const { permisos } = useAuth();
   const { empresaId } = useTenantSelection();
+  const canManageRoles = permisos.administracion || permisos.roles;
 
   const rolesQuery = useMemoFirebase(
-    () => (firestore && permisos.administracion && empresaId ? query(tenantCollection(firestore, empresaId, "roles")) : null),
-    [firestore, permisos.administracion, empresaId]
+    () => (firestore && canManageRoles && empresaId ? query(tenantCollection(firestore, empresaId, "roles")) : null),
+    [canManageRoles, firestore, empresaId]
   );
   const { data: roles, isLoading } = useCollection<Rol>(rolesQuery);
 
@@ -46,7 +47,7 @@ export default function RolesPage() {
     return <p>Cargando roles...</p>;
   }
 
-  if (!permisos.administracion) {
+  if (!canManageRoles) {
     return (
       <>
         <PageHeader title="Acceso Denegado" />

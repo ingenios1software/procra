@@ -8,6 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Rol, Permisos } from "@/lib/types";
+import { normalizePermisos } from "@/lib/suscripcion-saas";
 import { Checkbox } from "../ui/checkbox";
 import { Switch } from "../ui/switch";
 
@@ -22,6 +23,8 @@ const PERMISOS_DEFAULT: Permisos = {
     finanzas: false,
     agronomia: false,
     maestros: false,
+    usuarios: false,
+    roles: false,
     administracion: false,
 };
 
@@ -39,6 +42,8 @@ const formSchema = z.object({
     finanzas: z.boolean(),
     agronomia: z.boolean(),
     maestros: z.boolean(),
+    usuarios: z.boolean(),
+    roles: z.boolean(),
     administracion: z.boolean(),
   }),
   soloLectura: z.boolean(),
@@ -58,7 +63,7 @@ export function RoleForm({ rol, onSubmit, onCancel }: RoleFormProps) {
     defaultValues: {
       nombre: rol?.nombre || "",
       descripcion: rol?.descripcion || "",
-      permisos: rol?.permisos || PERMISOS_DEFAULT,
+      permisos: rol ? normalizePermisos(rol.permisos) : PERMISOS_DEFAULT,
       soloLectura: rol?.soloLectura || false,
     },
   });
