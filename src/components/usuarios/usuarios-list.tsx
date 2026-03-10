@@ -30,14 +30,29 @@ interface UsuariosListProps {
   onSave: (data: UsuarioFormPayload, id?: string) => void;
   onDelete: (id: string) => void;
   isLoading: boolean;
+  companyName?: string;
+  activeUsersCount?: number;
+  maxUsers?: number | null;
 }
 
-export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoading }: UsuariosListProps) {
+export function UsuariosList({
+  initialUsuarios,
+  roles,
+  onSave,
+  onDelete,
+  isLoading,
+  companyName,
+  activeUsersCount = 0,
+  maxUsers = null,
+}: UsuariosListProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const { permisos } = useAuth();
 
   const canModify = permisos.administracion;
+  const hasUserLimit = typeof maxUsers === "number" && Number.isFinite(maxUsers);
+  const hasReachedUserLimit = hasUserLimit && activeUsersCount >= maxUsers;
+  const tableColSpan = canModify ? 5 : 4;
 
   const handleSave = (usuarioData: UsuarioFormPayload) => {
     if (selectedUsuario) {
@@ -73,6 +88,29 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
         </Card>
       )}
 
+      <Card className={hasReachedUserLimit ? "mb-4 border-amber-200 bg-amber-50" : "mb-4"}>
+        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <p className="font-medium">Cupo de usuarios{companyName ? ` de ${companyName}` : ""}</p>
+            <p className="text-sm text-muted-foreground">
+              {hasUserLimit
+                ? `Usuarios activos: ${activeUsersCount} de ${maxUsers}.`
+                : `Usuarios activos: ${activeUsersCount}. Sin limite configurado para el plan.`}
+            </p>
+            {hasReachedUserLimit && (
+              <p className="text-sm font-medium text-amber-800">
+                Se alcanzo el limite de usuarios activos. Debe ampliar el cupo o desactivar otro usuario.
+              </p>
+            )}
+          </div>
+          {hasUserLimit && (
+            <Badge variant={hasReachedUserLimit ? "destructive" : "secondary"}>
+              {hasReachedUserLimit ? "Limite alcanzado" : "Cupo disponible"}
+            </Badge>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Listado de Usuarios</CardTitle>
@@ -91,7 +129,7 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={tableColSpan} className="h-24 text-center">
                     Cargando usuarios...
                   </TableCell>
                 </TableRow>
@@ -151,7 +189,7 @@ export function UsuariosList({ initialUsuarios, roles, onSave, onDelete, isLoadi
 
               {!isLoading && initialUsuarios.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={tableColSpan} className="h-24 text-center">
                     No hay usuarios registrados.
                   </TableCell>
                 </TableRow>

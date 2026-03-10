@@ -157,6 +157,14 @@ function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeRoleKey(value: unknown): string {
+  return normalizeText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
 function parsePositiveNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
   if (typeof value === "string") {
@@ -217,6 +225,28 @@ function isPlatformAdminRequest(request: CallableAuthRequest, profile: AppUser |
   return PLATFORM_ADMIN_EMAILS.has(email) || Boolean(profile?.esSuperAdmin);
 }
 
+async function tenantRoleAllowsAdministration(profile: AppUser, empresaId: string): Promise<boolean> {
+  const rolId = normalizeText(profile.rolId);
+  if (!rolId) return false;
+
+  const roleSnap = await db.doc(`empresas/${empresaId}/roles/${rolId}`).get();
+  return roleSnap.exists && roleSnap.get("permisos.administracion") === true;
+}
+
+async function canManageCompany(profile: AppUser, empresaId: string): Promise<boolean> {
+  if (!profile.activo || normalizeText(profile.empresaId) !== empresaId) {
+    return false;
+  }
+
+  const isTenantAdmin =
+    normalizeRoleKey(profile.rolId) === "admin" || normalizeRoleKey(profile.rolNombre) === "admin";
+  if (isTenantAdmin) {
+    return true;
+  }
+
+  return tenantRoleAllowsAdministration(profile, empresaId);
+}
+
 function assertAuthenticated(request: CallableAuthRequest): { uid: string } {
   const uid = request.auth?.uid;
   if (!uid) {
@@ -245,8 +275,11 @@ async function assertCompanyAdminAccess(
     return { uid, profile, empresaId: resolvedEmpresaId, isPlatformAdmin };
   }
 
-  if (!profile.activo || profile.rolNombre !== "admin" || profile.empresaId !== resolvedEmpresaId) {
-    throw new HttpsError("permission-denied", "Solo el administrador de la empresa puede realizar esta accion.");
+  if (!(await canManageCompany(profile, resolvedEmpresaId))) {
+    throw new HttpsError(
+      "permission-denied",
+      "Solo los usuarios con permisos de administracion de la empresa pueden realizar esta accion."
+    );
   }
 
   return { uid, profile, empresaId: resolvedEmpresaId, isPlatformAdmin };

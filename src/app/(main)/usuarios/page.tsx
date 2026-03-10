@@ -1,9 +1,9 @@
 "use client";
 
 import { UsuariosList } from "@/components/usuarios/usuarios-list";
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { useCollection, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { collection, doc, query, where } from "firebase/firestore";
-import type { Rol, Usuario } from "@/lib/types";
+import type { EmpresaSaaS, Rol, Usuario } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenantSelection } from "@/hooks/use-tenant-selection";
@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldAlert } from "lucide-react";
 import { tenantCollection } from "@/lib/tenant";
-import { useCallableFunction } from "@/firebase/functions";
+import { formatCallableError, useCallableFunction } from "@/firebase/functions";
 import type { UsuarioFormPayload } from "@/components/usuarios/usuario-form";
 
 export default function UsuariosPage() {
@@ -42,6 +42,11 @@ export default function UsuariosPage() {
       [firestore, permisos.administracion, empresaId]
     )
   );
+  const empresaRef = useMemoFirebase(
+    () => (firestore && permisos.administracion && empresaId ? doc(firestore, "empresas", empresaId) : null),
+    [firestore, permisos.administracion, empresaId]
+  );
+  const { data: empresa, isLoading: loadingEmpresa } = useDoc<EmpresaSaaS>(empresaRef);
 
   const handleSaveUsuario = async (data: UsuarioFormPayload, id?: string) => {
     if (!firestore || !roles || !empresaId) return;
@@ -86,11 +91,11 @@ export default function UsuariosPage() {
         activo: usuarioData.activo,
       });
       toast({ title: "Usuario creado", description: `El usuario ${usuarioData.nombre} fue registrado correctamente.` });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "No se pudo crear el usuario",
-        description: error?.message || "Error inesperado.",
+        description: formatCallableError(error),
       });
     }
   };
@@ -126,7 +131,10 @@ export default function UsuariosPage() {
       roles={roles || []}
       onSave={handleSaveUsuario}
       onDelete={handleDeleteUsuario}
-      isLoading={loadingUsuarios || loadingRoles}
+      isLoading={loadingUsuarios || loadingRoles || loadingEmpresa}
+      companyName={empresa?.nombre}
+      activeUsersCount={(usuarios || []).filter((usuario) => usuario.activo).length}
+      maxUsers={empresa?.suscripcion?.maxUsuarios ?? null}
     />
   );
 }

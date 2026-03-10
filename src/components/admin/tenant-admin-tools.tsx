@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCallableFunction } from "@/firebase/functions";
+import { formatCallableError, useCallableFunction } from "@/firebase/functions";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenantSelection } from "@/hooks/use-tenant-selection";
@@ -25,29 +25,6 @@ type MigrateResponse = {
   migratedDocs: number;
   collections: string[];
 };
-
-function formatCallableError(error: unknown): string {
-  if (!error || typeof error !== "object") {
-    return "Error inesperado.";
-  }
-
-  const candidate = error as {
-    message?: unknown;
-    code?: unknown;
-    details?: unknown;
-  };
-
-  const message = typeof candidate.message === "string" ? candidate.message.trim() : "";
-  const code = typeof candidate.code === "string" ? candidate.code.trim() : "";
-  const details =
-    typeof candidate.details === "string"
-      ? candidate.details.trim()
-      : candidate.details !== undefined && candidate.details !== null
-        ? JSON.stringify(candidate.details)
-        : "";
-
-  return [message, code, details].filter(Boolean).join(" | ") || "Error inesperado.";
-}
 
 export function TenantAdminTools() {
   const { user } = useAuth();

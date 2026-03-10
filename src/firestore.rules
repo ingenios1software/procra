@@ -33,6 +33,20 @@ service cloud.firestore {
       return hasCurrentUser() && currentUser().empresaId == empresaId;
     }
 
+    function currentTenantRolePath(empresaId) {
+      return /databases/$(database)/documents/empresas/$(empresaId)/roles/$(currentUser().rolId);
+    }
+
+    function hasCurrentTenantRole(empresaId) {
+      return isSameEmpresa(empresaId) &&
+        currentUser().rolId != null &&
+        exists(currentTenantRolePath(empresaId));
+    }
+
+    function currentTenantRole(empresaId) {
+      return get(currentTenantRolePath(empresaId)).data;
+    }
+
     function canReadEmpresa(empresaId) {
       return isPlatformAdmin() || (isSameEmpresa(empresaId) && currentUser().activo == true);
     }
@@ -41,7 +55,11 @@ service cloud.firestore {
       return isPlatformAdmin() || (
         isSameEmpresa(empresaId) &&
         currentUser().activo == true &&
-        currentUser().rolNombre == "admin"
+        (
+          currentUser().rolNombre == "admin" ||
+          currentUser().rolId == "admin" ||
+          (hasCurrentTenantRole(empresaId) && currentTenantRole(empresaId).permisos.administracion == true)
+        )
       );
     }
 
@@ -49,16 +67,17 @@ service cloud.firestore {
       allow get: if signedIn() && (
         uid == request.auth.uid ||
         isPlatformAdmin() ||
-        (hasCurrentUser() &&
-          currentUser().rolNombre == "admin" &&
-          resource.data.empresaId == currentUser().empresaId)
+        (hasCurrentUser() && canManageEmpresa(resource.data.empresaId))
       );
-      allow list: if isPlatformAdmin() || (hasCurrentUser() && currentUser().rolNombre == "admin");
+      allow list: if isPlatformAdmin() || (
+        hasCurrentUser() &&
+        currentUser().empresaId != null &&
+        canManageEmpresa(currentUser().empresaId)
+      );
       allow create: if isPlatformAdmin();
       allow update: if isPlatformAdmin() || (
         hasCurrentUser() &&
-        currentUser().rolNombre == "admin" &&
-        resource.data.empresaId == currentUser().empresaId &&
+        canManageEmpresa(resource.data.empresaId) &&
         request.resource.data.empresaId == resource.data.empresaId
       );
       allow delete: if isPlatformAdmin();
