@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
+import { FinancialOperationWindow } from "@/components/finanzas/financial-operation-window";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -535,6 +536,12 @@ export default function TesoreriaPage() {
             </CardContent>
           </Card>
         </div>
+
+        <FinancialOperationWindow
+          planDeCuentas={planDeCuentas}
+          cuentasCajaBanco={cuentasCajaBanco}
+          monedas={monedas}
+        />
 
         <Card>
           <CardHeader>

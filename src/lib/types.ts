@@ -585,6 +585,31 @@ export type PagoCuentaPorPagar = {
   creadoEn?: Date | string | FieldValue;
 };
 
+export type NotaCreditoFinanciera = {
+  id: string;
+  tipoAplicacion: "cobro" | "pago";
+  motivo: "nota_credito" | "descuento_pronto_pago" | "bonificacion" | "ajuste";
+  thirdPartyId: string;
+  thirdPartyNombre?: string;
+  fecha: Date | string;
+  moneda: "USD" | "PYG";
+  montoTotal: number;
+  cuentaContrapartidaId: string;
+  referencia?: string;
+  asientoId?: string;
+  zafraId?: string;
+  zafraNombre?: string | null;
+  aplicaciones: {
+    cuentaId: string;
+    documento: string;
+    montoAplicado: number;
+    ventaId?: string;
+    compraId?: string;
+  }[];
+  creadoPor?: string;
+  creadoEn?: Date | string | FieldValue;
+};
+
 export type TipoOperacionTesoreria = "ingreso" | "egreso" | "traspaso";
 export type MedioMovimientoTesoreria = "transferencia" | "cheque" | "efectivo";
 

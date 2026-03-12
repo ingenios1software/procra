@@ -186,6 +186,7 @@ export const LEGACY_TENANT_COLLECTIONS = [
   "cuentasPorPagar",
   "cobrosCxc",
   "pagosCxp",
+  "notasCreditoFinancieras",
   "recibosCobro",
   "movimientosTesoreria",
   "asientosDiario",
