@@ -29,6 +29,7 @@ import { SelectorUniversal } from "../common";
 import { SelectorPlanDeCuentas } from "../contabilidad/SelectorPlanDeCuentas";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
+import { canApproveEvento } from "@/lib/eventos/approval";
 
 
 const productoSchema = z.object({
@@ -334,13 +335,10 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     name: "productos",
   });
   
-  const roleNormalizado = (role || '').toLowerCase().trim();
   const estadoActual = evento?.estado || 'pendiente';
-  const puedeAprobar =
-    permisos?.administracion ||
-    roleNormalizado === 'admin' ||
-    roleNormalizado === 'supervisor';
+  const puedeAprobar = canApproveEvento({ permisos, role, usuarioApp });
   const isFinalizado = estadoActual === 'aprobado' || estadoActual === 'rechazado';
+  const showApprovalActions = Boolean(evento && !isFinalizado && puedeAprobar);
 
 
   useEffect(() => {
@@ -491,6 +489,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
   const mostrarCuentaContable = useMemo(() => {
     return ['aplicacion', 'fertilización', 'plagas', 'siembra', 'cosecha', 'mantenimiento'].includes(tipoEventoNormalizado);
+  }, [tipoEventoNormalizado]);
+  const mostrarCondicionesClimaticas = useMemo(() => {
+    return ['aplicacion', 'fertilización', 'plagas'].includes(tipoEventoNormalizado);
   }, [tipoEventoNormalizado]);
 
   const handleTipoEventoChange = useCallback((value: string) => {
@@ -727,6 +728,64 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     return <p>Cargando datos maestros...</p>;
   }
 
+  const approvalActions = showApprovalActions ? (
+    <div className="sticky top-0 z-20 mb-6 rounded-lg border bg-background/95 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-[17px] font-semibold">Acciones de aprobacion</p>
+          <p className="text-[17px] text-muted-foreground">
+            Revise el evento y confirme su estado sin tener que ir hasta el final del formulario.
+          </p>
+        </div>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          <AlertDialog open={isRejecting} onOpenChange={setIsRejecting}>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="h-12 px-5 text-[17px]">
+                <Ban className="mr-2" />
+                Rechazar
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Rechazar Evento</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Por favor, ingrese el motivo del rechazo. Este sera visible para el usuario que registro el evento.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Form {...form}>
+                <FormField
+                  name="motivoRechazo"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Motivo del Rechazo</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Ej: La dosis aplicada no es la correcta para esta etapa..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </Form>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReject}>Confirmar Rechazo</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Button onClick={handleApprove} className="h-12 px-5 text-[17px]">
+            <Check className="mr-2" />
+            Aprobar Evento
+          </Button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <EventoAnalisisPanel {...analisisProps} />
@@ -759,8 +818,10 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
            </Card>
       )}
 
+      {approvalActions}
+
       <Card className="max-w-full overflow-hidden">
-        <CardContent className="mt-6 max-w-full overflow-x-hidden p-6">
+        <CardContent className="mt-6 max-w-full overflow-x-hidden p-6 text-[17px] [&_button]:text-[17px] [&_input]:text-[17px] [&_label]:text-[17px] [&_td]:text-[17px] [&_textarea]:text-[17px] [&_th]:text-[17px] [&_[role=combobox]]:text-[17px] sm:[&_input]:text-[17px]">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 sm:space-y-6">
               <fieldset disabled={isFinalizado}>
@@ -834,11 +895,70 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                     )}
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                  <FormField name="tipo" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tipo de Evento</FormLabel><Select onValueChange={handleTipoEventoChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl><SelectContent><SelectItem value="siembra">Siembra</SelectItem><SelectItem value="aplicacion">Aplicación</SelectItem><SelectItem value="fertilización">Fertilización</SelectItem><SelectItem value="riego">Riego</SelectItem><SelectItem value="cosecha">Cosecha</SelectItem>{field.value === "rendimiento" && <SelectItem value="rendimiento">Rendimiento (legado)</SelectItem>}<SelectItem value="mantenimiento">Mantenimiento</SelectItem><SelectItem value="plagas">Control de Plagas</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                  <FormField name="fecha" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Fecha del Evento</FormLabel><FormControl><Input type="date" lang="es-PY" value={dateToInputValue(field.value)} onChange={(e) => field.onChange(inputValueToDate(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
+                <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-[minmax(0,1.05fr)_minmax(240px,0.52fr)_minmax(0,1.1fr)]">
+                  <FormField
+                    name="tipo"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem className="min-w-0">
+                        <FormLabel>Tipo de Evento</FormLabel>
+                        <Select onValueChange={handleTipoEventoChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccione un tipo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="siembra">Siembra</SelectItem>
+                            <SelectItem value="aplicacion">Aplicación</SelectItem>
+                            <SelectItem value="fertilización">Fertilización</SelectItem>
+                            <SelectItem value="riego">Riego</SelectItem>
+                            <SelectItem value="cosecha">Cosecha</SelectItem>
+                            {field.value === "rendimiento" && <SelectItem value="rendimiento">Rendimiento (legado)</SelectItem>}
+                            <SelectItem value="mantenimiento">Mantenimiento</SelectItem>
+                            <SelectItem value="plagas">Control de Plagas</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="fecha"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem className="min-w-0">
+                        <FormLabel>Fecha del Evento</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            lang="es-PY"
+                            value={dateToInputValue(field.value)}
+                            onChange={(e) => field.onChange(inputValueToDate(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="descripcion"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem className="min-w-0 md:col-span-2 xl:col-span-1">
+                        <FormLabel>Descripción</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Describa el evento..."
+                            {...field}
+                            className="min-h-[56px] resize-y xl:min-h-[56px]"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-                <FormField name="descripcion" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea placeholder="Describa el evento..." {...field} /></FormControl><FormMessage /></FormItem> )} />
 
                 {mostrarCuentaContable && (
                   <FormField
@@ -888,15 +1008,35 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   </Card>
                 )}
 
-                 {['aplicacion', 'fertilización', 'plagas'].includes(tipoEventoNormalizado) && (
-                   <div>
-                     <FormLabel>Condiciones Climáticas</FormLabel>
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 border p-4 rounded-md">
+                {mostrarCondicionesClimaticas && (
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] xl:items-start">
+                    <div>
+                      <FormLabel>Condiciones Climáticas</FormLabel>
+                      <div className="mt-2 grid grid-cols-1 gap-4 rounded-md border p-4 md:grid-cols-3">
                         <FormField name="temperatura" control={form.control} render={({ field }) => ( <FormItem><FormLabel className="text-xs text-muted-foreground">Temp (°C)</FormLabel><div className="relative"><Thermometer className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><FormControl><Input type="number" className="pl-8" {...field} /></FormControl></div><FormMessage /></FormItem> )}/>
                         <FormField name="humedad" control={form.control} render={({ field }) => ( <FormItem><FormLabel className="text-xs text-muted-foreground">Humedad (%)</FormLabel><div className="relative"><Cloud className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><FormControl><Input type="number" className="pl-8" {...field} /></FormControl></div><FormMessage /></FormItem> )}/>
                         <FormField name="viento" control={form.control} render={({ field }) => ( <FormItem><FormLabel className="text-xs text-muted-foreground">Viento (km/h)</FormLabel><div className="relative"><Wind className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><FormControl><Input type="number" className="pl-8" {...field} /></FormControl></div><FormMessage /></FormItem> )}/>
-                     </div>
-                   </div>
+                      </div>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="resultado"
+                      render={({ field }) => (
+                        <FormItem className="min-w-0">
+                          <FormLabel>Resultado/Observaciones</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Observaciones sobre el resultado de la labor..."
+                              {...field}
+                              className="min-h-[118px] resize-y xl:min-h-[108px]"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 )}
 
                 {esEventoCosecha && (
@@ -1024,7 +1164,21 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   </Card>
                 )}
                 
-                <FormField control={form.control} name="resultado" render={({ field }) => (<FormItem><FormLabel>Resultado/Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones sobre el resultado de la labor..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                {!mostrarCondicionesClimaticas && (
+                  <FormField
+                    control={form.control}
+                    name="resultado"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Resultado/Observaciones</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Observaciones sobre el resultado de la labor..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 <ImageUpload
                   onFileAdd={handleFileAdd}
@@ -1077,7 +1231,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
             </form>
           </Form>
 
-          {evento && !isFinalizado && puedeAprobar && (
+          {evento && !isFinalizado && puedeAprobar && !showApprovalActions && (
              <div className="mt-6 border-t pt-6">
                 <div className="flex justify-end gap-4">
                     <AlertDialog open={isRejecting} onOpenChange={setIsRejecting}>

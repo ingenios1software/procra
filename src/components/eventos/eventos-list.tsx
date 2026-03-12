@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { addDoc, deleteField, getDoc, getDocs, limit, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
-import { FileText, MoreHorizontal, Pencil, PlusCircle, TriangleAlert } from "lucide-react";
+import { Check, FileText, MoreHorizontal, Pencil, PlusCircle, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -56,7 +56,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "../ui/input";
 import { cn } from "@/lib/utils";
 import type { Cultivo, Evento, Parcela, Zafra } from "@/lib/types";
-import { useUser, deleteDocumentNonBlocking } from "@/firebase";
+import { useUser, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { procesarConsumoDeStockDesdeEvento } from "@/lib/stock/consumo-desde-evento";
 import { EventoForm } from "./evento-form";
@@ -64,6 +64,8 @@ import { EventoComprobante } from "./evento-comprobante";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
+import { useAuth } from "@/hooks/use-auth";
+import { canApproveEvento } from "@/lib/eventos/approval";
 
 interface EventosListProps {
   eventos: Evento[];
@@ -75,6 +77,7 @@ interface EventosListProps {
 
 export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: EventosListProps) {
   const { user } = useUser();
+  const { role, permisos, user: usuarioApp } = useAuth();
   const tenant = useTenantFirestore();
   const firestore = tenant.firestore;
   const { toast } = useToast();
@@ -308,6 +311,41 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
       ? "Comprobante listo para imprimir, descargar en PDF o compartir."
       : "Complete o revise los detalles de la actividad agricola."
     : "Complete los detalles de la actividad agricola. El panel superior le dara contexto agronomico.";
+  const canApproveSelectedEvento =
+    Boolean(selectedEvento) &&
+    selectedEvento?.estado !== "aprobado" &&
+    selectedEvento?.estado !== "rechazado" &&
+    canApproveEvento({ permisos, role, usuarioApp });
+
+  const handleApproveSelectedEvento = () => {
+    if (!user || !selectedEvento) return;
+
+    const eventoRef = tenant.doc("eventos", selectedEvento.id);
+    if (!eventoRef) return;
+
+    updateDocumentNonBlocking(eventoRef, {
+      estado: "aprobado",
+      aprobadoPor: user.uid,
+      aprobadoPorNombre: usuarioApp?.nombre || user.email || user.uid,
+      aprobadoEn: serverTimestamp(),
+    });
+
+    setSelectedEvento({
+      ...selectedEvento,
+      estado: "aprobado",
+      aprobadoPor: user.uid,
+      aprobadoPorNombre: usuarioApp?.nombre || user.email || user.uid,
+      aprobadoEn: new Date().toISOString(),
+    });
+
+    toast({
+      title: "Evento Aprobado",
+      description: "El evento ha sido marcado como aprobado.",
+    });
+  };
+
+  const dialogPanelClassName =
+    "min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 sm:px-5 sm:pb-6 xl:px-6";
 
   return (
     <>
@@ -513,48 +551,69 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
       </div>
 
       <Dialog modal={false} open={isFormOpen} onOpenChange={(open) => (open ? setFormOpen(true) : closeForm())}>
-        <DialogContent draggable className="max-w-[96vw] overflow-hidden p-0 sm:max-w-5xl lg:max-w-6xl">
-          <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6">
-            <DialogTitle>{dialogTitle}</DialogTitle>
-            <DialogDescription>{dialogDescription}</DialogDescription>
-            {selectedEvento && (
-              <div className="flex flex-wrap gap-2 no-print">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={dialogView === "receipt" ? "default" : "outline"}
-                  onClick={() => setDialogView("receipt")}
-                >
-                  <FileText className="mr-1 h-4 w-4" />
-                  Comprobante
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={dialogView === "form" ? "default" : "outline"}
-                  onClick={() => setDialogView("form")}
-                >
-                  <Pencil className="mr-1 h-4 w-4" />
-                  Editar
-                </Button>
+        <DialogContent
+          draggable
+          className="flex !h-[96dvh] !max-h-[96dvh] !w-[calc(100vw-1rem)] !max-w-[calc(100vw-1rem)] flex-col gap-0 !overflow-hidden rounded-none p-0 text-[17px] sm:!h-[95dvh] sm:!w-[calc(100vw-2rem)] sm:!max-w-[calc(100vw-2rem)] sm:rounded-xl xl:!w-[min(98vw,1700px)] xl:!max-w-[1700px] 2xl:!w-[min(98vw,1840px)] 2xl:!max-w-[1840px]"
+        >
+          <DialogHeader className="shrink-0 border-b px-4 py-3 sm:px-5 sm:py-3.5">
+            <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
+              <div className="min-w-0 space-y-1 pr-10">
+                <DialogTitle className="text-xl leading-tight sm:text-[1.7rem]">{dialogTitle}</DialogTitle>
+                <DialogDescription className="text-sm leading-5 text-muted-foreground sm:text-[15px]">
+                  {dialogDescription}
+                </DialogDescription>
               </div>
-            )}
-            <ReportActions
-              reportTitle={selectedEvento ? `Comprobante Evento #${selectedEvento.numeroLanzamiento}` : "Nuevo Evento"}
-              reportSummary={selectedEventoSummary}
-              imageTargetId={selectedEvento ? eventoReceiptTargetId : eventoPrintTargetId}
-              printTargetId={selectedEvento ? eventoReceiptTargetId : eventoPrintTargetId}
-              documentLabel={selectedEvento ? "Comprobante de Evento" : "Formulario de Evento"}
-              showDefaultFooter={!selectedEvento}
-            />
+
+              <div className="flex min-w-0 flex-col gap-2 xl:min-w-fit xl:items-end">
+                {selectedEvento && (
+                  <div className="flex flex-wrap gap-2 no-print xl:justify-end">
+                    {canApproveSelectedEvento && (
+                      <Button type="button" size="sm" className="h-9 px-3.5 text-[15px]" onClick={handleApproveSelectedEvento}>
+                        <Check className="mr-1 h-4 w-4" />
+                        Aprobar
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 px-3.5 text-[15px]"
+                      variant={dialogView === "receipt" ? "default" : "outline"}
+                      onClick={() => setDialogView("receipt")}
+                    >
+                      <FileText className="mr-1 h-4 w-4" />
+                      Comprobante
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 px-3.5 text-[15px]"
+                      variant={dialogView === "form" ? "default" : "outline"}
+                      onClick={() => setDialogView("form")}
+                    >
+                      <Pencil className="mr-1 h-4 w-4" />
+                      Editar
+                    </Button>
+                  </div>
+                )}
+                <ReportActions
+                  className="gap-2 [&_button]:h-9 [&_button]:px-3.5 [&_button]:text-[15px]"
+                  reportTitle={selectedEvento ? `Comprobante Evento #${selectedEvento.numeroLanzamiento}` : "Nuevo Evento"}
+                  reportSummary={selectedEventoSummary}
+                  imageTargetId={selectedEvento ? eventoReceiptTargetId : eventoPrintTargetId}
+                  printTargetId={selectedEvento ? eventoReceiptTargetId : eventoPrintTargetId}
+                  documentLabel={selectedEvento ? "Comprobante de Evento" : "Formulario de Evento"}
+                  showDefaultFooter={!selectedEvento}
+                />
+              </div>
+            </div>
           </DialogHeader>
           {dialogView === "form" && (
-            <div id={eventoPrintTargetId} className="max-h-[calc(92dvh-7rem)] overflow-y-auto overflow-x-hidden px-2 pb-4 sm:px-4 sm:pb-6">
+            <div id={eventoPrintTargetId} className={dialogPanelClassName}>
               <EventoForm evento={selectedEvento} onSave={handleSave} onCancel={closeForm} />
             </div>
           )}
           {selectedEvento && dialogView === "receipt" && (
-            <div className="max-h-[calc(92dvh-7rem)] overflow-y-auto overflow-x-hidden px-2 pb-4 sm:px-4 sm:pb-6">
+            <div className={dialogPanelClassName}>
               <EventoComprobante
                 evento={selectedEvento}
                 parcela={selectedParcela}

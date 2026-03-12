@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,23 +5,23 @@
 @layer base {
   :root {
     --background: 47 33% 94%; /* Crema claro */
-    --foreground: 240 10% 3.9%;
-    --card: 47 33% 97%; /* Un crema ligeramente más claro para las tarjetas */
-    --card-foreground: 240 10% 3.9%;
-    --popover: 47 33% 97%;
-    --popover-foreground: 240 10% 3.9%;
+    --foreground: 240 12% 8%;
+    --card: 48 36% 98.5%; /* Superficie mas limpia para mejorar legibilidad */
+    --card-foreground: 240 12% 8%;
+    --popover: 48 36% 98.5%;
+    --popover-foreground: 240 12% 8%;
     --primary: 90 45% 25%; /* Verde oscuro */
     --primary-foreground: 60 90% 96%;
     --secondary: 90 20% 85%;
     --secondary-foreground: 90 45% 20%;
     --muted: 90 20% 90%;
-    --muted-foreground: 240 5% 45%;
-    --accent: 30 80% 60%; /* Naranja/ámbar para acentos */
+    --muted-foreground: 240 4% 30%;
+    --accent: 30 80% 60%; /* Naranja/ambar para acentos */
     --accent-foreground: 30 80% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 90 20% 80%;
-    --input: 90 20% 88%;
+    --border: 90 18% 74%;
+    --input: 48 24% 93%;
     --ring: 90 45% 25%;
     --chart-1: 90 45% 35%;
     --chart-2: 90 40% 50%;
@@ -40,6 +39,7 @@
     --sidebar-border: 90 20% 80%;
     --sidebar-ring: 90 45% 25%;
   }
+
   .dark {
     --background: 224 10% 10%;
     --foreground: 60 30% 96%;
@@ -65,7 +65,7 @@
     --chart-3: 30 80% 65%;
     --chart-4: 20 80% 70%;
     --chart-5: 0 80% 75%;
-    
+
     --sidebar-background: 224 10% 8%;
     --sidebar-foreground: 60 30% 96%;
     --sidebar-primary: 90 50% 60%;
@@ -81,10 +81,28 @@
   * {
     @apply border-border;
   }
+
   body {
-    @apply bg-background text-foreground font-body antialiased;
+    @apply bg-background text-foreground font-body subpixel-antialiased leading-relaxed;
+    font-size: 17px;
+    text-rendering: optimizeLegibility;
+    font-synthesis: none;
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
   }
-  h1, h2, h3, h4, h5, h6 {
+
+  @media (min-width: 1536px) {
+    body {
+      font-size: 18px;
+    }
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-headline text-foreground;
   }
 }
@@ -145,10 +163,12 @@
     opacity: 0.1;
     transform: translateY(1px) scale(0.7);
   }
+
   50% {
     opacity: 0.82;
     transform: translateY(-7px) scale(1.18);
   }
+
   100% {
     opacity: 0.12;
     transform: translateY(-2px) scale(0.74);
@@ -159,22 +179,28 @@
   @page {
     margin: 12mm;
   }
-  html, body {
+
+  html,
+  body {
     background: #fff !important;
     color: #111 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
   body * {
     visibility: hidden;
   }
-  .print-area, .print-area * {
+
+  .print-area,
+  .print-area *,
+  #pdf-area,
+  #pdf-area * {
     visibility: visible !important;
   }
-  #pdf-area, #pdf-area * {
-    visibility: visible !important;
-  }
-  .print-area, #pdf-area {
+
+  .print-area,
+  #pdf-area {
     position: static !important;
     width: auto !important;
     margin: 0 !important;
@@ -183,21 +209,32 @@
     font-size: 12px !important;
     line-height: 1.45 !important;
   }
-  .print-area .recharts-wrapper, #pdf-area .recharts-wrapper {
+
+  .print-area .recharts-wrapper,
+  #pdf-area .recharts-wrapper {
     width: 100% !important;
   }
-  .print-area [class*="overflow-"], #pdf-area [class*="overflow-"] {
+
+  .print-area [class*="overflow-"],
+  #pdf-area [class*="overflow-"] {
     overflow: visible !important;
   }
-  .print-area [class*="max-h-"], #pdf-area [class*="max-h-"] {
+
+  .print-area [class*="max-h-"],
+  #pdf-area [class*="max-h-"] {
     max-height: none !important;
   }
-  .print-area .card, .print-area .table, #pdf-area .card, #pdf-area .table {
+
+  .print-area .card,
+  .print-area .table,
+  #pdf-area .card,
+  #pdf-area .table {
     page-break-inside: avoid;
     break-inside: avoid;
     background: #fff !important;
     box-shadow: none !important;
   }
+
   .print-area article,
   .print-area section,
   #pdf-area article,
@@ -207,22 +244,30 @@
     page-break-inside: avoid;
     break-inside: avoid;
   }
-  .print-area [class*="rounded"], #pdf-area [class*="rounded"] {
+
+  .print-area [class*="rounded"],
+  #pdf-area [class*="rounded"] {
     border-radius: 0 !important;
   }
-  .print-area [class*="shadow"], #pdf-area [class*="shadow"] {
+
+  .print-area [class*="shadow"],
+  #pdf-area [class*="shadow"] {
     box-shadow: none !important;
   }
-  .print-area table, #pdf-area table {
+
+  .print-area table,
+  #pdf-area table {
     width: 100%;
     border-collapse: collapse !important;
   }
+
   .print-area th,
   .print-area td,
   #pdf-area th,
   #pdf-area td {
     vertical-align: top;
   }
+
   .no-print {
     display: none !important;
   }

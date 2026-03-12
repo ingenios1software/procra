@@ -91,6 +91,7 @@ export type Evento = {
   creadoPor?: string;
   creadoEn?: Date | string | FieldValue;
   aprobadoPor?: string | null;
+  aprobadoPorNombre?: string | null;
   aprobadoEn?: Date | string | FieldValue | null;
   rechazadoPor?: string | null;
   rechazadoEn?: Date | string | FieldValue | null;

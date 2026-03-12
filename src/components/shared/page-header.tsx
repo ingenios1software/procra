@@ -15,7 +15,7 @@ export function PageHeader({ title, description, className, children }: PageHead
           {title}
         </h1>
         {description && (
-          <p className="text-muted-foreground max-w-2xl">{description}</p>
+          <p className="max-w-2xl text-xl text-muted-foreground">{description}</p>
         )}
       </div>
       {children && (
