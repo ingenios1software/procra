@@ -19,7 +19,7 @@ export type ParsedBiometricRecord = {
 export type BiometricParseResult = {
   records: ParsedBiometricRecord[];
   errors: string[];
-  format: "row" | "matrix" | "unknown";
+  format: "row" | "matrix" | "card" | "log" | "unknown";
   sheetName?: string;
 };
 
@@ -46,13 +46,108 @@ const MONTH_MAP: Record<string, number> = {
   diciembre: 11,
 };
 
+const EMPLOYEE_NAME_HEADER_KEYWORDS = [
+  "nombre",
+  "apellido",
+  "empleado",
+  "employee",
+  "name",
+  "worker",
+  "usuario",
+  "user name",
+];
+
+const EMPLOYEE_ID_HEADER_KEYWORDS = [
+  "id empleado",
+  "employee id",
+  "user id",
+  "enroll id",
+  "enrol id",
+  "enroll number",
+  "enrol number",
+  "badge id",
+  "badge no",
+  "badge number",
+  "card no",
+  "card number",
+  "numero de tarjeta",
+  "nro tarjeta",
+  "codigo empleado",
+  "cod empleado",
+  "legajo",
+  "pin",
+];
+
+const DATE_HEADER_KEYWORDS = ["fecha", "date", "day"];
+const TIME_HEADER_KEYWORDS = [
+  "hora",
+  "hour",
+  "time",
+  "marcacion",
+  "punch",
+  "check in",
+  "check out",
+  "clock in",
+  "clock out",
+  "transaction time",
+];
+
+function includesAny(value: string, tokens: string[]): boolean {
+  return tokens.some((token) => value.includes(token));
+}
+
 function normalizeText(value: unknown): string {
   const text = String(value ?? "").trim().toLowerCase();
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+function isEmployeeNameHeader(value: string): boolean {
+  return includesAny(value, EMPLOYEE_NAME_HEADER_KEYWORDS);
+}
+
+function isEmployeeIdHeader(value: string): boolean {
+  return includesAny(value, EMPLOYEE_ID_HEADER_KEYWORDS);
+}
+
+function isEmployeeHeader(value: string): boolean {
+  return isEmployeeNameHeader(value) || isEmployeeIdHeader(value);
+}
+
+function isDateHeader(value: string): boolean {
+  return includesAny(value, DATE_HEADER_KEYWORDS);
+}
+
+function isTimeHeader(value: string): boolean {
+  return includesAny(value, TIME_HEADER_KEYWORDS);
+}
+
+function isDateTimeHeader(value: string): boolean {
+  return (
+    includesAny(value, ["fecha hora", "fecha y hora", "date time", "datetime", "transaction date"]) ||
+    (isDateHeader(value) && isTimeHeader(value))
+  );
+}
+
+function findEmployeeColumn(headers: string[]): number {
+  const nameColumn = headers.findIndex((header) => isEmployeeNameHeader(header));
+  if (nameColumn >= 0) return nameColumn;
+  return headers.findIndex((header) => isEmployeeIdHeader(header));
+}
+
+function expandCompactWords(value: string): string {
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])/g, "$1 $2")
+    .replace(/([A-ZÁÉÍÓÚÑ])([A-ZÁÉÍÓÚÑ][a-záéíóúñ])/g, "$1 $2");
+}
+
 function cleanName(value: unknown): string {
   return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function cleanImportedEmployeeName(value: unknown): string {
+  const base = cleanName(expandCompactWords(String(value ?? "")));
+  return base.replace(/(?:\s+\d+)+$/, "").trim();
 }
 
 function parseExcelSerialDate(serial: number): Date | null {
@@ -111,6 +206,29 @@ function parseDateValue(value: unknown): Date | null {
   return null;
 }
 
+function parseDateTimeValue(value: unknown): { date: Date | null; time?: string } {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return { date: value, time: format(value, "HH:mm") };
+  }
+
+  if (typeof value === "number") {
+    const parsed = parseExcelSerialDate(value);
+    return parsed ? { date: parsed, time: format(parsed, "HH:mm") } : { date: null };
+  }
+
+  const raw = String(value ?? "").trim();
+  if (!raw) return { date: null };
+
+  const tokens = extractTimeTokens(raw);
+  const time = tokens[0];
+  const withoutTime = time
+    ? raw.replace(time, " ").replace(/\s+/g, " ").trim()
+    : raw;
+
+  const date = parseDateValue(withoutTime) || parseDateValue(raw);
+  return { date, time };
+}
+
 function normalizeTimeToken(value: string): string {
   const [hRaw, mRaw] = value.split(":");
   const h = String(Number(hRaw)).padStart(2, "0");
@@ -162,11 +280,47 @@ function parseGsAmount(value: unknown): number | null {
 
 function rowHasDateAndNameHeaders(row: unknown[]): boolean {
   const normalized = row.map(normalizeText);
-  const hasDate = normalized.some((cell) => cell.includes("fecha"));
-  const hasName = normalized.some(
-    (cell) => cell.includes("nombre") || cell.includes("apellido")
-  );
+  const hasDate = normalized.some((cell) => isDateHeader(cell));
+  const hasName = normalized.some((cell) => isEmployeeHeader(cell));
   return hasDate && hasName;
+}
+
+function isStandaloneDateCell(value: unknown): boolean {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return true;
+  }
+
+  const raw = String(value ?? "").trim();
+  if (!raw) return false;
+
+  if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(raw)) {
+    return true;
+  }
+
+  const normalized = normalizeText(raw);
+  return /^\d{1,2}\s+de\s+[a-z]+\s+de\s+\d{2,4}$/.test(normalized);
+}
+
+function extractStandaloneDateColumns(
+  row: unknown[]
+): Array<{
+  col: number;
+  date: Date;
+}> {
+  const columns: Array<{ col: number; date: Date }> = [];
+
+  row.forEach((value, col) => {
+    if (!isStandaloneDateCell(value)) return;
+    const parsedDate = parseDateValue(value);
+    if (!parsedDate) return;
+    columns.push({ col, date: parsedDate });
+  });
+
+  return columns;
+}
+
+function countNonEmptyCells(row: unknown[]): number {
+  return row.reduce<number>((count, value) => (cleanName(value) ? count + 1 : count), 0);
 }
 
 function parseRowBasedFormat(rows: unknown[][]): BiometricParseResult | null {
@@ -174,8 +328,8 @@ function parseRowBasedFormat(rows: unknown[][]): BiometricParseResult | null {
   if (headerIndex < 0) return null;
 
   const headers = rows[headerIndex].map(normalizeText);
-  const nameCol = headers.findIndex((h) => h.includes("nombre") || h.includes("apellido"));
-  const dateCol = headers.findIndex((h) => h.includes("fecha"));
+  const nameCol = findEmployeeColumn(headers);
+  const dateCol = headers.findIndex((h) => isDateHeader(h));
   if (nameCol < 0 || dateCol < 0) return null;
 
   const localCol = headers.findIndex((h) => h === "local" || h.includes("local"));
@@ -197,7 +351,8 @@ function parseRowBasedFormat(rows: unknown[][]): BiometricParseResult | null {
       header.includes("ent") ||
       header.includes("sal") ||
       header.includes("entrada") ||
-      header.includes("salida")
+      header.includes("salida") ||
+      isTimeHeader(header)
     )
     .map(({ index }) => index);
 
@@ -206,7 +361,7 @@ function parseRowBasedFormat(rows: unknown[][]): BiometricParseResult | null {
 
   for (let rowIndex = headerIndex + 1; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex];
-    const nameRaw = cleanName(row[nameCol]);
+    const nameRaw = cleanImportedEmployeeName(row[nameCol]);
     const dateRaw = row[dateCol];
 
     if (!nameRaw && !String(dateRaw ?? "").trim()) {
@@ -254,6 +409,161 @@ function parseRowBasedFormat(rows: unknown[][]): BiometricParseResult | null {
   return { format: "row", records, errors };
 }
 
+function parsePunchLogFormat(rows: unknown[][]): BiometricParseResult | null {
+  let headerIndex = -1;
+  let employeeCol = -1;
+  let dateCol = -1;
+  let timeCol = -1;
+  let dateTimeCol = -1;
+
+  for (let index = 0; index < rows.length && index <= 40; index++) {
+    const headers = rows[index].map(normalizeText);
+    const candidateEmployeeCol = findEmployeeColumn(headers);
+    if (candidateEmployeeCol < 0) continue;
+
+    const candidateDateTimeCol = headers.findIndex((header) => isDateTimeHeader(header));
+    const candidateDateCol = headers.findIndex((header) => isDateHeader(header));
+    const candidateTimeCol = headers.findIndex((header) => isTimeHeader(header));
+
+    const hasCombinedDateTime = candidateDateTimeCol >= 0;
+    const hasSeparateDateAndTime =
+      candidateDateCol >= 0 && candidateTimeCol >= 0 && candidateDateCol !== candidateTimeCol;
+
+    if (!hasCombinedDateTime && !hasSeparateDateAndTime) continue;
+
+    headerIndex = index;
+    employeeCol = candidateEmployeeCol;
+    dateTimeCol = candidateDateTimeCol;
+    dateCol = candidateDateCol;
+    timeCol = candidateTimeCol;
+    break;
+  }
+
+  if (headerIndex < 0 || employeeCol < 0) return null;
+
+  const headers = rows[headerIndex].map(normalizeText);
+  const localCol = headers.findIndex((h) => h === "local" || h.includes("local"));
+  const parcelaCol = headers.findIndex((h) => h.includes("parcela"));
+  const jobTypeCol = headers.findIndex(
+    (h) => h.includes("tipo de trabajo") || h.includes("tipo trabajo")
+  );
+  const priceCol = headers.findIndex(
+    (h) =>
+      h.includes("precio por horas") ||
+      h.includes("precio por hora") ||
+      h.includes("precio/hora") ||
+      h === "precio hora"
+  );
+
+  const grouped = new Map<
+    string,
+    {
+      employeeName: string;
+      dateKey: string;
+      times: string[];
+      sourceRow: number;
+      local?: string;
+      parcelaName?: string;
+      jobType?: string;
+      pricePerHourGs?: number;
+    }
+  >();
+  const errors: string[] = [];
+
+  for (let rowIndex = headerIndex + 1; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex];
+    const employeeName = cleanImportedEmployeeName(row[employeeCol]);
+    if (!employeeName) continue;
+    if (isEmployeeHeader(normalizeText(employeeName))) continue;
+
+    let parsedDate: Date | null = null;
+    let timeToken: string | undefined;
+
+    if (dateTimeCol >= 0) {
+      const parsed = parseDateTimeValue(row[dateTimeCol]);
+      parsedDate = parsed.date;
+      timeToken = parsed.time;
+    } else {
+      parsedDate = dateCol >= 0 ? parseDateValue(row[dateCol]) : null;
+      timeToken = timeCol >= 0 ? extractTimeTokens(row[timeCol])[0] : undefined;
+    }
+
+    if (!parsedDate && !timeToken && row.every((cell) => !cleanName(cell))) {
+      continue;
+    }
+
+    if (!parsedDate) {
+      errors.push(`Fila ${rowIndex + 1}: no se pudo interpretar la fecha de la marcacion.`);
+      continue;
+    }
+
+    if (!timeToken) {
+      continue;
+    }
+
+    const dateKey = format(parsedDate, "yyyy-MM-dd");
+    const key = `${employeeName}|${dateKey}`;
+    const current = grouped.get(key) ?? {
+      employeeName,
+      dateKey,
+      times: [],
+      sourceRow: rowIndex + 1,
+      local: undefined,
+      parcelaName: undefined,
+      jobType: undefined,
+      pricePerHourGs: undefined,
+    };
+
+    current.times.push(timeToken);
+    if (!current.local && localCol >= 0) {
+      const local = cleanName(row[localCol]);
+      current.local = local || undefined;
+    }
+    if (!current.parcelaName && parcelaCol >= 0) {
+      const parcela = cleanName(row[parcelaCol]);
+      current.parcelaName = parcela || undefined;
+    }
+    if (!current.jobType && jobTypeCol >= 0) {
+      const jobType = cleanName(row[jobTypeCol]);
+      current.jobType = jobType || undefined;
+    }
+    if (!current.pricePerHourGs && priceCol >= 0) {
+      current.pricePerHourGs = parseGsAmount(row[priceCol]) ?? undefined;
+    }
+
+    grouped.set(key, current);
+  }
+
+  const records: ParsedBiometricRecord[] = [];
+  grouped.forEach((group) => {
+    const sortedTimes = [...new Set(group.times)].sort((a, b) => a.localeCompare(b));
+    if (sortedTimes.length % 2 !== 0) {
+      errors.push(
+        `Fila ${group.sourceRow}: marcacion incompleta para ${group.employeeName} el ${format(
+          new Date(group.dateKey),
+          "dd/MM/yyyy"
+        )}.`
+      );
+    }
+
+    const intervals = pairTimeTokens(sortedTimes);
+    if (intervals.length === 0) return;
+
+    records.push({
+      employeeName: group.employeeName,
+      dateKey: group.dateKey,
+      intervals,
+      sourceRow: group.sourceRow,
+      local: group.local,
+      parcelaName: group.parcelaName,
+      jobType: group.jobType,
+      pricePerHourGs: group.pricePerHourGs,
+    });
+  });
+
+  return { format: "log", records, errors };
+}
+
 function parseMatrixDay(value: unknown): number | null {
   const text = String(value ?? "").trim();
   if (!/^\d{1,2}$/.test(text)) return null;
@@ -275,14 +585,12 @@ function parseMatrixFormat(rows: unknown[][], options: BiometricParseOptions): B
     }, 0);
     if (dayCount < 2) continue;
 
-    const hasFechaToken = normalized.some((cell) => cell.includes("fecha"));
-    const hasNombreToken = normalized.some((cell) => cell.includes("nombre") || cell.includes("apellido"));
+    const hasFechaToken = normalized.some((cell) => isDateHeader(cell));
+    const hasNombreToken = normalized.some((cell) => isEmployeeHeader(cell));
     if (!hasFechaToken && !hasNombreToken) continue;
 
     dateRowIndex = index;
-    const foundNameCol = normalized.findIndex(
-      (cell) => cell.includes("nombre") || cell.includes("apellido")
-    );
+    const foundNameCol = findEmployeeColumn(normalized);
     nameColumnIndex = foundNameCol >= 0 ? foundNameCol : 0;
     break;
   }
@@ -303,7 +611,7 @@ function parseMatrixFormat(rows: unknown[][], options: BiometricParseOptions): B
 
   for (let rowIndex = dateRowIndex + 1; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex];
-    const employeeName = cleanName(row[nameColumnIndex]);
+    const employeeName = cleanImportedEmployeeName(row[nameColumnIndex]);
     if (!employeeName) continue;
     if (normalizeText(employeeName).includes("nombre")) continue;
 
@@ -331,6 +639,92 @@ function parseMatrixFormat(rows: unknown[][], options: BiometricParseOptions): B
   }
 
   return { format: "matrix", records, errors };
+}
+
+function isCardEmployeeRow(rows: unknown[][], rowIndex: number): boolean {
+  const row = rows[rowIndex];
+  const employeeName = cleanImportedEmployeeName(row?.[4]);
+  if (!employeeName) return false;
+
+  const nextRow = rows[rowIndex + 1] ?? [];
+  return extractStandaloneDateColumns(nextRow).length >= 2;
+}
+
+function findCardLocal(rows: unknown[][], employeeRowIndex: number): string | undefined {
+  for (let rowIndex = employeeRowIndex - 1; rowIndex >= 0 && rowIndex >= employeeRowIndex - 3; rowIndex--) {
+    const row = rows[rowIndex] ?? [];
+    const firstCell = cleanName(row[0]);
+    if (!firstCell) continue;
+    if (cleanImportedEmployeeName(row[4])) break;
+    if (extractStandaloneDateColumns(row).length > 0) continue;
+    if (countNonEmptyCells(row) === 1) {
+      return firstCell;
+    }
+  }
+
+  return undefined;
+}
+
+function parseCardFormat(rows: unknown[][]): BiometricParseResult | null {
+  const records: ParsedBiometricRecord[] = [];
+  const errors: string[] = [];
+  let foundEmployeeBlock = false;
+
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    if (!isCardEmployeeRow(rows, rowIndex)) continue;
+
+    foundEmployeeBlock = true;
+    const employeeName = cleanImportedEmployeeName(rows[rowIndex]?.[4]);
+    const local = findCardLocal(rows, rowIndex);
+
+    let cursor = rowIndex + 1;
+    while (cursor < rows.length) {
+      if (cursor !== rowIndex + 1 && isCardEmployeeRow(rows, cursor)) {
+        break;
+      }
+
+      const dateColumns = extractStandaloneDateColumns(rows[cursor] ?? []);
+      if (dateColumns.length === 0) {
+        cursor += 1;
+        continue;
+      }
+
+      const punchRowIndex = cursor + 3;
+      const punchRow = rows[punchRowIndex] ?? [];
+
+      dateColumns.forEach(({ col, date }) => {
+        const tokens = extractTimeTokens(punchRow[col]);
+        if (tokens.length === 0) return;
+
+        const intervals = pairTimeTokens(tokens);
+        if (tokens.length % 2 !== 0) {
+          errors.push(
+            `Fila ${punchRowIndex + 1}: marcacion incompleta para ${employeeName} el ${format(
+              date,
+              "dd/MM/yyyy"
+            )}.`
+          );
+        }
+
+        if (intervals.length === 0) return;
+
+        records.push({
+          employeeName,
+          dateKey: format(date, "yyyy-MM-dd"),
+          intervals,
+          sourceRow: punchRowIndex + 1,
+          local,
+        });
+      });
+
+      cursor += 5;
+    }
+
+    rowIndex = cursor - 1;
+  }
+
+  if (!foundEmployeeBlock) return null;
+  return { format: "card", records, errors };
 }
 
 export async function parseBiometricWorkbook(
@@ -366,12 +760,30 @@ export async function parseBiometricWorkbook(
       }
     }
 
+    const punchLog = parsePunchLogFormat(rows);
+    if (punchLog) {
+      if (punchLog.records.length > 0) {
+        candidates.push({ ...punchLog, sheetName });
+      } else if (punchLog.errors.length > 0) {
+        allErrors.push(...punchLog.errors.map((e) => `[${sheetName}] ${e}`));
+      }
+    }
+
     const matrix = parseMatrixFormat(rows, options);
     if (matrix) {
       if (matrix.records.length > 0) {
         candidates.push({ ...matrix, sheetName });
       } else if (matrix.errors.length > 0) {
         allErrors.push(...matrix.errors.map((e) => `[${sheetName}] ${e}`));
+      }
+    }
+
+    const card = parseCardFormat(rows);
+    if (card) {
+      if (card.records.length > 0) {
+        candidates.push({ ...card, sheetName });
+      } else if (card.errors.length > 0) {
+        allErrors.push(...card.errors.map((e) => `[${sheetName}] ${e}`));
       }
     }
   }
@@ -398,5 +810,5 @@ export async function parseBiometricWorkbook(
 }
 
 export function normalizeEmployeeName(value: string): string {
-  return normalizeText(value).replace(/\s+/g, " ").trim();
+  return normalizeText(expandCompactWords(value)).replace(/\s+/g, " ").trim();
 }

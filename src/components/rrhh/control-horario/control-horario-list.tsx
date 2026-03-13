@@ -58,6 +58,7 @@ import {
   normalizeEmployeeName,
   type BiometricInterval,
 } from "@/lib/import/control-horario-biometrico-importer";
+import { getEmpleadoCodigo, getEmpleadoEtiqueta } from "@/lib/empleados";
 import { defaultReportBranding, type ReportBranding } from "@/lib/report-branding";
 import { ControlHorarioForm } from "./control-horario-form";
 import { ControlHorarioDashboard } from "./control-horario-dashboard";
@@ -192,6 +193,22 @@ function getIntervalKey(interval: BiometricInterval): string {
 
 function normalizeLookup(value: string): string {
   return normalizeEmployeeName(value);
+}
+
+function buildLookupValues(values: Array<string | undefined>): string[] {
+  return values.flatMap((value) => {
+    const normalized = value ? normalizeLookup(value) : "";
+    return normalized ? [normalized] : [];
+  });
+}
+
+function buildNameMatchTokens(value: string): string[] {
+  return normalizeLookup(value)
+    .split(" ")
+    .map((token) => token.replace(/[^a-z0-9]/g, "").trim())
+    .filter((token) => token.length > 1)
+    .filter((token) => !/^\d+$/.test(token))
+    .filter((token) => !/^\d{4}\d{2}\d{2}$/.test(token));
 }
 
 function escapeHtml(value: string): string {
@@ -458,7 +475,7 @@ function getPrintableListadoHtml(params: {
             <tr>
               <th class="num">#</th>
               <th>LOCAL</th>
-              <th>NOMBRE Y APELLIDO</th>
+              <th>EMPLEADO / ID</th>
               <th>Fecha</th>
               <th>PARCELA</th>
               <th>TIPO DE TRABAJO</th>
@@ -583,18 +600,23 @@ export function ControlHorarioList({
   const employeeLookup = useMemo(() => {
     const lookup = new Map<string, Empleado>();
     empleados.forEach((empleado) => {
-      const direct = normalizeLookup(`${empleado.nombre} ${empleado.apellido}`);
-      const reverse = normalizeLookup(`${empleado.apellido} ${empleado.nombre}`);
-      lookup.set(direct, empleado);
-      lookup.set(reverse, empleado);
+      buildLookupValues([
+        empleado.id,
+        empleado.codigo,
+        empleado.documento,
+        getEmpleadoCodigo(empleado),
+        getEmpleadoEtiqueta(empleado),
+        `${empleado.nombre} ${empleado.apellido}`,
+        `${empleado.apellido} ${empleado.nombre}`,
+      ]).forEach((key) => lookup.set(key, empleado));
     });
     return lookup;
   }, [empleados]);
 
-  const empleadoNameLookup = useMemo(() => {
+  const empleadoLabelLookup = useMemo(() => {
     const lookup = new Map<string, string>();
     empleados.forEach((empleado) => {
-      lookup.set(empleado.id, `${empleado.nombre} ${empleado.apellido}`);
+      lookup.set(empleado.id, getEmpleadoEtiqueta(empleado));
     });
     return lookup;
   }, [empleados]);
@@ -619,7 +641,7 @@ export function ControlHorarioList({
 
   const getEmpleadoNombre = (empleadoId: string) => {
     const empleado = getEmpleado(empleadoId);
-    return empleado ? `${empleado.nombre} ${empleado.apellido}` : "N/A";
+    return empleado ? getEmpleadoEtiqueta(empleado) : empleadoId || "N/A";
   };
 
   const getParcelaNombre = (parcelaId: string) => {
@@ -650,7 +672,7 @@ export function ControlHorarioList({
       const empleadoId = registro.empleadoId || "sin-empleado";
       const current = grouped.get(empleadoId) ?? {
         empleadoId,
-        nombre: empleadoNameLookup.get(empleadoId) || "N/A",
+        nombre: empleadoLabelLookup.get(empleadoId) || empleadoId || "N/A",
         registros: [],
         totalMinutes: 0,
         totalPagar: 0,
@@ -669,7 +691,7 @@ export function ControlHorarioList({
         registros: [...group.registros].sort((a, b) => getRegistroDateTime(b) - getRegistroDateTime(a)),
       }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  }, [empleadoNameLookup, filteredRegistros]);
+  }, [empleadoLabelLookup, filteredRegistros]);
 
   const periodTotals = useMemo(() => {
     return groupedRegistros.reduce(
@@ -808,16 +830,20 @@ export function ControlHorarioList({
     const direct = employeeLookup.get(normalized);
     if (direct) return direct;
 
-    const tokens = normalized.split(" ").filter((token) => token.length > 1);
+    const tokens = buildNameMatchTokens(rawName);
     if (tokens.length === 0) return undefined;
 
     const candidates = empleados.filter((empleado) => {
-      const full = normalizeLookup(`${empleado.nombre} ${empleado.apellido}`);
-      const fullReverse = normalizeLookup(`${empleado.apellido} ${empleado.nombre}`);
-      return (
-        tokens.every((token) => full.includes(token)) ||
-        tokens.every((token) => fullReverse.includes(token))
-      );
+      const values = buildLookupValues([
+        `${empleado.nombre} ${empleado.apellido}`,
+        `${empleado.apellido} ${empleado.nombre}`,
+        getEmpleadoEtiqueta(empleado),
+        getEmpleadoCodigo(empleado),
+        empleado.documento,
+        empleado.id,
+      ]);
+
+      return values.some((value) => tokens.every((token) => value.includes(token)));
     });
     if (candidates.length === 1) return candidates[0];
     return undefined;
@@ -925,7 +951,7 @@ export function ControlHorarioList({
         | { type: "create"; data: Omit<ControlHorario, "id"> }
         | { type: "update"; id: string; data: Omit<ControlHorario, "id"> }
       > = [];
-      const missingPriceEntries: string[] = [];
+      const zeroPriceEntries: string[] = [];
 
       let created = 0;
       let updated = 0;
@@ -945,9 +971,7 @@ export function ControlHorarioList({
         const local = matchedDeposito?.nombre || item.local?.trim() || depositoNombre || undefined;
 
         if (precioHoraGs <= 0) {
-          missingPriceEntries.push(`${getEmpleadoNombre(item.empleadoId)} ${item.dateKey}`);
-          skipped++;
-          return;
+          zeroPriceEntries.push(`${getEmpleadoNombre(item.empleadoId)} ${item.dateKey}`);
         }
 
         const activities = item.intervals.map((interval) => ({
@@ -988,11 +1012,11 @@ export function ControlHorarioList({
           summary: "No hubo cambios para aplicar.",
           errors: [
             ...parsed.errors,
-            ...(missingPriceEntries.length > 0
+            ...(zeroPriceEntries.length > 0
               ? [
-                  `Sin precio por hora (>0) en: ${missingPriceEntries
+                  `Se importaria con precio por hora 0 en: ${zeroPriceEntries
                     .slice(0, 20)
-                    .join(", ")}${missingPriceEntries.length > 20 ? "..." : ""}`,
+                    .join(", ")}${zeroPriceEntries.length > 20 ? "..." : ""}`,
                 ]
               : []),
             ...(unmatchedNames.size > 0
@@ -1050,11 +1074,11 @@ export function ControlHorarioList({
       const summary = `Importacion completada: creados ${created}, actualizados ${updated}, omitidos ${skipped}.${sourceSheetLabel}`;
       const errors = [
         ...parsed.errors,
-        ...(missingPriceEntries.length > 0
+        ...(zeroPriceEntries.length > 0
           ? [
-              `Sin precio por hora (>0) en: ${missingPriceEntries
+              `Precio por hora 0 aplicado en: ${zeroPriceEntries
                 .slice(0, 20)
-                .join(", ")}${missingPriceEntries.length > 20 ? "..." : ""}`,
+                .join(", ")}${zeroPriceEntries.length > 20 ? "..." : ""}`,
             ]
           : []),
         ...(unmatchedNames.size > 0
@@ -1329,7 +1353,7 @@ export function ControlHorarioList({
       const detalle = exportRows.map((row, index) => ({
         NRO: index + 1,
         LOCAL: row.local,
-        "NOMBRE Y APELLIDO": row.empleado,
+        "EMPLEADO / ID": row.empleado,
         FECHA: row.fecha,
         PARCELA: row.parcela,
         "TIPO DE TRABAJO": row.tipoTrabajo,
@@ -1646,7 +1670,7 @@ export function ControlHorarioList({
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className={tableHeadClass}>LOCAL</TableHead>
-                    <TableHead className={tableHeadClass}>NOMBRE Y APELLIDO</TableHead>
+                    <TableHead className={tableHeadClass}>EMPLEADO / ID</TableHead>
                     <TableHead className={tableHeadClass}>Fecha</TableHead>
                     <TableHead className={tableHeadClass}>PARCELA</TableHead>
                     <TableHead className={tableHeadClass}>TIPO DE TRABAJO</TableHead>

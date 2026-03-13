@@ -7,6 +7,7 @@ export type ReciboPagoEmpleadoViewModel = {
   id: string;
   numero: string;
   empleadoNombre: string;
+  empleadoCodigo?: string;
   empleadoDocumento?: string;
   empleadoPuesto?: string;
   periodoLabel: string;
@@ -119,6 +120,7 @@ function ReciboPagoEmpleadoSheet({
           <table className="w-full border-collapse text-sm">
             <tbody>
               <TableRow label="Nombre y apellido" value={recibo.empleadoNombre} />
+              <TableRow label="ID / Legajo" value={recibo.empleadoCodigo || "No registrado"} />
               <TableRow label="Documento" value={recibo.empleadoDocumento || "No registrado"} />
               <TableRow label="Cargo / puesto" value={recibo.empleadoPuesto || "No especificado"} />
               <TableRow label="Horas liquidadas" value={formatHours(recibo.horasLiquidadas)} />

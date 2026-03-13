@@ -32,6 +32,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getEmpleadoEtiqueta } from "@/lib/empleados";
 import { cn } from "@/lib/utils";
 import type { ControlHorario, Deposito, Empleado, Parcela, TipoTrabajo } from "@/lib/types";
 
@@ -398,7 +399,7 @@ export function ControlHorarioForm({
             name="empleadoId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>NOMBRE Y APELLIDO</FormLabel>
+                <FormLabel>Empleado</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
@@ -408,7 +409,7 @@ export function ControlHorarioForm({
                   <SelectContent>
                     {empleados.map((empleado) => (
                       <SelectItem key={empleado.id} value={empleado.id}>
-                        {empleado.nombre} {empleado.apellido}
+                        {getEmpleadoEtiqueta(empleado)}
                       </SelectItem>
                     ))}
                   </SelectContent>

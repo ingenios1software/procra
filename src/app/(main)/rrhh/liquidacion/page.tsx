@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { autoconfigurarBaseFinanzasNomina } from "@/lib/contabilidad/autoconfiguracion-finanzas";
 import { generarNumeroReciboPagoEmpleado, toDateSafe } from "@/lib/cuentas";
+import { getEmpleadoCodigo, getEmpleadoEtiqueta, getEmpleadoNombreCompleto } from "@/lib/empleados";
 import type {
   AsientoDiario,
   ControlHorario,
@@ -83,6 +84,10 @@ function getMonedaCodigo(monedaId: string | undefined, monedasById: Map<string, 
   if (base.includes("USD")) return "USD";
   if (base.includes("PYG") || base.includes("GS") || base.includes("GUARANI")) return "PYG";
   return null;
+}
+
+function getReciboEmpleadoLabel(recibo: Pick<ReciboPagoEmpleadoViewModel, "empleadoCodigo" | "empleadoNombre">): string {
+  return recibo.empleadoCodigo ? `${recibo.empleadoCodigo} - ${recibo.empleadoNombre}` : recibo.empleadoNombre;
 }
 
 function getRegistroHours(registro: ControlHorario): number {
@@ -149,7 +154,7 @@ export default function LiquidacionPage() {
   const years = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
   const periodLabel = buildPeriodoLabel(year, month);
 
-  const empleadosById = useMemo(() => new Map((empleados || []).map((e) => [e.id, `${e.apellido}, ${e.nombre}`.replace(/^,\s*/, "").trim() || e.id])), [empleados]);
+  const empleadosById = useMemo(() => new Map((empleados || []).map((e) => [e.id, getEmpleadoEtiqueta(e)])), [empleados]);
   const empleadosDataById = useMemo(() => new Map((empleados || []).map((empleado) => [empleado.id, empleado])), [empleados]);
   const planById = useMemo(() => new Map((planDeCuentas || []).map((c) => [c.id, c])), [planDeCuentas]);
   const monedasById = useMemo(() => new Map((monedas || []).map((m) => [m.id, m])), [monedas]);
@@ -193,8 +198,8 @@ export default function LiquidacionPage() {
     return {
       id: recibo.id,
       numero: recibo.numero,
-      empleadoNombre:
-        empleado ? `${empleado.apellido}, ${empleado.nombre}`.replace(/^,\s*/, "").trim() : recibo.empleadoId,
+      empleadoNombre: empleado ? getEmpleadoNombreCompleto(empleado, { invertido: true }) : recibo.empleadoId,
+      empleadoCodigo: empleado ? getEmpleadoCodigo(empleado) : recibo.empleadoId,
       empleadoDocumento: empleado?.documento,
       empleadoPuesto: empleado?.puesto,
       periodoLabel: buildPeriodoLabel(Number(recibo.periodoAnio) || year, monthIndex),
@@ -269,7 +274,7 @@ export default function LiquidacionPage() {
   const setupIncompleto = cajasPyg.length === 0 || cuentasGasto.length === 0;
   const reciboTargetId = "rrhh-recibo-pago-target";
   const reciboSummary = selectedRecibo
-    ? `${selectedRecibo.empleadoNombre} | ${selectedRecibo.periodoLabel} | ${formatGs(selectedRecibo.monto)}`
+    ? `${getReciboEmpleadoLabel(selectedRecibo)} | ${selectedRecibo.periodoLabel} | ${formatGs(selectedRecibo.monto)}`
     : "";
 
   const handleAutoConfig = async () => {
@@ -431,12 +436,16 @@ export default function LiquidacionPage() {
       } as Omit<ReciboPagoEmpleado, "id">);
 
       await batch.commit();
+      const empleadoSeleccionado = empleadosDataById.get(selectedRow.empleadoId);
       const reciboPreview: ReciboPagoEmpleadoViewModel = {
         id: reciboRef.id,
         numero: numeroRecibo,
-        empleadoNombre: selectedRow.nombre,
-        empleadoDocumento: empleadosDataById.get(selectedRow.empleadoId)?.documento,
-        empleadoPuesto: empleadosDataById.get(selectedRow.empleadoId)?.puesto,
+        empleadoNombre: empleadoSeleccionado
+          ? getEmpleadoNombreCompleto(empleadoSeleccionado, { invertido: true })
+          : selectedRow.nombre,
+        empleadoCodigo: empleadoSeleccionado ? getEmpleadoCodigo(empleadoSeleccionado) : selectedRow.empleadoId,
+        empleadoDocumento: empleadoSeleccionado?.documento,
+        empleadoPuesto: empleadoSeleccionado?.puesto,
         periodoLabel: periodLabel,
         fecha: fechaIso,
         moneda: "PYG",
@@ -537,7 +546,7 @@ export default function LiquidacionPage() {
             <AlertTitle>Ultimo recibo emitido</AlertTitle>
             <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
               <span>
-                {ultimoRecibo.numero} · {ultimoRecibo.empleadoNombre} · {formatGs(ultimoRecibo.monto)}
+                {ultimoRecibo.numero} · {getReciboEmpleadoLabel(ultimoRecibo)} · {formatGs(ultimoRecibo.monto)}
               </span>
               <Button size="sm" variant="outline" onClick={() => openRecibo(ultimoRecibo)}>
                 <Eye className="mr-2 h-4 w-4" />
@@ -615,7 +624,7 @@ export default function LiquidacionPage() {
                     <TableRow key={recibo.id}>
                       <TableCell className="font-medium">{recibo.numero}</TableCell>
                       <TableCell>{fechaRecibo ? format(fechaRecibo, "dd/MM/yyyy") : "-"}</TableCell>
-                      <TableCell>{recibo.empleadoNombre}</TableCell>
+                      <TableCell>{getReciboEmpleadoLabel(recibo)}</TableCell>
                       <TableCell className="text-right">{formatHours(recibo.horasLiquidadas)}</TableCell>
                       <TableCell className="text-right">{formatGs(recibo.monto)}</TableCell>
                       <TableCell>{recibo.cajaLabel}</TableCell>

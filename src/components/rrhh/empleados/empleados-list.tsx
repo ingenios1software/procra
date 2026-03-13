@@ -49,6 +49,7 @@ import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocum
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { getEmpleadoCodigo, getEmpleadoEtiqueta, getEmpleadoNombreCompleto } from "@/lib/empleados";
 import { cn } from "@/lib/utils";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
@@ -63,25 +64,47 @@ export function EmpleadosList({ empleados, isLoading }: EmpleadosListProps) {
   const [selectedEmpleado, setSelectedEmpleado] = useState<Empleado | null>(null);
   const { user } = useUser();
   const { toast } = useToast();
+  const normalizeCodigo = (value?: string) => String(value ?? "").trim().toUpperCase();
   
   const handleSave = (empleadoData: Omit<Empleado, "id">) => {
+    const normalizedEmpleadoData: Omit<Empleado, "id"> = {
+      ...empleadoData,
+      codigo: normalizeCodigo(empleadoData.codigo),
+      documento: empleadoData.documento.trim(),
+    };
+
+    const duplicatedCodigo = empleados.find(
+      (empleado) =>
+        empleado.id !== selectedEmpleado?.id &&
+        normalizeCodigo(empleado.codigo) === normalizedEmpleadoData.codigo
+    );
+
+    if (duplicatedCodigo) {
+      toast({
+        variant: "destructive",
+        title: "ID duplicado",
+        description: `El ID ${normalizedEmpleadoData.codigo} ya esta en uso por ${getEmpleadoNombreCompleto(duplicatedCodigo)}.`,
+      });
+      return;
+    }
+
     if (selectedEmpleado) {
       // Update
       const empleadoRef = tenant.doc("empleados", selectedEmpleado.id);
       if (!empleadoRef) return;
-      updateDocumentNonBlocking(empleadoRef, empleadoData);
+      updateDocumentNonBlocking(empleadoRef, normalizedEmpleadoData);
       toast({
         title: "Empleado actualizado",
-        description: `Los datos de ${empleadoData.nombre} ${empleadoData.apellido} han sido actualizados.`,
+        description: `Los datos de ${getEmpleadoEtiqueta({ id: selectedEmpleado.id, ...normalizedEmpleadoData })} han sido actualizados.`,
       });
     } else {
       // Create
       const empleadosCol = tenant.collection("empleados");
       if (!empleadosCol) return;
-      addDocumentNonBlocking(empleadosCol, empleadoData);
+      addDocumentNonBlocking(empleadosCol, normalizedEmpleadoData);
       toast({
         title: "Empleado creado",
-        description: `El empleado ${empleadoData.nombre} ${empleadoData.apellido} ha sido registrado.`,
+        description: `El empleado ${getEmpleadoEtiqueta(normalizedEmpleadoData)} ha sido registrado.`,
       });
     }
     setFormOpen(false);
@@ -96,7 +119,7 @@ export function EmpleadosList({ empleados, isLoading }: EmpleadosListProps) {
     toast({
       variant: "destructive",
       title: "Empleado eliminado",
-      description: `El empleado ${empleado?.nombre} ${empleado?.apellido} ha sido eliminado.`,
+      description: `El empleado ${getEmpleadoEtiqueta(empleado || { id })} ha sido eliminado.`,
     });
   };
 
@@ -127,7 +150,8 @@ export function EmpleadosList({ empleados, isLoading }: EmpleadosListProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nombre Completo</TableHead>
+                <TableHead>ID</TableHead>
+                <TableHead>Empleado</TableHead>
                 <TableHead>Documento</TableHead>
                 <TableHead>Puesto</TableHead>
                 <TableHead>Fecha de Contratación</TableHead>
@@ -138,12 +162,11 @@ export function EmpleadosList({ empleados, isLoading }: EmpleadosListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Cargando...</TableCell></TableRow>}
+              {isLoading && <TableRow><TableCell colSpan={user ? 7 : 6} className="text-center">Cargando...</TableCell></TableRow>}
               {empleados.map((empleado) => (
                 <TableRow key={empleado.id}>
-                  <TableCell className="font-medium">
-                    {empleado.nombre} {empleado.apellido}
-                  </TableCell>
+                  <TableCell className="font-mono text-xs">{getEmpleadoCodigo(empleado)}</TableCell>
+                  <TableCell className="font-medium">{getEmpleadoNombreCompleto(empleado)}</TableCell>
                   <TableCell>{empleado.documento}</TableCell>
                   <TableCell>{empleado.puesto}</TableCell>
                   <TableCell>

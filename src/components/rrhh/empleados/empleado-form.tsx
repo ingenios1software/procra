@@ -11,6 +11,7 @@ import type { Empleado } from "@/lib/types";
 import { format } from "date-fns";
 
 const formSchema = z.object({
+  codigo: z.string().trim().min(1, "El ID del empleado es obligatorio."),
   nombre: z.string().min(2, "El nombre es muy corto."),
   apellido: z.string().min(2, "El apellido es muy corto."),
   documento: z.string().min(5, "El documento es muy corto."),
@@ -51,10 +52,12 @@ export function EmpleadoForm({ empleado, onSubmit, onCancel }: EmpleadoFormProps
     defaultValues: empleado
       ? {
           ...empleado,
+          codigo: empleado.codigo || empleado.documento || "",
           fechaNacimiento: new Date(empleado.fechaNacimiento as string),
           fechaContratacion: new Date(empleado.fechaContratacion as string),
         }
       : {
+          codigo: "",
           nombre: "",
           apellido: "",
           documento: "",
@@ -67,6 +70,8 @@ export function EmpleadoForm({ empleado, onSubmit, onCancel }: EmpleadoFormProps
   const handleSubmit = (data: EmpleadoFormValues) => {
     onSubmit({
       ...data,
+      codigo: data.codigo.trim().toUpperCase(),
+      documento: data.documento.trim(),
       fechaNacimiento: data.fechaNacimiento.toISOString(),
       fechaContratacion: data.fechaContratacion.toISOString(),
     });
@@ -75,6 +80,35 @@ export function EmpleadoForm({ empleado, onSubmit, onCancel }: EmpleadoFormProps
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 sm:space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="codigo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>ID / Legajo</FormLabel>
+                <FormControl>
+                  <Input placeholder="EMP-001" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="documento"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nro de Documento</FormLabel>
+                <FormControl>
+                  <Input placeholder="1.234.567" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -106,19 +140,6 @@ export function EmpleadoForm({ empleado, onSubmit, onCancel }: EmpleadoFormProps
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
-            control={form.control}
-            name="documento"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nro de Documento</FormLabel>
-                <FormControl>
-                  <Input placeholder="1.234.567" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
             name="fechaNacimiento"
             control={form.control}
             render={({ field }) => (
@@ -135,21 +156,20 @@ export function EmpleadoForm({ empleado, onSubmit, onCancel }: EmpleadoFormProps
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="direccion"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Direccion</FormLabel>
+                <FormControl>
+                  <Input placeholder="Av. Siempre Viva 123" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
-
-        <FormField
-          control={form.control}
-          name="direccion"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Direccion</FormLabel>
-              <FormControl>
-                <Input placeholder="Av. Siempre Viva 123" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField

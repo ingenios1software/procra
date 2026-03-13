@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getEmpleadoEtiqueta } from "@/lib/empleados";
 import type { ControlHorario, Deposito, Empleado, Parcela } from "@/lib/types";
 
 const COLORS = [
@@ -133,9 +134,7 @@ export function ControlHorarioDashboard({
   invalidDateRange,
 }: ControlHorarioDashboardProps) {
   const baseRows = useMemo<DashboardRow[]>(() => {
-    const empleadoById = new Map(
-      empleados.map((empleado) => [empleado.id, `${empleado.nombre} ${empleado.apellido}`.trim()])
-    );
+    const empleadoById = new Map(empleados.map((empleado) => [empleado.id, getEmpleadoEtiqueta(empleado)]));
     const parcelaById = new Map(parcelas.map((parcela) => [parcela.id, parcela.nombre]));
     const depositoById = new Map(depositos.map((deposito) => [deposito.id, deposito.nombre]));
 
@@ -643,4 +642,3 @@ export function ControlHorarioDashboard({
     </div>
   );
 }
-

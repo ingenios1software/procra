@@ -49,6 +49,7 @@ import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBl
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { collection, doc, query, orderBy } from 'firebase/firestore';
+import { getEmpleadoEtiqueta } from "@/lib/empleados";
 
 
 export default function AsistenciasPage() {
@@ -71,7 +72,7 @@ export default function AsistenciasPage() {
   const getEmpleadoNombre = (empleadoId: string) => {
     if (!empleados) return "N/A";
     const empleado = empleados.find((e) => e.id === empleadoId);
-    return empleado ? `${empleado.nombre} ${empleado.apellido}` : "N/A";
+    return empleado ? getEmpleadoEtiqueta(empleado) : empleadoId;
   };
 
   const calculateHoras = (entrada: string, salida: string) => {

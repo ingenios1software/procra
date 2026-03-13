@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getEmpleadoEtiqueta } from "@/lib/empleados";
 import type { Asistencia, Empleado } from "@/lib/types";
 import { format } from "date-fns";
 
@@ -103,7 +104,7 @@ export function AsistenciaForm({
                   <SelectContent>
                     {empleados.map((empleado) => (
                       <SelectItem key={empleado.id} value={empleado.id}>
-                        {empleado.nombre} {empleado.apellido}
+                        {getEmpleadoEtiqueta(empleado)}
                       </SelectItem>
                     ))}
                   </SelectContent>

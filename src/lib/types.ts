@@ -655,6 +655,7 @@ export type EtapaCultivo = {
 // --- RRHH ---
 export type Empleado = {
   id: string;
+  codigo?: string;
   nombre: string;
   apellido: string;
   documento: string;
