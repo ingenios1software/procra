@@ -6,6 +6,10 @@ function cleanValue(value?: string | null): string {
   return String(value ?? "").trim();
 }
 
+export function normalizeEmpleadoCodigo(value?: string | null): string {
+  return cleanValue(value).toUpperCase().replace(/\s+/g, "");
+}
+
 export function getEmpleadoCodigo(empleado?: Partial<EmpleadoBase> | null): string {
   if (!empleado) return "N/A";
 

@@ -123,7 +123,7 @@ export function BiometricImportModal({
         <DialogHeader>
           <DialogTitle>Importar archivo de reloj biometrico</DialogTitle>
           <DialogDescription>
-            Cargue el archivo Excel/CSV del marcador para generar registros masivos de control horario.
+            Cargue el archivo Excel/CSV del marcador para generar registros masivos de control horario usando el ID del empleado de la planilla.
           </DialogDescription>
         </DialogHeader>
 
@@ -238,7 +238,7 @@ export function BiometricImportModal({
             <div>
               <p className="text-sm font-medium">Actualizar registros existentes</p>
               <p className="text-xs text-muted-foreground">
-                Si existe empleado + fecha, reemplaza actividades por las del archivo.
+                Si existe ID de empleado + fecha, reemplaza actividades por las del archivo.
               </p>
             </div>
             <Switch checked={overwriteExisting} onCheckedChange={setOverwriteExisting} />

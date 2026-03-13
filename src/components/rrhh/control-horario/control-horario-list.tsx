@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format, getMonth, getYear } from "date-fns";
 import { addDoc, doc, writeBatch } from "firebase/firestore";
 import {
@@ -46,8 +46,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { ControlHorario, Deposito, Empleado, Parcela, TipoTrabajo } from "@/lib/types";
 import {
-  addDocumentNonBlocking,
   deleteDocumentNonBlocking,
+  setDocumentNonBlocking,
   updateDocumentNonBlocking,
   useUser,
 } from "@/firebase";
@@ -58,7 +58,7 @@ import {
   normalizeEmployeeName,
   type BiometricInterval,
 } from "@/lib/import/control-horario-biometrico-importer";
-import { getEmpleadoCodigo, getEmpleadoEtiqueta } from "@/lib/empleados";
+import { getEmpleadoCodigo, getEmpleadoEtiqueta, normalizeEmpleadoCodigo } from "@/lib/empleados";
 import { defaultReportBranding, type ReportBranding } from "@/lib/report-branding";
 import { ControlHorarioForm } from "./control-horario-form";
 import { ControlHorarioDashboard } from "./control-horario-dashboard";
@@ -77,6 +77,7 @@ interface ControlHorarioListProps {
   depositos: Deposito[];
   tiposTrabajo: TipoTrabajo[];
   isLoading: boolean;
+  refreshRegistros?: () => void;
 }
 
 type RegistroSlots = {
@@ -187,6 +188,22 @@ function dateKeyToIso(dateKey: string): string {
   return date.toISOString();
 }
 
+function getDateKeyFromStoredValue(value: string): string | null {
+  const trimmed = String(value ?? "").trim();
+  const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoMatch) return isoMatch[1];
+
+  const parsed = parseRegistroDate(trimmed);
+  if (!parsed) return null;
+  return format(parsed, "yyyy-MM-dd");
+}
+
+function getControlHorarioKey(empleadoId: string, fecha: string): string | null {
+  const dateKey = getDateKeyFromStoredValue(fecha);
+  if (!empleadoId || !dateKey) return null;
+  return `${empleadoId}|${dateKey}`;
+}
+
 function getIntervalKey(interval: BiometricInterval): string {
   return `${interval.start}-${interval.end}`;
 }
@@ -195,20 +212,12 @@ function normalizeLookup(value: string): string {
   return normalizeEmployeeName(value);
 }
 
-function buildLookupValues(values: Array<string | undefined>): string[] {
-  return values.flatMap((value) => {
-    const normalized = value ? normalizeLookup(value) : "";
-    return normalized ? [normalized] : [];
-  });
-}
-
-function buildNameMatchTokens(value: string): string[] {
-  return normalizeLookup(value)
-    .split(" ")
-    .map((token) => token.replace(/[^a-z0-9]/g, "").trim())
-    .filter((token) => token.length > 1)
-    .filter((token) => !/^\d+$/.test(token))
-    .filter((token) => !/^\d{4}\d{2}\d{2}$/.test(token));
+function getImportedEmployeeReference(params: {
+  employeeCode?: string;
+  employeeName: string;
+  sourceRow: number;
+}): string {
+  return params.employeeCode?.trim() || params.employeeName?.trim() || `Fila ${params.sourceRow}`;
 }
 
 function escapeHtml(value: string): string {
@@ -543,6 +552,7 @@ export function ControlHorarioList({
   depositos,
   tiposTrabajo,
   isLoading,
+  refreshRegistros,
 }: ControlHorarioListProps) {
   const tenant = useTenantFirestore();
   const { user } = useUser();
@@ -563,6 +573,7 @@ export function ControlHorarioList({
   const [selectedRegistro, setSelectedRegistro] = useState<ControlHorario | null>(null);
   const [collapsedGroupRows, setCollapsedGroupRows] = useState<Set<string>>(new Set());
   const [showDashboard, setShowDashboard] = useState(false);
+  const registrosByKeyRef = useRef<Map<string, ControlHorario>>(new Map());
 
   const totalColumns = user ? 13 : 12;
 
@@ -600,15 +611,10 @@ export function ControlHorarioList({
   const employeeLookup = useMemo(() => {
     const lookup = new Map<string, Empleado>();
     empleados.forEach((empleado) => {
-      buildLookupValues([
-        empleado.id,
-        empleado.codigo,
-        empleado.documento,
-        getEmpleadoCodigo(empleado),
-        getEmpleadoEtiqueta(empleado),
-        `${empleado.nombre} ${empleado.apellido}`,
-        `${empleado.apellido} ${empleado.nombre}`,
-      ]).forEach((key) => lookup.set(key, empleado));
+      const codigo = normalizeEmpleadoCodigo(empleado.codigo);
+      if (codigo) {
+        lookup.set(codigo, empleado);
+      }
     });
     return lookup;
   }, [empleados]);
@@ -655,6 +661,16 @@ export function ControlHorarioList({
     const deposito = depositos.find((item) => item.id === depositoId);
     return deposito?.nombre;
   };
+
+  useEffect(() => {
+    const next = new Map<string, ControlHorario>();
+    registros.forEach((registro) => {
+      const key = getControlHorarioKey(registro.empleadoId, registro.fecha);
+      if (!key) return;
+      next.set(key, registro);
+    });
+    registrosByKeyRef.current = next;
+  }, [registros]);
 
   const groupedRegistros = useMemo(() => {
     const grouped = new Map<
@@ -825,28 +841,10 @@ export function ControlHorarioList({
     }
   };
 
-  const findEmpleadoByImportedName = (rawName: string): Empleado | undefined => {
-    const normalized = normalizeLookup(rawName);
-    const direct = employeeLookup.get(normalized);
-    if (direct) return direct;
-
-    const tokens = buildNameMatchTokens(rawName);
-    if (tokens.length === 0) return undefined;
-
-    const candidates = empleados.filter((empleado) => {
-      const values = buildLookupValues([
-        `${empleado.nombre} ${empleado.apellido}`,
-        `${empleado.apellido} ${empleado.nombre}`,
-        getEmpleadoEtiqueta(empleado),
-        getEmpleadoCodigo(empleado),
-        empleado.documento,
-        empleado.id,
-      ]);
-
-      return values.some((value) => tokens.every((token) => value.includes(token)));
-    });
-    if (candidates.length === 1) return candidates[0];
-    return undefined;
+  const findEmpleadoByImportedCode = (rawCode?: string): Empleado | undefined => {
+    const normalized = normalizeEmpleadoCodigo(rawCode);
+    if (!normalized) return undefined;
+    return employeeLookup.get(normalized);
   };
 
   const handleBiometricImport = async (
@@ -874,7 +872,8 @@ export function ControlHorarioList({
         };
       }
 
-      const unmatchedNames = new Set<string>();
+      const missingEmployeeCodes = new Set<string>();
+      const unmatchedEmployeeCodes = new Set<string>();
       const aggregated = new Map<
         string,
         {
@@ -889,9 +888,14 @@ export function ControlHorarioList({
       >();
 
       parsed.records.forEach((record) => {
-        const empleado = findEmpleadoByImportedName(record.employeeName);
+        const importedEmployeeRef = getImportedEmployeeReference(record);
+        const empleado = findEmpleadoByImportedCode(record.employeeCode);
+        if (!record.employeeCode?.trim()) {
+          missingEmployeeCodes.add(importedEmployeeRef);
+          return;
+        }
         if (!empleado) {
-          unmatchedNames.add(record.employeeName);
+          unmatchedEmployeeCodes.add(importedEmployeeRef);
           return;
         }
 
@@ -926,9 +930,16 @@ export function ControlHorarioList({
           summary: "No se pudo asociar ninguna fila con empleados del sistema.",
           errors: [
             ...parsed.errors,
-            ...(unmatchedNames.size > 0
+            ...(missingEmployeeCodes.size > 0
               ? [
-                  `Sin coincidencia de empleado: ${[...unmatchedNames]
+                  `Sin ID de empleado en la planilla: ${[...missingEmployeeCodes]
+                    .sort((a, b) => a.localeCompare(b, "es"))
+                    .join(", ")}`,
+                ]
+              : []),
+            ...(unmatchedEmployeeCodes.size > 0
+              ? [
+                  `Sin coincidencia de ID de empleado: ${[...unmatchedEmployeeCodes]
                     .sort((a, b) => a.localeCompare(b, "es"))
                     .join(", ")}`,
                 ]
@@ -937,24 +948,36 @@ export function ControlHorarioList({
         };
       }
 
-      const existingByKey = new Map<string, ControlHorario>();
+      const existingByKey = new Map(registrosByKeyRef.current);
+      const existingRecordsGroupedByKey = new Map<string, ControlHorario[]>();
       registros.forEach((registro) => {
-        const date = parseRegistroDate(registro.fecha);
-        if (!date) return;
-        const key = `${registro.empleadoId}|${format(date, "yyyy-MM-dd")}`;
-        existingByKey.set(key, registro);
+        const registroKey = getControlHorarioKey(registro.empleadoId, registro.fecha);
+        if (!registroKey) return;
+        const current = existingRecordsGroupedByKey.get(registroKey) ?? [];
+        current.push(registro);
+        existingRecordsGroupedByKey.set(registroKey, current);
       });
+      const controlHorarioCol = tenant.collection("controlHorario");
+      if (!controlHorarioCol) {
+        return {
+          success: false,
+          summary: "No se pudo resolver la empresa activa para importar.",
+          errors: ["La coleccion de control horario no esta disponible."],
+        };
+      }
 
       const baseDescription = payload.baseDescription.trim() || "Importado desde reloj biometrico";
 
       const operations: Array<
-        | { type: "create"; data: Omit<ControlHorario, "id"> }
+        | { type: "create"; id: string; key: string; data: Omit<ControlHorario, "id"> }
         | { type: "update"; id: string; data: Omit<ControlHorario, "id"> }
+        | { type: "delete"; id: string; key: string }
       > = [];
       const zeroPriceEntries: string[] = [];
 
       let created = 0;
       let updated = 0;
+      let deletedDuplicates = 0;
       let skipped = 0;
 
       aggregated.forEach((item, key) => {
@@ -998,11 +1021,20 @@ export function ControlHorarioList({
             return;
           }
           operations.push({ type: "update", id: existing.id, data });
+          const duplicateRecords = (existingRecordsGroupedByKey.get(key) ?? []).filter(
+            (registro) => registro.id !== existing.id
+          );
+          duplicateRecords.forEach((registro) => {
+            operations.push({ type: "delete", id: registro.id, key });
+            deletedDuplicates++;
+          });
           updated++;
           return;
         }
 
-        operations.push({ type: "create", data });
+        const newDocRef = doc(controlHorarioCol);
+        operations.push({ type: "create", id: newDocRef.id, key, data });
+        existingByKey.set(key, { id: newDocRef.id, ...data });
         created++;
       });
 
@@ -1019,9 +1051,16 @@ export function ControlHorarioList({
                     .join(", ")}${zeroPriceEntries.length > 20 ? "..." : ""}`,
                 ]
               : []),
-            ...(unmatchedNames.size > 0
+            ...(missingEmployeeCodes.size > 0
               ? [
-                  `Sin coincidencia de empleado: ${[...unmatchedNames]
+                  `Sin ID de empleado en la planilla: ${[...missingEmployeeCodes]
+                    .sort((a, b) => a.localeCompare(b, "es"))
+                    .join(", ")}`,
+                ]
+              : []),
+            ...(unmatchedEmployeeCodes.size > 0
+              ? [
+                  `Sin coincidencia de ID de empleado: ${[...unmatchedEmployeeCodes]
                     .sort((a, b) => a.localeCompare(b, "es"))
                     .join(", ")}`,
                 ]
@@ -1031,14 +1070,6 @@ export function ControlHorarioList({
       }
 
       const BATCH_SIZE = 400;
-      const controlHorarioCol = tenant.collection("controlHorario");
-      if (!controlHorarioCol) {
-        return {
-          success: false,
-          summary: "No se pudo resolver la empresa activa para importar.",
-          errors: ["La coleccion de control horario no esta disponible."],
-        };
-      }
 
       let batch = writeBatch(tenant.firestore);
       let writes = 0;
@@ -1054,8 +1085,18 @@ export function ControlHorarioList({
             };
           }
           batch.update(registroRef, operation.data);
+        } else if (operation.type === "delete") {
+          const registroRef = tenant.doc("controlHorario", operation.id);
+          if (!registroRef) {
+            return {
+              success: false,
+              summary: "No se pudo resolver la empresa activa para importar.",
+              errors: ["La referencia de control horario no esta disponible."],
+            };
+          }
+          batch.delete(registroRef);
         } else {
-          batch.set(doc(controlHorarioCol), operation.data);
+          batch.set(doc(controlHorarioCol, operation.id), operation.data);
         }
 
         writes++;
@@ -1070,8 +1111,28 @@ export function ControlHorarioList({
         await batch.commit();
       }
 
+      operations.forEach((operation) => {
+        if (operation.type === "update") {
+          const key = getControlHorarioKey(operation.data.empleadoId, operation.data.fecha);
+          if (!key) return;
+          registrosByKeyRef.current.set(key, { id: operation.id, ...operation.data });
+          return;
+        }
+
+        if (operation.type === "delete") {
+          const current = registrosByKeyRef.current.get(operation.key);
+          if (current?.id === operation.id) {
+            registrosByKeyRef.current.delete(operation.key);
+          }
+          return;
+        }
+
+        registrosByKeyRef.current.set(operation.key, { id: operation.id, ...operation.data });
+      });
+      refreshRegistros?.();
+
       const sourceSheetLabel = parsed.sheetName ? ` Hoja: ${parsed.sheetName}.` : "";
-      const summary = `Importacion completada: creados ${created}, actualizados ${updated}, omitidos ${skipped}.${sourceSheetLabel}`;
+      const summary = `Importacion completada: creados ${created}, actualizados ${updated}, duplicados eliminados ${deletedDuplicates}, omitidos ${skipped}.${sourceSheetLabel}`;
       const errors = [
         ...parsed.errors,
         ...(zeroPriceEntries.length > 0
@@ -1081,9 +1142,16 @@ export function ControlHorarioList({
                 .join(", ")}${zeroPriceEntries.length > 20 ? "..." : ""}`,
             ]
           : []),
-        ...(unmatchedNames.size > 0
+        ...(missingEmployeeCodes.size > 0
           ? [
-              `Sin coincidencia de empleado: ${[...unmatchedNames]
+              `Sin ID de empleado en la planilla: ${[...missingEmployeeCodes]
+                .sort((a, b) => a.localeCompare(b, "es"))
+                .join(", ")}`,
+            ]
+          : []),
+        ...(unmatchedEmployeeCodes.size > 0
+          ? [
+              `Sin coincidencia de ID de empleado: ${[...unmatchedEmployeeCodes]
                 .sort((a, b) => a.localeCompare(b, "es"))
                 .join(", ")}`,
             ]
@@ -1115,6 +1183,14 @@ export function ControlHorarioList({
       const registroRef = tenant.doc("controlHorario", selectedRegistro.id);
       if (!registroRef) return;
       updateDocumentNonBlocking(registroRef, registroData);
+      const previousKey = getControlHorarioKey(selectedRegistro.empleadoId, selectedRegistro.fecha);
+      const nextKey = getControlHorarioKey(registroData.empleadoId, registroData.fecha);
+      if (previousKey && previousKey !== nextKey) {
+        registrosByKeyRef.current.delete(previousKey);
+      }
+      if (nextKey) {
+        registrosByKeyRef.current.set(nextKey, { id: selectedRegistro.id, ...registroData });
+      }
       toast({
         title: "Registro actualizado",
         description: "El registro de control horario fue actualizado correctamente.",
@@ -1122,13 +1198,19 @@ export function ControlHorarioList({
     } else {
       const registroCol = tenant.collection("controlHorario");
       if (!registroCol) return;
-      addDocumentNonBlocking(registroCol, registroData);
+      const newDocRef = doc(registroCol);
+      setDocumentNonBlocking(newDocRef, registroData, { merge: false });
+      const nextKey = getControlHorarioKey(registroData.empleadoId, registroData.fecha);
+      if (nextKey) {
+        registrosByKeyRef.current.set(nextKey, { id: newDocRef.id, ...registroData });
+      }
       toast({
         title: "Registro creado",
         description: "Se registro un nuevo control horario.",
       });
     }
 
+    refreshRegistros?.();
     setFormOpen(false);
     setSelectedRegistro(null);
   };
@@ -1136,7 +1218,13 @@ export function ControlHorarioList({
   const handleDelete = (id: string) => {
     const registroRef = tenant.doc("controlHorario", id);
     if (!registroRef) return;
+    const existing = registros.find((item) => item.id === id);
+    const existingKey = existing ? getControlHorarioKey(existing.empleadoId, existing.fecha) : null;
+    if (existingKey) {
+      registrosByKeyRef.current.delete(existingKey);
+    }
     deleteDocumentNonBlocking(registroRef);
+    refreshRegistros?.();
     toast({
       variant: "destructive",
       title: "Registro eliminado",

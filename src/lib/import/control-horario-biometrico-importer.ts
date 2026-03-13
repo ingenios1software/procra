@@ -7,6 +7,7 @@ export type BiometricInterval = {
 
 export type ParsedBiometricRecord = {
   employeeName: string;
+  employeeCode?: string;
   dateKey: string; // yyyy-MM-dd
   intervals: BiometricInterval[];
   sourceRow: number;
@@ -128,10 +129,18 @@ function isDateTimeHeader(value: string): boolean {
   );
 }
 
-function findEmployeeColumn(headers: string[]): number {
-  const nameColumn = headers.findIndex((header) => isEmployeeNameHeader(header));
-  if (nameColumn >= 0) return nameColumn;
+function findEmployeeNameColumn(headers: string[]): number {
+  return headers.findIndex((header) => isEmployeeNameHeader(header));
+}
+
+function findEmployeeIdColumn(headers: string[]): number {
   return headers.findIndex((header) => isEmployeeIdHeader(header));
+}
+
+function findEmployeeColumn(headers: string[]): number {
+  const idColumn = findEmployeeIdColumn(headers);
+  if (idColumn >= 0) return idColumn;
+  return findEmployeeNameColumn(headers);
 }
 
 function expandCompactWords(value: string): string {
@@ -145,9 +154,27 @@ function cleanName(value: unknown): string {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
+function cleanImportedEmployeeCode(value: unknown): string {
+  return String(value ?? "").trim().toUpperCase().replace(/\s+/g, "");
+}
+
 function cleanImportedEmployeeName(value: unknown): string {
   const base = cleanName(expandCompactWords(String(value ?? "")));
   return base.replace(/(?:\s+\d+)+$/, "").trim();
+}
+
+function getImportedEmployeeLabel(employeeName?: string, employeeCode?: string): string {
+  return cleanName(employeeName) || cleanName(employeeCode) || "";
+}
+
+function hasLetters(value: string): boolean {
+  return /[A-Za-zÀ-ÿ]/.test(value);
+}
+
+function looksLikeEmployeeCode(value: string): boolean {
+  const cleaned = cleanImportedEmployeeCode(value);
+  if (!cleaned) return false;
+  return /\d/.test(cleaned) || !hasLetters(cleaned);
 }
 
 function parseExcelSerialDate(serial: number): Date | null {
@@ -328,9 +355,11 @@ function parseRowBasedFormat(rows: unknown[][]): BiometricParseResult | null {
   if (headerIndex < 0) return null;
 
   const headers = rows[headerIndex].map(normalizeText);
-  const nameCol = findEmployeeColumn(headers);
+  const employeeIdCol = findEmployeeIdColumn(headers);
+  const employeeNameCol = findEmployeeNameColumn(headers);
+  const employeeCol = employeeIdCol >= 0 ? employeeIdCol : employeeNameCol;
   const dateCol = headers.findIndex((h) => isDateHeader(h));
-  if (nameCol < 0 || dateCol < 0) return null;
+  if (employeeCol < 0 || dateCol < 0) return null;
 
   const localCol = headers.findIndex((h) => h === "local" || h.includes("local"));
   const parcelaCol = headers.findIndex((h) => h.includes("parcela"));
@@ -361,13 +390,15 @@ function parseRowBasedFormat(rows: unknown[][]): BiometricParseResult | null {
 
   for (let rowIndex = headerIndex + 1; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex];
-    const nameRaw = cleanImportedEmployeeName(row[nameCol]);
+    const employeeCode = employeeIdCol >= 0 ? cleanImportedEmployeeCode(row[employeeIdCol]) : "";
+    const employeeName = employeeNameCol >= 0 ? cleanImportedEmployeeName(row[employeeNameCol]) : "";
+    const employeeLabel = getImportedEmployeeLabel(employeeName, employeeCode);
     const dateRaw = row[dateCol];
 
-    if (!nameRaw && !String(dateRaw ?? "").trim()) {
+    if (!employeeLabel && !String(dateRaw ?? "").trim()) {
       continue;
     }
-    if (!nameRaw || !String(dateRaw ?? "").trim()) {
+    if ((!employeeCode && !employeeName) || !String(dateRaw ?? "").trim()) {
       continue;
     }
 
@@ -395,7 +426,8 @@ function parseRowBasedFormat(rows: unknown[][]): BiometricParseResult | null {
     const pricePerHourGs = priceCol >= 0 ? parseGsAmount(row[priceCol]) : null;
 
     records.push({
-      employeeName: nameRaw,
+      employeeName: employeeLabel,
+      employeeCode: employeeCode || undefined,
       dateKey: format(parsedDate, "yyyy-MM-dd"),
       intervals,
       sourceRow: rowIndex + 1,
@@ -412,13 +444,18 @@ function parseRowBasedFormat(rows: unknown[][]): BiometricParseResult | null {
 function parsePunchLogFormat(rows: unknown[][]): BiometricParseResult | null {
   let headerIndex = -1;
   let employeeCol = -1;
+  let employeeIdCol = -1;
+  let employeeNameCol = -1;
   let dateCol = -1;
   let timeCol = -1;
   let dateTimeCol = -1;
 
   for (let index = 0; index < rows.length && index <= 40; index++) {
     const headers = rows[index].map(normalizeText);
-    const candidateEmployeeCol = findEmployeeColumn(headers);
+    const candidateEmployeeIdCol = findEmployeeIdColumn(headers);
+    const candidateEmployeeNameCol = findEmployeeNameColumn(headers);
+    const candidateEmployeeCol =
+      candidateEmployeeIdCol >= 0 ? candidateEmployeeIdCol : candidateEmployeeNameCol;
     if (candidateEmployeeCol < 0) continue;
 
     const candidateDateTimeCol = headers.findIndex((header) => isDateTimeHeader(header));
@@ -433,6 +470,8 @@ function parsePunchLogFormat(rows: unknown[][]): BiometricParseResult | null {
 
     headerIndex = index;
     employeeCol = candidateEmployeeCol;
+    employeeIdCol = candidateEmployeeIdCol;
+    employeeNameCol = candidateEmployeeNameCol;
     dateTimeCol = candidateDateTimeCol;
     dateCol = candidateDateCol;
     timeCol = candidateTimeCol;
@@ -459,6 +498,7 @@ function parsePunchLogFormat(rows: unknown[][]): BiometricParseResult | null {
     string,
     {
       employeeName: string;
+      employeeCode?: string;
       dateKey: string;
       times: string[];
       sourceRow: number;
@@ -472,9 +512,16 @@ function parsePunchLogFormat(rows: unknown[][]): BiometricParseResult | null {
 
   for (let rowIndex = headerIndex + 1; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex];
-    const employeeName = cleanImportedEmployeeName(row[employeeCol]);
-    if (!employeeName) continue;
-    if (isEmployeeHeader(normalizeText(employeeName))) continue;
+    const employeeCode = employeeIdCol >= 0 ? cleanImportedEmployeeCode(row[employeeIdCol]) : "";
+    const employeeName = employeeNameCol >= 0 ? cleanImportedEmployeeName(row[employeeNameCol]) : "";
+    const employeeLabel = getImportedEmployeeLabel(employeeName, employeeCode);
+    if (!employeeLabel) continue;
+    if (
+      (employeeName && isEmployeeHeader(normalizeText(employeeName))) ||
+      (employeeCode && isEmployeeHeader(normalizeText(employeeCode)))
+    ) {
+      continue;
+    }
 
     let parsedDate: Date | null = null;
     let timeToken: string | undefined;
@@ -502,9 +549,10 @@ function parsePunchLogFormat(rows: unknown[][]): BiometricParseResult | null {
     }
 
     const dateKey = format(parsedDate, "yyyy-MM-dd");
-    const key = `${employeeName}|${dateKey}`;
+    const key = `${employeeCode || employeeLabel}|${dateKey}`;
     const current = grouped.get(key) ?? {
-      employeeName,
+      employeeName: employeeLabel,
+      employeeCode: employeeCode || undefined,
       dateKey,
       times: [],
       sourceRow: rowIndex + 1,
@@ -514,6 +562,9 @@ function parsePunchLogFormat(rows: unknown[][]): BiometricParseResult | null {
       pricePerHourGs: undefined,
     };
 
+    if (!current.employeeCode && employeeCode) {
+      current.employeeCode = employeeCode;
+    }
     current.times.push(timeToken);
     if (!current.local && localCol >= 0) {
       const local = cleanName(row[localCol]);
@@ -537,9 +588,10 @@ function parsePunchLogFormat(rows: unknown[][]): BiometricParseResult | null {
   const records: ParsedBiometricRecord[] = [];
   grouped.forEach((group) => {
     const sortedTimes = [...new Set(group.times)].sort((a, b) => a.localeCompare(b));
+    const employeeLabel = getImportedEmployeeLabel(group.employeeName, group.employeeCode);
     if (sortedTimes.length % 2 !== 0) {
       errors.push(
-        `Fila ${group.sourceRow}: marcacion incompleta para ${group.employeeName} el ${format(
+        `Fila ${group.sourceRow}: marcacion incompleta para ${employeeLabel} el ${format(
           new Date(group.dateKey),
           "dd/MM/yyyy"
         )}.`
@@ -550,7 +602,8 @@ function parsePunchLogFormat(rows: unknown[][]): BiometricParseResult | null {
     if (intervals.length === 0) return;
 
     records.push({
-      employeeName: group.employeeName,
+      employeeName: employeeLabel,
+      employeeCode: group.employeeCode,
       dateKey: group.dateKey,
       intervals,
       sourceRow: group.sourceRow,
@@ -574,7 +627,8 @@ function parseMatrixDay(value: unknown): number | null {
 
 function parseMatrixFormat(rows: unknown[][], options: BiometricParseOptions): BiometricParseResult | null {
   let dateRowIndex = -1;
-  let nameColumnIndex = 0;
+  let employeeIdColumnIndex = -1;
+  let employeeNameColumnIndex = -1;
 
   for (let index = 0; index < rows.length && index <= 40; index++) {
     const row = rows[index];
@@ -590,8 +644,8 @@ function parseMatrixFormat(rows: unknown[][], options: BiometricParseOptions): B
     if (!hasFechaToken && !hasNombreToken) continue;
 
     dateRowIndex = index;
-    const foundNameCol = findEmployeeColumn(normalized);
-    nameColumnIndex = foundNameCol >= 0 ? foundNameCol : 0;
+    employeeIdColumnIndex = findEmployeeIdColumn(normalized);
+    employeeNameColumnIndex = findEmployeeNameColumn(normalized);
     break;
   }
 
@@ -611,9 +665,14 @@ function parseMatrixFormat(rows: unknown[][], options: BiometricParseOptions): B
 
   for (let rowIndex = dateRowIndex + 1; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex];
-    const employeeName = cleanImportedEmployeeName(row[nameColumnIndex]);
-    if (!employeeName) continue;
-    if (normalizeText(employeeName).includes("nombre")) continue;
+    const employeeCode =
+      employeeIdColumnIndex >= 0 ? cleanImportedEmployeeCode(row[employeeIdColumnIndex]) : "";
+    const employeeName =
+      employeeNameColumnIndex >= 0 ? cleanImportedEmployeeName(row[employeeNameColumnIndex]) : "";
+    const employeeLabel = getImportedEmployeeLabel(employeeName, employeeCode);
+    if (!employeeLabel) continue;
+    if (employeeName && normalizeText(employeeName).includes("nombre")) continue;
+    if (employeeCode && isEmployeeIdHeader(normalizeText(employeeCode))) continue;
 
     for (const [col, day] of dayByColumn.entries()) {
       const cell = row[col];
@@ -630,7 +689,8 @@ function parseMatrixFormat(rows: unknown[][], options: BiometricParseOptions): B
       }
 
       records.push({
-        employeeName,
+        employeeName: employeeLabel,
+        employeeCode: employeeCode || undefined,
         dateKey: format(date, "yyyy-MM-dd"),
         intervals,
         sourceRow: rowIndex + 1,
@@ -641,10 +701,33 @@ function parseMatrixFormat(rows: unknown[][], options: BiometricParseOptions): B
   return { format: "matrix", records, errors };
 }
 
+function getCardEmployeeIdentity(row: unknown[]): { employeeCode?: string; employeeName: string } {
+  const cells = row
+    .map((value, index) => ({ index, raw: cleanName(value) }))
+    .filter((cell) => cell.raw.length > 0);
+
+  if (cells.length === 0) {
+    return { employeeName: "" };
+  }
+
+  const codeCell = cells.find((cell) => looksLikeEmployeeCode(cell.raw));
+  const employeeCode = codeCell ? cleanImportedEmployeeCode(codeCell.raw) : "";
+  const employeeName =
+    cells
+      .filter((cell) => cell.index !== codeCell?.index)
+      .map((cell) => cleanImportedEmployeeName(cell.raw))
+      .find((value) => hasLetters(value)) || employeeCode;
+
+  return {
+    employeeCode: employeeCode || undefined,
+    employeeName,
+  };
+}
+
 function isCardEmployeeRow(rows: unknown[][], rowIndex: number): boolean {
   const row = rows[rowIndex];
-  const employeeName = cleanImportedEmployeeName(row?.[4]);
-  if (!employeeName) return false;
+  const identity = getCardEmployeeIdentity(row ?? []);
+  if (!identity.employeeCode && !identity.employeeName) return false;
 
   const nextRow = rows[rowIndex + 1] ?? [];
   return extractStandaloneDateColumns(nextRow).length >= 2;
@@ -655,7 +738,7 @@ function findCardLocal(rows: unknown[][], employeeRowIndex: number): string | un
     const row = rows[rowIndex] ?? [];
     const firstCell = cleanName(row[0]);
     if (!firstCell) continue;
-    if (cleanImportedEmployeeName(row[4])) break;
+    if (isCardEmployeeRow(rows, rowIndex)) break;
     if (extractStandaloneDateColumns(row).length > 0) continue;
     if (countNonEmptyCells(row) === 1) {
       return firstCell;
@@ -674,7 +757,8 @@ function parseCardFormat(rows: unknown[][]): BiometricParseResult | null {
     if (!isCardEmployeeRow(rows, rowIndex)) continue;
 
     foundEmployeeBlock = true;
-    const employeeName = cleanImportedEmployeeName(rows[rowIndex]?.[4]);
+    const identity = getCardEmployeeIdentity(rows[rowIndex] ?? []);
+    const employeeLabel = getImportedEmployeeLabel(identity.employeeName, identity.employeeCode);
     const local = findCardLocal(rows, rowIndex);
 
     let cursor = rowIndex + 1;
@@ -699,7 +783,7 @@ function parseCardFormat(rows: unknown[][]): BiometricParseResult | null {
         const intervals = pairTimeTokens(tokens);
         if (tokens.length % 2 !== 0) {
           errors.push(
-            `Fila ${punchRowIndex + 1}: marcacion incompleta para ${employeeName} el ${format(
+            `Fila ${punchRowIndex + 1}: marcacion incompleta para ${employeeLabel} el ${format(
               date,
               "dd/MM/yyyy"
             )}.`
@@ -709,7 +793,8 @@ function parseCardFormat(rows: unknown[][]): BiometricParseResult | null {
         if (intervals.length === 0) return;
 
         records.push({
-          employeeName,
+          employeeName: employeeLabel,
+          employeeCode: identity.employeeCode,
           dateKey: format(date, "yyyy-MM-dd"),
           intervals,
           sourceRow: punchRowIndex + 1,

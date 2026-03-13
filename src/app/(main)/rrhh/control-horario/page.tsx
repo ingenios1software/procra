@@ -9,7 +9,11 @@ import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 export default function ControlHorarioPage() {
   const tenant = useTenantFirestore();
 
-  const { data: registros, isLoading: l1 } = useCollection<ControlHorario>(useMemoFirebase(() => tenant.query("controlHorario", orderBy("fecha", "desc")), [tenant]));
+  const {
+    data: registros,
+    isLoading: l1,
+    forceRefetch: refreshRegistros,
+  } = useCollection<ControlHorario>(useMemoFirebase(() => tenant.query("controlHorario", orderBy("fecha", "desc")), [tenant]));
   const { data: empleados, isLoading: l2 } = useCollection<Empleado>(useMemoFirebase(() => tenant.query("empleados", orderBy("apellido")), [tenant]));
   const { data: parcelas, isLoading: l3 } = useCollection<Parcela>(useMemoFirebase(() => tenant.query("parcelas", orderBy("nombre")), [tenant]));
   const { data: depositos, isLoading: l4 } = useCollection<Deposito>(useMemoFirebase(() => tenant.query("depositos", orderBy("nombre")), [tenant]));
@@ -25,6 +29,7 @@ export default function ControlHorarioPage() {
       depositos={depositos || []}
       tiposTrabajo={tiposTrabajo || []}
       isLoading={isLoading}
+      refreshRegistros={refreshRegistros}
     />
   );
 }
