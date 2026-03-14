@@ -22,6 +22,7 @@ import { ReportActions } from "../shared/report-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { doc, getDocs, query, orderBy, limit, writeBatch } from "firebase/firestore";
 import { ImportButton } from "./import-button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../ui/alert-dialog";
@@ -37,6 +38,29 @@ interface StockListProps {
   isLoading: boolean;
   onImportClick: () => void;
 }
+
+type StockSortOption =
+  | "categoria-nombre-asc"
+  | "numero-item-asc"
+  | "nombre-asc"
+  | "categoria-asc"
+  | "principio-activo-asc"
+  | "stock-asc"
+  | "precio-promedio-asc"
+  | "valor-stock-asc";
+
+const DEFAULT_STOCK_SORT: StockSortOption = "numero-item-asc";
+
+const STOCK_SORT_OPTIONS: Array<{ value: StockSortOption; label: string }> = [
+  { value: "numero-item-asc", label: "Nro. item (menor a mayor)" },
+  { value: "categoria-nombre-asc", label: "Categoria y nombre (A-Z)" },
+  { value: "nombre-asc", label: "Nombre (A-Z)" },
+  { value: "categoria-asc", label: "Categoria (A-Z)" },
+  { value: "principio-activo-asc", label: "Principio activo (A-Z)" },
+  { value: "stock-asc", label: "Stock actual (menor a mayor)" },
+  { value: "precio-promedio-asc", label: "Precio promedio (menor a mayor)" },
+  { value: "valor-stock-asc", label: "Valor en stock (menor a mayor)" },
+];
 
 export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportClick }: StockListProps) {
   const { user } = useUser();
@@ -56,6 +80,7 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
     principioActivo: '',
     numeroItem: '',
     soloEnStock: false,
+    orden: DEFAULT_STOCK_SORT as StockSortOption,
   });
 
   const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
@@ -84,6 +109,9 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
   }, [insumos, comprasNormal]);
   
   const filteredStockData = useMemo(() => {
+    const compareText = (first?: string | null, second?: string | null) =>
+      (first ?? "").localeCompare(second ?? "", "es", { sensitivity: "base", numeric: true });
+
     return stockData.filter(insumo => {
       const nombreMatch = insumo.nombre.toLowerCase().includes(filters.nombre.toLowerCase());
       const categoriaMatch = filters.categoria
@@ -92,16 +120,37 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
       const principioActivoMatch = insumo.principioActivo ? insumo.principioActivo.toLowerCase().includes(filters.principioActivo.toLowerCase()) : true;
       const numeroItemMatch = filters.numeroItem ? insumo.numeroItem?.toString().includes(filters.numeroItem) : true;
       const stockMatch = filters.soloEnStock ? insumo.stockFinal > 0 : true;
-      
+
       if (filters.principioActivo && !insumo.principioActivo) return false;
 
       return nombreMatch && categoriaMatch && principioActivoMatch && numeroItemMatch && stockMatch;
     }).sort((a, b) => {
-        const categoriaComparison = a.categoria.localeCompare(b.categoria);
-        if (categoriaComparison !== 0) {
-            return categoriaComparison;
+        const numeroItemComparison = (a.numeroItem ?? Number.MAX_SAFE_INTEGER) - (b.numeroItem ?? Number.MAX_SAFE_INTEGER);
+        const nombreComparison = compareText(a.nombre, b.nombre);
+        const categoriaComparison = compareText(a.categoria, b.categoria);
+
+        switch (filters.orden) {
+          case "numero-item-asc":
+            return numeroItemComparison || nombreComparison || categoriaComparison;
+          case "nombre-asc":
+            return nombreComparison || categoriaComparison || numeroItemComparison;
+          case "categoria-asc":
+            return categoriaComparison || nombreComparison || numeroItemComparison;
+          case "principio-activo-asc": {
+            const principioA = a.principioActivo?.trim() || "zzzzzz";
+            const principioB = b.principioActivo?.trim() || "zzzzzz";
+            return compareText(principioA, principioB) || nombreComparison || numeroItemComparison;
+          }
+          case "stock-asc":
+            return a.stockFinal - b.stockFinal || nombreComparison || numeroItemComparison;
+          case "precio-promedio-asc":
+            return a.precioPromedioCalculado - b.precioPromedioCalculado || nombreComparison || numeroItemComparison;
+          case "valor-stock-asc":
+            return a.valorStock - b.valorStock || nombreComparison || numeroItemComparison;
+          case "categoria-nombre-asc":
+          default:
+            return categoriaComparison || nombreComparison || numeroItemComparison;
         }
-        return a.nombre.localeCompare(b.nombre);
     });
   }, [stockData, filters]);
 
@@ -167,7 +216,7 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
     }
     setDialogOpen(false);
     setSelectedInsumo(null);
-  }, [selectedInsumo, firestore, toast]);
+  }, [selectedInsumo, firestore, toast, tenant]);
 
   const handleDelete = (id: string) => {
     if (!firestore) return;
@@ -344,7 +393,7 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
                   </div>
               </div>
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-5 no-print">
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 no-print">
             <Input 
               placeholder="Filtrar por Nº Item..."
               value={filters.numeroItem}
@@ -371,6 +420,21 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
               value={filters.principioActivo}
               onChange={(e) => handleFilterChange('principioActivo', e.target.value)}
             />
+            <Select
+              value={filters.orden}
+              onValueChange={(value) => setFilters((prev) => ({ ...prev, orden: value as StockSortOption }))}
+            >
+              <SelectTrigger aria-label="Ordenar inventario detallado">
+                <SelectValue placeholder="Ordenar por..." />
+              </SelectTrigger>
+              <SelectContent>
+                {STOCK_SORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="flex items-center justify-between rounded-md border px-3 py-2">
               <span className="text-sm text-muted-foreground">Solo en stock</span>
               <Switch
