@@ -34,6 +34,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { Cultivo, Evento, Parcela, Venta } from "@/lib/types";
 import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
+import { getEventTypeDisplay } from "@/lib/eventos/tipos";
 
 const COLORS = [
   "hsl(var(--chart-1))",
@@ -69,21 +70,7 @@ function getIngresoVenta(venta: Venta): number {
 
 function normalizarCategoriaEvento(evento: Evento): string {
   if (evento.categoria && evento.categoria.trim()) return evento.categoria.trim();
-
-  const tipo = (evento.tipo || "").toLowerCase().trim();
-  const mapping: Record<string, string> = {
-    siembra: "Siembra",
-    fertilizacion: "Fertilizacion",
-    "fertilización": "Fertilizacion",
-    riego: "Riego",
-    cosecha: "Cosecha",
-    mantenimiento: "Mantenimiento",
-    plagas: "Plagas",
-    aplicacion: "Aplicacion",
-    rendimiento: "Rendimiento",
-  };
-
-  return mapping[tipo] || "Otros";
+  return getEventTypeDisplay(evento);
 }
 
 export default function DashboardFinancieroPage() {

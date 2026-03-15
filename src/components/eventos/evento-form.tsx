@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Foto, Usuario, PlanDeCuenta, Maquinaria } from "@/lib/types";
+import type { Evento, Insumo, Parcela, Cultivo, Zafra, EtapaCultivo, EventoBorrador, Foto, Usuario, PlanDeCuenta, Maquinaria, TipoEvento } from "@/lib/types";
 import { Cloud, Thermometer, Wind, Eraser, Check, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { EventoAnalisisPanel } from "./evento-analisis-panel";
@@ -30,6 +30,7 @@ import { SelectorPlanDeCuentas } from "../contabilidad/SelectorPlanDeCuentas";
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 import { canApproveEvento } from "@/lib/eventos/approval";
+import { buildTipoEventoOptions, findTipoEventoOption, getEventTypeDisplay, getStoredEventType, getTipoBaseFromEvento } from "@/lib/eventos/tipos";
 
 
 const productoSchema = z.object({
@@ -46,7 +47,9 @@ const formSchema = z.object({
   parcelaId: z.string().nonempty("Debe seleccionar una parcela."),
   cultivoId: z.string().nonempty("Debe seleccionar un cultivo."),
   zafraId: z.string().nonempty("Debe seleccionar una zafra."),
-  tipo: z.enum(['siembra', 'fertilización', 'riego', 'cosecha', 'mantenimiento', 'plagas', 'aplicacion', 'rendimiento']),
+  tipo: z.enum(['siembra', 'fertilizacion', 'fertilizaci\u00f3n', 'riego', 'cosecha', 'mantenimiento', 'plagas', 'aplicacion', 'rendimiento']),
+  tipoNombre: z.string().optional(),
+  tipoEventoId: z.string().nullable().optional(),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
   descripcion: z.string().min(5, "La descripción es muy corta."),
   
@@ -75,7 +78,7 @@ const formSchema = z.object({
 
   cuentaContableId: z.string().nullable().optional(),
 }).superRefine((data, ctx) => {
-  const esCosecha = data.tipo === "cosecha" || data.tipo === "rendimiento";
+  const esCosecha = getTipoBaseFromEvento(data.tipo) === "cosecha";
   const toneladas = Number(data.toneladas) || 0;
   const hectareasCosechadas = Number(data.hectareasAplicadas) || 0;
   const costoServicioPorHa = Number(data.costoServicioPorHa) || 0;
@@ -171,7 +174,7 @@ function inputValueToDate(value: string): Date | undefined {
 
 function normalizarTipoEvento(tipo?: Evento["tipo"] | string): Evento["tipo"] {
   if (!tipo) return "aplicacion";
-  return tipo === "rendimiento" ? "cosecha" : (tipo as Evento["tipo"]);
+  return getStoredEventType(getTipoBaseFromEvento(tipo)) as Evento["tipo"];
 }
 
 function normalizarTexto(value?: string | null): string {
@@ -241,6 +244,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const { data: planDeCuentas } = useCollection<PlanDeCuenta>(
     useMemoFirebase(() => tenant.query("planDeCuentas", orderBy("codigo")), [tenant])
   );
+  const { data: tiposEvento } = useCollection<TipoEvento>(
+    useMemoFirebase(() => tenant.collection("tiposEvento"), [tenant])
+  );
   const nombrePersistidoAprobador = (evento as any)?.aprobadoPorNombre;
   const hasNombrePersistidoValido =
     !!nombrePersistidoAprobador && nombrePersistidoAprobador !== evento?.aprobadoPor;
@@ -270,6 +276,11 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     if (evento?.aprobadoPor) return 'Aprobador';
     return 'N/A';
   }, [evento, aprobador, user, usuarioApp, hasNombrePersistidoValido, nombrePersistidoAprobador]);
+
+  const tipoEventoOptions = useMemo(
+    () => buildTipoEventoOptions(tiposEvento),
+    [tiposEvento]
+  );
   
   useEffect(() => {
     draftRef.current = draft;
@@ -280,6 +291,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     if (evento) {
       return {
         ...evento,
+        tipo: normalizarTipoEvento(evento.tipo),
+        tipoNombre: evento.tipoNombre || getEventTypeDisplay(evento),
+        tipoEventoId: evento.tipoEventoId || null,
         fecha: new Date(evento.fecha as string),
         hectareasAplicadas: evento.hectareasAplicadas ?? '',
         costoServicioPorHa: evento.costoServicioPorHa ?? '',
@@ -298,15 +312,19 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     // Si no hay evento y existe un borrador, usamos el borrador.
     const currentDraft = draftRef.current;
     if (currentDraft && Object.keys(currentDraft).length > 0) {
-      return { 
-        ...currentDraft, 
-        fecha: currentDraft.fecha ? new Date(currentDraft.fecha) : new Date() 
+      return {
+        ...currentDraft,
+        tipo: normalizarTipoEvento(currentDraft.tipo),
+        tipoNombre: currentDraft.tipoNombre || getEventTypeDisplay(currentDraft as Evento),
+        fecha: currentDraft.fecha ? new Date(currentDraft.fecha) : new Date()
       };
     }
     // Si no hay nada, valores por defecto para un evento nuevo.
     return {
       fecha: new Date(),
       tipo: 'aplicacion',
+      tipoNombre: 'Aplicacion',
+      tipoEventoId: null,
       productos: [],
       fotos: [],
       descripcion: "",
@@ -362,8 +380,11 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
 
   const tipoEvento = form.watch('tipo');
+  const tipoEventoNombre = form.watch('tipoNombre');
+  const tipoEventoId = form.watch('tipoEventoId');
   const tipoEventoNormalizado = normalizarTipoEvento(tipoEvento);
-  const esEventoCosecha = tipoEventoNormalizado === "cosecha";
+  const tipoEventoBase = getTipoBaseFromEvento(tipoEvento);
+  const esEventoCosecha = tipoEventoBase === "cosecha";
   const watchedHectareas = form.watch('hectareasAplicadas');
   const watchedToneladas = form.watch('toneladas');
   const watchedProductos = useWatch({
@@ -378,6 +399,44 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const watchedMaquinariaId = form.watch('maquinariaId');
   const watchedHorometroAnterior = form.watch('horometroAnterior');
   const watchedHorometroActual = form.watch('horometroActual');
+  const selectedTipoOption = useMemo(
+    () =>
+      findTipoEventoOption(tipoEventoOptions, {
+        tipo: tipoEvento,
+        tipoNombre: tipoEventoNombre,
+        tipoEventoId,
+      }),
+    [tipoEventoOptions, tipoEvento, tipoEventoNombre, tipoEventoId]
+  );
+  const legacyTipoOption = useMemo(() => {
+    if (!tipoEvento || selectedTipoOption) return null;
+    return {
+      id: `legacy:${tipoEventoNombre || tipoEvento}`,
+      nombre: tipoEventoNombre || tipoEvento,
+      tipoBase: getTipoBaseFromEvento(tipoEvento),
+      activo: true,
+      persisted: false,
+      orden: 999,
+      descripcion: undefined,
+      esSistema: false,
+    };
+  }, [tipoEvento, tipoEventoNombre, selectedTipoOption]);
+  const tipoEventoSelectValue = selectedTipoOption?.id || legacyTipoOption?.id || "";
+  useEffect(() => {
+    if (!selectedTipoOption?.persisted) return;
+
+    const currentNombre = form.getValues("tipoNombre");
+    const currentTipoEventoId = form.getValues("tipoEventoId");
+    const genericLabel = getEventTypeDisplay(form.getValues("tipo"));
+
+    if (!currentNombre || currentNombre === genericLabel) {
+      form.setValue("tipoNombre", selectedTipoOption.nombre, { shouldDirty: false, shouldValidate: false });
+    }
+
+    if (currentTipoEventoId !== selectedTipoOption.id) {
+      form.setValue("tipoEventoId", selectedTipoOption.id, { shouldDirty: false, shouldValidate: false });
+    }
+  }, [selectedTipoOption, form]);
   const insumosPorId = useMemo(() => {
     return new Map((insumos || []).map((insumo) => [insumo.id, insumo]));
   }, [insumos]);
@@ -488,19 +547,38 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   }, [usaCombustibleEnFormulario, maquinariaSeleccionada, form, evento?.maquinariaId, watchedMaquinariaId]);
 
   const mostrarCuentaContable = useMemo(() => {
-    return ['aplicacion', 'fertilización', 'plagas', 'siembra', 'cosecha', 'mantenimiento'].includes(tipoEventoNormalizado);
-  }, [tipoEventoNormalizado]);
+    return ['aplicacion', 'fertilizacion', 'plagas', 'siembra', 'cosecha', 'mantenimiento'].includes(tipoEventoBase);
+  }, [tipoEventoBase]);
   const mostrarCondicionesClimaticas = useMemo(() => {
-    return ['aplicacion', 'fertilización', 'plagas'].includes(tipoEventoNormalizado);
-  }, [tipoEventoNormalizado]);
+    return ['aplicacion', 'fertilizacion', 'plagas'].includes(tipoEventoBase);
+  }, [tipoEventoBase]);
 
   const handleTipoEventoChange = useCallback((value: string) => {
-    form.setValue('tipo', value as any);
-    const tiposQueUsanCuenta = ['aplicacion', 'fertilización', 'plagas', 'siembra', 'cosecha', 'mantenimiento'];
-    if (!tiposQueUsanCuenta.includes(value)) {
+    const option =
+      (legacyTipoOption && value === legacyTipoOption.id ? legacyTipoOption : null)
+      || tipoEventoOptions.find((tipo) => tipo.id === value);
+    if (option) {
+      const tipoGuardado = getStoredEventType(option.tipoBase);
+      form.setValue('tipo', tipoGuardado, { shouldDirty: true, shouldValidate: true });
+      form.setValue('tipoNombre', option.nombre, { shouldDirty: true, shouldValidate: false });
+      form.setValue('tipoEventoId', option.persisted ? option.id : null, { shouldDirty: true, shouldValidate: false });
+
+      const tiposQueUsanCuenta = ['aplicacion', 'fertilizacion', 'plagas', 'siembra', 'cosecha', 'mantenimiento'];
+      if (!tiposQueUsanCuenta.includes(option.tipoBase)) {
+        form.setValue('cuentaContableId', null);
+      }
+      return;
+    }
+
+    const tipoBase = getTipoBaseFromEvento(value);
+    form.setValue('tipo', getStoredEventType(tipoBase), { shouldDirty: true, shouldValidate: true });
+    form.setValue('tipoNombre', getEventTypeDisplay(value), { shouldDirty: true, shouldValidate: false });
+    form.setValue('tipoEventoId', null, { shouldDirty: true, shouldValidate: false });
+    const tiposQueUsanCuenta = ['aplicacion', 'fertilizacion', 'plagas', 'siembra', 'cosecha', 'mantenimiento'];
+    if (!tiposQueUsanCuenta.includes(tipoBase)) {
         form.setValue('cuentaContableId', null);
     }
-}, [form]);
+}, [form, legacyTipoOption, tipoEventoOptions]);
 
   useEffect(() => {
     if (evento || !mostrarCuentaContable || !planDeCuentas || planDeCuentas.length === 0) return;
@@ -597,6 +675,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     toast({ title: "Guardando evento...", description: "Por favor espere." });
 
     const tipoNormalizado = normalizarTipoEvento(data.tipo);
+    const tipoBase = getTipoBaseFromEvento(tipoNormalizado);
     const parcelaSeleccionada = parcelas?.find((parcela) => parcela.id === data.parcelaId);
     const hectareasBaseRendimiento = calcularHectareasPlantadasContexto({
       eventos: todosLosEventos || [],
@@ -607,7 +686,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     });
     const toneladasCosechadas = Number(data.toneladas) || 0;
     const rendimientoTonHa =
-      tipoNormalizado === "cosecha" && hectareasBaseRendimiento > 0 && toneladasCosechadas > 0
+      tipoBase === "cosecha" && hectareasBaseRendimiento > 0 && toneladasCosechadas > 0
         ? toneladasCosechadas / hectareasBaseRendimiento
         : 0;
     const rendimientoKgHa = rendimientoTonHa * 1000;
@@ -633,6 +712,12 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     const dataConCostoTotal = {
       ...data,
       tipo: tipoNormalizado,
+      tipoNombre:
+        data.tipoNombre?.trim()
+        || selectedTipoOption?.nombre
+        || legacyTipoOption?.nombre
+        || getEventTypeDisplay(tipoNormalizado),
+      tipoEventoId: data.tipoEventoId || (selectedTipoOption?.persisted ? selectedTipoOption.id : null),
       estado: data.estado || 'pendiente',
       fotos: data.fotos || [],
       costoTotal: totalEvento,
@@ -643,9 +728,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
       horometroAnterior,
       horometroActual,
       horasTrabajadas,
-      hectareasRendimiento: tipoNormalizado === "cosecha" ? hectareasBaseRendimiento : undefined,
-      rendimientoTonHa: tipoNormalizado === "cosecha" ? rendimientoTonHa : undefined,
-      rendimientoKgHa: tipoNormalizado === "cosecha" ? rendimientoKgHa : undefined,
+      hectareasRendimiento: tipoBase === "cosecha" ? hectareasBaseRendimiento : undefined,
+      rendimientoTonHa: tipoBase === "cosecha" ? rendimientoTonHa : undefined,
+      rendimientoKgHa: tipoBase === "cosecha" ? rendimientoKgHa : undefined,
     };
     try {
       await onSave(dataConCostoTotal);
@@ -660,6 +745,8 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     form.reset({
         fecha: new Date(),
         tipo: 'aplicacion',
+        tipoNombre: 'Aplicacion',
+        tipoEventoId: null,
         productos: [],
         fotos: [],
         descripcion: "",
@@ -899,26 +986,30 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   <FormField
                     name="tipo"
                     control={form.control}
-                    render={({ field }) => (
+                    render={() => (
                       <FormItem className="min-w-0">
                         <FormLabel>Tipo de Evento</FormLabel>
-                        <Select onValueChange={handleTipoEventoChange} value={field.value}>
+                        <Select onValueChange={handleTipoEventoChange} value={tipoEventoSelectValue}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Seleccione un tipo" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="siembra">Siembra</SelectItem>
-                            <SelectItem value="aplicacion">Aplicación</SelectItem>
-                            <SelectItem value="fertilización">Fertilización</SelectItem>
-                            <SelectItem value="riego">Riego</SelectItem>
-                            <SelectItem value="cosecha">Cosecha</SelectItem>
-                            {field.value === "rendimiento" && <SelectItem value="rendimiento">Rendimiento (legado)</SelectItem>}
-                            <SelectItem value="mantenimiento">Mantenimiento</SelectItem>
-                            <SelectItem value="plagas">Control de Plagas</SelectItem>
+                            {legacyTipoOption && (
+                              <SelectItem value={legacyTipoOption.id}>{legacyTipoOption.nombre}</SelectItem>
+                            )}
+                            {tipoEventoOptions.map((option) => (
+                              <SelectItem key={option.id} value={option.id}>
+                                {option.nombre}
+                              </SelectItem>
+                            ))}
+                            {tipoEvento === 'rendimiento' && (
+                              <SelectItem value="legacy:rendimiento">Rendimiento (legado)</SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
+                        <FormDescription>Los nombres visibles se administran en Maestros &gt; Tipos de Evento.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -979,7 +1070,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   />
                 )}
 
-                {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEventoNormalizado) && (
+                {['aplicacion', 'fertilizacion', 'plagas', 'siembra'].includes(tipoEventoBase) && (
                   <Card className="border-border/60">
                      <CardHeader className="p-4"><CardTitle className="text-lg">Detalles de Aplicación y Costos</CardTitle></CardHeader>
                      <CardContent className="p-4 pt-0 space-y-4">
@@ -991,7 +1082,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   </Card>
                 )}
 
-                {['aplicacion', 'fertilización', 'plagas', 'siembra'].includes(tipoEventoNormalizado) && (
+                {['aplicacion', 'fertilizacion', 'plagas', 'siembra'].includes(tipoEventoBase) && (
                   <Card className="bg-muted/30 p-4">
                     <CardHeader className="p-2 flex flex-row items-center justify-between">
                       <CardTitle className="text-lg">Productos/Insumos</CardTitle>

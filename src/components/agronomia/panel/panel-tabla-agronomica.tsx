@@ -11,6 +11,7 @@ import { ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
 import { getEventDate, getSowingBaseDate } from "./panel-evento-utils";
+import { getEventTypeDisplay } from "@/lib/eventos/tipos";
 
 interface PanelTablaAgronomicaProps {
     parcela: Parcela;
@@ -163,7 +164,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                                                     )}
                                                 </div>
                                             </TableCell>
-                                            <TableCell>{evento.categoria || evento.tipo}</TableCell>
+                                            <TableCell>{evento.categoria || getEventTypeDisplay(evento)}</TableCell>
                                             <TableCell>{productosDelEvento.length} Producto(s)</TableCell>
                                             <TableCell></TableCell>
                                             <TableCell></TableCell>

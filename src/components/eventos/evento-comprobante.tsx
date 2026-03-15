@@ -9,6 +9,7 @@ import { getReportBrandingFromEmpresa } from "@/lib/report-branding";
 import type { Cultivo, Evento, Insumo, Maquinaria, Parcela, Zafra } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
+import { getEventTypeDisplay, getTipoBaseFromEvento } from "@/lib/eventos/tipos";
 
 interface EventoComprobanteProps {
   evento: Evento;
@@ -55,33 +56,12 @@ function formatCurrency(value?: number | null) {
   })}`;
 }
 
-function normalizeText(value?: string | null) {
-  return (value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
 function buildDocumentCode(evento: Evento) {
   if (evento.numeroLanzamiento) {
     return `EV-${String(evento.numeroLanzamiento).padStart(6, "0")}`;
   }
 
   return `EV-${evento.id.slice(0, 6).toUpperCase()}`;
-}
-
-function labelTipo(tipo: Evento["tipo"]) {
-  const tipoNormalizado = normalizeText(tipo);
-
-  if (tipoNormalizado === "siembra") return "Siembra";
-  if (tipoNormalizado === "fertilizacion") return "Fertilizacion";
-  if (tipoNormalizado === "riego") return "Riego";
-  if (tipoNormalizado === "cosecha") return "Cosecha";
-  if (tipoNormalizado === "mantenimiento") return "Mantenimiento";
-  if (tipoNormalizado === "plagas") return "Control de plagas";
-  if (tipoNormalizado === "aplicacion") return "Aplicacion";
-  if (tipoNormalizado === "rendimiento") return "Rendimiento";
-  return tipo || "-";
 }
 
 function labelEstado(estado: Evento["estado"]) {
@@ -187,8 +167,8 @@ export function EventoComprobante({
 
   const hasClima =
     evento.temperatura !== undefined || evento.humedad !== undefined || evento.viento !== undefined;
-  const tipoNormalizado = normalizeText(evento.tipo);
-  const esCosecha = tipoNormalizado === "cosecha" || tipoNormalizado === "rendimiento";
+  const tipoEventoLabel = getEventTypeDisplay(evento);
+  const esCosecha = getTipoBaseFromEvento(evento.tipo) === "cosecha";
   const documentCode = buildDocumentCode(evento);
   const stockStatus = evento.stockProcesadoEn ? "Procesado" : "Pendiente";
   const formalSummary = [
@@ -256,7 +236,7 @@ export function EventoComprobante({
     { label: "Aprobado", value: formatDateTime(evento.aprobadoEn as Date | string | null) },
     { label: "Stock / trazabilidad", value: stockStatus },
     { label: "Evidencias", value: `${evento.fotos?.length || 0} archivo(s)` },
-    { label: "Tipo de evento", value: labelTipo(evento.tipo) },
+    { label: "Tipo de evento", value: tipoEventoLabel },
     { label: "Cuenta contable", value: evento.cuentaContableId || "-" },
   ];
   const climaRows: InfoRow[] = hasClima
@@ -288,7 +268,7 @@ export function EventoComprobante({
         <header className="border-b-2 border-slate-300 pb-3 text-center">
           <div className="flex flex-wrap items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
             <span className="border border-slate-300 px-2 py-1 text-slate-700">Documento {documentCode}</span>
-            <span className="border border-slate-300 px-2 py-1 text-slate-700">{labelTipo(evento.tipo)}</span>
+            <span className="border border-slate-300 px-2 py-1 text-slate-700">{tipoEventoLabel}</span>
             <span className={cn("border px-2 py-1", estadoClasses(evento.estado))}>{labelEstado(evento.estado)}</span>
             <span className="border border-slate-300 px-2 py-1 text-slate-700">{stockStatus}</span>
           </div>
@@ -411,7 +391,7 @@ export function EventoComprobante({
           </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             <MetricCard label="Documento" value={documentCode} />
-            <MetricCard label="Tipo de evento" value={labelTipo(evento.tipo)} />
+            <MetricCard label="Tipo de evento" value={tipoEventoLabel} />
             <MetricCard label="Aprobacion" value={formatDateTime(evento.aprobadoEn as Date | string | null)} />
           </div>
         </section>

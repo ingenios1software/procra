@@ -66,6 +66,7 @@ import { ReportActions } from "@/components/shared/report-actions";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { canApproveEvento } from "@/lib/eventos/approval";
+import { getEventTypeDisplay, getTipoBaseFromEvento } from "@/lib/eventos/tipos";
 
 interface EventosListProps {
   eventos: Evento[];
@@ -101,7 +102,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
 
       return (
         numeroMatch &&
-        (filters.tipo ? evento.tipo === filters.tipo : true) &&
+        (filters.tipo ? getEventTypeDisplay(evento) === filters.tipo : true) &&
         (filters.parcelaId ? evento.parcelaId === filters.parcelaId : true) &&
         (filters.zafraId ? evento.zafraId === filters.zafraId : true) &&
         (filters.estado ? evento.estado === filters.estado : true)
@@ -109,7 +110,13 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
     });
   }, [eventos, filters]);
 
-  const eventTypes = useMemo(() => [...new Set((eventos || []).map((evento) => evento.tipo))], [eventos]);
+  const eventTypes = useMemo(
+    () =>
+      [...new Set((eventos || []).map((evento) => getEventTypeDisplay(evento)))].sort((a, b) =>
+        a.localeCompare(b, "es", { sensitivity: "base", numeric: true })
+      ),
+    [eventos]
+  );
 
   const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [filterName]: value }));
@@ -233,8 +240,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
         user.uid,
         tenant.empresaId
       );
-      const tipoNormalizado = (eventoGuardado.tipo || "").toString().toLowerCase();
-      const esCosecha = tipoNormalizado === "cosecha" || tipoNormalizado === "rendimiento";
+      const esCosecha = getTipoBaseFromEvento(eventoGuardado.tipo) === "cosecha";
 
       if (success && esCosecha) {
         eventoGuardado.stockProcesadoEn = new Date().toISOString();
@@ -294,7 +300,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
         `Parcela: ${selectedParcela?.nombre || "N/A"}`,
         `Cultivo: ${selectedCultivo?.nombre || "N/A"}`,
         `Zafra: ${selectedZafra?.nombre || "N/A"}`,
-        `Tipo: ${selectedEvento.tipo}`,
+        `Tipo: ${getEventTypeDisplay(selectedEvento)}`,
         `Estado: ${selectedEvento.estado || "pendiente"}`,
         `Descripcion: ${selectedEvento.descripcion || "-"}`,
       ].join(" | ")
@@ -460,7 +466,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
                         <TableCell className="font-medium">{parcela?.nombre || "N/A"}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize">
-                            {evento.tipo}
+                            {getEventTypeDisplay(evento)}
                           </Badge>
                         </TableCell>
                         <TableCell>

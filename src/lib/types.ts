@@ -73,6 +73,27 @@ export type Foto = {
   url: string;
   storagePath: string;
 };
+export type EventoTipoBase =
+  | "siembra"
+  | "aplicacion"
+  | "fertilizacion"
+  | "riego"
+  | "cosecha"
+  | "mantenimiento"
+  | "plagas"
+  | "monitoreo"
+  | "labores"
+  | "otro";
+
+export type TipoEvento = {
+  id: string;
+  nombre: string;
+  tipoBase: EventoTipoBase;
+  activo: boolean;
+  orden?: number;
+  descripcion?: string;
+  esSistema?: boolean;
+};
 
 export type Evento = {
   id: string;
@@ -80,7 +101,9 @@ export type Evento = {
   parcelaId: string;
   cultivoId: string;
   zafraId: string;
-  tipo: 'siembra' | 'fertilización' | 'riego' | 'cosecha' | 'mantenimiento' | 'plagas' | 'aplicacion' | 'rendimiento';
+  tipo: 'siembra' | 'fertilizacion' | 'fertilizaci\u00f3n' | 'riego' | 'cosecha' | 'mantenimiento' | 'plagas' | 'aplicacion' | 'rendimiento';
+  tipoNombre?: string | null;
+  tipoEventoId?: string | null;
   fecha: Date | string;
   descripcion: string;
   resultado?: string;

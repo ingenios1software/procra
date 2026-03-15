@@ -14,6 +14,7 @@ import type {
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from "@/lib/contabilidad/cuentas-base";
 import { withZafraContext } from "@/lib/contabilidad/asientos";
 import { tenantCollection, tenantDoc } from "@/lib/tenant";
+import { getTipoBaseFromEvento } from "@/lib/eventos/tipos";
 import {
   CATEGORIA_GRANO,
   buildGranoInsumoCodigo,
@@ -25,15 +26,7 @@ import {
 } from "@/lib/stock/granos";
 
 function esEventoConIngresoDeGrano(tipo: Evento["tipo"]): boolean {
-  return tipo === "cosecha" || tipo === "rendimiento";
-}
-
-function normalizarTipoEvento(tipo: Evento["tipo"] | string | undefined): string {
-  return (tipo || "")
-    .toLowerCase()
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  return getTipoBaseFromEvento(tipo) === "cosecha";
 }
 
 function normalizarTexto(value: unknown): string {
@@ -75,7 +68,7 @@ async function obtenerHectareasPlantadasContexto(
     const eventoData = eventoDoc.data() as Evento;
     if (eventoData.parcelaId !== parcelaId) return;
     if (eventoData.cultivoId !== cultivoId) return;
-    if (normalizarTipoEvento(eventoData.tipo) !== "siembra") return;
+    if (getTipoBaseFromEvento(eventoData.tipo) !== "siembra") return;
 
     const hectareasEvento = toPositiveNumber(eventoData.hectareasAplicadas);
     if (hectareasEvento > hectareasSiembra) {

@@ -387,6 +387,10 @@ export function FinancialOperationWindow({
   const selectionBase = selectedRows[0] || null;
   const selectedCurrency = selectionBase?.moneda || null;
   const selectedThirdPartyLabel = selectionBase?.terceroNombre || "";
+  const cuentasFinancierasCompatibles = useMemo(() => {
+    if (!selectedCurrency) return cuentasFinancieras;
+    return cuentasFinancieras.filter((cuenta) => !cuenta.moneda || cuenta.moneda === selectedCurrency);
+  }, [cuentasFinancieras, selectedCurrency]);
   const selectedCuentaFinanciera = cuentaFinancieraId ? cuentasFinancierasById.get(cuentaFinancieraId) || null : null;
   const selectedCuentaAjuste = cuentaAjusteId ? planById.get(cuentaAjusteId) || null : null;
 
@@ -446,8 +450,7 @@ export function FinancialOperationWindow({
       if (currentCuenta && (!currentCuenta.moneda || currentCuenta.moneda === selectedCurrency)) {
         return current;
       }
-      const compatible = cuentasFinancieras.find((cuenta) => !cuenta.moneda || cuenta.moneda === selectedCurrency);
-      return compatible?.id || cuentasFinancieras[0]?.id || "";
+      return cuentasFinancierasCompatibles[0]?.id || "";
     });
   }, [
     selectedCurrency,
@@ -455,7 +458,7 @@ export function FinancialOperationWindow({
     planById,
     planDeCuentas,
     cuentasAjuste,
-    cuentasFinancieras,
+    cuentasFinancierasCompatibles,
     cuentasFinancierasById,
   ]);
 
@@ -1364,7 +1367,12 @@ export function FinancialOperationWindow({
                                     No hay cuentas financieras configuradas
                                   </SelectItem>
                                 )}
-                                {cuentasFinancieras.map((cuenta) => (
+                                {cuentasFinancieras.length > 0 && selectedCurrency && cuentasFinancierasCompatibles.length === 0 && (
+                                  <SelectItem value="sin-cuentas-compatibles" disabled>
+                                    No hay cuentas caja/banco activas en {selectedCurrency}
+                                  </SelectItem>
+                                )}
+                                {(selectedCurrency ? cuentasFinancierasCompatibles : cuentasFinancieras).map((cuenta) => (
                                   <SelectItem key={cuenta.id} value={cuenta.id}>
                                     {cuenta.label}
                                   </SelectItem>
@@ -1574,6 +1582,14 @@ export function FinancialOperationWindow({
                     <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                       La cuenta financiera seleccionada esta configurada en {selectedCuentaFinanciera?.moneda} y la
                       liquidacion opera en {selectedCurrency}. Elija una cuenta compatible.
+                    </div>
+                  )}
+
+                  {!isCreditNoteMode && selectedCurrency && cuentasFinancieras.length > 0 && cuentasFinancierasCompatibles.length === 0 && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                      No hay cuentas financieras activas en {selectedCurrency}. Esta lista se arma desde Maestro &gt;
+                      Ctas Caja/Banco; si la cuenta solo existe en Plan de Cuentas, debe crearla o vincularla alli con
+                      tipo y moneda.
                     </div>
                   )}
 

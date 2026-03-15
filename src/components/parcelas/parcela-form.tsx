@@ -3,13 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
 import type { Parcela } from "@/lib/types";
+import { findDuplicateParcela, sanitizeParcelaDraft } from "@/lib/parcelas";
 
 const formSchema = z.object({
   nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres."),
@@ -24,13 +23,12 @@ type ParcelaFormValues = z.infer<typeof formSchema>;
 
 interface ParcelaFormProps {
   parcela?: Parcela | null;
+  existingParcelas?: Parcela[];
   onSubmit: (data: ParcelaFormValues) => void;
   onCancel: () => void;
 }
 
-export function ParcelaForm({ parcela, onSubmit, onCancel }: ParcelaFormProps) {
-  const router = useRouter();
-
+export function ParcelaForm({ parcela, existingParcelas = [], onSubmit, onCancel }: ParcelaFormProps) {
   const form = useForm<ParcelaFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: parcela || {
@@ -42,11 +40,38 @@ export function ParcelaForm({ parcela, onSubmit, onCancel }: ParcelaFormProps) {
       sector: ""
     },
   });
+  const handleValidatedSubmit = (values: ParcelaFormValues) => {
+    const sanitizedValues = sanitizeParcelaDraft(values as Omit<Parcela, "id" | "numeroItem">);
+    const { duplicateName, duplicateCode } = findDuplicateParcela(
+      existingParcelas,
+      sanitizedValues,
+      parcela?.id
+    );
 
+    form.clearErrors(["nombre", "codigo"]);
+
+    if (duplicateName) {
+      form.setError("nombre", {
+        type: "manual",
+        message: `Ya existe una parcela registrada con el nombre "${duplicateName.nombre}".`,
+      });
+    }
+
+    if (duplicateCode) {
+      form.setError("codigo", {
+        type: "manual",
+        message: `El codigo ${sanitizedValues.codigo} ya esta asignado a "${duplicateCode.nombre}".`,
+      });
+    }
+
+    if (duplicateName || duplicateCode) return;
+
+    onSubmit(sanitizedValues);
+  };
 
   return (
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(handleValidatedSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}

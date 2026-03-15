@@ -110,6 +110,7 @@ const LEGACY_TENANT_COLLECTIONS = [
   "MovimientosStock",
   "maquinaria",
   "plagas",
+  "tiposEvento",
   "etapasCultivo",
   "depositos",
   "monedas",

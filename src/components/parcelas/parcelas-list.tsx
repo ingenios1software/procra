@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { getCountFromServer } from "firebase/firestore";
+import { getDocs, limit, orderBy, query } from "firebase/firestore";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,7 @@ import { addDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from "@/fi
 import { ParcelaForm } from "@/components/parcelas/parcela-form";
 import type { Parcela } from "@/lib/types";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
+import { findDuplicateParcela, sanitizeParcelaDraft } from "@/lib/parcelas";
 
 interface ParcelasListProps {
   parcelas: Parcela[];
@@ -52,10 +53,26 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
     const parcelasCol = tenant.collection("parcelas");
     if (!parcelasCol) return;
 
-    const snapshot = await getCountFromServer(parcelasCol);
-    const numeroItem = snapshot.data().count + 1;
+    const sanitizedData = sanitizeParcelaDraft(data);
+    const { duplicateName, duplicateCode } = findDuplicateParcela(parcelas, sanitizedData);
 
-    addDocumentNonBlocking(parcelasCol, { ...data, numeroItem });
+    if (duplicateName || duplicateCode) {
+      toast({
+        variant: "destructive",
+        title: duplicateName ? "Parcela duplicada" : "Codigo duplicado",
+        description: duplicateName
+          ? `Ya existe una parcela con el nombre "${duplicateName.nombre}".`
+          : `El codigo ${sanitizedData.codigo} ya esta asignado a "${duplicateCode?.nombre}".`,
+      });
+      return;
+    }
+
+    const numeroItemQuery = query(parcelasCol, orderBy("numeroItem", "desc"), limit(1));
+    const snapshot = await getDocs(numeroItemQuery);
+    const maxNumeroItem = snapshot.docs[0]?.data()?.numeroItem || 0;
+    const numeroItem = maxNumeroItem + 1;
+
+    addDocumentNonBlocking(parcelasCol, { ...sanitizedData, numeroItem });
     toast({
       title: "Parcela creada",
       description: `La parcela ${data.nombre} (Item NÂº ${numeroItem}) ha sido creada.`,
@@ -218,7 +235,11 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
             <DialogTitle>Crear Nueva Parcela</DialogTitle>
             <DialogDescription>Complete los detalles de la nueva parcela.</DialogDescription>
           </DialogHeader>
-          <ParcelaForm onSubmit={handleSave} onCancel={() => setDialogOpen(false)} />
+          <ParcelaForm
+            existingParcelas={parcelas}
+            onSubmit={handleSave}
+            onCancel={() => setDialogOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </>

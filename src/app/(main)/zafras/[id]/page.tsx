@@ -14,6 +14,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { Ruler, Activity, CalendarDays, Sprout, SprayCan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
+import { getEventTypeDisplay, getTipoBaseFromEvento } from "@/lib/eventos/tipos";
 
 export default function ZafraReportePage({ params }: { params: { id: string } }) {
   const tenant = useTenantFirestore();
@@ -72,9 +73,14 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
     const superficieTotal = parcelasEnZafra.reduce((sum, parcela) => sum + parcela.superficie, 0);
     const cultivoPrincipal = cultivos.find((cultivo) => cultivo.id === zafra.cultivoId) || null;
 
-    const eventosPorTipo = eventos.reduce((acc, evento) => {
-      const tipo = evento.tipo || "otros";
-      acc[tipo] = (acc[tipo] || 0) + 1;
+    const eventosPorTipoBase = eventos.reduce((acc, evento) => {
+      const tipoBase = getTipoBaseFromEvento(evento.tipo);
+      acc[tipoBase] = (acc[tipoBase] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const actividadPorTipoMap = eventos.reduce((acc, evento) => {
+      const tipoVisible = getEventTypeDisplay(evento);
+      acc[tipoVisible] = (acc[tipoVisible] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -106,11 +112,11 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
       parcelas: parcelasEnZafra.length,
       superficie: superficieTotal,
       eventos: eventos.length,
-      aplicaciones: eventosPorTipo["aplicacion"] || 0,
-      fertilizaciones: eventosPorTipo["fertilizaciÃ³n"] || 0,
-      monitoreos: eventosPorTipo["monitoreo"] || 0,
-      labores: eventosPorTipo["mantenimiento"] || 0,
-      cosechas: eventosPorTipo["cosecha"] || 0,
+      aplicaciones: eventosPorTipoBase["aplicacion"] || 0,
+      fertilizaciones: eventosPorTipoBase["fertilizacion"] || 0,
+      monitoreos: eventosPorTipoBase["monitoreo"] || 0,
+      labores: eventosPorTipoBase["mantenimiento"] || 0,
+      cosechas: eventosPorTipoBase["cosecha"] || 0,
       ultimaActividad: ultimoEvento ? new Date(ultimoEvento.fecha as string) : null,
     };
 
@@ -119,7 +125,9 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
       cultivoPrincipal,
       superficieTotal,
       kpis,
-      actividadPorTipo: Object.entries(eventosPorTipo).map(([name, value]) => ({ name, Cantidad: value })),
+      actividadPorTipo: Object.entries(actividadPorTipoMap)
+        .map(([name, value]) => ({ name, Cantidad: value }))
+        .sort((a, b) => b.Cantidad - a.Cantidad),
       insumosMasUsados,
     };
   }, [zafra, todasParcelas, eventos, cultivos, insumos]);
@@ -276,7 +284,7 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
                     </TableCell>
                     <TableCell>{parcela.superficie}</TableCell>
                     <TableCell>{eventosParcela.length}</TableCell>
-                    <TableCell>{eventosParcela.filter((evento) => evento.tipo === "aplicacion").length}</TableCell>
+                    <TableCell>{eventosParcela.filter((evento) => getTipoBaseFromEvento(evento.tipo) === "aplicacion").length}</TableCell>
                     <TableCell>{ultimoEvento ? new Date(ultimoEvento.fecha as string).toLocaleDateString() : "N/A"}</TableCell>
                   </TableRow>
                 );

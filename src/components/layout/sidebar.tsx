@@ -172,6 +172,7 @@ const navItems: NavSection[] = [
     links: [
       { href: "/maestros/depositos", icon: Warehouse, label: "Depósitos" },
       { href: "/maestros/monedas", icon: Wallet, label: "Monedas" },
+      { href: "/maestros/tipos-evento", icon: ClipboardList, label: "Tipos de Evento" },
       { href: "/maestros/cuentas-caja-banco", icon: Landmark, label: "Ctas Caja/Banco" },
     ],
   },

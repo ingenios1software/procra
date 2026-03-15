@@ -1,7 +1,7 @@
 "use client";
 
-import { notFound, useRouter } from "next/navigation";
-import { useDoc, updateDocumentNonBlocking } from "@/firebase";
+import { useRouter } from "next/navigation";
+import { useCollection, useDoc, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import type { Parcela } from "@/lib/types";
 import { PageHeader } from "@/components/shared/page-header";
 import { ParcelaForm } from "@/components/parcelas/parcela-form";
@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
+import { orderBy } from "firebase/firestore";
+import { findDuplicateParcela, sanitizeParcelaDraft } from "@/lib/parcelas";
 
 export default function EditarParcelaPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -19,17 +21,32 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
 
   const parcelaRef = tenant.doc("parcelas", id);
   const { data: parcela, isLoading } = useDoc<Parcela>(parcelaRef);
+  const parcelasQuery = useMemoFirebase(() => tenant.query("parcelas", orderBy("nombre")), [tenant]);
+  const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(parcelasQuery);
 
   const handleSave = (data: Omit<Parcela, "id" | "numeroItem">) => {
     if (!parcela) return;
+    const sanitizedData = sanitizeParcelaDraft(data);
+    const { duplicateName, duplicateCode } = findDuplicateParcela(parcelas || [], sanitizedData, parcela.id);
+
+    if (duplicateName || duplicateCode) {
+      toast({
+        variant: "destructive",
+        title: duplicateName ? "Parcela duplicada" : "Codigo duplicado",
+        description: duplicateName
+          ? `Ya existe una parcela con el nombre "${duplicateName.nombre}".`
+          : `El codigo ${sanitizedData.codigo} ya esta asignado a "${duplicateCode?.nombre}".`,
+      });
+      return;
+    }
 
     const docRef = tenant.doc("parcelas", parcela.id);
     if (!docRef) return;
 
-    updateDocumentNonBlocking(docRef, data);
+    updateDocumentNonBlocking(docRef, sanitizedData);
     toast({
       title: "Parcela actualizada",
-      description: `La parcela "${data.nombre}" ha sido actualizada correctamente.`,
+      description: `La parcela "${sanitizedData.nombre}" ha sido actualizada correctamente.`,
     });
     router.push("/parcelas");
   };
@@ -38,7 +55,7 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
     router.back();
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingParcelas) {
     return (
       <div className="flex h-64 items-center justify-center">
         <p>Cargando datos de la parcela...</p>
@@ -77,6 +94,7 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
         <CardContent className="p-6">
           <ParcelaForm
             parcela={{ ...parcela, id }}
+            existingParcelas={parcelas || []}
             onSubmit={handleSave}
             onCancel={handleCancel}
           />

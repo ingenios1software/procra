@@ -26,6 +26,7 @@ const masterCollections = [
     { name: "Productos / Insumos", collection: "insumos", path: "/stock" },
     { name: "Entidades (Clientes/Proveedores)", collection: "entidades", path: "/maestros/entidades" },
     { name: "Cuentas de Caja/Banco", collection: "cuentasCajaBanco", path: "/maestros/cuentas-caja-banco" },
+    { name: "Tipos de Evento", collection: "tiposEvento", path: "/maestros/tipos-evento" },
     { name: "Plan de Cuentas", collection: "planDeCuentas", path: "/contabilidad/plan-de-cuentas" },
     { name: "Monedas", collection: "monedas", path: "/maestros/monedas" },
     { name: "Planes de Financiación", collection: "planesFinanciacion", path: "/maestros/planes-financiacion" },

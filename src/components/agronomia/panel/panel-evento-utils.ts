@@ -1,6 +1,7 @@
 "use client";
 
 import type { Evento, Zafra } from "@/lib/types";
+import { getEventTypeDisplay, getTipoBaseFromEvento } from "@/lib/eventos/tipos";
 
 function toDate(value: unknown): Date | null {
   if (!value) return null;
@@ -30,7 +31,7 @@ function normalizeText(value: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-export function getEventCategoryLabel(evento: Pick<Evento, "categoria" | "tipo">): string {
+export function getEventCategoryLabel(evento: Pick<Evento, "categoria" | "tipo" | "tipoNombre">): string {
   const base = (evento.categoria || evento.tipo || "").toString();
   const key = normalizeText(base);
 
@@ -48,7 +49,7 @@ export function getEventCategoryLabel(evento: Pick<Evento, "categoria" | "tipo">
   if (key.includes("herbic")) return "Herbicida";
   if (key.includes("desec")) return "Desecacion";
 
-  return base;
+  return getEventTypeDisplay(evento);
 }
 
 export function groupCostsByEventCategory(eventos: Evento[]): Array<{ name: string; value: number }> {
@@ -76,7 +77,7 @@ export function getSowingBaseDate(zafra: Zafra, eventos: Evento[]): Date {
     .filter((x): x is { ev: Evento; date: Date } => !!x.date)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  const firstSiembra = ordered.find(({ ev }) => normalizeText((ev.tipo || "").toString()).includes("siembra"));
+  const firstSiembra = ordered.find(({ ev }) => getTipoBaseFromEvento(ev.tipo) === "siembra");
   if (firstSiembra) return firstSiembra.date;
 
   if (ordered.length > 0) return ordered[0].date;
