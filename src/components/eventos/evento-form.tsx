@@ -35,7 +35,9 @@ import { buildTipoEventoOptions, findTipoEventoOption, getEventTypeDisplay, getS
 
 const productoSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar un insumo válido." }),
-  dosis: z.coerce.number().positive("La dosis debe ser mayor a 0."),
+  cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
+  dosis: z.coerce.number().optional(),
+  codigo: z.string().optional(),
 });
 
 const fotoSchema = z.object({
@@ -193,6 +195,40 @@ function tieneProductoCombustible(productos?: Array<{ insumo?: Partial<Insumo> |
   return (productos || []).some((producto) => esInsumoCombustible(producto?.insumo));
 }
 
+function normalizarProductosFormulario(
+  productos?: Array<{
+    cantidad?: number | null;
+    dosis?: number | null;
+    insumo?: Partial<Insumo> | null;
+    insumoId?: string;
+    codigo?: string;
+  }> | null,
+  hectareasAplicadas?: number | string | null
+) {
+  const hectareas = Number(hectareasAplicadas) || 0;
+
+  return (productos || []).map((producto) => {
+    const cantidadOriginal = Number(producto?.cantidad) || 0;
+    const dosisOriginal = Number(producto?.dosis) || 0;
+    const cantidad =
+      cantidadOriginal > 0
+        ? cantidadOriginal
+        : hectareas > 0 && dosisOriginal > 0
+          ? hectareas * dosisOriginal
+          : 0;
+    const dosis =
+      hectareas > 0 && cantidad > 0
+        ? cantidad / hectareas
+        : dosisOriginal;
+
+    return {
+      ...producto,
+      cantidad,
+      dosis,
+    };
+  });
+}
+
 function calcularHectareasPlantadasContexto({
   eventos,
   parcelaId,
@@ -291,6 +327,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     if (evento) {
       return {
         ...evento,
+        productos: normalizarProductosFormulario(evento.productos, evento.hectareasAplicadas),
         tipo: normalizarTipoEvento(evento.tipo),
         tipoNombre: evento.tipoNombre || getEventTypeDisplay(evento),
         tipoEventoId: evento.tipoEventoId || null,
@@ -314,6 +351,7 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
     if (currentDraft && Object.keys(currentDraft).length > 0) {
       return {
         ...currentDraft,
+        productos: normalizarProductosFormulario(currentDraft.productos as any, currentDraft.hectareasAplicadas),
         tipo: normalizarTipoEvento(currentDraft.tipo),
         tipoNombre: currentDraft.tipoNombre || getEventTypeDisplay(currentDraft as Evento),
         fecha: currentDraft.fecha ? new Date(currentDraft.fecha) : new Date()
@@ -595,13 +633,12 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
 
   const hectareasCalculadas = Number(watchedHectareas) || 0;
   const totalInsumos = watchedProductos?.reduce((acc, prod) => {
-    const dosis = Number(prod?.dosis) || 0;
+    const cantidad = Number(prod?.cantidad) || 0;
     const insumoId = ((prod as any)?.insumoId || prod?.insumo?.id) as string | undefined;
     const insumoActual = insumoId ? (insumosPorId.get(insumoId) || prod?.insumo) : prod?.insumo;
-    if (!insumoActual || dosis <= 0) {
+    if (!insumoActual || cantidad <= 0) {
       return acc;
     }
-    const cantidad = hectareasCalculadas * dosis;
     const costoUnitario = Number(insumoActual.precioPromedioCalculado ?? insumoActual.costoUnitario ?? 0) || 0;
     return acc + (cantidad * costoUnitario);
   }, 0) || 0;
@@ -700,12 +737,16 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
         ? Math.max(horometroActual - horometroAnterior, 0)
         : undefined;
 
+    const hectareasAplicadas = Number(data.hectareasAplicadas) || 0;
     const productosFinal = data.productos?.map(p => {
-        const consumoCalculado = (p.dosis || 0) * (data.hectareasAplicadas || 0);
+        const cantidad = Number(p.cantidad) || 0;
+        const dosisCalculada =
+          hectareasAplicadas > 0 && cantidad > 0 ? cantidad / hectareasAplicadas : 0;
+
         return {
             insumoId: p.insumo.id,
-            dosis: p.dosis,
-            cantidad: consumoCalculado,
+            dosis: dosisCalculada,
+            cantidad,
         };
     });
 

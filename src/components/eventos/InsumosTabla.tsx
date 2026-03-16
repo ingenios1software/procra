@@ -12,6 +12,7 @@ import type { Insumo } from "@/lib/types";
 
 interface ProductoField {
   insumo?: Insumo;
+  cantidad: number;
   dosis: number;
   codigo: string;
 }
@@ -88,8 +89,10 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
           <TableBody>
             {fields.map((field, index) => {
               const insumo = form.watch(`productos.${index}.insumo`);
-              const dosis = form.watch(`productos.${index}.dosis`) || 0;
-              const cantidadTotal = (hectareas || 0) * dosis;
+              const cantidadTotal = Number(form.watch(`productos.${index}.cantidad`)) || 0;
+              const hectareasAplicadas = Number(hectareas) || 0;
+              const dosisCalculada =
+                hectareasAplicadas > 0 && cantidadTotal > 0 ? cantidadTotal / hectareasAplicadas : 0;
               const precioUnitario = insumo?.precioPromedioCalculado || insumo?.costoUnitario || 0;
               const valorTotal = cantidadTotal * precioUnitario;
 
@@ -149,25 +152,40 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
                   </TableCell>
 
                   <TableCell className="px-4 py-2 align-top">
+                    <FormItem>
+                      <Input
+                        type="number"
+                        placeholder={hectareasAplicadas > 0 ? "0" : "Ingrese ha"}
+                        className="h-11 w-24 bg-muted/50 text-[17px] sm:text-[17px]"
+                        value={
+                          hectareasAplicadas > 0 && cantidadTotal > 0
+                            ? dosisCalculada.toFixed(5)
+                            : ""
+                        }
+                        readOnly
+                        tabIndex={-1}
+                      />
+                    </FormItem>
+                  </TableCell>
+
+                  <TableCell className="px-4 py-2 align-top">
                     <FormField
                       control={form.control}
-                      name={`productos.${index}.dosis`}
-                      render={({ field: dosisField }) => (
+                      name={`productos.${index}.cantidad`}
+                      render={({ field: cantidadField }) => (
                         <FormItem>
                           <Input
                             type="number"
+                            step="any"
                             placeholder="0"
-                            className="h-11 w-24 text-[17px] sm:text-[17px]"
-                            {...dosisField}
+                            className="h-11 w-28 font-mono text-[17px] sm:text-[17px]"
+                            {...cantidadField}
+                            value={cantidadField.value ?? ""}
                           />
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </TableCell>
-
-                  <TableCell className="px-4 py-2 align-top font-mono text-[17px]">
-                    {cantidadTotal.toFixed(2)}
                   </TableCell>
                   <TableCell className="px-4 py-2 align-top text-right font-mono text-[17px]">
                     ${precioUnitario.toFixed(2)}
@@ -206,7 +224,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
         variant="outline"
         size="sm"
         className="mt-4 h-11 px-4 text-[17px]"
-        onClick={() => append({ insumo: undefined, dosis: 0, codigo: "" })}
+        onClick={() => append({ insumo: undefined, cantidad: 0, dosis: 0, codigo: "" })}
       >
         <PlusCircle className="mr-2 h-4 w-4" />
         Agregar Producto
