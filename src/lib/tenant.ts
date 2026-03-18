@@ -193,6 +193,7 @@ export const LEGACY_TENANT_COLLECTIONS = [
   "asientosDiario",
   "stockGranos",
   "rendimientosAgricolas",
+  "lluviasSector",
   "auditoriaAsistente",
   "costos",
   "empleados",

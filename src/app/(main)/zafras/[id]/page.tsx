@@ -5,16 +5,31 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { where } from "firebase/firestore";
-import type { Zafra, Parcela, Evento, Cultivo, Insumo } from "@/lib/types";
+import type {
+  Zafra,
+  Parcela,
+  Evento,
+  Cultivo,
+  Insumo,
+  RegistroLluviaSector,
+} from "@/lib/types";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
-import { Ruler, Activity, CalendarDays, Sprout, SprayCan } from "lucide-react";
+import {
+  Ruler,
+  Activity,
+  CalendarDays,
+  Sprout,
+  SprayCan,
+  Droplets,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 import { getEventTypeDisplay, getTipoBaseFromEvento } from "@/lib/eventos/tipos";
+import { buildLluviaDistribuidaPorParcelaZafra } from "@/lib/lluvias";
 
 export default function ZafraReportePage({ params }: { params: { id: string } }) {
   const tenant = useTenantFirestore();
@@ -37,21 +52,32 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
   const insumosQuery = useMemoFirebase(() => tenant.collection("insumos"), [tenant]);
   const { data: insumos, isLoading: l5 } = useCollection<Insumo>(insumosQuery);
 
-  const isLoading = l1 || l2 || l3 || l4 || l5;
+  const lluviasQuery = useMemoFirebase(
+    () => tenant.query("lluviasSector", where("zafraId", "==", params.id)),
+    [tenant, params.id]
+  );
+  const { data: lluviasSector, isLoading: l6 } =
+    useCollection<RegistroLluviaSector>(lluviasQuery);
+
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6;
 
   const {
     parcelasEnZafra,
     cultivoPrincipal,
     superficieTotal,
+    lluviaPromedioPorParcela,
+    lluviaPorParcelaMap,
     kpis,
     actividadPorTipo,
     insumosMasUsados,
   } = useMemo(() => {
-    if (!zafra || !todasParcelas || !eventos || !cultivos) {
+    if (!zafra || !todasParcelas || !eventos || !cultivos || !lluviasSector) {
       return {
         parcelasEnZafra: [],
         cultivoPrincipal: null,
         superficieTotal: 0,
+        lluviaPromedioPorParcela: 0,
+        lluviaPorParcelaMap: new Map<string, number>(),
         kpis: {
           parcelas: 0,
           superficie: 0,
@@ -72,6 +98,18 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
     const parcelasEnZafra = todasParcelas.filter((parcela) => idParcelasEnZafra.has(parcela.id));
     const superficieTotal = parcelasEnZafra.reduce((sum, parcela) => sum + parcela.superficie, 0);
     const cultivoPrincipal = cultivos.find((cultivo) => cultivo.id === zafra.cultivoId) || null;
+    const lluviaDistribuida = buildLluviaDistribuidaPorParcelaZafra(
+      parcelasEnZafra,
+      lluviasSector
+    ).filter((item) => item.zafraId === params.id);
+    const lluviaPorParcelaMap = new Map(
+      lluviaDistribuida.map((item) => [item.parcelaId, item.milimetros])
+    );
+    const lluviaPromedioPorParcela =
+      parcelasEnZafra.length > 0
+        ? lluviaDistribuida.reduce((sum, item) => sum + item.milimetros, 0) /
+          parcelasEnZafra.length
+        : 0;
 
     const eventosPorTipoBase = eventos.reduce((acc, evento) => {
       const tipoBase = getTipoBaseFromEvento(evento.tipo);
@@ -124,13 +162,15 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
       parcelasEnZafra,
       cultivoPrincipal,
       superficieTotal,
+      lluviaPromedioPorParcela,
+      lluviaPorParcelaMap,
       kpis,
       actividadPorTipo: Object.entries(actividadPorTipoMap)
         .map(([name, value]) => ({ name, Cantidad: value }))
         .sort((a, b) => b.Cantidad - a.Cantidad),
       insumosMasUsados,
     };
-  }, [zafra, todasParcelas, eventos, cultivos, insumos]);
+  }, [zafra, todasParcelas, eventos, cultivos, insumos, lluviasSector, params.id]);
 
   if (isLoading) {
     return <p>Cargando reporte de zafra...</p>;
@@ -140,7 +180,7 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
     return notFound();
   }
 
-  const shareSummary = `Zafra: ${zafra.nombre} | Parcelas: ${kpis.parcelas} | Eventos: ${kpis.eventos} | Superficie: ${superficieTotal} ha.`;
+  const shareSummary = `Zafra: ${zafra.nombre} | Parcelas: ${kpis.parcelas} | Eventos: ${kpis.eventos} | Superficie: ${superficieTotal} ha | Lluvia prom.: ${lluviaPromedioPorParcela.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm.`;
 
   return (
     <>
@@ -156,7 +196,7 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
         </div>
       </PageHeader>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+      <div className="mb-6 grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardHeader className="flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Parcelas</CardTitle>
@@ -200,6 +240,21 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{kpis.ultimaActividad ? kpis.ultimaActividad.toLocaleDateString() : "N/A"}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Lluvia Prom./Parcela</CardTitle>
+            <Droplets className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {lluviaPromedioPorParcela.toLocaleString("de-DE", {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{" "}
+              mm
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -262,6 +317,8 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
             <TableHeader>
               <TableRow>
                 <TableHead>Parcela</TableHead>
+                <TableHead>Sector</TableHead>
+                <TableHead className="text-right">Lluvia (mm)</TableHead>
                 <TableHead>HectÃ¡reas</TableHead>
                 <TableHead>Eventos</TableHead>
                 <TableHead>Aplicaciones</TableHead>
@@ -281,6 +338,14 @@ export default function ZafraReportePage({ params }: { params: { id: string } })
                       <Link href={`/parcelas/${parcela.id}`} className="text-primary hover:underline">
                         {parcela.nombre}
                       </Link>
+                    </TableCell>
+                    <TableCell>{parcela.sector || "-"}</TableCell>
+                    <TableCell className="text-right">
+                      {(lluviaPorParcelaMap.get(parcela.id) || 0).toLocaleString("de-DE", {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{" "}
+                      mm
                     </TableCell>
                     <TableCell>{parcela.superficie}</TableCell>
                     <TableCell>{eventosParcela.length}</TableCell>

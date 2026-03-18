@@ -38,6 +38,7 @@ import {
   Wallet,
   Building,
   BookOpenCheck,
+  Droplets,
   Clock3,
   ArrowLeftRight,
 } from "lucide-react"
@@ -107,6 +108,7 @@ const navItems: NavSection[] = [
     links: [
       { href: "/agronomia/panel", icon: Target, label: "Panel Agronómico" },
       { href: "/agronomia/informe-costos", icon: FileText, label: "Informe de Costos" },
+      { href: "/agronomia/lluvias", icon: Droplets, label: "Lluvias" },
       { href: "/agronomia/plagas", icon: Bug, label: "Plagas" },
       { href: "/agronomia/etapas-cultivo", icon: ListTree, label: "Etapas del Cultivo" },
     ],

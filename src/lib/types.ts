@@ -327,6 +327,21 @@ export type RendimientoAgricola = {
   actualizadoPor?: string;
 };
 
+export type RegistroLluviaSector = {
+  id: string;
+  zafraId: string;
+  zafraNombre?: string | null;
+  fecha: Date | string;
+  sector: string;
+  sectorNormalizado: string;
+  milimetros: number;
+  observacion?: string | null;
+  numeroItem?: number;
+  creadoPor?: string | null;
+  creadoEn?: Date | string | FieldValue;
+  actualizadoEn?: Date | string | FieldValue;
+};
+
 
 export type Maquinaria = {
   id: string;
