@@ -254,6 +254,9 @@ export default function ParcelaCostoReportePage({ params }: { params: { id: stri
       >
         <div className="flex flex-wrap items-center gap-2">
           <ReportActions reportTitle={`Reporte de Costos: ${parcela.nombre}`} reportSummary={shareSummary} />
+          <Button variant="outline" onClick={() => router.push(`/parcelas/${parcela.id}/mapa`)}>
+            Abrir mapa
+          </Button>
           <Button onClick={() => router.push("/parcelas")}>Volver a Parcelas</Button>
         </div>
       </PageHeader>
