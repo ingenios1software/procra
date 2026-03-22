@@ -659,7 +659,7 @@ export default function TesoreriaPage() {
             <CardTitle>Movimientos recientes</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[1100px]">
+            <Table resizable className="min-w-[1100px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>

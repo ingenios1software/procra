@@ -1189,7 +1189,7 @@ export function FinancialOperationWindow({
               )}
 
               <div className="overflow-hidden rounded-lg border">
-                <Table className="min-w-[980px]">
+                <Table resizable className="min-w-[980px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-14">Sel.</TableHead>
@@ -1437,7 +1437,7 @@ export function FinancialOperationWindow({
                       </div>
 
                       <div className="overflow-hidden rounded-lg border">
-                        <Table className="min-w-[720px]">
+                        <Table resizable className="min-w-[720px]">
                           <TableHeader>
                             <TableRow>
                               <TableHead>Documento</TableHead>

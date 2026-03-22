@@ -57,7 +57,7 @@ export function ClientesList({ clientes, isLoading }: ClientesListProps) {
             <CardTitle>Listado de Clientes</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[860px]">
+            <Table resizable className="min-w-[860px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Item No</TableHead>

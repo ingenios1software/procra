@@ -19,7 +19,7 @@ export default function EditarParcelaPage({ params }: { params: { id: string } }
   const { toast } = useToast();
   const { id } = params;
 
-  const parcelaRef = tenant.doc("parcelas", id);
+  const parcelaRef = useMemoFirebase(() => tenant.doc("parcelas", id), [tenant, id]);
   const { data: parcela, isLoading } = useDoc<Parcela>(parcelaRef);
   const parcelasQuery = useMemoFirebase(() => tenant.query("parcelas", orderBy("nombre")), [tenant]);
   const { data: parcelas, isLoading: isLoadingParcelas } = useCollection<Parcela>(parcelasQuery);

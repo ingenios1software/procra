@@ -447,17 +447,22 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
         </CardHeader>
         <CardContent>
           <div className="w-full overflow-x-auto">
-            <Table className="whitespace-nowrap">
+            <Table
+              resizable
+              fixedLayout
+              minColumnWidth={72}
+              className="min-w-[1520px] whitespace-nowrap"
+            >
               <TableHeader>
                 <TableRow>
                   <TableHead>Item Nº</TableHead>
-                  <TableHead>Nombre</TableHead>
+                  <TableHead className="w-[360px]">Nombre</TableHead>
                   <TableHead>Categoría</TableHead>
-                  <TableHead>Principio Activo</TableHead>
-                  <TableHead className="text-right">Stock Actual</TableHead>
-                  <TableHead className="text-right">Precio Promedio</TableHead>
-                  <TableHead className="text-right">Valor en Stock</TableHead>
-                  {user && <TableHead className="text-right no-print">Acciones</TableHead>}
+                  <TableHead className="w-[320px]">Principio Activo</TableHead>
+                  <TableHead className="w-[150px] text-right">Stock Actual</TableHead>
+                  <TableHead className="w-[170px] text-right">Precio Promedio</TableHead>
+                  <TableHead className="w-[190px] text-right">Valor en Stock</TableHead>
+                  {user && <TableHead className="w-[100px] text-right no-print">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -466,12 +471,12 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
                   <TableRow key={insumo.id} className={insumo.stockFinal < insumo.stockMinimo ? "bg-destructive/10" : ""}>
                     <TableCell className="font-medium text-muted-foreground py-2 px-4">{insumo.numeroItem || index + 1}</TableCell>
                     <TableCell className="font-medium py-2 px-4">
-                       <div className="flex items-center gap-2">
+                       <div className="flex min-w-0 items-center gap-2">
                           {insumo.stockFinal < insumo.stockMinimo && (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger>
-                                  <AlertCircle className="h-4 w-4 text-destructive" />
+                                  <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>Stock por debajo del mínimo ({insumo.stockMinimo} {insumo.unidad})</p>
@@ -479,13 +484,19 @@ export function StockList({ insumos, lotes, comprasNormal, isLoading, onImportCl
                               </Tooltip>
                             </TooltipProvider>
                           )}
-                          {insumo.nombre}
+                          <span className="block truncate" title={insumo.nombre}>
+                            {insumo.nombre}
+                          </span>
                        </div>
                     </TableCell>
                     <TableCell className="py-2 px-4">
                       <Badge variant="secondary" className="capitalize">{insumo.categoria}</Badge>
                     </TableCell>
-                    <TableCell className="py-2 px-4">{insumo.principioActivo || 'N/A'}</TableCell>
+                    <TableCell className="py-2 px-4">
+                      <div className="truncate" title={insumo.principioActivo || 'N/A'}>
+                        {insumo.principioActivo || 'N/A'}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right font-mono font-bold py-2 px-4">{insumo.stockFinal.toLocaleString('de-DE')} {insumo.unidad}</TableCell>
                     <TableCell className="text-right font-mono py-2 px-4">${insumo.precioPromedioCalculado.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-right font-mono font-bold text-primary py-2 px-4">${insumo.valorStock.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>

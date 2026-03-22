@@ -396,7 +396,7 @@ export default function VentasPage() {
             <CardTitle>Listado de Ventas</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[820px]">
+            <Table resizable className="min-w-[820px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Documento</TableHead>

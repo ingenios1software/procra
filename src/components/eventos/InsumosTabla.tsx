@@ -68,7 +68,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
   return (
     <>
       <div className="overflow-x-auto rounded-md border">
-        <Table>
+        <Table resizable>
           <TableHeader>
             <TableRow>
               <TableHead className="w-12 px-4 py-3 text-[17px] font-semibold">Item</TableHead>

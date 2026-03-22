@@ -773,7 +773,7 @@ export function VentaForm({ venta, onCancel, clientes, depositos, cuentasCajaBan
 
           <TabsContent value="detalle" className="space-y-4 pt-4">
             <div className="overflow-x-auto -mx-1 px-1">
-              <Table>
+              <Table resizable>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[350px]">Producto</TableHead>

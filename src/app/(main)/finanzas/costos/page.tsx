@@ -129,7 +129,7 @@ export default function CostosPage() {
             <CardTitle>Listado Detallado de Costos de Eventos</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[860px]">
+            <Table resizable className="min-w-[860px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>

@@ -506,7 +506,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
           <TabsContent value="mercaderias" className="space-y-4 pt-4">
             <fieldset disabled={disableTransactional}>
               <div className="overflow-x-auto -mx-1 px-1">
-              <Table>
+              <Table resizable>
                   <TableHeader><TableRow>
                       <TableHead className="w-[350px]">Mercaderia</TableHead>
                       <TableHead>Cantidad</TableHead>

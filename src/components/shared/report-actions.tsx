@@ -115,6 +115,7 @@ function getPrintableHtml(
   options: PrintableReportOptions = {}
 ): string {
   const headStyles = getHeadStylesForPrint();
+  const hasPdfPages = target.querySelector("[data-pdf-page]") !== null;
   const generatedAt = new Date().toLocaleString("es-PY", {
     dateStyle: "short",
     timeStyle: "short",
@@ -155,6 +156,11 @@ function getPrintableHtml(
         border-radius: 0;
         padding: 12px 14px 14px;
         background: #fff;
+      }
+      .report-sheet-paged {
+        border: 0;
+        padding: 0;
+        background: transparent;
       }
       .report-header {
         display: grid;
@@ -203,6 +209,23 @@ function getPrintableHtml(
         pointer-events: auto !important;
         z-index: auto !important;
       }
+      [data-pdf-page] {
+        box-sizing: border-box;
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        padding: 12px 14px 14px;
+        page-break-after: always;
+        break-after: page;
+        page-break-inside: avoid;
+        break-inside: avoid-page;
+      }
+      [data-pdf-page] + [data-pdf-page] {
+        margin-top: 12mm;
+      }
+      [data-pdf-page]:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
       .print-root [class*="max-h-"] { max-height: none !important; }
       .print-root [class*="h-\\["] { height: auto !important; }
       .print-root article,
@@ -245,7 +268,7 @@ function getPrintableHtml(
   </head>
   <body>
     <main class="report-layout">
-      <section id="report-sheet" class="report-sheet">
+      <section id="report-sheet" class="report-sheet${hasPdfPages ? " report-sheet-paged" : ""}">
         <header class="report-header">
           <div>
             <div class="report-brand">
@@ -446,10 +469,110 @@ async function renderReportCanvas(html: string): Promise<HTMLCanvasElement> {
   }
 }
 
+function getCanvasRenderOptions(target: HTMLElement) {
+  return {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#ffffff",
+    windowWidth: Math.max(target.scrollWidth, target.clientWidth),
+    windowHeight: Math.max(target.scrollHeight, target.clientHeight),
+  } as const;
+}
+
+async function renderReportCanvases(html: string): Promise<HTMLCanvasElement[]> {
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "-10000px";
+  iframe.style.bottom = "0";
+  iframe.style.width = "1200px";
+  iframe.style.height = "1200px";
+  iframe.style.border = "0";
+  iframe.setAttribute("aria-hidden", "true");
+  document.body.appendChild(iframe);
+
+  try {
+    const frameWindow = iframe.contentWindow;
+    if (!frameWindow) {
+      throw new Error("No se pudo preparar el documento para exportar.");
+    }
+
+    frameWindow.document.open();
+    frameWindow.document.write(html);
+    frameWindow.document.close();
+
+    await new Promise<void>((resolve) => {
+      iframe.onload = () => resolve();
+    });
+
+    const frameDocument = iframe.contentDocument;
+    if (!frameDocument) {
+      throw new Error("No se pudo preparar el documento para exportar.");
+    }
+    if (frameDocument.fonts?.ready) {
+      await frameDocument.fonts.ready.catch(() => undefined);
+    }
+    await waitForDocumentAssets(frameDocument);
+
+    const { default: html2canvas } = await import("html2canvas");
+    const pageTargets = Array.from(frameDocument.querySelectorAll<HTMLElement>("[data-pdf-page]"));
+
+    if (pageTargets.length > 0) {
+      const canvases: HTMLCanvasElement[] = [];
+      for (const pageTarget of pageTargets) {
+        canvases.push(await html2canvas(pageTarget, getCanvasRenderOptions(pageTarget)));
+      }
+      return canvases;
+    }
+
+    const target = frameDocument.getElementById("report-sheet") as HTMLElement | null;
+    if (!target) throw new Error("No se pudo renderizar el contenido del reporte.");
+    return [await html2canvas(target, getCanvasRenderOptions(target))];
+  } finally {
+    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+  }
+}
+
+function sliceCanvasForPdf(canvas: HTMLCanvasElement, maxSliceHeight: number): HTMLCanvasElement[] {
+  if (canvas.height <= maxSliceHeight) {
+    return [canvas];
+  }
+
+  const slices: HTMLCanvasElement[] = [];
+  for (let offsetY = 0; offsetY < canvas.height; offsetY += maxSliceHeight) {
+    const sliceHeight = Math.min(maxSliceHeight, canvas.height - offsetY);
+    const sliceCanvas = document.createElement("canvas");
+    sliceCanvas.width = canvas.width;
+    sliceCanvas.height = sliceHeight;
+
+    const context = sliceCanvas.getContext("2d");
+    if (!context) {
+      throw new Error("No se pudo preparar una pagina del PDF.");
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+    context.drawImage(
+      canvas,
+      0,
+      offsetY,
+      canvas.width,
+      sliceHeight,
+      0,
+      0,
+      sliceCanvas.width,
+      sliceCanvas.height
+    );
+
+    slices.push(sliceCanvas);
+  }
+
+  return slices;
+}
+
 async function downloadPdfFromHtml(html: string, fileName: string): Promise<void> {
-  const [{ default: jsPDF }, canvas] = await Promise.all([
+  const [{ default: jsPDF }, canvases] = await Promise.all([
     import("jspdf"),
-    renderReportCanvas(html),
+    renderReportCanvases(html),
   ]);
 
   const pdf = new jsPDF("p", "mm", "a4");
@@ -457,21 +580,23 @@ async function downloadPdfFromHtml(html: string, fileName: string): Promise<void
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 10;
   const usableWidth = pageWidth - margin * 2;
-  const renderedHeight = (canvas.height * usableWidth) / canvas.width;
-  const imgData = canvas.toDataURL("image/png");
   const printableHeight = pageHeight - margin * 2;
+  let isFirstPage = true;
 
-  let remainingHeight = renderedHeight;
-  let offsetY = 0;
+  for (const canvas of canvases) {
+    const maxSliceHeight = Math.max(1, Math.floor((printableHeight * canvas.width) / usableWidth));
+    const pageCanvases = sliceCanvasForPdf(canvas, maxSliceHeight);
 
-  while (remainingHeight > 0) {
-    if (offsetY > 0) {
-      pdf.addPage();
+    for (const pageCanvas of pageCanvases) {
+      if (!isFirstPage) {
+        pdf.addPage();
+      }
+
+      const imgData = pageCanvas.toDataURL("image/png");
+      const renderedHeight = Math.min(printableHeight, (pageCanvas.height * usableWidth) / pageCanvas.width);
+      pdf.addImage(imgData, "PNG", margin, margin, usableWidth, renderedHeight, undefined, "FAST");
+      isFirstPage = false;
     }
-
-    pdf.addImage(imgData, "PNG", margin, margin - offsetY, usableWidth, renderedHeight);
-    remainingHeight -= printableHeight;
-    offsetY += printableHeight;
   }
 
   pdf.save(`${fileName}.pdf`);

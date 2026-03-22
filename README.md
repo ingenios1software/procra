@@ -86,6 +86,29 @@ firebase.cmd emulators:exec --only firestore "npm --prefix functions run seed:cl
 firebase deploy --only firestore:rules,firestore:indexes,functions
 ```
 
+## Integracion DNIT
+
+La consulta oficial a DNIT se hace desde Cloud Functions para no exponer la `apiKey` en el navegador.
+
+Configure el secreto en Firebase antes de desplegar:
+
+```bash
+firebase functions:secrets:set DNIT_API_KEY
+```
+
+Para pruebas locales con emuladores, tambien puede definir la variable de entorno antes de iniciar:
+
+```bash
+set DNIT_API_KEY=tu_api_key_dnit
+firebase emulators:start --only firestore,functions
+```
+
+Opcionalmente puede sobreescribir la URL del servicio si DNIT cambia el endpoint:
+
+```bash
+set DNIT_LOOKUP_URL=https://servicios.dnit.gov.py/eset-publico/consultaRucServiceREST/consultaRuc
+```
+
 ## Funcion principal
 
 - `liquidatePeriod` (callable):

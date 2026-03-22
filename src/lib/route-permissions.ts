@@ -40,6 +40,7 @@ export function getPermissionForPath(pathname: string): keyof Permisos | null {
   if (
     path.startsWith("/auditoria") ||
     path.startsWith("/admin") ||
+    path.startsWith("/guia-del-sistema") ||
     path.startsWith("/configuracion") ||
     path.startsWith("/acerca-de")
   ) {

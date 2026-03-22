@@ -117,7 +117,7 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
             <CardTitle>Listado de Parcelas</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[820px]">
+            <Table resizable className="min-w-[820px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Item NÂº</TableHead>

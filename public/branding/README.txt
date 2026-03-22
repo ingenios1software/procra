@@ -1,11 +1,11 @@
 Colocar aqui el logo corporativo para reportes imprimibles.
 
 Nombre esperado por defecto:
-- ingeniosoft95-logo.png
+- LOGO CRApro95.png
 - ingeniosoft95-logo.svg (fallback automatico)
 
 Ruta final:
-- /branding/ingeniosoft95-logo.png
+- /branding/LOGO%20CRApro95.png
 - /branding/ingeniosoft95-logo.svg
 
 Formatos recomendados:

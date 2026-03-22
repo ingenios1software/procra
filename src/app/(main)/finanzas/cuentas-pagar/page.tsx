@@ -438,7 +438,7 @@ export default function CuentasPagarPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[980px]">
+            <Table resizable className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Documento</TableHead>

@@ -187,7 +187,7 @@ export default function RentabilidadPage() {
             <CardDescription>Ingresos, costos y margen por cada cultivo.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[760px]">
+            <Table resizable className="min-w-[760px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Cultivo</TableHead>
@@ -232,7 +232,7 @@ export default function RentabilidadPage() {
             <CardDescription>Margen neto y margen por hectarea para cada lote.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[560px]">
+            <Table resizable className="min-w-[560px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Parcela</TableHead>

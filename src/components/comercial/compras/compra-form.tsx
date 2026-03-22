@@ -213,7 +213,7 @@ export function CompraForm({ compra, onCancel }: CompraFormProps) {
             </CardHeader>
             <CardContent>
                 <div className="overflow-x-auto -mx-1 px-1">
-                <Table>
+                <Table resizable>
                     <TableHeader><TableRow>
                         <TableHead className="w-[350px]">Insumo</TableHead>
                         <TableHead>Cantidad</TableHead>

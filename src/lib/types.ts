@@ -31,6 +31,31 @@ export type GeoJSONMultiPolygon = {
   coordinates: number[][][][];
 };
 
+export type DnitTaxpayerSnapshot = {
+  ruc: string;
+  dv: string;
+  documento: string;
+  razonSocial: string;
+  nombreComercial?: string;
+  estado?: string;
+  categoria?: string;
+  tipoPersona?: string;
+  tipoSociedad?: string;
+  mesCierre?: string;
+  rucAnterior?: string;
+  consultadoEn?: Date | string;
+  fuente: "dnit";
+};
+
+export type DnitCacheRecord = DnitTaxpayerSnapshot & {
+  alias?: string;
+  notas?: string;
+  searchName: string;
+  searchDocument: string;
+  searchText: string;
+  actualizadoEn?: Date | string | FieldValue;
+};
+
 export type ZafraData = {
   cultivo: string;
   color: string;
@@ -426,6 +451,7 @@ export type Proveedor = {
   fechaRegistro?: Date;
   creadoPor?: string;
   numeroItem?: number;
+  dnit?: DnitTaxpayerSnapshot;
 };
 
 export type Cliente = {
@@ -443,6 +469,7 @@ export type Cliente = {
   fechaRegistro?: Date;
   creadoPor?: string;
   numeroItem?: number;
+  dnit?: DnitTaxpayerSnapshot;
 };
 
 export type Compra = {
@@ -883,6 +910,7 @@ export type EmpresaSaaS = {
   nombre: string;
   slug?: string;
   activo: boolean;
+  dnit?: DnitTaxpayerSnapshot;
   perfil?: {
     razonSocial?: string;
     rubro?: string;

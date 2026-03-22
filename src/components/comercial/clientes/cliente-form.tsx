@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -9,12 +10,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import type { Cliente } from "@/lib/types";
+import type { Cliente, DnitTaxpayerSnapshot } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DnitLookupPanel } from "@/components/common/dnit-lookup-panel";
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { getDocs, limit, orderBy, query } from "firebase/firestore";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
+import { getDnitPrimaryName } from "@/lib/dnit";
 
 const formSchema = z.object({
   nombre: z.string().min(3, "El nombre es muy corto."),
@@ -39,6 +42,7 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const tenant = useTenantFirestore();
+  const [dnitData, setDnitData] = useState<DnitTaxpayerSnapshot | null>(cliente?.dnit || null);
   const form = useForm<ClienteFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: cliente || {
@@ -52,11 +56,15 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
   const handleSubmit = async (data: ClienteFormValues) => {
     const clientesCol = tenant.collection("clientes");
     if (!clientesCol) return;
+    const payload = {
+      ...data,
+      ...(dnitData ? { dnit: dnitData } : {}),
+    };
 
     if (cliente?.id) {
       const clienteRef = tenant.doc("clientes", cliente.id);
       if (!clienteRef) return;
-      updateDocumentNonBlocking(clienteRef, data);
+      updateDocumentNonBlocking(clienteRef, payload);
       toast({
         title: "Cliente actualizado",
         description: `El cliente ${data.nombre} fue guardado correctamente.`,
@@ -67,7 +75,7 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
       const maxNumeroItem = querySnapshot.empty ? 0 : Number(querySnapshot.docs[0].data().numeroItem || 0);
       const numeroItem = maxNumeroItem + 1;
 
-      addDocumentNonBlocking(clientesCol, { ...data, numeroItem });
+      addDocumentNonBlocking(clientesCol, { ...payload, numeroItem });
       toast({
         title: "Cliente creado",
         description: `El cliente ${data.nombre} (Item No ${numeroItem}) fue guardado.`,
@@ -75,6 +83,16 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
     }
 
     router.push("/comercial/clientes");
+  };
+
+  const handleApplyDnit = (taxpayer: DnitTaxpayerSnapshot) => {
+    setDnitData(taxpayer);
+    form.setValue("ruc", taxpayer.documento, { shouldDirty: true, shouldValidate: true });
+    form.setValue("nombre", getDnitPrimaryName(taxpayer), { shouldDirty: true, shouldValidate: true });
+    toast({
+      title: "Datos DNIT aplicados",
+      description: `Se cargaron los datos oficiales para ${taxpayer.documento}.`,
+    });
   };
 
   return (
@@ -110,6 +128,12 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
                 )}
               />
             </div>
+            <DnitLookupPanel
+              ruc={form.watch("ruc") || ""}
+              value={dnitData}
+              onApply={handleApplyDnit}
+              entityLabel="cliente"
+            />
             <FormField
               name="direccion"
               control={form.control}

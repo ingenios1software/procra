@@ -1,8 +1,10 @@
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { lookupDnitTaxpayer } from "./dnit";
 import { liquidatePeriodCore } from "./liquidation";
 export { createTenantCompany, createTenantUser, migrateLegacyDataToTenant } from "./tenants";
+export { lookupDnitTaxpayer };
 
 if (!getApps().length) {
   initializeApp();

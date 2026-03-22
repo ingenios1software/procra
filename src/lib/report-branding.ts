@@ -12,21 +12,24 @@ export type ReportBranding = {
   approvedBy?: string;
 };
 
+export const systemLogoSrc = "/branding/LOGO%20CRApro95.png";
+export const systemLogoFallbackSrcList = [
+  "/branding/ingeniosoft95-logo.svg",
+  "/branding/ingeniosoft95-logo.jpg",
+  "/branding/logo.png",
+  "/branding/logo.jpg",
+  "/branding/logo.svg",
+];
+
 export const defaultReportBranding: ReportBranding = {
-  logoSrc: "/branding/ingeniosoft95-logo.png",
-  logoFallbackSrcList: [
-    "/branding/ingeniosoft95-logo.svg",
-    "/branding/ingeniosoft95-logo.jpg",
-    "/branding/logo.png",
-    "/branding/logo.jpg",
-    "/branding/logo.svg",
-  ],
-  companyName: "IngenioSoft95",
-  legalName: "Sistema de Gestion Agricola",
+  logoSrc: systemLogoSrc,
+  logoFallbackSrcList: systemLogoFallbackSrcList,
+  companyName: "CRApro95",
+  legalName: "Control de Registro Agropecuario Profesional",
   ruc: "RUC: -",
   address: "Direccion: -",
   contact: "Contacto: -",
-  preparedBy: "Responsable RRHH",
+  preparedBy: "Equipo CRApro95",
   approvedBy: "Administracion",
 };
 

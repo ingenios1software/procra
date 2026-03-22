@@ -17,9 +17,18 @@ import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Parcela, Cultivo, Zafra, Evento, Insumo, Venta } from "@/lib/types";
+import type {
+  Parcela,
+  Cultivo,
+  Zafra,
+  Evento,
+  Insumo,
+  RegistroLluviaSector,
+  Venta,
+} from "@/lib/types";
 import { Bar, BarChart, CartesianGrid, ComposedChart, LabelList, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
+import { buildLluviaDistribuidaPorParcelaZafra } from "@/lib/lluvias";
 import { formatCurrency } from "@/lib/utils";
 
 interface InformeCostosParcelaProps {
@@ -28,6 +37,7 @@ interface InformeCostosParcelaProps {
   zafras: Zafra[];
   eventos: Evento[];
   insumos: Insumo[];
+  lluviasSector: RegistroLluviaSector[];
   ventas: Venta[];
   isLoading: boolean;
 }
@@ -39,6 +49,8 @@ interface CostoParcelaData {
     costoTotal: number;
     costoHa: number;
     rendimiento: number;
+    lluviaMm: number | null;
+    kgHaPorMm: number | null;
     costoPorTn: number;
     costoProductos: number;
     costoServicios: number;
@@ -83,7 +95,23 @@ function buildAxisDomain(values: number[]): [number, number] {
   return [Math.max(0, min - pad), max + pad];
 }
 
-export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insumos, ventas, isLoading }: InformeCostosParcelaProps) {
+function formatMetric(value?: number | null, digits = 2): string {
+  return Number(value || 0).toLocaleString("de-DE", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+export function InformeCostosParcela({
+  parcelas,
+  cultivos,
+  zafras,
+  eventos,
+  insumos,
+  lluviasSector,
+  ventas,
+  isLoading,
+}: InformeCostosParcelaProps) {
   const [selectedCultivoId, setSelectedCultivoId] = useState<string | null>(null);
   const [selectedZafraId, setSelectedZafraId] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -106,6 +134,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
     const zafraIdsDelCultivo = selectedCultivoId
       ? new Set(zafras.filter((z) => z.cultivoId === selectedCultivoId).map((z) => z.id))
       : null;
+    const selectedZafra = selectedZafraId
+      ? zafras.find((z) => z.id === selectedZafraId)
+      : undefined;
 
     const insumosPorId = new Map(insumos.map((insumo) => [insumo.id, insumo]));
 
@@ -123,6 +154,14 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
     const parcelasActivas = selectedZafraId
         ? parcelas.filter(p => eventos.some(e => e.parcelaId === p.id && e.zafraId === selectedZafraId))
         : parcelas;
+    const lluviaPorParcela = selectedZafraId
+      ? new Map(
+          buildLluviaDistribuidaPorParcelaZafra(
+            parcelasActivas,
+            lluviasSector.filter((registro) => registro.zafraId === selectedZafraId)
+          ).map((item) => [item.parcelaId, item.milimetros])
+        )
+      : new Map<string, number>();
 
     return parcelasActivas.map(parcela => {
         const eventosParcela = eventos.filter((e) => e.parcelaId === parcela.id && eventoPasaFiltro(e));
@@ -183,7 +222,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
         const costoServicios = breakdown.costoServicios;
         const costoHa = parcela.superficie > 0 ? costoTotal / parcela.superficie : 0;
 
-        const zafra = selectedZafraId ? zafras.find((z) => z.id === selectedZafraId) : undefined;
+        const zafra = selectedZafra;
         const cultivo = zafra?.cultivoId ? cultivos.find((c) => c.id === zafra.cultivoId) : undefined;
 
         const totalToneladaLikeDesdeEventos = eventosParcela
@@ -193,6 +232,9 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
 
         const totalKg = totalKgDesdeEventos;
         const rendimiento = parcela.superficie > 0 ? totalKg / parcela.superficie : 0;
+        const lluviaMm = selectedZafraId ? lluviaPorParcela.get(parcela.id) ?? 0 : null;
+        const kgHaPorMm =
+          lluviaMm !== null && lluviaMm > 0 ? rendimiento / lluviaMm : null;
         const totalToneladas = totalKg / 1000;
         const costoPorTn = totalToneladas > 0 ? costoTotal / totalToneladas : 0;
         
@@ -203,13 +245,24 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             costoTotal,
             costoHa,
             rendimiento,
+            lluviaMm,
+            kgHaPorMm,
             costoPorTn,
             costoProductos,
             costoServicios,
             eventos: eventosParcela.length
         }
     }).filter(item => item.costoTotal > 0);
-  }, [parcelas, cultivos, zafras, eventos, insumos, selectedCultivoId, selectedZafraId]);
+  }, [
+    parcelas,
+    cultivos,
+    zafras,
+    eventos,
+    insumos,
+    lluviasSector,
+    selectedCultivoId,
+    selectedZafraId,
+  ]);
 
    const columns: ColumnDef<CostoParcelaData>[] = [
     { accessorKey: "parcela.nombre", header: "Parcela" },
@@ -217,6 +270,24 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
     { accessorKey: "costoTotal", header: "Costo Total ($)", cell: ({ getValue }) => <div className="text-right font-semibold">${formatCurrency(getValue<number>())}</div> },
     { accessorKey: "costoHa", header: "Costo/ha ($)", cell: ({ getValue }) => <div className="text-right font-semibold">${formatCurrency(getValue<number>())}</div> },
     { accessorKey: "rendimiento", header: "Rendimiento (kg/ha)", cell: ({ getValue }) => <div className="text-right">{formatCurrency(getValue<number>())}</div> },
+    {
+      accessorKey: "lluviaMm",
+      header: "Lluvia (mm)",
+      cell: ({ row }) => (
+        <div className="text-right">
+          {row.original.lluviaMm === null ? "-" : formatMetric(row.original.lluviaMm, 1)}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "kgHaPorMm",
+      header: "kg/ha por mm",
+      cell: ({ row }) => (
+        <div className="text-right">
+          {row.original.kgHaPorMm === null ? "-" : formatMetric(row.original.kgHaPorMm, 2)}
+        </div>
+      ),
+    },
     { accessorKey: "costoPorTn", header: "Costo/tn ($)", cell: ({ getValue }) => <div className="text-right text-primary font-bold">${formatCurrency(getValue<number>())}</div> },
     { accessorKey: "eventos", header: "N° Eventos", cell: ({ getValue }) => <div className="text-center">{getValue<number>()}</div> },
   ];
@@ -237,12 +308,23 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
     () => buildAxisDomain(data.map((item) => Number(item.rendimiento) || 0)),
     [data]
   );
+  const lluviaDomain = useMemo(
+    () => buildAxisDomain(data.map((item) => Number(item.lluviaMm) || 0)),
+    [data]
+  );
   const shareSummary = useMemo(() => {
     const costoTotal = data.reduce((sum, item) => sum + (item.costoTotal || 0), 0);
-    return `Parcelas analizadas: ${data.length} | Costo total: $${formatCurrency(costoTotal)}.`;
-  }, [data]);
+    const lluviaPromedio =
+      selectedZafraId && data.length > 0
+        ? data.reduce((sum, item) => sum + (item.lluviaMm || 0), 0) / data.length
+        : null;
+    return `Parcelas analizadas: ${data.length} | Costo total: $${formatCurrency(costoTotal)}${
+      lluviaPromedio !== null ? ` | Lluvia prom.: ${formatMetric(lluviaPromedio, 1)} mm` : ""
+    }.`;
+  }, [data, selectedZafraId]);
   const costoColor = COMPARATIVE_CHART_COLORS.costo;
   const rendimientoColor = COMPARATIVE_CHART_COLORS.rendimiento;
+  const lluviaColor = "hsl(var(--chart-2))";
   const insumosColor = COMPARATIVE_CHART_COLORS.insumos;
   const serviciosColor = COMPARATIVE_CHART_COLORS.servicios;
   const formatPercent = (value: unknown): string => `${Math.round((Number(value) || 0) * 100)}%`;
@@ -286,7 +368,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
       </Card>
       
       <div className="border rounded-lg">
-        <Table>
+        <Table resizable>
           <TableHeader>
             {table.getHeaderGroups().map(headerGroup => (
               <TableRow key={headerGroup.id}>
@@ -313,7 +395,7 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
         </Table>
       </div>
 
-       <div className="grid md:grid-cols-2 gap-6 mt-6">
+      <div className="grid md:grid-cols-2 gap-6 mt-6">
         <Card>
           <CardHeader><CardTitle>Eficiencia: Costo/ha vs Rendimiento</CardTitle></CardHeader>
           <CardContent>
@@ -448,6 +530,85 @@ export function InformeCostosParcela({ parcelas, cultivos, zafras, eventos, insu
             </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Lluvia vs Rendimiento</CardTitle>
+          <CardDescription>
+            Compara la lluvia acumulada por parcela dentro de la zafra con el
+            rendimiento obtenido.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!selectedZafraId ? (
+            <div className="flex h-[320px] items-center justify-center text-center text-muted-foreground">
+              Seleccione una zafra para ver la lluvia acumulada por parcela.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={320}>
+              <ComposedChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="parcela.nombre" tickLine={false} />
+                <YAxis
+                  yAxisId="left"
+                  orientation="left"
+                  stroke={lluviaColor}
+                  domain={lluviaDomain}
+                  tick={{ fill: lluviaColor }}
+                  tickLine={false}
+                  axisLine={{ stroke: lluviaColor }}
+                  tickFormatter={(value) => `${formatMetric(Number(value) || 0, 1)} mm`}
+                  label={{ value: "Lluvia (mm)", angle: -90, position: "insideLeft" }}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke={rendimientoColor}
+                  domain={rendimientoDomain}
+                  tick={{ fill: rendimientoColor }}
+                  tickLine={false}
+                  axisLine={{ stroke: rendimientoColor }}
+                  tickFormatter={(value) => `${formatMetric(Number(value) || 0, 0)} kg/ha`}
+                  label={{ value: "Rendimiento (kg/ha)", angle: 90, position: "insideRight" }}
+                />
+                <Tooltip
+                  formatter={(value, name) => {
+                    const numeric = Number(value) || 0;
+                    if (name === "Lluvia") {
+                      return [`${formatMetric(numeric, 1)} mm`, "Lluvia"];
+                    }
+                    if (name === "Rendimiento") {
+                      return [`${formatMetric(numeric, 0)} kg/ha`, "Rendimiento"];
+                    }
+                    return [formatMetric(numeric), String(name)];
+                  }}
+                />
+                <Legend />
+                <Bar
+                  yAxisId="left"
+                  dataKey="lluviaMm"
+                  name="Lluvia"
+                  fill={lluviaColor}
+                  fillOpacity={0.5}
+                  stroke={lluviaColor}
+                  strokeWidth={1}
+                  maxBarSize={56}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="rendimiento"
+                  name="Rendimiento"
+                  stroke={rendimientoColor}
+                  strokeWidth={3}
+                  dot={{ r: 4, strokeWidth: 2, stroke: rendimientoColor, fill: "hsl(var(--background))" }}
+                  activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(var(--background))", fill: rendimientoColor }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 }

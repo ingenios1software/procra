@@ -129,7 +129,7 @@ export function CostosList() {
               <CardDescription>Analisis de costos totales y por hectarea para cada lote.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table className="min-w-[640px]">
+              <Table resizable className="min-w-[640px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Parcela</TableHead>
@@ -178,7 +178,7 @@ export function CostosList() {
             <CardTitle>Listado Detallado de Costos</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[860px]">
+            <Table resizable className="min-w-[860px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>

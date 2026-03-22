@@ -245,8 +245,8 @@ export default function DashboardPage() {
   if (!user) {
     return (
       <>
-        <PageHeader title="Dashboard de Monitoreo" description="Vista general de la zafra activa.">
-          <ReportActions reportTitle="Dashboard de Monitoreo" reportSummary={shareSummary} />
+        <PageHeader title="Inicio" description="Vista principal del sistema y de la zafra activa.">
+          <ReportActions reportTitle="Inicio" reportSummary={shareSummary} />
         </PageHeader>
         <Card className="flex items-center justify-center h-48 border-dashed">
           <p className="text-muted-foreground">Iniciando sesion para cargar datos del dashboard...</p>
@@ -259,8 +259,8 @@ export default function DashboardPage() {
   if (!zafraActiva) {
     return (
       <>
-        <PageHeader title="Dashboard de Monitoreo" description="Vista general de la zafra activa.">
-          <ReportActions reportTitle="Dashboard de Monitoreo" reportSummary={shareSummary} />
+        <PageHeader title="Inicio" description="Vista principal del sistema y de la zafra activa.">
+          <ReportActions reportTitle="Inicio" reportSummary={shareSummary} />
         </PageHeader>
         <Card className="flex items-center justify-center h-48 border-dashed">
           <p className="text-muted-foreground">
@@ -275,10 +275,10 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        title="Dashboard de Monitoreo"
-        description={`Resumen de la zafra activa: ${zafraActiva.nombre || "N/A"}`}
+        title="Inicio"
+        description={`Resumen operativo de la zafra activa: ${zafraActiva.nombre || "N/A"}`}
       >
-        <ReportActions reportTitle="Dashboard de Monitoreo" reportSummary={shareSummary} />
+        <ReportActions reportTitle="Inicio" reportSummary={shareSummary} />
       </PageHeader>
 
       {dataScopeLabel ? <p className="mb-4 text-sm text-muted-foreground">{dataScopeLabel}</p> : null}

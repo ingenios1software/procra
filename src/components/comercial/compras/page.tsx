@@ -65,7 +65,7 @@ export default function ComprasPage() {
           <CardTitle>Listado de Compras</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table className="min-w-[980px]">
+          <Table resizable className="min-w-[980px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>

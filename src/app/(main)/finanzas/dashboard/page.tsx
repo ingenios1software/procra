@@ -434,7 +434,7 @@ export default function DashboardFinancieroPage() {
         </CardHeader>
         <CardContent>
           {rentabilidadPorParcela.length > 0 ? (
-            <Table className="min-w-[560px]">
+            <Table resizable className="min-w-[560px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Parcela</TableHead>

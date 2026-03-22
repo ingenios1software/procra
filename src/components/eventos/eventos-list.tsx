@@ -433,7 +433,7 @@ export function EventosList({ eventos, parcelas, zafras, cultivos, isLoading }: 
             </div>
 
             <div className="border-t pt-4">
-              <Table className="min-w-[980px]">
+              <Table resizable className="min-w-[980px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item NÂº</TableHead>

@@ -1,6 +1,8 @@
+import Image from "next/image";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { defaultReportBranding, systemLogoSrc } from "@/lib/report-branding";
 import { CheckCircle, Zap } from "lucide-react";
 
 export default function AcercaDePage() {
@@ -16,15 +18,33 @@ export default function AcercaDePage() {
         <ReportActions
           reportTitle="Acerca de CRApro95"
           reportSummary={shareSummary}
+          printTargetId="acerca-share-content"
           imageTargetId="acerca-share-content"
+          branding={defaultReportBranding}
         />
       </PageHeader>
       <div id="acerca-share-content" className="max-w-4xl mx-auto space-y-8">
         <Card>
-          <CardHeader>
-            <CardTitle className="font-headline text-2xl text-primary">
-              CRApro95 - Control de Registro Agropecuario Profesional
-            </CardTitle>
+          <CardHeader className="gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-3">
+              <CardTitle className="font-headline text-2xl text-primary">
+                CRApro95 - Control de Registro Agropecuario Profesional
+              </CardTitle>
+              <p className="max-w-2xl text-base text-muted-foreground">
+                Plataforma pensada para registrar, ordenar y analizar la operacion agropecuaria con una vision integrada
+                del negocio.
+              </p>
+            </div>
+            <div className="w-full max-w-xs rounded-2xl border bg-white p-4 shadow-sm">
+              <Image
+                src={systemLogoSrc}
+                alt="Logo CRApro95"
+                width={500}
+                height={180}
+                priority
+                className="h-auto w-full object-contain"
+              />
+            </div>
           </CardHeader>
           <CardContent className="space-y-4 text-lg text-foreground/80">
             <p className="leading-relaxed">

@@ -340,7 +340,7 @@ export default function ComprasPage() {
           <CardTitle>Listado de Facturas</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table className="min-w-[1100px]">
+          <Table resizable className="min-w-[1100px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Código</TableHead>

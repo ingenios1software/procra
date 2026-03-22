@@ -120,7 +120,7 @@ export const VentaForm = React.memo(({ venta, onSubmit, onCancel, cultivos, zafr
             <FormField control={form.control} name="formaPago" render={({ field }) => ( <FormItem><FormLabel>Forma de Pago</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Contado">Contado</SelectItem><SelectItem value="Transferencia">Transferencia</SelectItem><SelectItem value="Crédito">Crédito</SelectItem></SelectContent></Select><FormMessage/></FormItem> )}/>
         </div>
         
-        <Table>
+        <Table resizable>
             <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead className="text-right">Subtotal</TableHead><TableHead></TableHead></TableRow></TableHeader>
             <TableBody>
                 {fields.map((field, index) => {

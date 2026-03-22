@@ -178,10 +178,10 @@ export default function DashboardGeneralPage() {
   return (
     <>
       <PageHeader
-        title="Bienvenido a CRApro95"
-        description="Sistema integral de gestion agricola para parcelas, cultivos, eventos y zafras."
+        title="Inicio General"
+        description="Resumen general del sistema para parcelas, cultivos, eventos y zafras."
       >
-        <ReportActions reportTitle="Dashboard General" reportSummary={shareSummary} />
+        <ReportActions reportTitle="Inicio General" reportSummary={shareSummary} />
       </PageHeader>
       <div id="pdf-area" className="print-area">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -342,7 +342,7 @@ export default function DashboardGeneralPage() {
           </CardHeader>
           <CardContent>
             {alertasParcelas.length > 0 ? (
-              <Table className="min-w-[420px]">
+              <Table resizable className="min-w-[420px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Parcela</TableHead>

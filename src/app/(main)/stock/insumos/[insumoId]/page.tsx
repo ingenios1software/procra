@@ -290,7 +290,7 @@ export default function FichaInsumoPage({ params }: { params: { insumoId: string
             )}
         </CardHeader>
         <CardContent>
-            <Table>
+            <Table resizable>
                 <TableHeader>
                     <TableRow>
                         <TableHead>Fecha</TableHead>

@@ -38,9 +38,10 @@ import {
   Wallet,
   Building,
   BookOpenCheck,
-  Droplets,
   Clock3,
   ArrowLeftRight,
+  Database,
+  Droplets,
 } from "lucide-react"
 import {
   Accordion,
@@ -183,13 +184,15 @@ const navItems: NavSection[] = [
     icon: Cog,
     links: [
       { href: "/configuracion/inicial", icon: BookOpenCheck, label: "Checklist Inicial", permission: "administracion" },
-      { href: "/dashboard/general", icon: AreaChart, label: "Dashboard General", permission: "administracion" },
+      { href: "/dashboard/general", icon: AreaChart, label: "Inicio General", permission: "administracion" },
       { href: "/usuarios", icon: Users, label: "Usuarios", permission: "usuarios" },
       { href: "/roles", icon: Shield, label: "Roles", permission: "roles" },
       { href: "/auditoria", icon: History, label: "Auditoría", permission: "administracion" },
       { href: "/admin", icon: Wrench, label: "Herramientas", permission: "administracion" },
       { href: "/configuracion", icon: Settings, label: "Configuración", permission: "administracion" },
       { href: "/configuracion/comercial", icon: Wallet, label: "Empresa / SaaS", permission: "administracion" },
+      { href: "/configuracion/dnit", icon: Database, label: "Caché DNIT", permission: "administracion" },
+      { href: "/guia-del-sistema", icon: FileText, label: "Guia del Sistema", permission: "administracion" },
       { href: "/acerca-de", icon: Info, label: "Acerca de", permission: "administracion" },
     ],
   },
@@ -274,7 +277,7 @@ export function Sidebar({ isMobile, onLinkClick }: { isMobile?: boolean; onLinkC
       >
         <Link href="/dashboard">
           <LayoutDashboard className="h-5 w-5" />
-          {!finalIsCollapsed && <span className="ml-4">Dashboard</span>}
+          {!finalIsCollapsed && <span className="ml-4">Inicio</span>}
         </Link>
       </Button>
 

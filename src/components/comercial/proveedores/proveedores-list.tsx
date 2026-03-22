@@ -84,7 +84,7 @@ export function ProveedoresList({ proveedores, isLoading }: ProveedoresListProps
             <CardTitle>Listado de Proveedores</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[820px]">
+            <Table resizable className="min-w-[820px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Item No</TableHead>

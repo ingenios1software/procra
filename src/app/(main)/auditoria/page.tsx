@@ -316,7 +316,7 @@ export default function AuditoriaPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[1120px]">
+            <Table resizable className="min-w-[1120px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>

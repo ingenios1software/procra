@@ -114,7 +114,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
             </CardHeader>
             <CardContent>
                 <div className="overflow-x-auto">
-                    <Table>
+                    <Table resizable>
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-12"></TableHead>

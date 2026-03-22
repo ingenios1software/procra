@@ -207,7 +207,7 @@ export function VentasList({
             <CardTitle>Listado de Ventas</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[760px]">
+            <Table resizable className="min-w-[760px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>

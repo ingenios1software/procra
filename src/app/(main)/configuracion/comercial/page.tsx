@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { DnitLookupPanel } from "@/components/common/dnit-lookup-panel";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,8 +15,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenantSelection } from "@/hooks/use-tenant-selection";
 import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
-import type { EmpresaSaaS, EstadoSuscripcionSaaS, ModeloCobroSaaS, Permisos, PlanSaaS } from "@/lib/types";
+import type {
+  DnitTaxpayerSnapshot,
+  EmpresaSaaS,
+  EstadoSuscripcionSaaS,
+  ModeloCobroSaaS,
+  Permisos,
+  PlanSaaS,
+} from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { getDnitPrimaryName } from "@/lib/dnit";
 import { normalizePermisos, toDateSafe } from "@/lib/suscripcion-saas";
 import { buildEmpresaBasePayload, buildTenantRoleSeeds, tenantDoc } from "@/lib/tenant";
 
@@ -135,6 +145,7 @@ export default function ConfiguracionComercialPage() {
   const [demoHabilitado, setDemoHabilitado] = useState("si");
   const [demoFin, setDemoFin] = useState("");
   const [modulos, setModulos] = useState<Permisos>(DEFAULT_MODULES);
+  const [dnitData, setDnitData] = useState<DnitTaxpayerSnapshot | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingEmpresa, setIsCreatingEmpresa] = useState(false);
 
@@ -172,6 +183,7 @@ export default function ConfiguracionComercialPage() {
     setProximoCobro(toInputDate(empresa.suscripcion?.proximoCobro));
     setDemoHabilitado(empresa.demo?.habilitado ? "si" : "no");
     setDemoFin(toInputDate(empresa.demo?.fin));
+    setDnitData(empresa.dnit || null);
     setModulos(normalizePermisos({
       ...DEFAULT_MODULES,
       ...(empresa.modulos || {}),
@@ -264,6 +276,7 @@ export default function ConfiguracionComercialPage() {
         {
           nombre: nombre.trim(),
           activo: true,
+          ...(dnitData ? { dnit: dnitData } : {}),
           perfil: {
             razonSocial: toOptionalText(perfil.razonSocial),
             rubro: toOptionalText(perfil.rubro),
@@ -315,12 +328,30 @@ export default function ConfiguracionComercialPage() {
     }
   };
 
+  const handleApplyDnit = (taxpayer: DnitTaxpayerSnapshot) => {
+    setDnitData(taxpayer);
+    setNombre(getDnitPrimaryName(taxpayer) || taxpayer.documento);
+    setPerfil((prev) => ({
+      ...prev,
+      razonSocial: taxpayer.razonSocial || prev.razonSocial,
+      ruc: taxpayer.documento,
+    }));
+    toast({
+      title: "Datos DNIT aplicados",
+      description: `La ficha fiscal fue actualizada con ${taxpayer.documento}.`,
+    });
+  };
+
   return (
     <>
       <PageHeader
         title="Empresa y Configuracion Comercial"
         description="Registre la empresa cliente, sus datos fiscales y el esquema comercial del sistema."
-      />
+      >
+        <Button asChild variant="outline">
+          <Link href="/configuracion/dnit">Administrar cache DNIT</Link>
+        </Button>
+      </PageHeader>
 
       <div className="space-y-6">
         {accessWarning && (
@@ -439,6 +470,13 @@ export default function ConfiguracionComercialPage() {
                     />
                   </div>
                 </div>
+
+                <DnitLookupPanel
+                  ruc={perfil.ruc || ""}
+                  value={dnitData}
+                  onApply={handleApplyDnit}
+                  entityLabel="empresa"
+                />
 
                 <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
                   <div className="space-y-2">

@@ -138,7 +138,7 @@ export function ZafrasList({ initialZafras, isLoading }: ZafrasListProps) {
             <CardTitle>Listado de Zafras</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table className="min-w-[900px]">
+            <Table resizable className="min-w-[900px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Item NÂº</TableHead>

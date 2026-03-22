@@ -1754,7 +1754,7 @@ export function ControlHorarioList({
               </div>
             </div>
             <div className="overflow-x-auto rounded-xl border border-border/70 bg-background">
-              <Table className="min-w-[1280px] text-xs md:text-sm">
+              <Table resizable className="min-w-[1280px] text-xs md:text-sm">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className={tableHeadClass}>LOCAL</TableHead>
