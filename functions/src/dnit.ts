@@ -1,11 +1,28 @@
-import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { getApps, initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import * as logger from "firebase-functions/logger";
 import { defineSecret } from "firebase-functions/params";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
+
+if (!getApps().length) {
+  initializeApp();
+}
+
+const db = getFirestore();
 
 const DNIT_API_KEY = defineSecret("DNIT_API_KEY");
 const DEFAULT_DNIT_LOOKUP_URL =
   "https://servicios.dnit.gov.py/eset-publico/consultaRucServiceREST/consultaRuc";
+const MOCK_DNIT_API_KEY = "test_key";
 
 type DnitRawPayload = Record<string, unknown>;
+type DnitRequestedDocument = { ruc: string; dv: string; documento: string };
+type DnitLookupResponse = {
+  taxpayer: DnitTaxpayerResult;
+  degraded?: boolean;
+  source?: "dnit" | "cache" | "mock";
+  warning?: string;
+};
 
 type DnitTaxpayerResult = {
   ruc: string;
@@ -37,7 +54,7 @@ function firstString(payload: DnitRawPayload, keys: string[]): string | undefine
   return undefined;
 }
 
-function parseRucInput(rawValue: unknown): { ruc: string; dv: string; documento: string } {
+function parseRucInput(rawValue: unknown): DnitRequestedDocument {
   const raw = typeof rawValue === "string" ? rawValue.trim() : "";
   if (!raw) {
     throw new HttpsError("invalid-argument", "Debes indicar un RUC valido.");
@@ -78,7 +95,7 @@ function resolvePayload(raw: unknown): DnitRawPayload {
 
 function buildTaxpayerResult(
   payload: DnitRawPayload,
-  requested: { ruc: string; dv: string; documento: string }
+  requested: DnitRequestedDocument
 ): DnitTaxpayerResult {
   const ruc = firstString(payload, ["ruc"]) || requested.ruc;
   const dv = firstString(payload, ["dv"]) || requested.dv;
@@ -126,6 +143,18 @@ function extractRemoteError(raw: unknown, fallback: string): string {
   return fallback;
 }
 
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error.trim() || "Error inesperado.";
+  }
+
+  return "Error inesperado.";
+}
+
 function resolveApiKey(): string {
   const fromEnv = process.env.DNIT_API_KEY?.trim();
   if (fromEnv) return fromEnv;
@@ -140,16 +169,113 @@ function resolveApiKey(): string {
   return "";
 }
 
-export const lookupDnitTaxpayer = onCall({ secrets: [DNIT_API_KEY] }, async (request) => {
+function isMockApiKey(apiKey: string): boolean {
+  return apiKey.trim().toLowerCase() === MOCK_DNIT_API_KEY;
+}
+
+function buildMockTaxpayer(requested: DnitRequestedDocument): DnitTaxpayerResult {
+  return {
+    ruc: requested.ruc,
+    dv: requested.dv,
+    documento: requested.documento,
+    razonSocial: `Contribuyente Mock ${requested.documento}`,
+    nombreComercial: "DNIT Mock",
+    estado: "MOCK",
+    categoria: "TEST",
+    tipoPersona: "SIMULADO",
+    consultadoEn: new Date().toISOString(),
+    fuente: "dnit",
+  };
+}
+
+async function findCachedTaxpayer(
+  uid: string,
+  requested: DnitRequestedDocument
+): Promise<DnitTaxpayerResult | null> {
+  try {
+    const userSnap = await db.doc(`usuarios/${uid}`).get();
+    const empresaId = toTrimmedString(userSnap.get("empresaId"));
+    if (!empresaId) {
+      return null;
+    }
+
+    const cacheSnap = await db.doc(`empresas/${empresaId}/dnitContribuyentes/${requested.documento}`).get();
+    if (!cacheSnap.exists) {
+      return null;
+    }
+
+    return buildTaxpayerResult(cacheSnap.data() ?? {}, requested);
+  } catch (error) {
+    logger.warn("DNIT cache lookup failed", {
+      uid,
+      documento: requested.documento,
+      error: describeError(error),
+    });
+    return null;
+  }
+}
+
+async function buildCachedFallbackResponse(
+  uid: string,
+  requested: DnitRequestedDocument,
+  warning: string,
+  reason: unknown
+): Promise<DnitLookupResponse | null> {
+  const cached = await findCachedTaxpayer(uid, requested);
+  if (!cached) {
+    return null;
+  }
+
+  logger.warn("DNIT lookup degraded to cache", {
+    uid,
+    documento: requested.documento,
+    warning,
+    reason: describeError(reason),
+  });
+
+  return {
+    taxpayer: cached,
+    degraded: true,
+    source: "cache",
+    warning,
+  };
+}
+
+export const lookupDnitTaxpayer = onCall({ secrets: [DNIT_API_KEY] }, async (request): Promise<DnitLookupResponse> => {
   try {
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Debes iniciar sesion para consultar DNIT.");
     }
 
+    const uid = request.auth.uid;
     const requested = parseRucInput(request.data?.ruc);
     const apiKey = resolveApiKey();
 
+    if (isMockApiKey(apiKey)) {
+      logger.info("DNIT lookup served in mock mode", {
+        uid,
+        documento: requested.documento,
+      });
+
+      return {
+        taxpayer: buildMockTaxpayer(requested),
+        degraded: true,
+        source: "mock",
+        warning: "La integracion DNIT esta en modo mock (test_key).",
+      };
+    }
+
     if (!apiKey) {
+      const fallback = await buildCachedFallbackResponse(
+        uid,
+        requested,
+        "La integracion DNIT no esta configurada. Se uso la cache local.",
+        "missing_api_key"
+      );
+      if (fallback) {
+        return fallback;
+      }
+
       throw new HttpsError(
         "failed-precondition",
         "La integracion con DNIT no esta configurada. Defina DNIT_API_KEY y reinicie o despliegue Firebase Functions."
@@ -161,9 +287,19 @@ export const lookupDnitTaxpayer = onCall({ secrets: [DNIT_API_KEY] }, async (req
       const lookupUrl = process.env.DNIT_LOOKUP_URL?.trim() || DEFAULT_DNIT_LOOKUP_URL;
       url = new URL(lookupUrl);
     } catch (error) {
+      const fallback = await buildCachedFallbackResponse(
+        uid,
+        requested,
+        "La URL de DNIT no es valida. Se uso la cache local.",
+        error
+      );
+      if (fallback) {
+        return fallback;
+      }
+
       throw new HttpsError(
         "failed-precondition",
-        `La URL de DNIT no es valida. ${error instanceof Error ? error.message : "Error inesperado."}`
+        `La URL de DNIT no es valida. ${describeError(error)}`
       );
     }
 
@@ -179,9 +315,19 @@ export const lookupDnitTaxpayer = onCall({ secrets: [DNIT_API_KEY] }, async (req
         },
       });
     } catch (error) {
+      const fallback = await buildCachedFallbackResponse(
+        uid,
+        requested,
+        "DNIT no respondio. Se uso la cache local.",
+        error
+      );
+      if (fallback) {
+        return fallback;
+      }
+
       throw new HttpsError(
         "unavailable",
-        `No se pudo conectar con DNIT. ${error instanceof Error ? error.message : "Error inesperado."}`
+        `No se pudo conectar con DNIT. ${describeError(error)}`
       );
     }
 
@@ -202,19 +348,64 @@ export const lookupDnitTaxpayer = onCall({ secrets: [DNIT_API_KEY] }, async (req
       }
 
       if (response.status === 401 || response.status === 403) {
+        const fallback = await buildCachedFallbackResponse(
+          uid,
+          requested,
+          "DNIT rechazo la consulta. Se uso la cache local.",
+          detail
+        );
+        if (fallback) {
+          return fallback;
+        }
+
         throw new HttpsError(
           "permission-denied",
           `DNIT rechazo la consulta. Revise la apiKey configurada. ${detail}`
         );
       }
 
+      const fallback = await buildCachedFallbackResponse(
+        uid,
+        requested,
+        "DNIT no pudo responder la consulta. Se uso la cache local.",
+        detail
+      );
+      if (fallback) {
+        return fallback;
+      }
+
       throw new HttpsError("unavailable", `DNIT no pudo responder la consulta. ${detail}`);
     }
 
-    const payload = resolvePayload(parsedBody);
-    const taxpayer = buildTaxpayerResult(payload, requested);
+    try {
+      const payload = resolvePayload(parsedBody);
+      const taxpayer = buildTaxpayerResult(payload, requested);
 
-    return { taxpayer };
+      return { taxpayer, source: "dnit" };
+    } catch (error) {
+      if (error instanceof HttpsError && error.code === "not-found") {
+        throw error;
+      }
+
+      const fallback = await buildCachedFallbackResponse(
+        uid,
+        requested,
+        "DNIT devolvio una respuesta invalida. Se uso la cache local.",
+        error
+      );
+      if (fallback) {
+        return fallback;
+      }
+
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+
+      throw new HttpsError(
+        "unavailable",
+        `La respuesta de DNIT no pudo procesarse. ${describeError(error)}`
+      );
+    }
   } catch (error) {
     if (error instanceof HttpsError) {
       throw error;
@@ -222,7 +413,7 @@ export const lookupDnitTaxpayer = onCall({ secrets: [DNIT_API_KEY] }, async (req
 
     throw new HttpsError(
       "internal",
-      `La consulta DNIT fallo antes de completarse. ${error instanceof Error ? error.message : "Error inesperado."}`
+      `La consulta DNIT fallo antes de completarse. ${describeError(error)}`
     );
   }
 });

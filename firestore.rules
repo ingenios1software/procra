@@ -47,14 +47,19 @@ service cloud.firestore {
       return get(currentTenantRolePath(empresaId)).data;
     }
 
+    function companyIsActive(empresaId) {
+      return get(/databases/$(database)/documents/empresas/$(empresaId)).data.activo == true;
+    }
+
     function canReadEmpresa(empresaId) {
-      return isPlatformAdmin() || (isSameEmpresa(empresaId) && currentUser().activo == true);
+      return isPlatformAdmin() || (isSameEmpresa(empresaId) && currentUser().activo == true && companyIsActive(empresaId));
     }
 
     function canManageEmpresa(empresaId) {
       return isPlatformAdmin() || (
         isSameEmpresa(empresaId) &&
         currentUser().activo == true &&
+        companyIsActive(empresaId) &&
         (
           currentUser().rolNombre == "admin" ||
           currentUser().rolId == "admin" ||
@@ -93,6 +98,7 @@ service cloud.firestore {
       return canManageEmpresa(empresaId) || (
         isSameEmpresa(empresaId) &&
         currentUser().activo == true &&
+        companyIsActive(empresaId) &&
         !isLegacyTenantReadOnlyRole() &&
         (
           (hasCurrentTenantRole(empresaId) && currentTenantRole(empresaId).soloLectura != true) ||

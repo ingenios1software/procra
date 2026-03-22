@@ -3,6 +3,7 @@ import { getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore, type DocumentData } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { seedTenantDemoDataCore } from "./tenant-demo";
 
 if (!getApps().length) {
   initializeApp();
@@ -140,6 +141,15 @@ const LEGACY_TENANT_COLLECTIONS = [
   "recibosPagoEmpleado",
 ];
 
+const TENANT_COMPANY_COLLECTIONS = Array.from(
+  new Set([
+    ...LEGACY_TENANT_COLLECTIONS,
+    "lluviasSector",
+    "notasCreditoFinancieras",
+    "dnitContribuyentes",
+  ])
+);
+
 type AppUser = {
   empresaId?: string;
   rolId?: string;
@@ -229,6 +239,17 @@ async function assertEmailAvailable(email: string): Promise<void> {
 async function getRequesterProfile(uid: string): Promise<AppUser | null> {
   const snap = await db.doc(`usuarios/${uid}`).get();
   return snap.exists ? (snap.data() as AppUser) : null;
+}
+
+async function assertPlatformAdminAccess(
+  request: CallableAuthRequest
+): Promise<{ uid: string; profile: AppUser | null }> {
+  const { uid } = assertAuthenticated(request);
+  const profile = await getRequesterProfile(uid);
+  if (!isPlatformAdminRequest(request, profile)) {
+    throw new HttpsError("permission-denied", "Solo un administrador de plataforma puede gestionar empresas.");
+  }
+  return { uid, profile };
 }
 
 function isPlatformAdminRequest(request: CallableAuthRequest, profile: AppUser | null): boolean {
@@ -455,6 +476,133 @@ function buildEmpresaPayload(data: Record<string, unknown>) {
   };
 }
 
+async function batchWriteDocs(
+  docs: Array<{ ref: FirebaseFirestore.DocumentReference; data?: Record<string, unknown>; mode: "set" | "update" | "delete" }>
+): Promise<void> {
+  let batch = db.batch();
+  let writes = 0;
+
+  for (const item of docs) {
+    if (item.mode === "delete") {
+      batch.delete(item.ref);
+    } else if (item.mode === "update") {
+      batch.update(item.ref, item.data || {});
+    } else {
+      batch.set(item.ref, item.data || {}, { merge: true });
+    }
+
+    writes += 1;
+    if (writes >= 400) {
+      await batch.commit();
+      batch = db.batch();
+      writes = 0;
+    }
+  }
+
+  if (writes > 0) {
+    await batch.commit();
+  }
+}
+
+async function syncTenantAuthUsers(empresaId: string, activo: boolean): Promise<number> {
+  const usersSnap = await db.collection("usuarios").where("empresaId", "==", empresaId).get();
+  const tenantUsers = usersSnap.docs.filter((doc) => doc.get("esSuperAdmin") !== true);
+
+  for (const userDoc of tenantUsers) {
+    try {
+      await adminAuth.updateUser(userDoc.id, { disabled: !activo });
+    } catch (error) {
+      const code = getAuthErrorCode(error);
+      if (code === "auth/user-not-found") continue;
+      throw toAuthHttpsError(
+        error,
+        `No se pudo ${activo ? "activar" : "desactivar"} uno de los usuarios de la empresa.`
+      );
+    }
+  }
+
+  await batchWriteDocs(
+    tenantUsers.map((userDoc) => ({
+      ref: userDoc.ref,
+      mode: "update" as const,
+      data: {
+        activo,
+        actualizadoEn: FieldValue.serverTimestamp(),
+      },
+    }))
+  );
+
+  return tenantUsers.length;
+}
+
+async function deleteTenantAuthUsers(empresaId: string): Promise<{ deletedUsers: number; preservedUsers: number }> {
+  const usersSnap = await db.collection("usuarios").where("empresaId", "==", empresaId).get();
+  const tenantUsers = usersSnap.docs.filter((doc) => doc.get("esSuperAdmin") !== true);
+  const platformUsers = usersSnap.docs.filter((doc) => doc.get("esSuperAdmin") === true);
+
+  for (const userDoc of tenantUsers) {
+    try {
+      await adminAuth.deleteUser(userDoc.id);
+    } catch (error) {
+      const code = getAuthErrorCode(error);
+      if (code === "auth/user-not-found") continue;
+      throw toAuthHttpsError(error, "No se pudo eliminar uno de los usuarios de la empresa.");
+    }
+  }
+
+  await batchWriteDocs([
+    ...tenantUsers.map((userDoc) => ({
+      ref: userDoc.ref,
+      mode: "delete" as const,
+    })),
+    ...platformUsers.map((userDoc) => ({
+      ref: userDoc.ref,
+      mode: "update" as const,
+      data: {
+        empresaId: FieldValue.delete(),
+        rolId: FieldValue.delete(),
+        rolNombre: FieldValue.delete(),
+        actualizadoEn: FieldValue.serverTimestamp(),
+      },
+    })),
+  ]);
+
+  return {
+    deletedUsers: tenantUsers.length,
+    preservedUsers: platformUsers.length,
+  };
+}
+
+async function deleteTenantCollectionDocs(empresaId: string, collectionName: string): Promise<number> {
+  const collectionRef = db.collection(`empresas/${empresaId}/${collectionName}`);
+  const snap = await collectionRef.get();
+  if (snap.empty) return 0;
+
+  await batchWriteDocs(
+    snap.docs.map((doc) => ({
+      ref: doc.ref,
+      mode: "delete" as const,
+    }))
+  );
+
+  return snap.size;
+}
+
+async function deleteTenantCompanyData(empresaId: string): Promise<{ deletedDocs: number; collections: string[] }> {
+  let deletedDocs = 0;
+  const collections: string[] = [];
+
+  for (const collectionName of TENANT_COMPANY_COLLECTIONS) {
+    const deleted = await deleteTenantCollectionDocs(empresaId, collectionName);
+    if (deleted > 0) {
+      deletedDocs += deleted;
+      collections.push(collectionName);
+    }
+  }
+
+  return { deletedDocs, collections };
+}
+
 async function countActiveUsers(empresaId: string): Promise<number> {
   const snap = await db
     .collection("usuarios")
@@ -530,12 +678,26 @@ export const createTenantCompany = onCall(async (request) => {
 
   await seedTenantRoles(empresaId);
   await seedTenantMasters(empresaId);
+  const shouldSeedDemo = normalizeText(request.data?.plan).toLowerCase() === "demo";
+  let demoSeeded = false;
+  if (shouldSeedDemo) {
+    try {
+      await seedTenantDemoDataCore(db, {
+        empresaId,
+        requestedByUid: createdUser.uid,
+      });
+      demoSeeded = true;
+    } catch (error) {
+      console.error("[createTenantCompany] no se pudo sembrar demo tenant", { empresaId, error });
+    }
+  }
 
   return {
     ok: true,
     empresaId,
     adminUid: createdUser.uid,
     adminEmail,
+    demoSeeded,
   };
 });
 
@@ -610,6 +772,78 @@ export const createTenantUser = onCall(async (request) => {
     ok: true,
     uid: createdUser.uid,
     empresaId: access.empresaId,
+  };
+});
+
+export const seedTenantDemoData = onCall(async (request) => {
+  const access = await assertCompanyAdminAccess(request, request.data?.empresaId as string | undefined);
+  const reset = request.data?.reset === true;
+
+  return seedTenantDemoDataCore(db, {
+    empresaId: access.empresaId,
+    requestedByUid: access.uid,
+    reset,
+  });
+});
+
+export const setTenantCompanyActive = onCall(async (request) => {
+  await assertPlatformAdminAccess(request);
+
+  const empresaId = normalizeText(request.data?.empresaId);
+  const activo = request.data?.activo === true;
+  if (!empresaId) {
+    throw new HttpsError("invalid-argument", "Debes indicar la empresa a actualizar.");
+  }
+
+  const empresaRef = db.doc(`empresas/${empresaId}`);
+  const empresaSnap = await empresaRef.get();
+  if (!empresaSnap.exists) {
+    throw new HttpsError("not-found", "La empresa indicada no existe.");
+  }
+
+  await empresaRef.set(
+    {
+      activo,
+      actualizadoEn: FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  const affectedUsers = await syncTenantAuthUsers(empresaId, activo);
+
+  return {
+    ok: true,
+    empresaId,
+    activo,
+    affectedUsers,
+  };
+});
+
+export const deleteTenantCompany = onCall(async (request) => {
+  await assertPlatformAdminAccess(request);
+
+  const empresaId = normalizeText(request.data?.empresaId);
+  if (!empresaId) {
+    throw new HttpsError("invalid-argument", "Debes indicar la empresa a eliminar.");
+  }
+
+  const empresaRef = db.doc(`empresas/${empresaId}`);
+  const empresaSnap = await empresaRef.get();
+  if (!empresaSnap.exists) {
+    throw new HttpsError("not-found", "La empresa indicada no existe.");
+  }
+
+  const { deletedUsers, preservedUsers } = await deleteTenantAuthUsers(empresaId);
+  const { deletedDocs, collections } = await deleteTenantCompanyData(empresaId);
+  await empresaRef.delete();
+
+  return {
+    ok: true,
+    empresaId,
+    deletedDocs,
+    deletedUsers,
+    preservedUsers,
+    collections,
   };
 });
 

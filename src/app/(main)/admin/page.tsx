@@ -1,6 +1,7 @@
 "use client";
 
 import { RecalculatePrices } from "@/components/admin/recalculate-prices";
+import { TenantCompanyManager } from "@/components/admin/tenant-company-manager";
 import { TenantAdminTools } from "@/components/admin/tenant-admin-tools";
 import { PageHeader } from "@/components/shared/page-header";
 import { useAuth } from "@/hooks/use-auth";
@@ -37,6 +38,7 @@ export default function AdminPage() {
       />
       <div className="grid gap-6">
         <TenantAdminTools />
+        <TenantCompanyManager />
         <RecalculatePrices />
       </div>
     </>

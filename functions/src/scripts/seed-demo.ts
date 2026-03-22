@@ -1,10 +1,12 @@
 import { getApps, initializeApp } from "firebase-admin/app";
 import { Firestore, getFirestore, Query } from "firebase-admin/firestore";
 import { liquidatePeriodCore } from "../liquidation";
+import { seedTenantDemoDataCore } from "../tenant-demo";
 
 type Args = {
   reset: boolean;
   liquidate: boolean;
+  empresaId: string | null;
   periodId: string;
   siteId: string;
   adminUid: string;
@@ -25,6 +27,7 @@ function parseArgs(argv: string[]): Args {
   return {
     reset: has("--reset"),
     liquidate: !has("--no-liquidate"),
+    empresaId: value("--empresaId", process.env.SEED_EMPRESA_ID ?? "").trim() || null,
     periodId: value("--periodId", process.env.SEED_PERIOD_ID ?? "2026-W10"),
     siteId: value("--siteId", process.env.SEED_SITE_ID ?? "site_demo_1"),
     adminUid: value("--adminUid", process.env.SEED_ADMIN_UID ?? "demo_admin"),
@@ -85,6 +88,18 @@ async function run(): Promise<void> {
   }
   const db = getFirestore();
   const { startDate, endDate } = getPeriodWindow();
+
+  if (args.empresaId) {
+    const result = await seedTenantDemoDataCore(db, {
+      empresaId: args.empresaId,
+      requestedByUid: args.adminUid,
+      reset: args.reset,
+    });
+    console.log(
+      `[seed] demo tenant cargado para ${result.empresaId}: collections=${result.collections.length}, documents=${result.documents}, reset=${result.resetApplied}`
+    );
+    return;
+  }
 
   if (args.reset) {
     const [attDeleted, adjDeleted, setDeleted] = await Promise.all([

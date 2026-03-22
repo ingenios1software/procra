@@ -17,6 +17,7 @@ type CreateTenantResponse = {
   empresaId: string;
   adminUid: string;
   adminEmail: string;
+  demoSeeded?: boolean;
 };
 
 type MigrateResponse = {
@@ -24,6 +25,15 @@ type MigrateResponse = {
   empresaId: string;
   migratedDocs: number;
   collections: string[];
+};
+
+type SeedDemoResponse = {
+  ok: boolean;
+  empresaId: string;
+  collections: string[];
+  documents: number;
+  resetApplied: boolean;
+  seedTag: string;
 };
 
 export function TenantAdminTools() {
@@ -38,6 +48,7 @@ export function TenantAdminTools() {
   const [maxUsuarios, setMaxUsuarios] = useState("3");
   const [isCreating, setIsCreating] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
+  const [isSeedingDemo, setIsSeedingDemo] = useState(false);
 
   const createTenantCompany = useCallableFunction<
     {
@@ -51,6 +62,9 @@ export function TenantAdminTools() {
     CreateTenantResponse
   >("createTenantCompany");
   const migrateLegacyData = useCallableFunction<{ empresaId: string }, MigrateResponse>("migrateLegacyDataToTenant");
+  const seedTenantDemoData = useCallableFunction<{ empresaId: string; reset?: boolean }, SeedDemoResponse>(
+    "seedTenantDemoData"
+  );
 
   const canCreateCompanies = Boolean(user?.esSuperAdmin || isPlatformAdminEmail(user?.email));
   const canMigrateCurrentCompany = Boolean(empresaId);
@@ -79,7 +93,11 @@ export function TenantAdminTools() {
       const payload = result.data;
       toast({
         title: "Empresa creada",
-        description: `Se creo ${payload.empresaId} con el admin ${payload.adminEmail}.`,
+        description: payload.demoSeeded
+          ? `Se creo ${payload.empresaId} con el admin ${payload.adminEmail} y se cargaron datos demo.`
+          : plan === "demo"
+            ? `Se creo ${payload.empresaId} con el admin ${payload.adminEmail}. La carga demo quedo pendiente y puede ejecutarse desde esta pantalla.`
+            : `Se creo ${payload.empresaId} con el admin ${payload.adminEmail}.`,
       });
       refreshEmpresas();
       setEmpresaId(payload.empresaId);
@@ -118,6 +136,27 @@ export function TenantAdminTools() {
       });
     } finally {
       setIsMigrating(false);
+    }
+  };
+
+  const handleSeedDemo = async () => {
+    if (!empresaId) return;
+
+    setIsSeedingDemo(true);
+    try {
+      const result = await seedTenantDemoData({ empresaId, reset: true });
+      toast({
+        title: "Datos demo cargados",
+        description: `Se sembraron ${result.data.documents} documentos demo para ${result.data.empresaId}.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "No se pudo cargar el demo",
+        description: formatCallableError(error),
+      });
+    } finally {
+      setIsSeedingDemo(false);
     }
   };
 
@@ -180,20 +219,37 @@ export function TenantAdminTools() {
       )}
 
       {canMigrateCurrentCompany && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Migrar Data Legacy</CardTitle>
-            <CardDescription>
-              Copia los registros top-level existentes al espacio aislado de la empresa actual para mantener la operacion sin mezclar clientes.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">Empresa actual: {empresaId}</p>
-            <Button variant="outline" onClick={handleMigrate} disabled={isMigrating}>
-              {isMigrating ? "Migrando..." : "Migrar Data a Mi Empresa"}
-            </Button>
-          </CardContent>
-        </Card>
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Datos Demo</CardTitle>
+              <CardDescription>
+                Recarga datos demo aislados dentro de la empresa actual. Solo se reemplazan documentos marcados con el seed demo.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">Empresa actual: {empresaId}</p>
+              <Button variant="secondary" onClick={handleSeedDemo} disabled={isSeedingDemo}>
+                {isSeedingDemo ? "Cargando demo..." : "Cargar Demo para Mi Empresa"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Migrar Data Legacy</CardTitle>
+              <CardDescription>
+                Copia los registros top-level existentes al espacio aislado de la empresa actual para mantener la operacion sin mezclar clientes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">Empresa actual: {empresaId}</p>
+              <Button variant="outline" onClick={handleMigrate} disabled={isMigrating}>
+                {isMigrating ? "Migrando..." : "Migrar Data a Mi Empresa"}
+              </Button>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );

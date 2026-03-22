@@ -1,8 +1,10 @@
 import { getApps, initializeApp } from "firebase-admin/app";
 import { Firestore, QueryDocumentSnapshot, getFirestore } from "firebase-admin/firestore";
+import { clearTenantDemoData } from "../tenant-demo";
 
 type Args = {
   confirm: string;
+  empresaId: string | null;
   periodId: string | null;
   dryRun: boolean;
   projectId: string | null;
@@ -21,6 +23,7 @@ function parseArgs(argv: string[]): Args {
 
   return {
     confirm: value("--confirm") ?? "",
+    empresaId: value("--empresaId"),
     periodId: value("--periodId"),
     dryRun: argv.includes("--dry-run"),
     projectId:
@@ -109,6 +112,17 @@ async function run(): Promise<void> {
     initializeApp(args.projectId ? { projectId: args.projectId } : undefined);
   }
   const db = getFirestore();
+
+  if (args.empresaId) {
+    const result = await clearTenantDemoData(db, {
+      empresaId: args.empresaId,
+      dryRun: args.dryRun,
+    });
+    console.log(
+      `[seed:clean] tenant=${result.empresaId}, collections=${result.collections.length}, deleted=${result.deleted}${result.dryRun ? " (dry-run)" : ""}`
+    );
+    return;
+  }
 
   const collections = getTargetCollections(args.periodId);
   console.log(

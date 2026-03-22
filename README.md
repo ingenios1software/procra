@@ -36,30 +36,30 @@ cd ..
 firebase emulators:start --only firestore,functions
 ```
 
-### Seed demo (5 minutos)
+### Seed demo por tenant (recomendado)
 
-Carga datos demo y ejecuta liquidacion del periodo con IDs de prueba.
+Carga datos demo aislados dentro de `empresas/{empresaId}` para la empresa indicada.
 
 ```bash
-firebase.cmd emulators:exec --only firestore "npm --prefix functions run seed:demo -- --reset"
+firebase.cmd emulators:exec --only firestore "npm --prefix functions run seed:demo -- --empresaId=empresa_demo --reset"
 ```
 
 Opciones utiles:
 
 ```bash
-# solo sembrar, sin liquidar
-firebase.cmd emulators:exec --only firestore "npm --prefix functions run seed:demo -- --reset --no-liquidate"
+# sembrar o resembrar una empresa especifica
+firebase.cmd emulators:exec --only firestore "npm --prefix functions run seed:demo -- --empresaId=empresa_demo --reset"
 
-# periodo personalizado
-firebase.cmd emulators:exec --only firestore "npm --prefix functions run seed:demo -- --reset --periodId=2026-W11"
+# contra Firestore real
+npm --prefix functions run seed:demo -- --empresaId=empresa_demo --adminUid=demo_admin --projectId=studio-7905412770-89bf5
 ```
 
-Si no usas emulador, puedes correr el seed contra Firestore real con credenciales de servicio:
+### Seed demo legacy de liquidacion
+
+Mantiene el dataset global anterior (`users/workers/sites/periods/attendances/adjustments/settlements`) para pruebas aisladas de la function de liquidacion.
 
 ```bash
-set GOOGLE_APPLICATION_CREDENTIALS=C:\ruta\service-account.json
-set GOOGLE_CLOUD_PROJECT=studio-7905412770-89bf5
-npm --prefix functions run seed:demo -- --periodId=2026-W11 --projectId=studio-7905412770-89bf5
+firebase.cmd emulators:exec --only firestore "npm --prefix functions run seed:demo -- --reset --periodId=2026-W11 --no-liquidate"
 ```
 
 ### Limpiar solo datos demo (`seed:clean`)
@@ -67,17 +67,23 @@ npm --prefix functions run seed:demo -- --periodId=2026-W11 --projectId=studio-7
 La limpieza borra solo documentos con `seedTag=seed-demo` y exige confirmacion.
 
 ```bash
-# eliminar TODO lo demo (users/workers/sites/periods/attendances/adjustments/settlements)
+# eliminar TODO lo demo de un tenant
+npm --prefix functions run seed:clean -- --confirm=DELETE_DEMO --empresaId=empresa_demo
+
+# vista previa del tenant sin borrar
+npm --prefix functions run seed:clean -- --confirm=DELETE_DEMO --empresaId=empresa_demo --dry-run
+
+# eliminar TODO lo demo legacy global (users/workers/sites/periods/attendances/adjustments/settlements)
 npm --prefix functions run seed:clean -- --confirm=DELETE_DEMO
 
-# eliminar solo un periodo demo
+# eliminar solo un periodo demo legacy
 npm --prefix functions run seed:clean -- --confirm=DELETE_DEMO --periodId=2026-W11
 
-# vista previa sin borrar
+# vista previa legacy sin borrar
 npm --prefix functions run seed:clean -- --confirm=DELETE_DEMO --dry-run
 
-# limpiar en emulador (recomendado)
-firebase.cmd emulators:exec --only firestore "npm --prefix functions run seed:clean -- --confirm=DELETE_DEMO"
+# limpiar tenant en emulador (recomendado)
+firebase.cmd emulators:exec --only firestore "npm --prefix functions run seed:clean -- --confirm=DELETE_DEMO --empresaId=empresa_demo"
 ```
 
 ## Deploy

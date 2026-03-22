@@ -23,9 +23,16 @@ type LookupDnitTaxpayerRequest = {
   ruc: string;
 };
 
+type LookupDnitSource = "dnit" | "cache" | "mock";
+
 type LookupDnitTaxpayerResponse = {
   taxpayer: DnitTaxpayerSnapshot;
+  degraded?: boolean;
+  source?: LookupDnitSource;
+  warning?: string;
 };
+
+type LookupDnitMeta = Pick<LookupDnitTaxpayerResponse, "degraded" | "source" | "warning">;
 
 interface DnitLookupPanelProps {
   ruc: string;
@@ -64,10 +71,12 @@ export function DnitLookupPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<DnitTaxpayerSnapshot | null>(value || null);
+  const [lookupMeta, setLookupMeta] = useState<LookupDnitMeta | null>(null);
   const [cacheSearch, setCacheSearch] = useState("");
 
   useEffect(() => {
     setResult(value || null);
+    setLookupMeta(null);
   }, [value]);
 
   const canLookup = useMemo(() => Boolean(ruc.trim()) && !disabled, [disabled, ruc]);
@@ -101,26 +110,51 @@ export function DnitLookupPanel({
       .slice(0, 8);
   }, [cachedTaxpayers, normalizedCacheSearch]);
 
-  const handleApplyTaxpayer = useCallback(
+  const handleSelectCachedTaxpayer = useCallback(
     (taxpayer: DnitTaxpayerSnapshot) => {
       setResult(taxpayer);
+      setLookupMeta(null);
       persistInCache(taxpayer);
       onApply(taxpayer);
     },
     [onApply, persistInCache]
   );
 
+  const handleApplyResult = useCallback(() => {
+    if (!result) return;
+
+    persistInCache(result);
+    onApply(result);
+  }, [onApply, persistInCache, result]);
+
+  const resultSourceLabel = useMemo(() => {
+    if (lookupMeta?.source === "mock") {
+      return "Modo mock";
+    }
+    if (lookupMeta?.source === "cache") {
+      return "Cache local";
+    }
+    return "";
+  }, [lookupMeta?.source]);
+
   const handleLookup = async () => {
     if (!canLookup) return;
 
     setIsLoading(true);
     setError("");
+    setLookupMeta(null);
 
     try {
       const response = await lookupDnitTaxpayer({ ruc: ruc.trim() });
       setResult(response.data.taxpayer);
+      setLookupMeta({
+        degraded: response.data.degraded,
+        source: response.data.source,
+        warning: response.data.warning,
+      });
       persistInCache(response.data.taxpayer);
     } catch (lookupError) {
+      setLookupMeta(null);
       const formattedError = formatCallableError(lookupError);
       setError(
         formattedError.includes("functions/internal")
@@ -188,7 +222,7 @@ export function DnitLookupPanel({
                   key={item.id}
                   type="button"
                   className="flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-3 text-left transition hover:border-primary/40 hover:bg-muted/30"
-                  onClick={() => handleApplyTaxpayer(item)}
+                  onClick={() => handleSelectCachedTaxpayer(item)}
                 >
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -231,6 +265,7 @@ export function DnitLookupPanel({
               <div className="flex items-center gap-2">
                 <BadgeCheck className="h-4 w-4 text-emerald-600" />
                 <p className="text-base font-semibold">{getDnitPrimaryName(result)}</p>
+                {resultSourceLabel && <Badge variant="secondary">{resultSourceLabel}</Badge>}
               </div>
               <p className="text-sm text-muted-foreground">{formatDnitDocument(result)}</p>
               {result.nombreComercial && result.nombreComercial !== result.razonSocial && (
@@ -241,6 +276,12 @@ export function DnitLookupPanel({
             {result.estado && <Badge variant="outline">{result.estado}</Badge>}
           </div>
 
+          {lookupMeta?.degraded && lookupMeta.warning && (
+            <div className="rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {lookupMeta.warning}
+            </div>
+          )}
+
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <DetailItem label="Categoria" value={result.categoria} />
             <DetailItem label="Tipo persona" value={result.tipoPersona} />
@@ -250,7 +291,7 @@ export function DnitLookupPanel({
           </div>
 
           <div className="flex justify-end">
-            <Button type="button" onClick={() => handleApplyTaxpayer(result)}>
+            <Button type="button" onClick={handleApplyResult}>
               Aplicar datos DNIT
             </Button>
           </div>

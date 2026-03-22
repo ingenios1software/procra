@@ -48,7 +48,7 @@ service cloud.firestore {
     }
 
     function canReadEmpresa(empresaId) {
-      return isPlatformAdmin() || (isSameEmpresa(empresaId) && currentUser().activo == true);
+      return isPlatformAdmin() || (isSameEmpresa(empresaId) && currentUser().activo == true && companyIsActive(empresaId));
     }
 
     function canManageEmpresa(empresaId) {
@@ -57,6 +57,10 @@ service cloud.firestore {
 
     function empresaDocPath(empresaId) {
       return /databases/$(database)/documents/empresas/$(empresaId);
+    }
+
+    function companyIsActive(empresaId) {
+      return get(empresaDocPath(empresaId)).data.activo == true;
     }
 
     function companyModuleAllowsPermission(empresaId, permission) {
@@ -75,6 +79,7 @@ service cloud.firestore {
       return isPlatformAdmin() || (
         isSameEmpresa(empresaId) &&
         currentUser().activo == true &&
+        companyIsActive(empresaId) &&
         companyModuleAllowsPermission(empresaId, permission) &&
         (
           currentUser().rolNombre == "admin" ||
@@ -115,6 +120,7 @@ service cloud.firestore {
       return canManageEmpresa(empresaId) || (
         isSameEmpresa(empresaId) &&
         currentUser().activo == true &&
+        companyIsActive(empresaId) &&
         !isLegacyTenantReadOnlyRole() &&
         (
           (hasCurrentTenantRole(empresaId) && currentTenantRole(empresaId).soloLectura != true) ||
