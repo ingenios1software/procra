@@ -31,6 +31,8 @@ import { ReportActions } from "@/components/shared/report-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ExecutiveAlerts } from "@/components/finanzas/executive-alerts";
+import { ImpuestosSummary } from "@/components/finanzas/impuestos-summary";
 import type { Cultivo, Evento, Parcela, Venta } from "@/lib/types";
 import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
@@ -287,6 +289,9 @@ export default function DashboardFinancieroPage() {
           </CardContent>
         </Card>
       </div>
+
+      <ImpuestosSummary className="mb-6" />
+      <ExecutiveAlerts className="mb-6" />
 
       <div className="mb-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="bg-primary/10">

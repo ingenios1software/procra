@@ -138,6 +138,7 @@ const navItems: NavSection[] = [
     permission: "finanzas",
     links: [
       { href: "/finanzas/dashboard", icon: PieChart, label: "Dashboard" },
+      { href: "/finanzas/impuestos", icon: FileText, label: "Impuestos" },
       { href: "/finanzas/cuentas-cobrar", icon: Wallet, label: "Ctas por Cobrar" },
       { href: "/finanzas/cuentas-pagar", icon: Wallet, label: "Ctas por Pagar" },
       { href: "/finanzas/tesoreria", icon: ArrowLeftRight, label: "Tesoreria" },

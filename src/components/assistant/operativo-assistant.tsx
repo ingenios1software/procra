@@ -53,6 +53,7 @@ const QUICK_PROMPT_CATALOG = [
   { text: "Estado de cuenta de AgroNorte", intent: "estado" as const },
   { text: "Costo de parcela 1", intent: "costo" as const },
   { text: "Abrir informe de costos", intent: "modulo" as const },
+  { text: "Abrir simulador de impuestos", intent: "modulo" as const },
 ];
 
 const MODULE_SHORTCUTS: Array<{ label: string; href: string; keywords: string[] }> = [
@@ -63,6 +64,7 @@ const MODULE_SHORTCUTS: Array<{ label: string; href: string; keywords: string[] 
   { label: "Informe de Costos", href: "/agronomia/informe-costos", keywords: ["informe de costos", "costos parcela", "reporte costos"] },
   { label: "Panel Agronomico", href: "/agronomia/panel", keywords: ["agronomia", "panel agronomico"] },
   { label: "Finanzas Dashboard", href: "/finanzas/dashboard", keywords: ["finanzas", "dashboard finanzas"] },
+  { label: "Impuestos", href: "/finanzas/impuestos", keywords: ["impuestos", "iva", "ire", "tributario", "simulador impuestos"] },
   { label: "Cuentas por Cobrar", href: "/finanzas/cuentas-cobrar", keywords: ["cuentas cobrar", "cxc", "cobrar"] },
   { label: "Cuentas por Pagar", href: "/finanzas/cuentas-pagar", keywords: ["cuentas pagar", "cxp", "pagar"] },
   { label: "Costos", href: "/finanzas/costos", keywords: ["costos", "gastos"] },

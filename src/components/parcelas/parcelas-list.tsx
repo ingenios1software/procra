@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { getDocs, limit, orderBy, query } from "firebase/firestore";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { Layers3, MoreHorizontal, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -103,6 +103,12 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
         description="Gestione las parcelas de su establecimiento."
       >
         <ReportActions reportTitle="Parcelas" reportSummary={shareSummary} />
+        <Button variant="outline" asChild>
+          <Link href="/parcelas/mapa">
+            <Layers3 className="mr-2 h-4 w-4" />
+            Mapa General
+          </Link>
+        </Button>
         {user && (
           <Button onClick={() => setDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -178,6 +184,9 @@ export function ParcelasList({ parcelas, isLoading }: ParcelasListProps) {
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                             <DropdownMenuItem asChild>
                               <Link href={`/parcelas/${parcela.id}`}>Ver Reporte de Costos</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/parcelas/${parcela.id}/mapa`}>Abrir mapa individual</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
                               <Link href={`/parcelas/${parcela.id}/editar`}>Editar</Link>

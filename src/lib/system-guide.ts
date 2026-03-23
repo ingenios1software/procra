@@ -180,9 +180,11 @@ export const systemGuideModules: GuideModule[] = [
       "Dashboard financiero para seguimiento de ingresos, egresos y rentabilidad.",
       "Administracion de cuentas por cobrar, cuentas por pagar y tesoreria.",
       "Analisis de costos operativos y rentabilidad por cultivo o parcela.",
+      "Simulacion tributaria para IVA e IRE a partir de documentos y asientos del tenant.",
     ],
     routes: [
       "/finanzas/dashboard",
+      "/finanzas/impuestos",
       "/finanzas/cuentas-cobrar",
       "/finanzas/cuentas-pagar",
       "/finanzas/tesoreria",
