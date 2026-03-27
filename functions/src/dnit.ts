@@ -11,7 +11,8 @@ if (!getApps().length) {
 const db = getFirestore();
 
 const DNIT_API_KEY = defineSecret("DNIT_API_KEY");
-const DEFAULT_DNIT_LOOKUP_URL =
+const DEFAULT_DNIT_LOOKUP_URL = "https://servicios.set.gov.py/EsetApiWS/ApiWS/consultaRuc";
+const LEGACY_DNIT_LOOKUP_URL =
   "https://servicios.dnit.gov.py/eset-publico/consultaRucServiceREST/consultaRuc";
 const MOCK_DNIT_API_KEY = "test_key";
 
@@ -83,11 +84,17 @@ function parseRucInput(rawValue: unknown): DnitRequestedDocument {
 function resolvePayload(raw: unknown): DnitRawPayload {
   if (Array.isArray(raw)) {
     const first = raw.find((item) => item && typeof item === "object" && !Array.isArray(item));
-    if (first) return first as DnitRawPayload;
+    if (first) return resolvePayload(first);
   }
 
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    return raw as DnitRawPayload;
+    const payload = raw as DnitRawPayload;
+    const nestedTaxpayer = payload.contribuyente;
+    if (nestedTaxpayer && typeof nestedTaxpayer === "object" && !Array.isArray(nestedTaxpayer)) {
+      return nestedTaxpayer as DnitRawPayload;
+    }
+
+    return payload;
   }
 
   throw new HttpsError("unavailable", "La respuesta de DNIT no tuvo un formato valido.");
@@ -167,6 +174,15 @@ function resolveApiKey(): string {
   }
 
   return "";
+}
+
+function resolveLookupUrls(): string[] {
+  const override = process.env.DNIT_LOOKUP_URL?.trim();
+  if (override) {
+    return [override];
+  }
+
+  return [DEFAULT_DNIT_LOOKUP_URL, LEGACY_DNIT_LOOKUP_URL];
 }
 
 function isMockApiKey(apiKey: string): boolean {
@@ -282,53 +298,74 @@ export const lookupDnitTaxpayer = onCall({ secrets: [DNIT_API_KEY] }, async (req
       );
     }
 
-    let url: URL;
-    try {
-      const lookupUrl = process.env.DNIT_LOOKUP_URL?.trim() || DEFAULT_DNIT_LOOKUP_URL;
-      url = new URL(lookupUrl);
-    } catch (error) {
-      const fallback = await buildCachedFallbackResponse(
-        uid,
-        requested,
-        "La URL de DNIT no es valida. Se uso la cache local.",
-        error
-      );
-      if (fallback) {
-        return fallback;
+    const lookupUrls = resolveLookupUrls();
+    const hasCustomLookupUrl = Boolean(process.env.DNIT_LOOKUP_URL?.trim());
+
+    let response: Response | null = null;
+    let lastLookupError: unknown = null;
+
+    for (const lookupUrl of lookupUrls) {
+      let url: URL;
+      try {
+        url = new URL(lookupUrl);
+      } catch (error) {
+        lastLookupError = error;
+
+        if (hasCustomLookupUrl) {
+          break;
+        }
+
+        logger.warn("Skipping invalid built-in DNIT URL", {
+          lookupUrl,
+          error: describeError(error),
+        });
+        continue;
       }
 
-      throw new HttpsError(
-        "failed-precondition",
-        `La URL de DNIT no es valida. ${describeError(error)}`
-      );
+      url.searchParams.set("apiKey", apiKey);
+      url.searchParams.set("ruc", requested.ruc);
+      url.searchParams.set("dv", requested.dv);
+
+      try {
+        response = await fetch(url, {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+        break;
+      } catch (error) {
+        lastLookupError = error;
+        logger.warn("DNIT fetch attempt failed", {
+          uid,
+          documento: requested.documento,
+          lookupUrl,
+          error: describeError(error),
+        });
+      }
     }
 
-    url.searchParams.set("apiKey", apiKey);
-    url.searchParams.set("ruc", requested.ruc);
-    url.searchParams.set("dv", requested.dv);
-
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-        },
-      });
-    } catch (error) {
+    if (!response) {
+      const warning = hasCustomLookupUrl
+        ? "La URL de DNIT no es valida o no respondio. Se uso la cache local."
+        : "DNIT no respondio. Se uso la cache local.";
       const fallback = await buildCachedFallbackResponse(
         uid,
         requested,
-        "DNIT no respondio. Se uso la cache local.",
-        error
+        warning,
+        lastLookupError
       );
       if (fallback) {
         return fallback;
       }
 
-      throw new HttpsError(
-        "unavailable",
-        `No se pudo conectar con DNIT. ${describeError(error)}`
-      );
+      if (hasCustomLookupUrl) {
+        throw new HttpsError(
+          "failed-precondition",
+          `La URL de DNIT no es valida o no respondio. ${describeError(lastLookupError)}`
+        );
+      }
+
+      throw new HttpsError("unavailable", `No se pudo conectar con DNIT. ${describeError(lastLookupError)}`);
     }
 
     const bodyText = await response.text();

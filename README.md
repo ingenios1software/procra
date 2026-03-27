@@ -112,7 +112,7 @@ firebase emulators:start --only firestore,functions
 Opcionalmente puede sobreescribir la URL del servicio si DNIT cambia el endpoint:
 
 ```bash
-set DNIT_LOOKUP_URL=https://servicios.dnit.gov.py/eset-publico/consultaRucServiceREST/consultaRuc
+set DNIT_LOOKUP_URL=https://servicios.set.gov.py/EsetApiWS/ApiWS/consultaRuc
 ```
 
 ## Funcion principal

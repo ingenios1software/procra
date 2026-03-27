@@ -244,9 +244,18 @@ export function DnitLookupPanel({
             </div>
           ) : (
             <div className="rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground">
-              {cacheSearch.trim()
-                ? "No hay coincidencias en la cache local."
-                : "Todavia no hay contribuyentes guardados en la cache local."}
+              {cacheSearch.trim() ? (
+                "No hay coincidencias en la cache local."
+              ) : (
+                <div className="space-y-1">
+                  <p>Todavia no hay contribuyentes guardados en la cache local.</p>
+                  <p className="text-xs">
+                    Para llenarla, escriba un RUC con DV, haga clic en <span className="font-medium">Buscar por RUC</span>
+                    {" "}y luego en <span className="font-medium">Aplicar datos DNIT</span>. Los registros se guardan por
+                    empresa activa.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

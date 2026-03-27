@@ -311,9 +311,17 @@ export default function ConfiguracionDnitPage() {
                     {!isLoading && !filteredRows.length && (
                       <TableRow>
                         <TableCell colSpan={7}>
-                          {search.trim()
-                            ? "No hay coincidencias para ese criterio."
-                            : "Todavia no hay contribuyentes guardados en la cache DNIT."}
+                          {search.trim() ? (
+                            "No hay coincidencias para ese criterio."
+                          ) : (
+                            <div className="space-y-1 py-2">
+                              <p>Todavia no hay contribuyentes guardados en la cache DNIT.</p>
+                              <p className="text-xs text-muted-foreground">
+                                Esta lista se llena cuando consulta un RUC desde Empresa / Clientes / Proveedores y aplica
+                                los datos DNIT para la empresa activa.
+                              </p>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     )}
