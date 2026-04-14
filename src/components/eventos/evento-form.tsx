@@ -587,6 +587,9 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
   const mostrarCuentaContable = useMemo(() => {
     return ['aplicacion', 'fertilizacion', 'plagas', 'siembra', 'cosecha', 'mantenimiento'].includes(tipoEventoBase);
   }, [tipoEventoBase]);
+  const mostrarCamposAplicacionCostos = useMemo(() => {
+    return ['aplicacion', 'fertilizacion', 'plagas', 'siembra'].includes(tipoEventoBase);
+  }, [tipoEventoBase]);
   const mostrarCondicionesClimaticas = useMemo(() => {
     return ['aplicacion', 'fertilizacion', 'plagas'].includes(tipoEventoBase);
   }, [tipoEventoBase]);
@@ -1092,38 +1095,73 @@ export function EventoForm({ evento, onSave, onCancel }: EventoFormProps) {
                   />
                 </div>
 
-                {mostrarCuentaContable && (
-                  <FormField
-                    control={form.control}
-                    name="cuentaContableId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cuenta Contable de Costo (Opcional)</FormLabel>
-                          <SelectorPlanDeCuentas
-                              value={field.value}
-                              onChange={field.onChange}
-                              filter="gasto"
-                          />
-                        <FormDescription>Asocia este evento a una cuenta contable para el análisis de costos.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
+                {(mostrarCuentaContable || mostrarCamposAplicacionCostos) && (
+                  <div className="space-y-2">
+                    <div
+                      className={
+                        mostrarCuentaContable && mostrarCamposAplicacionCostos
+                          ? "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(180px,0.7fr)_minmax(220px,0.8fr)] lg:items-end"
+                          : "grid grid-cols-1 gap-4"
+                      }
+                    >
+                      {mostrarCuentaContable && (
+                        <FormField
+                          control={form.control}
+                          name="cuentaContableId"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>Cuenta Contable de Costo (Opcional)</FormLabel>
+                              <SelectorPlanDeCuentas
+                                value={field.value}
+                                onChange={field.onChange}
+                                filter="gasto"
+                              />
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      {mostrarCamposAplicacionCostos && (
+                        <FormField
+                          name="hectareasAplicadas"
+                          control={form.control}
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>Hectareas Aplicadas</FormLabel>
+                              <FormControl>
+                                <Input type="number" placeholder="Ej: 50" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      {mostrarCamposAplicacionCostos && (
+                        <FormField
+                          name="costoServicioPorHa"
+                          control={form.control}
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>Costo de Servicio por Ha ($)</FormLabel>
+                              <FormControl>
+                                <Input type="number" placeholder="Ej: 15" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {mostrarCuentaContable && (
+                      <FormDescription>Asocia este evento a una cuenta contable para el analisis de costos.</FormDescription>
                     )}
-                  />
+                  </div>
                 )}
 
-                {['aplicacion', 'fertilizacion', 'plagas', 'siembra'].includes(tipoEventoBase) && (
-                  <Card className="border-border/60">
-                     <CardHeader className="p-4"><CardTitle className="text-lg">Detalles de Aplicación y Costos</CardTitle></CardHeader>
-                     <CardContent className="p-4 pt-0 space-y-4">
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <FormField name="hectareasAplicadas" control={form.control} render={({ field }) => (<FormItem><FormLabel>Hectáreas Aplicadas</FormLabel><FormControl><Input type="number" placeholder="Ej: 50" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                         <FormField name="costoServicioPorHa" control={form.control} render={({ field }) => (<FormItem><FormLabel>Costo de Servicio por Ha ($)</FormLabel><FormControl><Input type="number" placeholder="Ej: 15" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                       </div>
-                     </CardContent>
-                  </Card>
-                )}
-
-                {['aplicacion', 'fertilizacion', 'plagas', 'siembra'].includes(tipoEventoBase) && (
+                {mostrarCamposAplicacionCostos && (
                   <Card className="bg-muted/30 p-4">
                     <CardHeader className="p-2 flex flex-row items-center justify-between">
                       <CardTitle className="text-lg">Productos/Insumos</CardTitle>

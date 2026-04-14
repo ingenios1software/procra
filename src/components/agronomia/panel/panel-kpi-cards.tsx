@@ -13,9 +13,10 @@ interface PanelKpiCardsProps {
     cultivo: Cultivo;
     zafra: Zafra;
     eventos: Evento[];
+    className?: string;
 }
 
-export function PanelKpiCards({ parcela, cultivo, zafra, eventos }: PanelKpiCardsProps) {
+export function PanelKpiCards({ parcela, cultivo, zafra, eventos, className }: PanelKpiCardsProps) {
     const { diasDesdeSiembra, eventoReciente, costoTotal, costoPorHa } = useMemo(() => {
         const siembra = getSowingBaseDate(zafra, eventos);
         const dias = Math.max(0, differenceInDays(new Date(), siembra));
@@ -33,30 +34,30 @@ export function PanelKpiCards({ parcela, cultivo, zafra, eventos }: PanelKpiCard
     }, [zafra, eventos, parcela.superficie]);
 
     return (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className={className || "grid gap-4 md:grid-cols-2 lg:grid-cols-4"}>
             <Card>
-                <CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Informacion General</CardTitle><Calendar/></CardHeader>
+                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Informacion General</CardTitle><Calendar className="h-5 w-5 text-muted-foreground"/></CardHeader>
                 <CardContent>
                     <p className="text-sm"><strong className="text-primary">{zafra.nombre}</strong></p>
                     <p className="text-xs text-muted-foreground">{cultivo.nombre} en {parcela.nombre}</p>
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Ciclo a Hoy</CardTitle><Clock/></CardHeader>
+                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ciclo a Hoy</CardTitle><Clock className="h-5 w-5 text-muted-foreground"/></CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{diasDesdeSiembra} dias</div>
                     <p className="text-xs text-muted-foreground">desde la siembra</p>
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Eventos Totales</CardTitle><Activity/></CardHeader>
+                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Eventos Totales</CardTitle><Activity className="h-5 w-5 text-muted-foreground"/></CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{eventos.length}</div>
                     <p className="text-xs text-muted-foreground">Ultimo: {eventoReciente ? getEventCategoryLabel(eventoReciente) : "N/A"}</p>
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Costo Total / Ha</CardTitle><DollarSign/></CardHeader>
+                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costo Total / Ha</CardTitle><DollarSign className="h-5 w-5 text-muted-foreground"/></CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">${formatCurrency(costoPorHa)}</div>
                     <p className="text-xs text-muted-foreground">Total: ${formatCurrency(costoTotal)}</p>

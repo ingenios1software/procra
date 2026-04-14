@@ -130,6 +130,13 @@ export function buildEmpresaBasePayload(params: {
       maxUsuarios: params.maxUsuarios ?? 3,
       proximoCobro: undefined,
     },
+    operacion: {
+      anulacionCompras: {
+        habilitado: false,
+        desde: undefined,
+        hasta: undefined,
+      },
+    },
     creadoEn: serverTimestamp(),
     actualizadoEn: serverTimestamp(),
   };

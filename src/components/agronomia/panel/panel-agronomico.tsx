@@ -7,8 +7,8 @@ import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
-import type { Parcela, Cultivo, Zafra, Evento, Insumo, EtapaCultivo } from "@/lib/types";
+import { CloudRain, Download } from "lucide-react";
+import type { Parcela, Cultivo, Zafra, Evento, Insumo, EtapaCultivo, RegistroLluviaSector } from "@/lib/types";
 import { PanelKpiCards } from "./panel-kpi-cards";
 import { PanelGraficos } from "./panel-graficos";
 import { PanelTablaAgronomica } from "./panel-tabla-agronomica";
@@ -16,6 +16,7 @@ import { PanelAnalisisEconomico } from "./panel-analisis-economico";
 import * as XLSX from 'xlsx';
 import { differenceInDays, format } from "date-fns";
 import { getEventCategoryLabel, getSowingBaseDate } from "./panel-evento-utils";
+import { getLluviaAcumuladaParcelaZafra } from "@/lib/lluvias";
 
 interface PanelAgronomicoProps {
     parcelas: Parcela[];
@@ -24,9 +25,10 @@ interface PanelAgronomicoProps {
     eventos: Evento[];
     insumos: Insumo[];
     etapas: EtapaCultivo[];
+    lluviasSector: RegistroLluviaSector[];
 }
 
-export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, etapas }: PanelAgronomicoProps) {
+export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, etapas, lluviasSector }: PanelAgronomicoProps) {
     const [selectedCultivoId, setSelectedCultivoId] = useState<string | null>(null);
     const [selectedZafraId, setSelectedZafraId] = useState<string | null>(null);
     const [selectedParcelaId, setSelectedParcelaId] = useState<string | null>(null);
@@ -64,16 +66,17 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
                       .sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
     }, [parcela, zafra, eventos]);
     
-    const { diasDesdeSiembra, costoTotal, costoPorHa } = useMemo(() => {
-        if (!zafra || !parcela) return { diasDesdeSiembra: 0, costoTotal: 0, costoPorHa: 0 };
+    const { diasDesdeSiembra, costoTotal, costoPorHa, lluviaAcumulada } = useMemo(() => {
+        if (!zafra || !parcela) return { diasDesdeSiembra: 0, costoTotal: 0, costoPorHa: 0, lluviaAcumulada: 0 };
         const siembra = getSowingBaseDate(zafra, filteredEvents);
         const dias = Math.max(0, differenceInDays(new Date(), siembra));
         const costo = filteredEvents.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
         const costoHa = parcela.superficie > 0 ? costo / parcela.superficie : 0;
-        return { diasDesdeSiembra: dias, costoTotal: costo, costoPorHa: costoHa };
-    }, [zafra, parcela, filteredEvents]);
+        const lluvia = getLluviaAcumuladaParcelaZafra(parcelas, lluviasSector, parcela.id, zafra.id);
+        return { diasDesdeSiembra: dias, costoTotal: costo, costoPorHa: costoHa, lluviaAcumulada: lluvia };
+    }, [zafra, parcela, filteredEvents, parcelas, lluviasSector]);
     const shareSummary = parcela && zafra && cultivo
-        ? `Campana: ${parcela.nombre} - ${zafra.nombre} (${cultivo.nombre}) | Eventos: ${filteredEvents.length} | Costo total: $${costoTotal.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`
+        ? `Campana: ${parcela.nombre} - ${zafra.nombre} (${cultivo.nombre}) | Lluvia: ${lluviaAcumulada.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} mm | Eventos: ${filteredEvents.length} | Costo total: $${costoTotal.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`
         : "Panel agronomico sin seleccion de campana.";
 
 
@@ -161,31 +164,73 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
                 </div>
             </PageHeader>
             <div id="panel-agronomico-print" className="print-area">
-                <Card className="mb-6 no-print">
-                    <CardHeader>
-                        <CardTitle>Selección de Campaña</CardTitle>
-                        <CardDescription>Elija el cultivo, la zafra y la parcela que desea analizar.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col md:flex-row gap-4">
-                        <Select onValueChange={handleCultivoChange} value={selectedCultivoId || ''}>
-                            <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="1. Seleccione Cultivo..." /></SelectTrigger>
-                            <SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent>
-                        </Select>
-                         <Select onValueChange={handleZafraChange} value={selectedZafraId || ''} disabled={!selectedCultivoId}>
-                            <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="2. Seleccione Zafra..." /></SelectTrigger>
-                            <SelectContent>{zafrasFiltradas.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <Select onValueChange={setSelectedParcelaId} value={selectedParcelaId || ''} disabled={!selectedZafraId}>
-                            <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="3. Seleccione Parcela..." /></SelectTrigger>
-                            <SelectContent>{parcelasFiltradas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent>
-                        </Select>
+                <Card className="mb-6">
+                    <CardContent className="grid gap-4 p-4 xl:grid-cols-[1.35fr_240px_2.15fr] xl:items-start">
+                        <div className="space-y-4">
+                            <div className="space-y-1">
+                                <CardTitle>Selección de Campaña</CardTitle>
+                                <CardDescription>Elija el cultivo, la zafra y la parcela que desea analizar.</CardDescription>
+                            </div>
+                            <div className="grid gap-3 md:grid-cols-3">
+                                <Select onValueChange={handleCultivoChange} value={selectedCultivoId || ''}>
+                                    <SelectTrigger><SelectValue placeholder="Cultivo" /></SelectTrigger>
+                                    <SelectContent>{cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent>
+                                </Select>
+                                <Select onValueChange={handleZafraChange} value={selectedZafraId || ''} disabled={!selectedCultivoId}>
+                                    <SelectTrigger><SelectValue placeholder="Zafra" /></SelectTrigger>
+                                    <SelectContent>{zafrasFiltradas.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent>
+                                </Select>
+                                <Select onValueChange={setSelectedParcelaId} value={selectedParcelaId || ''} disabled={!selectedZafraId}>
+                                    <SelectTrigger><SelectValue placeholder="Parcela" /></SelectTrigger>
+                                    <SelectContent>{parcelasFiltradas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="flex min-h-[132px] flex-col justify-between rounded-xl border bg-muted/20 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                                    Lluvia Acumulada
+                                </p>
+                                <CloudRain className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                            <div>
+                                <p className="text-4xl font-semibold leading-none">
+                                    {parcela && zafra
+                                        ? lluviaAcumulada.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 1 })
+                                        : "--"}
+                                </p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    {parcela && zafra ? `mm en ${parcela.nombre}` : "Seleccione una campaña"}
+                                </p>
+                            </div>
+                        </div>
+
+                        {parcela && zafra && cultivo ? (
+                            <PanelKpiCards
+                                parcela={parcela}
+                                zafra={zafra}
+                                cultivo={cultivo}
+                                eventos={filteredEvents}
+                                className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4"
+                            />
+                        ) : (
+                            <div className="flex min-h-[132px] items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+                                Seleccione cultivo, zafra y parcela para ver el resumen.
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
                 {parcela && zafra && cultivo ? (
                     <div className="space-y-6">
-                        <PanelKpiCards parcela={parcela} zafra={zafra} cultivo={cultivo} eventos={filteredEvents} />
-                        <PanelGraficos eventos={filteredEvents} insumos={insumos} zafra={zafra} etapas={etapas} />
+                        <PanelGraficos
+                            eventos={filteredEvents}
+                            insumos={insumos}
+                            zafra={zafra}
+                            etapas={etapas}
+                            parcelaNombre={parcela.nombre}
+                        />
                         <PanelTablaAgronomica parcela={parcela} zafra={zafra} eventos={filteredEvents} insumos={insumos} />
                         <PanelAnalisisEconomico eventos={filteredEvents} insumos={insumos} />
                     </div>

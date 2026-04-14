@@ -78,6 +78,47 @@
         },
         "required": ["codigo", "descripcion", "tasaCambio", "esMonedaBase"]
     },
+    "TipoCambioHistorico": {
+        "title": "TipoCambioHistorico",
+        "description": "Stores the annual PYG to USD exchange rate used by patrimonial reports.",
+        "type": "object",
+        "properties": {
+          "anio": { "type": "number" },
+          "monedaOrigen": { "type": "string", "enum": ["PYG"] },
+          "monedaDestino": { "type": "string", "enum": ["USD"] },
+          "tasa": { "type": "number" }
+        },
+        "required": ["anio", "monedaOrigen", "monedaDestino", "tasa"]
+    },
+    "ConfiguracionEvolucionPatrimonial": {
+        "title": "ConfiguracionEvolucionPatrimonial",
+        "description": "Stores per-tenant account mappings for the patrimonial evolution report.",
+        "type": "object",
+        "properties": {
+          "cuentas": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "rubroKey": {
+                  "type": "string",
+                  "enum": [
+                    "capital_social",
+                    "revaluo_bienes",
+                    "reserva_legal",
+                    "aporte_agro_industrial",
+                    "retiro_dividendos",
+                    "resultado_ejerc_anterior",
+                    "otros_patrimonios"
+                  ]
+                },
+                "ignorar": { "type": "boolean" }
+              }
+            }
+          },
+          "actualizadoPor": { "type": "string" }
+        }
+    },
     "PlanFinanciacion": {
         "title": "PlanFinanciacion",
         "description": "Represents a financing plan.",
@@ -350,6 +391,8 @@
     "/cuentasCajaBanco/{cuentaId}": { "schema": { "$ref": "#/entities/CuentaCajaBanco"}, "description": "Stores cash and bank accounts."},
     "/cuentasContables/{cuentaId}": { "schema": { "$ref": "#/entities/CuentaContable"}, "description": "Stores accounting accounts."},
     "/monedas/{monedaId}": { "schema": { "$ref": "#/entities/Moneda"}, "description": "Stores currency information."},
+    "/tiposCambioHistoricos/{anio}": { "schema": { "$ref": "#/entities/TipoCambioHistorico"}, "description": "Stores the yearly PYG/USD exchange rate for patrimonial conversion."},
+    "/configuracionEvolucionPatrimonial/{configId}": { "schema": { "$ref": "#/entities/ConfiguracionEvolucionPatrimonial"}, "description": "Stores per-tenant exact account mappings for the patrimonial evolution report."},
     "/planesFinanciacion/{planId}": { "schema": { "$ref": "#/entities/PlanFinanciacion"}, "description": "Stores financing plans."},
     "/tiposDocumento/{tipoId}": { "schema": { "$ref": "#/entities/TipoDocumento"}, "description": "Stores document types."},
     "/formasPago/{formaId}": { "schema": { "$ref": "#/entities/FormaPago"}, "description": "Stores payment methods."}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { doc, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc, writeBatch } from "firebase/firestore";
 import { DnitLookupPanel } from "@/components/common/dnit-lookup-panel";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,6 +144,9 @@ export default function ConfiguracionComercialPage() {
   const [proximoCobro, setProximoCobro] = useState("");
   const [demoHabilitado, setDemoHabilitado] = useState("si");
   const [demoFin, setDemoFin] = useState("");
+  const [anulacionComprasHabilitada, setAnulacionComprasHabilitada] = useState("no");
+  const [anulacionComprasDesde, setAnulacionComprasDesde] = useState("");
+  const [anulacionComprasHasta, setAnulacionComprasHasta] = useState("");
   const [modulos, setModulos] = useState<Permisos>(DEFAULT_MODULES);
   const [dnitData, setDnitData] = useState<DnitTaxpayerSnapshot | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -183,6 +186,9 @@ export default function ConfiguracionComercialPage() {
     setProximoCobro(toInputDate(empresa.suscripcion?.proximoCobro));
     setDemoHabilitado(empresa.demo?.habilitado ? "si" : "no");
     setDemoFin(toInputDate(empresa.demo?.fin));
+    setAnulacionComprasHabilitada(empresa.operacion?.anulacionCompras?.habilitado ? "si" : "no");
+    setAnulacionComprasDesde(toInputDate(empresa.operacion?.anulacionCompras?.desde));
+    setAnulacionComprasHasta(toInputDate(empresa.operacion?.anulacionCompras?.hasta));
     setDnitData(empresa.dnit || null);
     setModulos(normalizePermisos({
       ...DEFAULT_MODULES,
@@ -298,6 +304,13 @@ export default function ConfiguracionComercialPage() {
           demo: {
             habilitado: demoHabilitado === "si",
             fin: dateInputToIso(demoFin),
+          },
+          operacion: {
+            anulacionCompras: {
+              habilitado: anulacionComprasHabilitada === "si",
+              desde: dateInputToIso(anulacionComprasDesde),
+              hasta: dateInputToIso(anulacionComprasHasta),
+            },
           },
           suscripcion: {
             estado,
@@ -646,6 +659,40 @@ export default function ConfiguracionComercialPage() {
                       </p>
                     </div>
                     <Switch checked={demoHabilitado === "si"} onCheckedChange={(checked) => setDemoHabilitado(checked ? "si" : "no")} />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Ventana operativa para anulacion de compras</p>
+                      <p className="text-sm text-muted-foreground">
+                        Solo administracion podra anular compras aprobadas cuando esta ventana este habilitada.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={anulacionComprasHabilitada === "si"}
+                      onCheckedChange={(checked) => setAnulacionComprasHabilitada(checked ? "si" : "no")}
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Desde</Label>
+                      <Input
+                        type="date"
+                        value={anulacionComprasDesde}
+                        onChange={(e) => setAnulacionComprasDesde(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Hasta</Label>
+                      <Input
+                        type="date"
+                        value={anulacionComprasHasta}
+                        onChange={(e) => setAnulacionComprasHasta(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
 

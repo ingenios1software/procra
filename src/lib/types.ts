@@ -513,6 +513,9 @@ export type CompraNormal = {
   totalFactura: number;
   estado: 'abierto' | 'cerrado' | 'anulado';
   usuario: string;
+  anuladoPor?: string;
+  anuladoEn?: Date | string | FieldValue;
+  motivoAnulacion?: string | null;
   timestamp: FieldValue;
   // Nested Objects
   mercaderias: {
@@ -538,6 +541,7 @@ export type CompraNormal = {
     cuentaPagoId?: string;
     asientoRegistroId?: string;
     asientoPagoId?: string;
+    asientoAnulacionId?: string;
     pagoAplicado?: boolean;
     fechaPago?: Date | string;
     vencimiento?: Date | string;
@@ -880,6 +884,34 @@ export type Moneda = {
   esMonedaBase: boolean;
 };
 
+export type TipoCambioHistorico = {
+  id: string;
+  anio: number;
+  monedaOrigen: "PYG";
+  monedaDestino: "USD";
+  tasa: number;
+};
+
+export type ConfiguracionEvolucionPatrimonial = {
+  id: string;
+  cuentas?: Record<
+    string,
+    {
+      rubroKey?:
+        | "capital_social"
+        | "revaluo_bienes"
+        | "reserva_legal"
+        | "aporte_agro_industrial"
+        | "retiro_dividendos"
+        | "resultado_ejerc_anterior"
+        | "otros_patrimonios";
+      ignorar?: boolean;
+    }
+  >;
+  actualizadoEn?: Date | string | FieldValue;
+  actualizadoPor?: string;
+};
+
 export type PlanFinanciacion = {
   id: string;
   nombre: string;
@@ -942,6 +974,13 @@ export type EmpresaSaaS = {
     montoMensual: number;
     maxUsuarios?: number | null;
     proximoCobro?: Date | string;
+  };
+  operacion?: {
+    anulacionCompras?: {
+      habilitado: boolean;
+      desde?: Date | string | null;
+      hasta?: Date | string | null;
+    };
   };
   creadoEn?: Date | string | FieldValue;
   actualizadoEn?: Date | string | FieldValue;

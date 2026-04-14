@@ -31,17 +31,95 @@ import { CompraNormalForm } from "@/components/comercial/compras/compra-normal-f
 import { MoreHorizontal } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { doc, getDoc, orderBy, query, where, writeBatch } from 'firebase/firestore';
+import { useCollection, useMemoFirebase } from '@/firebase';
+import { doc, getDoc, getDocs, orderBy, where, writeBatch } from 'firebase/firestore';
 import { calcularEstadoCuenta, calcularSaldoDesdeMovimiento } from "@/lib/cuentas";
 import { withZafraContext } from "@/lib/contabilidad/asientos";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
+import { useAuth } from "@/hooks/use-auth";
+import { calcularPrecioPromedioDesdeCompras } from "@/lib/stock/precio-promedio-lotes";
+
+const STOCK_TOLERANCE = 0.0001;
+
+function toDateSafe(value?: Date | string | null): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function normalizeLote(value?: string | null): string {
+  return (value || "").trim().toLowerCase();
+}
+
+function buildLoteKey(insumoId: string, lote?: string | null): string {
+  return `${insumoId}::${normalizeLote(lote)}`;
+}
+
+function resolveAnulacionComprasWindow(empresa: any): { enabled: boolean; message?: string } {
+  const config = empresa?.operacion?.anulacionCompras;
+  if (!config?.habilitado) {
+    return {
+      enabled: false,
+      message: "La ventana operativa para anular compras no esta habilitada en Configuracion Comercial.",
+    };
+  }
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const desde = toDateSafe(config.desde);
+  if (desde) {
+    desde.setHours(0, 0, 0, 0);
+    if (hoy < desde) {
+      return {
+        enabled: false,
+        message: `La ventana de anulacion abre el ${format(desde, "dd/MM/yyyy")}.`,
+      };
+    }
+  }
+
+  const hasta = toDateSafe(config.hasta);
+  if (hasta) {
+    hasta.setHours(23, 59, 59, 999);
+    if (hoy > hasta) {
+      return {
+        enabled: false,
+        message: `La ventana de anulacion vencio el ${format(hasta, "dd/MM/yyyy")}.`,
+      };
+    }
+  }
+
+  return { enabled: true };
+}
+
+function resolveLatestCompraInfo(insumoId: string, compras: CompraNormal[]): { precio: number | null; fecha: string | null } {
+  let precio: number | null = null;
+  let fecha: string | null = null;
+  let latestTs = -1;
+
+  for (const compra of compras) {
+    if (compra.estado === "anulado") continue;
+    const fechaCompra = toDateSafe(compra.fechaEmision)?.getTime() || -1;
+    for (const item of compra.mercaderias || []) {
+      if (item.insumoId !== insumoId) continue;
+      const valorUnitario = Number(item.valorUnitario) || 0;
+      if (valorUnitario <= 0) continue;
+      if (fechaCompra >= latestTs) {
+        latestTs = fechaCompra;
+        precio = valorUnitario;
+        fecha = typeof compra.fechaEmision === "string" ? compra.fechaEmision : new Date(compra.fechaEmision).toISOString();
+      }
+    }
+  }
+
+  return { precio, fecha };
+}
 
 
 export default function ComprasPage() {
   const tenant = useTenantFirestore();
   const firestore = tenant.firestore;
-  const { user } = useUser();
+  const { user, permisos, empresa } = useAuth();
   const [isFormOpen, setFormOpen] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState<CompraNormal | null>(null);
   const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('create');
@@ -200,7 +278,7 @@ export default function ComprasPage() {
           monto: montoPago,
           cuentaContableId: cuentaPagoAprobacionId,
           asientoId: asientoPagoId,
-          pagadoPor: user.uid,
+          pagadoPor: user.id,
           creadoEn: fechaOperacion,
         };
         batch.set(pagoRef, pagoData);
@@ -242,7 +320,7 @@ export default function ComprasPage() {
           cuentaContableId: compraParaAprobar.financiero.cuentaPorPagarId,
           asientoRegistroId: compraParaAprobar.financiero.asientoRegistroId,
           actualizadoEn: fechaOperacion,
-          creadoPor: cuentaPorPagarActual?.creadoPor || user.uid,
+          creadoPor: cuentaPorPagarActual?.creadoPor || user.id,
           creadoEn: cuentaPorPagarActual?.creadoEn || fechaOperacion,
           ...(fechaVencimiento ? { fechaVencimiento } : {}),
         } satisfies Omit<CuentaPorPagar, 'id'>,
@@ -272,35 +350,269 @@ export default function ComprasPage() {
 
   const handleAnularCompra = async (compra: CompraNormal) => {
     if (!firestore || !user || !tenant.isReady) return;
-    if (compra.estado !== 'abierto') {
-      toast({ variant: 'destructive', title: 'No se puede anular', description: 'Solo se pueden anular compras abiertas.' });
+    if (compra.estado === 'anulado') {
+      toast({ variant: 'destructive', title: 'Compra ya anulada', description: 'La compra seleccionada ya se encuentra anulada.' });
       return;
     }
-    if (!window.confirm(`Desea anular la compra ${compra.comprobante.documento}?`)) return;
-
-    if (!compra.totalizadora) {
+    if (!permisos.administracion) {
       toast({
         variant: 'destructive',
-        title: 'Anulacion manual requerida',
-        description: 'Esta compra impacto stock. Realice ajuste de stock y asiento de reversa.',
+        title: 'Permiso insuficiente',
+        description: 'Solo administracion puede anular compras operativas.',
       });
       return;
     }
+    const ventanaAnulacion = resolveAnulacionComprasWindow(empresa);
+    if (!ventanaAnulacion.enabled) {
+      toast({
+        variant: 'destructive',
+        title: 'Ventana operativa cerrada',
+        description: ventanaAnulacion.message,
+      });
+      return;
+    }
+    if (!window.confirm(`Desea anular la compra ${compra.comprobante.documento}? Se revertiran cuenta por pagar, asiento y stock si corresponde.`)) return;
 
     try {
       const batch = writeBatch(firestore);
       const compraRef = tenant.doc('comprasNormal', compra.id);
       const cuentaPorPagarRef = tenant.doc('cuentasPorPagar', compra.id);
-      if (!compraRef || !cuentaPorPagarRef) return;
+      const asientosCol = tenant.collection('asientosDiario');
+      const movimientosCol = tenant.collection('MovimientosStock');
+      if (!compraRef || !cuentaPorPagarRef || !asientosCol || !movimientosCol) return;
       const fechaAnulacion = new Date().toISOString();
+      const motivoAnulacion =
+        compra.estado === 'cerrado'
+          ? 'Anulacion operativa de compra aprobada'
+          : 'Anulacion operativa de compra';
+
+      const cuentaPorPagarSnap = await getDoc(cuentaPorPagarRef);
+      const cuentaPorPagarActual = cuentaPorPagarSnap.exists()
+        ? ({ ...(cuentaPorPagarSnap.data() as CuentaPorPagar), id: cuentaPorPagarSnap.id } as CuentaPorPagar)
+        : null;
+      const pagosQuery = tenant.query('pagosCxp', where('compraId', '==', compra.id));
+      const pagosSnap = pagosQuery ? await getDocs(pagosQuery) : null;
+      const montoPagado = Number(cuentaPorPagarActual?.montoPagado ?? 0) || 0;
+      if (montoPagado > 0.005 || Boolean(compra.financiero?.pagoAplicado) || Boolean(pagosSnap && !pagosSnap.empty)) {
+        toast({
+          variant: 'destructive',
+          title: 'Compra con pagos aplicados',
+          description: 'Primero debe anular el pago o la nota aplicada sobre esta factura de compra.',
+        });
+        return;
+      }
+
+      const cuentaInventarioId = compra.financiero?.cuentaInventarioId;
+      const cuentaPorPagarId = compra.financiero?.cuentaPorPagarId || cuentaPorPagarActual?.cuentaContableId;
+      if (!cuentaInventarioId || !cuentaPorPagarId) {
+        toast({
+          variant: 'destructive',
+          title: 'Datos contables incompletos',
+          description: 'La compra no tiene definidas las cuentas necesarias para generar la reversa contable.',
+        });
+        return;
+      }
+
+      const lotesCompraByKey = new Map<string, Array<{ id: string; ref: any; data: any }>>();
+      const requiredByLote = new Map<string, number>();
+      const affectedInsumos = new Map<
+        string,
+        {
+          ref: any;
+          insumoActual: any;
+          cantidadAnular: number;
+          stockActual: number;
+          nuevoStock: number;
+        }
+      >();
+
+      if (!compra.totalizadora) {
+        const lotesCompraQuery = tenant.query('lotesInsumos', where('origenId', '==', compra.id));
+        const lotesCompraSnap = lotesCompraQuery ? await getDocs(lotesCompraQuery) : null;
+        lotesCompraSnap?.forEach((loteDoc) => {
+          const loteData = loteDoc.data();
+          const key = buildLoteKey(loteData.insumoId, loteData.codigoLote);
+          const current = lotesCompraByKey.get(key) || [];
+          current.push({ id: loteDoc.id, ref: loteDoc.ref, data: loteData });
+          lotesCompraByKey.set(key, current);
+        });
+
+        for (const item of compra.mercaderias || []) {
+          const cantidad = Number(item.cantidad) || 0;
+          if (cantidad <= 0) continue;
+
+          const insumoRef = tenant.doc('insumos', item.insumoId);
+          if (!insumoRef) {
+            throw new Error(`No se pudo resolver el insumo ${item.insumoId}.`);
+          }
+
+          let state = affectedInsumos.get(item.insumoId);
+          if (!state) {
+            const insumoSnap = await getDoc(insumoRef);
+            if (!insumoSnap.exists()) {
+              throw new Error(`No se encontro el insumo ${item.insumoId}.`);
+            }
+            const insumoActual = insumoSnap.data();
+            const stockActual = Number(insumoActual.stockActual) || 0;
+            state = {
+              ref: insumoRef,
+              insumoActual,
+              cantidadAnular: 0,
+              stockActual,
+              nuevoStock: stockActual,
+            };
+            affectedInsumos.set(item.insumoId, state);
+          }
+
+          state.cantidadAnular += cantidad;
+          state.nuevoStock = state.stockActual - state.cantidadAnular;
+          if (state.nuevoStock < -STOCK_TOLERANCE) {
+            toast({
+              variant: 'destructive',
+              title: 'Stock insuficiente para anular',
+              description: `El insumo ${state.insumoActual.nombre || item.insumoId} quedaria con stock negativo.`,
+            });
+            return;
+          }
+
+          if (state.insumoActual.controlaLotes && normalizeLote(item.lote)) {
+            const loteKey = buildLoteKey(item.insumoId, item.lote);
+            requiredByLote.set(loteKey, (requiredByLote.get(loteKey) || 0) + cantidad);
+          }
+        }
+
+        for (const [loteKey, requiredQty] of requiredByLote.entries()) {
+          const lotes = lotesCompraByKey.get(loteKey) || [];
+          const availableQty = lotes.reduce((acc, lote) => acc + (Number(lote.data.cantidadDisponible) || 0), 0);
+          if (lotes.length === 0) {
+            toast({
+              variant: 'destructive',
+              title: 'Lote no encontrado',
+              description: 'No se encontro el lote original de esta compra. La anulacion debe revisarse manualmente.',
+            });
+            return;
+          }
+          if (availableQty + STOCK_TOLERANCE < requiredQty) {
+            toast({
+              variant: 'destructive',
+              title: 'Lote con consumo posterior',
+              description: 'La mercaderia de esta compra ya fue consumida parcialmente. Primero regularice stock y luego anule.',
+            });
+            return;
+          }
+          if (Math.abs(availableQty - requiredQty) > STOCK_TOLERANCE) {
+            toast({
+              variant: 'destructive',
+              title: 'Lote desalineado',
+              description: 'El lote de la compra no coincide con la cantidad original y requiere revision manual.',
+            });
+            return;
+          }
+        }
+      }
+
+      const asientoAnulacionRef = doc(asientosCol);
+      const asientoAnulacion: Omit<AsientoDiario, 'id'> = withZafraContext(
+        {
+          fecha: fechaAnulacion,
+          descripcion: `Anulacion compra ${compra.comprobante.documento}`,
+          movimientos: [
+            { cuentaId: cuentaPorPagarId, tipo: 'debe', monto: compra.totalFactura },
+            { cuentaId: cuentaInventarioId, tipo: 'haber', monto: compra.totalFactura },
+          ],
+        },
+        {
+          zafraId: compra.zafraId,
+          zafraNombre: compra.zafraNombre || compra.planFinanciacion || null,
+        }
+      );
+      batch.set(asientoAnulacionRef, asientoAnulacion);
+
+      const comprasRecalculadas = (compras || []).map((item) =>
+        item.id === compra.id ? { ...item, estado: 'anulado' as const } : item
+      );
+
+      for (const state of affectedInsumos.values()) {
+        const precioPromedioRecalculado = calcularPrecioPromedioDesdeCompras(state.insumoActual.id, comprasRecalculadas);
+        const latestCompraInfo = resolveLatestCompraInfo(state.insumoActual.id, comprasRecalculadas);
+        const fallbackPromedio =
+          state.nuevoStock > STOCK_TOLERANCE
+            ? Number(state.insumoActual.precioPromedioCalculado || state.insumoActual.costoUnitario) || 0
+            : 0;
+        const fallbackCostoUnitario =
+          state.nuevoStock > STOCK_TOLERANCE
+            ? Number(state.insumoActual.costoUnitario || precioPromedioRecalculado || fallbackPromedio) || 0
+            : 0;
+
+        batch.update(state.ref, {
+          stockActual: Math.max(0, state.nuevoStock),
+          precioPromedioCalculado: precioPromedioRecalculado ?? fallbackPromedio,
+          costoUnitario: latestCompraInfo.precio ?? fallbackCostoUnitario,
+          ultimaCompra: latestCompraInfo.fecha || null,
+        });
+      }
+
+      if (!compra.totalizadora) {
+        for (const loteDocs of lotesCompraByKey.values()) {
+          for (const lote of loteDocs) {
+            batch.delete(lote.ref);
+          }
+        }
+
+        const runningStockByInsumo = new Map<string, number>();
+        for (const item of compra.mercaderias || []) {
+          const cantidad = Number(item.cantidad) || 0;
+          if (cantidad <= 0) continue;
+          const state = affectedInsumos.get(item.insumoId);
+          if (!state) continue;
+          const stockAntes = runningStockByInsumo.get(item.insumoId) ?? state.stockActual;
+          const stockDespues = Math.max(0, stockAntes - cantidad);
+          runningStockByInsumo.set(item.insumoId, stockDespues);
+          const movimientoRef = doc(movimientosCol);
+          batch.set(movimientoRef, {
+            fecha: fechaAnulacion,
+            tipo: 'ajuste',
+            origen: 'ajuste manual',
+            compraId: compra.id,
+            zafraId: compra.zafraId,
+            insumoId: item.insumoId,
+            insumoNombre: state.insumoActual.nombre,
+            unidad: state.insumoActual.unidad,
+            categoria: state.insumoActual.categoria,
+            cantidad,
+            stockAntes,
+            stockDespues,
+            precioUnitario: Number(item.valorUnitario) || 0,
+            costoTotal: cantidad * (Number(item.valorUnitario) || 0),
+            lote: item.lote?.trim() || undefined,
+            loteVencimiento: item.fechaVencimiento || null,
+            creadoPor: user.id,
+            creadoEn: new Date(),
+          });
+        }
+      }
+
       batch.update(compraRef, {
         estado: 'anulado',
-        anuladoPor: user.uid,
+        anuladoPor: user.id,
         anuladoEn: fechaAnulacion,
+        motivoAnulacion,
+        'financiero.pagoAplicado': false,
+        'financiero.fechaPago': null,
+        'financiero.asientoAnulacionId': asientoAnulacionRef.id,
       });
-      batch.set(cuentaPorPagarRef, { estado: 'anulada', actualizadoEn: fechaAnulacion }, { merge: true });
+      batch.set(
+        cuentaPorPagarRef,
+        {
+          estado: 'anulada',
+          saldoPendiente: 0,
+          actualizadoEn: fechaAnulacion,
+          observacion: motivoAnulacion,
+        },
+        { merge: true }
+      );
       await batch.commit();
-      toast({ title: 'Compra anulada' });
+      toast({ title: 'Compra anulada', description: 'Se registro la reversa contable y, si correspondia, la reversa de stock.' });
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'No se pudo anular', description: error?.message || 'Error inesperado' });
     }
@@ -391,7 +703,11 @@ export default function ComprasPage() {
                         <DropdownMenuItem onClick={() => openForm(compra, 'view')}>Ver Detalle</DropdownMenuItem>
                         {compra.estado === "abierto" && <DropdownMenuItem onClick={() => openForm(compra, 'edit')}>Editar</DropdownMenuItem>}
                         {compra.estado === "abierto" && <DropdownMenuItem onClick={() => handleOpenApprove(compra)}>Aprobar</DropdownMenuItem>}
-                        {compra.estado === "abierto" && <DropdownMenuItem className="text-destructive" onClick={() => handleAnularCompra(compra)}>Anular</DropdownMenuItem>}
+                        {permisos.administracion && compra.estado !== "anulado" && (
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleAnularCompra(compra)}>
+                            Anular
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
