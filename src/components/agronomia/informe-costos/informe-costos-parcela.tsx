@@ -325,6 +325,27 @@ export function InformeCostosParcela({
       lluviaPromedio !== null ? ` | Lluvia prom.: ${formatMetric(lluviaPromedio, 1)} mm` : ""
     }.`;
   }, [data, selectedZafraId]);
+  const resumenGeneral = useMemo(() => {
+    const superficieTotal = data.reduce((sum, item) => sum + (Number(item.parcela.superficie) || 0), 0);
+    const costoTotal = data.reduce((sum, item) => sum + (Number(item.costoTotal) || 0), 0);
+    const promedioCostoHa =
+      data.length > 0 ? data.reduce((sum, item) => sum + (Number(item.costoHa) || 0), 0) / data.length : 0;
+    const promedioRendimiento =
+      data.length > 0 ? data.reduce((sum, item) => sum + (Number(item.rendimiento) || 0), 0) / data.length : 0;
+    const lluvias = data
+      .map((item) => item.lluviaMm)
+      .filter((value): value is number => value !== null && Number.isFinite(Number(value)));
+    const promedioLluvia =
+      lluvias.length > 0 ? lluvias.reduce((sum, value) => sum + (Number(value) || 0), 0) / lluvias.length : null;
+
+    return [
+      { label: "Suma de hectareas", value: `${formatMetric(superficieTotal, 2)} ha` },
+      { label: "Suma costo total", value: `$${formatCurrency(costoTotal)}` },
+      { label: "Promedio costo/ha ($)", value: `$${formatCurrency(promedioCostoHa)}` },
+      { label: "Promedio rendimiento/ha", value: `${formatMetric(promedioRendimiento, 2)} kg/ha` },
+      { label: "Promedio de lluvia", value: promedioLluvia === null ? "-" : `${formatMetric(promedioLluvia, 1)} mm` },
+    ];
+  }, [data]);
   const costoColor = COMPARATIVE_CHART_COLORS.costo;
   const rendimientoColor = COMPARATIVE_CHART_COLORS.rendimiento;
   const lluviaColor = "hsl(var(--chart-2))";
@@ -385,33 +406,44 @@ export function InformeCostosParcela({
       </Card>
       
       {showTables && (
-      <div className="border rounded-lg">
-        <Table resizable>
-          <TableHeader>
-            {table.getHeaderGroups().map(headerGroup => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map(header => (
-                  <TableHead key={header.id} className="cursor-pointer" onClick={header.column.getToggleSortingHandler()}>
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                    {{ asc: ' ▲', desc: ' ▼' }[header.column.getIsSorted() as string] ?? null}
-                  </TableHead>
+        <>
+          <div className="border rounded-lg">
+            <Table resizable>
+              <TableHeader>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <TableHead key={header.id} className="cursor-pointer" onClick={header.column.getToggleSortingHandler()}>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {{ asc: ' ▲', desc: ' ▼' }[header.column.getIsSorted() as string] ?? null}
+                      </TableHead>
+                    ))}
+                  </TableRow>
                 ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.map(row => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map(cell => (
-                  <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.map(row => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map(cell => (
+                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    ))}
+                  </TableRow>
                 ))}
-              </TableRow>
+                {isLoading && <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">Cargando datos...</TableCell></TableRow>}
+                {!isLoading && table.getRowModel().rows.length === 0 && <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">No hay datos para los filtros seleccionados.</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {resumenGeneral.map((item) => (
+              <div key={item.label} className="rounded-lg border bg-muted/20 p-4">
+                <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+                <p className="mt-2 text-lg font-semibold">{item.value}</p>
+              </div>
             ))}
-            {isLoading && <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">Cargando datos...</TableCell></TableRow>}
-            {!isLoading && table.getRowModel().rows.length === 0 && <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">No hay datos para los filtros seleccionados.</TableCell></TableRow>}
-          </TableBody>
-        </Table>
-      </div>
+          </div>
+        </>
       )}
 
       {showCharts && (
