@@ -27,8 +27,9 @@ import type {
   RegistroLluviaSector,
   Venta,
 } from "@/lib/types";
-import { Bar, BarChart, CartesianGrid, ComposedChart, LabelList, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { COMPARATIVE_CHART_COLORS } from "@/lib/chart-palette";
+import { buildInsumoCostDistribution } from "@/lib/agronomia-cost-distribution";
 import { buildLluviaDistribuidaPorParcelaZafra } from "@/lib/lluvias";
 import { formatCurrency } from "@/lib/utils";
 
@@ -346,6 +347,21 @@ export function InformeCostosParcela({
       { label: "Promedio de lluvia", value: promedioLluvia === null ? "-" : `${formatMetric(promedioLluvia, 1)} mm` },
     ];
   }, [data]);
+  const distribucionCostosZafra = useMemo(() => {
+    if (!selectedZafraId) return [];
+    return buildInsumoCostDistribution(
+      eventos.filter((evento) => evento.zafraId === selectedZafraId),
+      insumos
+    );
+  }, [eventos, insumos, selectedZafraId]);
+  const totalDistribucionZafra = useMemo(
+    () => distribucionCostosZafra.reduce((sum, item) => sum + (Number(item.value) || 0), 0),
+    [distribucionCostosZafra]
+  );
+  const categoriaPrincipalZafra = useMemo(() => {
+    if (distribucionCostosZafra.length === 0) return null;
+    return [...distribucionCostosZafra].sort((a, b) => b.value - a.value)[0] || null;
+  }, [distribucionCostosZafra]);
   const costoColor = COMPARATIVE_CHART_COLORS.costo;
   const rendimientoColor = COMPARATIVE_CHART_COLORS.rendimiento;
   const lluviaColor = "hsl(var(--chart-2))";
@@ -355,6 +371,10 @@ export function InformeCostosParcela({
   const formatPercentLabel = (value: unknown): string => {
     const pct = Number(value) || 0;
     return pct >= 0.08 ? formatPercent(pct) : "";
+  };
+  const formatPieLabel = ({ name, percent }: { name?: string; percent?: number }) => {
+    const pct = (Number(percent) || 0) * 100;
+    return pct >= 7 ? `${name} ${pct.toFixed(0)}%` : "";
   };
   const reportTargetId = "informe-costos-parcela-report";
 
@@ -584,84 +604,164 @@ export function InformeCostosParcela({
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Lluvia vs Rendimiento</CardTitle>
-          <CardDescription>
-            Compara la lluvia acumulada por parcela dentro de la zafra con el
-            rendimiento obtenido.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!selectedZafraId ? (
-            <div className="flex h-[320px] items-center justify-center text-center text-muted-foreground">
-              Seleccione una zafra para ver la lluvia acumulada por parcela.
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <ComposedChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="parcela.nombre" tickLine={false} />
-                <YAxis
-                  yAxisId="left"
-                  orientation="left"
-                  stroke={lluviaColor}
-                  domain={lluviaDomain}
-                  tick={{ fill: lluviaColor }}
-                  tickLine={false}
-                  axisLine={{ stroke: lluviaColor }}
-                  tickFormatter={(value) => `${formatMetric(Number(value) || 0, 1)} mm`}
-                  label={{ value: "Lluvia (mm)", angle: -90, position: "insideLeft" }}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  stroke={rendimientoColor}
-                  domain={rendimientoDomain}
-                  tick={{ fill: rendimientoColor }}
-                  tickLine={false}
-                  axisLine={{ stroke: rendimientoColor }}
-                  tickFormatter={(value) => `${formatMetric(Number(value) || 0, 0)} kg/ha`}
-                  label={{ value: "Rendimiento (kg/ha)", angle: 90, position: "insideRight" }}
-                />
-                <Tooltip
-                  formatter={(value, name) => {
-                    const numeric = Number(value) || 0;
-                    if (name === "Lluvia") {
-                      return [`${formatMetric(numeric, 1)} mm`, "Lluvia"];
-                    }
-                    if (name === "Rendimiento") {
-                      return [`${formatMetric(numeric, 0)} kg/ha`, "Rendimiento"];
-                    }
-                    return [formatMetric(numeric), String(name)];
-                  }}
-                />
-                <Legend />
-                <Bar
-                  yAxisId="left"
-                  dataKey="lluviaMm"
-                  name="Lluvia"
-                  fill={lluviaColor}
-                  fillOpacity={0.5}
-                  stroke={lluviaColor}
-                  strokeWidth={1}
-                  maxBarSize={56}
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="rendimiento"
-                  name="Rendimiento"
-                  stroke={rendimientoColor}
-                  strokeWidth={3}
-                  dot={{ r: 4, strokeWidth: 2, stroke: rendimientoColor, fill: "hsl(var(--background))" }}
-                  activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(var(--background))", fill: rendimientoColor }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 xl:grid-cols-[1.8fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Lluvia vs Rendimiento</CardTitle>
+            <CardDescription>
+              Compara la lluvia acumulada por parcela dentro de la zafra con el
+              rendimiento obtenido.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!selectedZafraId ? (
+              <div className="flex h-[320px] items-center justify-center text-center text-muted-foreground">
+                Seleccione una zafra para ver la lluvia acumulada por parcela.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={320}>
+                <ComposedChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="parcela.nombre" tickLine={false} />
+                  <YAxis
+                    yAxisId="left"
+                    orientation="left"
+                    stroke={lluviaColor}
+                    domain={lluviaDomain}
+                    tick={{ fill: lluviaColor }}
+                    tickLine={false}
+                    axisLine={{ stroke: lluviaColor }}
+                    tickFormatter={(value) => `${formatMetric(Number(value) || 0, 1)} mm`}
+                    label={{ value: "Lluvia (mm)", angle: -90, position: "insideLeft" }}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke={rendimientoColor}
+                    domain={rendimientoDomain}
+                    tick={{ fill: rendimientoColor }}
+                    tickLine={false}
+                    axisLine={{ stroke: rendimientoColor }}
+                    tickFormatter={(value) => `${formatMetric(Number(value) || 0, 0)} kg/ha`}
+                    label={{ value: "Rendimiento (kg/ha)", angle: 90, position: "insideRight" }}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => {
+                      const numeric = Number(value) || 0;
+                      if (name === "Lluvia") {
+                        return [`${formatMetric(numeric, 1)} mm`, "Lluvia"];
+                      }
+                      if (name === "Rendimiento") {
+                        return [`${formatMetric(numeric, 0)} kg/ha`, "Rendimiento"];
+                      }
+                      return [formatMetric(numeric), String(name)];
+                    }}
+                  />
+                  <Legend />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="lluviaMm"
+                    name="Lluvia"
+                    fill={lluviaColor}
+                    fillOpacity={0.5}
+                    stroke={lluviaColor}
+                    strokeWidth={1}
+                    maxBarSize={56}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="rendimiento"
+                    name="Rendimiento"
+                    stroke={rendimientoColor}
+                    strokeWidth={3}
+                    dot={{ r: 4, strokeWidth: 2, stroke: rendimientoColor, fill: "hsl(var(--background))" }}
+                    activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(var(--background))", fill: rendimientoColor }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Distribución de Costos por Categoría</CardTitle>
+            <CardDescription>
+              Costo total acumulado por categoría de insumo dentro de la zafra seleccionada.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!selectedZafraId ? (
+              <div className="flex h-[320px] items-center justify-center text-center text-muted-foreground">
+                Seleccione una zafra para ver la distribución de costos.
+              </div>
+            ) : distribucionCostosZafra.length === 0 ? (
+              <div className="flex h-[320px] items-center justify-center text-center text-muted-foreground">
+                No hay costos cargados para representar la distribución de la zafra.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative h-[320px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={distribucionCostosZafra}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={52}
+                        outerRadius={96}
+                        paddingAngle={1}
+                        label={formatPieLabel}
+                        labelLine
+                      >
+                        {distribucionCostosZafra.map((item, index) => (
+                          <Cell key={`distribucion-zafra-${index}`} fill={item.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value, name) => {
+                          const numeric = Number(value) || 0;
+                          const pct = totalDistribucionZafra > 0 ? (numeric / totalDistribucionZafra) * 100 : 0;
+                          return [`$${formatCurrency(numeric)} (${pct.toFixed(1)}%)`, String(name)];
+                        }}
+                      />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div className="rounded-full bg-background/90 px-4 py-3 text-center shadow-sm">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                        Total Zafra
+                      </p>
+                      <p className="mt-1 text-sm font-semibold">${formatCurrency(totalDistribucionZafra)}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">Categorias activas</p>
+                    <p className="mt-1 text-lg font-semibold">{distribucionCostosZafra.length}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">Mayor participacion</p>
+                    <p className="mt-1 text-lg font-semibold">
+                      {categoriaPrincipalZafra ? categoriaPrincipalZafra.name : "-"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {categoriaPrincipalZafra
+                        ? `${((categoriaPrincipalZafra.value / totalDistribucionZafra) * 100).toFixed(1)}% del total`
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
       </>
       )}
       </div>

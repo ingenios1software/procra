@@ -26,6 +26,16 @@ type ProductoEvento = {
   dosis?: number;
 };
 
+const formatHectareas = (value?: number | null) => {
+  const hectareas = Number(value ?? 0) || 0;
+  if (hectareas <= 0) return "-";
+
+  return hectareas.toLocaleString("de-DE", {
+    minimumFractionDigits: hectareas % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 const getRowColor = (categoria?: string) => {
     switch(categoria) {
         case 'Desecación': return 'bg-yellow-100/50 hover:bg-yellow-100/80 dark:bg-yellow-900/20';
@@ -120,6 +130,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                                 <TableHead className="w-12"></TableHead>
                                 <TableHead>Fecha / Evento</TableHead>
                                 <TableHead>Tipo Evento</TableHead>
+                                <TableHead className="text-right">Ha Evento</TableHead>
                                 <TableHead>Producto</TableHead>
                                 <TableHead className="text-right">Dosis/Ha</TableHead>
                                 <TableHead className="text-right">Cant. Total</TableHead>
@@ -143,6 +154,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                                 const cicloEvento = fechaEventoActual
                                   ? Math.max(0, differenceInDays(fechaEventoActual, fechaSiembraBase))
                                   : 0;
+                                const hectareasEvento = Number(evento.hectareasAplicadas ?? 0) || 0;
                                 const costoPorHa = parcela.superficie > 0 ? (evento.costoTotal || 0) / parcela.superficie : 0;
                                 const eventoRef = getEventoRef(evento);
                                 costoTotalGeneral += evento.costoTotal || 0;
@@ -165,6 +177,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                                                 </div>
                                             </TableCell>
                                             <TableCell>{evento.categoria || getEventTypeDisplay(evento)}</TableCell>
+                                            <TableCell className="text-right">{formatHectareas(hectareasEvento)}</TableCell>
                                             <TableCell>{productosDelEvento.length} Producto(s)</TableCell>
                                             <TableCell></TableCell>
                                             <TableCell></TableCell>
@@ -181,6 +194,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
 
                                             return (
                                                 <TableRow key={`${evento.id}-${prodIndex}`} className="bg-muted/10 hover:bg-muted/30">
+                                                    <TableCell></TableCell>
                                                     <TableCell></TableCell>
                                                     <TableCell></TableCell>
                                                     <TableCell></TableCell>
@@ -216,7 +230,7 @@ export function PanelTablaAgronomica({ parcela, zafra, eventos, insumos }: Panel
                         </TableBody>
                         <TableFooter>
                             <TableRow className="font-bold text-lg bg-primary/10">
-                                <TableCell colSpan={11}>Costo Total Acumulado</TableCell>
+                                <TableCell colSpan={12}>Costo Total Acumulado</TableCell>
                                 <TableCell className="text-right">${costoTotalGeneral.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                             </TableRow>
                         </TableFooter>

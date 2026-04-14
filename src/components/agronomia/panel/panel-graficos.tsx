@@ -4,11 +4,12 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, ReferenceLine, LabelList } from "recharts";
 import type { Evento, Insumo, Zafra, EtapaCultivo } from "@/lib/types";
+import { buildInsumoCostDistribution } from "@/lib/agronomia-cost-distribution";
 import { differenceInDays } from "date-fns";
-import { getEventCategoryLabel, getEventDate, getSowingBaseDate, groupCostsByEventCategory } from "./panel-evento-utils";
+import { getEventCategoryLabel, getEventDate, getSowingBaseDate } from "./panel-evento-utils";
 import { formatCurrency } from "@/lib/utils";
 
-const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+const FALLBACK_COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 interface PanelGraficosProps {
     eventos: Evento[];
@@ -16,27 +17,6 @@ interface PanelGraficosProps {
     zafra: Zafra;
     etapas: EtapaCultivo[];
     parcelaNombre?: string;
-}
-
-function normalizeText(value: string): string {
-    return (value || "")
-        .toLowerCase()
-        .trim()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-}
-
-function getInsumoCategoryLabel(categoria?: string): string {
-    const key = normalizeText(categoria || "");
-    if (!key) return "Sin categoria";
-    if (key.includes("herbic")) return "Herbicidas";
-    if (key.includes("fertiliz")) return "Fertilizantes";
-    if (key.includes("fungic")) return "Fungicidas";
-    if (key.includes("insect")) return "Insecticidas";
-    if (key.includes("desec")) return "Desecantes";
-    if (key.includes("semilla")) return "Semillas";
-    if (key.includes("coady")) return "Coadyuvantes";
-    return categoria || "Sin categoria";
 }
 
 function formatCostShareLabel(value: unknown): string {
@@ -53,86 +33,20 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }
         progresoZafraData,
         usandoEventosComoProgreso,
         usandoFrecuenciaEnCostos,
-        usandoCategoriasEventoEnCostos,
         totalInsumos,
         totalServicios,
         composicionCostos,
     } = useMemo(() => {
-        const insumosPorId = new Map(insumos.map((insumo) => [insumo.id, insumo]));
-        const costosPorCategoriaInsumo = eventos.reduce((acc, ev) => {
-            const productosDelEvento =
-                ev.productos ||
-                (ev.insumoId
-                    ? [{ insumoId: ev.insumoId, cantidad: ev.cantidad || 0, dosis: ev.dosis || 0 }]
-                    : []);
-
-            let costoProductosEvento = 0;
-
-            for (const prod of productosDelEvento) {
-                const insumo = prod?.insumoId ? insumosPorId.get(prod.insumoId) : undefined;
-                const categoria = getInsumoCategoryLabel(insumo?.categoria);
-                const costoUnitario = Number(insumo?.precioPromedioCalculado ?? insumo?.costoUnitario ?? 0) || 0;
-                const cantidadDirecta = Number(prod?.cantidad ?? 0) || 0;
-                const cantidadCalculada =
-                    cantidadDirecta > 0
-                        ? cantidadDirecta
-                        : (Number(prod?.dosis ?? 0) || 0) * (Number(ev.hectareasAplicadas ?? 0) || 0);
-
-                const costoProducto = Math.max(0, cantidadCalculada * costoUnitario);
-                if (costoProducto <= 0) continue;
-
-                costoProductosEvento += costoProducto;
-                acc[categoria] = (acc[categoria] || 0) + costoProducto;
-            }
-
-            const costoEvento = Number(ev.costoTotal || 0);
-            const costoServicio = costoEvento - costoProductosEvento;
-            if (costoServicio > 0.01) {
-                acc.Servicio = (acc.Servicio || 0) + costoServicio;
-            }
-
-            return acc;
-        }, {} as Record<string, number>);
-
-        const dataCostosInsumo = Object.entries(costosPorCategoriaInsumo)
-            .map(([name, value]) => ({ name, value }))
-            .filter((item) => item.value > 0)
-            .sort((a, b) => b.value - a.value);
-
-        const costoTotalInsumos = dataCostosInsumo.reduce((acc, item) => acc + item.value, 0);
-        const costoTotalServicios = Math.max(
-            0,
-            eventos.reduce((acc, ev) => {
-                const costoServicioTotal =
-                    (Number(ev.hectareasAplicadas ?? 0) || 0) * (Number(ev.costoServicioPorHa ?? 0) || 0);
-                if (costoServicioTotal > 0) return acc + costoServicioTotal;
-
-                const costoEvento = Number(ev.costoTotal || 0);
-                const productosDelEvento =
-                    ev.productos ||
-                    (ev.insumoId
-                        ? [{ insumoId: ev.insumoId, cantidad: ev.cantidad || 0, dosis: ev.dosis || 0 }]
-                        : []);
-
-                const costoProductosEvento = productosDelEvento.reduce((sum, prod) => {
-                    const insumo = prod?.insumoId ? insumosPorId.get(prod.insumoId) : undefined;
-                    const costoUnitario = Number(insumo?.precioPromedioCalculado ?? insumo?.costoUnitario ?? 0) || 0;
-                    const cantidadDirecta = Number(prod?.cantidad ?? 0) || 0;
-                    const cantidadCalculada =
-                        cantidadDirecta > 0
-                            ? cantidadDirecta
-                            : (Number(prod?.dosis ?? 0) || 0) * (Number(ev.hectareasAplicadas ?? 0) || 0);
-                    return sum + Math.max(0, cantidadCalculada * costoUnitario);
-                }, 0);
-
-                return acc + Math.max(0, costoEvento - costoProductosEvento);
-            }, 0)
-        );
+        const dataCostosInsumo = buildInsumoCostDistribution(eventos, insumos);
+        const costoTotalServicios = dataCostosInsumo
+            .filter((item) => item.name === "Servicio")
+            .reduce((acc, item) => acc + item.value, 0);
+        const costoTotalInsumos = dataCostosInsumo
+            .filter((item) => item.name !== "Servicio")
+            .reduce((acc, item) => acc + item.value, 0);
         const costoBaseComposicion = costoTotalInsumos + costoTotalServicios;
         const insumosPct = costoBaseComposicion > 0 ? (costoTotalInsumos / costoBaseComposicion) * 100 : 0;
         const serviciosPct = costoBaseComposicion > 0 ? (costoTotalServicios / costoBaseComposicion) * 100 : 0;
-        const costosPorCategoriaEvento = groupCostsByEventCategory(eventos);
-        const costoTotalEventos = costosPorCategoriaEvento.reduce((acc, item) => acc + item.value, 0);
 
         const frecuenciaPorCategoria = eventos.reduce((acc, ev) => {
             const categoria = getEventCategoryLabel(ev);
@@ -141,11 +55,15 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }
         }, {} as Record<string, number>);
 
         const dataCostos =
-            costoTotalInsumos > 0
+            dataCostosInsumo.length > 0
                 ? dataCostosInsumo
-                : costoTotalEventos > 0
-                    ? costosPorCategoriaEvento
-                    : Object.entries(frecuenciaPorCategoria).map(([name, value]) => ({ name, value }));
+                : Object.entries(frecuenciaPorCategoria)
+                    .map(([name, value], index) => ({
+                        name,
+                        value,
+                        fill: FALLBACK_COLORS[index % FALLBACK_COLORS.length],
+                    }))
+                    .sort((a, b) => b.value - a.value);
 
         const etapasCultivo = etapas
             .filter((e) => e.cultivoId === zafra.cultivoId)
@@ -167,8 +85,7 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }
                 distribucionCostos: dataCostos,
                 progresoZafraData: dataProgreso,
                 usandoEventosComoProgreso: false,
-                usandoFrecuenciaEnCostos: costoTotalInsumos <= 0 && costoTotalEventos <= 0 && eventos.length > 0,
-                usandoCategoriasEventoEnCostos: costoTotalInsumos <= 0 && costoTotalEventos > 0,
+                usandoFrecuenciaEnCostos: dataCostosInsumo.length === 0 && eventos.length > 0,
                 totalInsumos: costoTotalInsumos,
                 totalServicios: costoTotalServicios,
                 composicionCostos: [
@@ -200,8 +117,7 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }
             distribucionCostos: dataCostos,
             progresoZafraData: dataProgreso,
             usandoEventosComoProgreso: true,
-            usandoFrecuenciaEnCostos: costoTotalInsumos <= 0 && costoTotalEventos <= 0 && eventos.length > 0,
-            usandoCategoriasEventoEnCostos: costoTotalInsumos <= 0 && costoTotalEventos > 0,
+            usandoFrecuenciaEnCostos: dataCostosInsumo.length === 0 && eventos.length > 0,
             totalInsumos: costoTotalInsumos,
             totalServicios: costoTotalServicios,
             composicionCostos: [
@@ -217,6 +133,7 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }
     const hasProgreso = progresoZafraData.length > 0;
     const hasDistribucion = distribucionCostos.length > 0;
     const hasComposicion = composicionCostos.some((item) => item.Insumos > 0 || item.Servicios > 0);
+    const totalDistribucion = distribucionCostos.reduce((acc, item) => acc + item.value, 0);
 
     return (
         <div className="grid gap-6 xl:grid-cols-3">
@@ -272,38 +189,60 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }
                     <CardDescription>
                         {usandoFrecuenciaEnCostos
                             ? "Los eventos no tienen costo cargado. Se muestra frecuencia por categoria."
-                            : usandoCategoriasEventoEnCostos
-                                ? "No hay detalle de insumos suficiente. Se muestra costo por categoria de evento."
-                                : "Proporcion de costos por categoria de insumo (herbicidas, fertilizantes, etc.)."}
+                            : "Costo total por categoria de insumo, con el mismo criterio visual del informe de costos."}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {hasDistribucion ? (
-                        <ResponsiveContainer width="100%" height={300}>
-                          <PieChart>
-                            <Pie
-                                data={distribucionCostos}
-                                dataKey="value"
-                                nameKey="name"
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={100}
-                                label={(props) => `${props.name} ${((props.percent || 0) * 100).toFixed(0)}%`}
-                            >
-                                {distribucionCostos.map((_, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                formatter={(value) =>
-                                    usandoFrecuenciaEnCostos
-                                        ? `${Number(value).toLocaleString("de-DE")} evento(s)`
-                                        : `$${Number(value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                }
-                            />
-                            <Legend />
-                          </PieChart>
-                        </ResponsiveContainer>
+                        <div className="relative h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                    data={distribucionCostos}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={48}
+                                    outerRadius={96}
+                                    paddingAngle={1}
+                                    label={(props) => {
+                                        const pct = ((props.percent || 0) * 100);
+                                        return pct >= 7 ? `${props.name} ${pct.toFixed(0)}%` : "";
+                                    }}
+                                    labelLine
+                                >
+                                    {distribucionCostos.map((item, index) => (
+                                        <Cell key={`cell-${index}`} fill={item.fill || FALLBACK_COLORS[index % FALLBACK_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    formatter={(value, name) => {
+                                        const numeric = Number(value) || 0;
+                                        if (usandoFrecuenciaEnCostos) {
+                                            return [`${numeric.toLocaleString("de-DE")} evento(s)`, String(name)];
+                                        }
+
+                                        const pct = totalDistribucion > 0 ? (numeric / totalDistribucion) * 100 : 0;
+                                        return [`$${numeric.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${pct.toFixed(1)}%)`, String(name)];
+                                    }}
+                                />
+                                <Legend />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="rounded-full bg-background/90 px-4 py-3 text-center shadow-sm">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                        {usandoFrecuenciaEnCostos ? "Eventos" : "Total"}
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold">
+                                        {usandoFrecuenciaEnCostos
+                                            ? totalDistribucion.toLocaleString("de-DE")
+                                            : `$${formatCurrency(totalDistribucion)}`}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     ) : (
                         <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
                             No hay eventos para mostrar distribucion.
