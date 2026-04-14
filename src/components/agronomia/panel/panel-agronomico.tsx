@@ -7,7 +7,7 @@ import { ReportActions } from "@/components/shared/report-actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { CloudRain, Download } from "lucide-react";
+import { CloudRain, Download, Eye, EyeOff } from "lucide-react";
 import type { Parcela, Cultivo, Zafra, Evento, Insumo, EtapaCultivo, RegistroLluviaSector } from "@/lib/types";
 import { PanelKpiCards } from "./panel-kpi-cards";
 import { PanelGraficos } from "./panel-graficos";
@@ -32,6 +32,7 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
     const [selectedCultivoId, setSelectedCultivoId] = useState<string | null>(null);
     const [selectedZafraId, setSelectedZafraId] = useState<string | null>(null);
     const [selectedParcelaId, setSelectedParcelaId] = useState<string | null>(null);
+    const [showDetailedReport, setShowDetailedReport] = useState(true);
 
     const handleCultivoChange = (cultivoId: string) => {
         setSelectedCultivoId(cultivoId);
@@ -231,7 +232,21 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
                             etapas={etapas}
                             parcelaNombre={parcela.nombre}
                         />
-                        <PanelTablaAgronomica parcela={parcela} zafra={zafra} eventos={filteredEvents} insumos={insumos} />
+                        <div className="no-print flex justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowDetailedReport((prev) => !prev)}
+                              aria-expanded={showDetailedReport}
+                            >
+                              {showDetailedReport ? <EyeOff className="mr-2" /> : <Eye className="mr-2" />}
+                              {showDetailedReport ? "Ocultar Informe Detallado" : "Mostrar Informe Detallado"}
+                            </Button>
+                        </div>
+                        {showDetailedReport && (
+                            <PanelTablaAgronomica parcela={parcela} zafra={zafra} eventos={filteredEvents} insumos={insumos} />
+                        )}
                         <PanelAnalisisEconomico eventos={filteredEvents} insumos={insumos} />
                     </div>
                 ) : (
