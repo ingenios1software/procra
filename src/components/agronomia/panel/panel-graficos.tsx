@@ -2,10 +2,11 @@
 
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, ReferenceLine } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, ReferenceLine, LabelList } from "recharts";
 import type { Evento, Insumo, Zafra, EtapaCultivo } from "@/lib/types";
 import { differenceInDays } from "date-fns";
 import { getEventCategoryLabel, getEventDate, getSowingBaseDate, groupCostsByEventCategory } from "./panel-evento-utils";
+import { formatCurrency } from "@/lib/utils";
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
@@ -14,6 +15,7 @@ interface PanelGraficosProps {
     insumos: Insumo[];
     zafra: Zafra;
     etapas: EtapaCultivo[];
+    parcelaNombre?: string;
 }
 
 function normalizeText(value: string): string {
@@ -37,11 +39,25 @@ function getInsumoCategoryLabel(categoria?: string): string {
     return categoria || "Sin categoria";
 }
 
-export function PanelGraficos({ eventos, insumos, zafra, etapas }: PanelGraficosProps) {
+function formatCostShareLabel(value: unknown): string {
+    const pct = Number(value) || 0;
+    return pct >= 8 ? `${Math.round(pct)}%` : "";
+}
+
+export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }: PanelGraficosProps) {
     const fechaBaseSiembra = useMemo(() => getSowingBaseDate(zafra, eventos), [zafra, eventos]);
     const diasCicloActual = Math.max(0, differenceInDays(new Date(), fechaBaseSiembra));
 
-    const { distribucionCostos, progresoZafraData, usandoEventosComoProgreso, usandoFrecuenciaEnCostos, usandoCategoriasEventoEnCostos } = useMemo(() => {
+    const {
+        distribucionCostos,
+        progresoZafraData,
+        usandoEventosComoProgreso,
+        usandoFrecuenciaEnCostos,
+        usandoCategoriasEventoEnCostos,
+        totalInsumos,
+        totalServicios,
+        composicionCostos,
+    } = useMemo(() => {
         const insumosPorId = new Map(insumos.map((insumo) => [insumo.id, insumo]));
         const costosPorCategoriaInsumo = eventos.reduce((acc, ev) => {
             const productosDelEvento =
@@ -84,6 +100,37 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas }: PanelGraficos
             .sort((a, b) => b.value - a.value);
 
         const costoTotalInsumos = dataCostosInsumo.reduce((acc, item) => acc + item.value, 0);
+        const costoTotalServicios = Math.max(
+            0,
+            eventos.reduce((acc, ev) => {
+                const costoServicioTotal =
+                    (Number(ev.hectareasAplicadas ?? 0) || 0) * (Number(ev.costoServicioPorHa ?? 0) || 0);
+                if (costoServicioTotal > 0) return acc + costoServicioTotal;
+
+                const costoEvento = Number(ev.costoTotal || 0);
+                const productosDelEvento =
+                    ev.productos ||
+                    (ev.insumoId
+                        ? [{ insumoId: ev.insumoId, cantidad: ev.cantidad || 0, dosis: ev.dosis || 0 }]
+                        : []);
+
+                const costoProductosEvento = productosDelEvento.reduce((sum, prod) => {
+                    const insumo = prod?.insumoId ? insumosPorId.get(prod.insumoId) : undefined;
+                    const costoUnitario = Number(insumo?.precioPromedioCalculado ?? insumo?.costoUnitario ?? 0) || 0;
+                    const cantidadDirecta = Number(prod?.cantidad ?? 0) || 0;
+                    const cantidadCalculada =
+                        cantidadDirecta > 0
+                            ? cantidadDirecta
+                            : (Number(prod?.dosis ?? 0) || 0) * (Number(ev.hectareasAplicadas ?? 0) || 0);
+                    return sum + Math.max(0, cantidadCalculada * costoUnitario);
+                }, 0);
+
+                return acc + Math.max(0, costoEvento - costoProductosEvento);
+            }, 0)
+        );
+        const costoBaseComposicion = costoTotalInsumos + costoTotalServicios;
+        const insumosPct = costoBaseComposicion > 0 ? (costoTotalInsumos / costoBaseComposicion) * 100 : 0;
+        const serviciosPct = costoBaseComposicion > 0 ? (costoTotalServicios / costoBaseComposicion) * 100 : 0;
         const costosPorCategoriaEvento = groupCostsByEventCategory(eventos);
         const costoTotalEventos = costosPorCategoriaEvento.reduce((acc, item) => acc + item.value, 0);
 
@@ -122,6 +169,15 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas }: PanelGraficos
                 usandoEventosComoProgreso: false,
                 usandoFrecuenciaEnCostos: costoTotalInsumos <= 0 && costoTotalEventos <= 0 && eventos.length > 0,
                 usandoCategoriasEventoEnCostos: costoTotalInsumos <= 0 && costoTotalEventos > 0,
+                totalInsumos: costoTotalInsumos,
+                totalServicios: costoTotalServicios,
+                composicionCostos: [
+                    {
+                        name: parcelaNombre || zafra.nombre,
+                        Insumos: Number(insumosPct.toFixed(2)),
+                        Servicios: Number(serviciosPct.toFixed(2)),
+                    },
+                ],
             };
         }
 
@@ -146,14 +202,24 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas }: PanelGraficos
             usandoEventosComoProgreso: true,
             usandoFrecuenciaEnCostos: costoTotalInsumos <= 0 && costoTotalEventos <= 0 && eventos.length > 0,
             usandoCategoriasEventoEnCostos: costoTotalInsumos <= 0 && costoTotalEventos > 0,
+            totalInsumos: costoTotalInsumos,
+            totalServicios: costoTotalServicios,
+            composicionCostos: [
+                {
+                    name: parcelaNombre || zafra.nombre,
+                    Insumos: Number(insumosPct.toFixed(2)),
+                    Servicios: Number(serviciosPct.toFixed(2)),
+                },
+            ],
         };
-    }, [eventos, insumos, etapas, zafra.cultivoId, fechaBaseSiembra]);
+    }, [eventos, insumos, etapas, zafra.cultivoId, zafra.nombre, fechaBaseSiembra, parcelaNombre]);
 
     const hasProgreso = progresoZafraData.length > 0;
     const hasDistribucion = distribucionCostos.length > 0;
+    const hasComposicion = composicionCostos.some((item) => item.Insumos > 0 || item.Servicios > 0);
 
     return (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 xl:grid-cols-3">
             <Card>
                 <CardHeader>
                     <CardTitle>Ciclo Fenologico del Cultivo</CardTitle>
@@ -241,6 +307,86 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas }: PanelGraficos
                     ) : (
                         <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
                             No hay eventos para mostrar distribucion.
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Composicion de Costos</CardTitle>
+                    <CardDescription>
+                        Relacion entre insumos y servicios dentro del costo total de la campana seleccionada.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {hasComposicion ? (
+                        <div className="space-y-4">
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart
+                                    data={composicionCostos}
+                                    layout="vertical"
+                                    margin={{ top: 10, right: 10, left: 20, bottom: 10 }}
+                                >
+                                    <XAxis
+                                        type="number"
+                                        domain={[0, 100]}
+                                        tickFormatter={(value) => `${value}%`}
+                                    />
+                                    <YAxis type="category" dataKey="name" width={90} />
+                                    <Tooltip
+                                        formatter={(value, name) => {
+                                            const monto = name === "Insumos" ? totalInsumos : totalServicios;
+                                            return [`${Number(value).toFixed(1)}% ($${formatCurrency(monto)})`, String(name)];
+                                        }}
+                                    />
+                                    <Legend />
+                                    <Bar
+                                        dataKey="Insumos"
+                                        stackId="costos"
+                                        fill="hsl(var(--chart-1))"
+                                        radius={[4, 0, 0, 4]}
+                                    >
+                                        <LabelList
+                                            dataKey="Insumos"
+                                            position="inside"
+                                            formatter={formatCostShareLabel}
+                                            fill="#ffffff"
+                                            fontSize={13}
+                                            fontWeight={700}
+                                        />
+                                    </Bar>
+                                    <Bar
+                                        dataKey="Servicios"
+                                        stackId="costos"
+                                        fill="hsl(var(--chart-3))"
+                                        radius={[0, 4, 4, 0]}
+                                    >
+                                        <LabelList
+                                            dataKey="Servicios"
+                                            position="inside"
+                                            formatter={formatCostShareLabel}
+                                            fill="#111827"
+                                            fontSize={13}
+                                            fontWeight={700}
+                                        />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="rounded-lg border p-3">
+                                    <p className="text-xs font-medium text-muted-foreground">Insumos</p>
+                                    <p className="text-xl font-semibold">${formatCurrency(totalInsumos)}</p>
+                                </div>
+                                <div className="rounded-lg border p-3">
+                                    <p className="text-xs font-medium text-muted-foreground">Servicios</p>
+                                    <p className="text-xl font-semibold">${formatCurrency(totalServicios)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+                            No hay costos suficientes para mostrar la composicion.
                         </div>
                     )}
                 </CardContent>

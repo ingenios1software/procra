@@ -192,28 +192,28 @@ export default function LiquidacionPage() {
     );
   }, [cuentasCajaBanco, planById]);
 
-  const buildReciboView = (recibo: ReciboPagoEmpleado): ReciboPagoEmpleadoViewModel => {
-    const empleado = empleadosDataById.get(recibo.empleadoId);
-    const monthIndex = Math.max(0, Number(recibo.periodoMes || 1) - 1);
-    return {
-      id: recibo.id,
-      numero: recibo.numero,
-      empleadoNombre: empleado ? getEmpleadoNombreCompleto(empleado, { invertido: true }) : recibo.empleadoId,
-      empleadoCodigo: empleado ? getEmpleadoCodigo(empleado) : recibo.empleadoId,
-      empleadoDocumento: empleado?.documento,
-      empleadoPuesto: empleado?.puesto,
-      periodoLabel: buildPeriodoLabel(Number(recibo.periodoAnio) || year, monthIndex),
-      fecha: recibo.fecha,
-      moneda: recibo.moneda,
-      horasLiquidadas: Number(recibo.horasLiquidadas) || 0,
-      monto: Number(recibo.monto) || 0,
-      estado: recibo.estado,
-      cajaLabel: cajaLabelById.get(recibo.cuentaCajaBancoId) || recibo.cuentaCajaBancoId,
-      observacion: recibo.observacion,
-    };
-  };
-
   const recibosPeriodo = useMemo(() => {
+    const buildReciboView = (recibo: ReciboPagoEmpleado): ReciboPagoEmpleadoViewModel => {
+      const empleado = empleadosDataById.get(recibo.empleadoId);
+      const monthIndex = Math.max(0, Number(recibo.periodoMes || 1) - 1);
+      return {
+        id: recibo.id,
+        numero: recibo.numero,
+        empleadoNombre: empleado ? getEmpleadoNombreCompleto(empleado, { invertido: true }) : recibo.empleadoId,
+        empleadoCodigo: empleado ? getEmpleadoCodigo(empleado) : recibo.empleadoId,
+        empleadoDocumento: empleado?.documento,
+        empleadoPuesto: empleado?.puesto,
+        periodoLabel: buildPeriodoLabel(Number(recibo.periodoAnio) || year, monthIndex),
+        fecha: recibo.fecha,
+        moneda: recibo.moneda,
+        horasLiquidadas: Number(recibo.horasLiquidadas) || 0,
+        monto: Number(recibo.monto) || 0,
+        estado: recibo.estado,
+        cajaLabel: cajaLabelById.get(recibo.cuentaCajaBancoId) || recibo.cuentaCajaBancoId,
+        observacion: recibo.observacion,
+      };
+    };
+
     return (recibosPago || [])
       .filter((recibo) => reciboEsPeriodo(recibo, year, month))
       .map(buildReciboView)

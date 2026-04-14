@@ -14,6 +14,7 @@ import {
 } from "@tanstack/react-table";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -115,6 +116,8 @@ export function InformeCostosParcela({
   const [selectedCultivoId, setSelectedCultivoId] = useState<string | null>(null);
   const [selectedZafraId, setSelectedZafraId] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [showTables, setShowTables] = useState(true);
+  const [showCharts, setShowCharts] = useState(true);
 
   useEffect(() => {
     if (!selectedCultivoId || !selectedZafraId) return;
@@ -332,6 +335,7 @@ export function InformeCostosParcela({
     const pct = Number(value) || 0;
     return pct >= 0.08 ? formatPercent(pct) : "";
   };
+  const reportTargetId = "informe-costos-parcela-report";
 
   return (
     <>
@@ -342,31 +346,45 @@ export function InformeCostosParcela({
         <ReportActions
           reportTitle="Informe de Costos por Parcela"
           reportSummary={shareSummary}
+          printTargetId={reportTargetId}
+          imageTargetId={reportTargetId}
         />
       </PageHeader>
-      <Card className="mb-6">
+      <div id={reportTargetId} className="print-area space-y-6">
+      <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
           <CardDescription>Seleccione un cultivo y una zafra para acotar el análisis.</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col md:flex-row gap-4">
-          <Select onValueChange={(v) => setSelectedCultivoId(v === "all" ? null : v)} value={selectedCultivoId || ''}>
-            <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="Filtrar por Cultivo..." /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los Cultivos</SelectItem>
-              {cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select onValueChange={(v) => setSelectedZafraId(v === "all" ? null : v)} value={selectedZafraId || ''} disabled={!selectedCultivoId}>
-            <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="Filtrar por Zafra..." /></SelectTrigger>
-            <SelectContent>
-                <SelectItem value="all">Todas las Zafras</SelectItem>
-                {zafrasFiltradas.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}
-            </SelectContent>
-          </Select>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-4 md:flex-row">
+            <Select onValueChange={(v) => setSelectedCultivoId(v === "all" ? null : v)} value={selectedCultivoId || ''}>
+              <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="Filtrar por Cultivo..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los Cultivos</SelectItem>
+                {cultivos.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select onValueChange={(v) => setSelectedZafraId(v === "all" ? null : v)} value={selectedZafraId || ''} disabled={!selectedCultivoId}>
+              <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="Filtrar por Zafra..." /></SelectTrigger>
+              <SelectContent>
+                  <SelectItem value="all">Todas las Zafras</SelectItem>
+                  {zafrasFiltradas.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="no-print flex flex-wrap gap-2 border-t pt-4">
+            <Button type="button" variant="outline" onClick={() => setShowTables((prev) => !prev)}>
+              {showTables ? "Ocultar tablas" : "Mostrar tablas"}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowCharts((prev) => !prev)}>
+              {showCharts ? "Ocultar graficos" : "Mostrar graficos"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
       
+      {showTables && (
       <div className="border rounded-lg">
         <Table resizable>
           <TableHeader>
@@ -394,8 +412,11 @@ export function InformeCostosParcela({
           </TableBody>
         </Table>
       </div>
+      )}
 
-      <div className="grid md:grid-cols-2 gap-6 mt-6">
+      {showCharts && (
+      <>
+      <div className="grid md:grid-cols-2 gap-6">
         <Card>
           <CardHeader><CardTitle>Eficiencia: Costo/ha vs Rendimiento</CardTitle></CardHeader>
           <CardContent>
@@ -531,7 +552,7 @@ export function InformeCostosParcela({
         </Card>
       </div>
 
-      <Card className="mt-6">
+      <Card>
         <CardHeader>
           <CardTitle>Lluvia vs Rendimiento</CardTitle>
           <CardDescription>
@@ -609,6 +630,9 @@ export function InformeCostosParcela({
           )}
         </CardContent>
       </Card>
+      </>
+      )}
+      </div>
     </>
   );
 }
