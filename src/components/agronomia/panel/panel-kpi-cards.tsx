@@ -6,32 +6,44 @@ import { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
 import { format } from "date-fns";
 import { Calendar, Activity, Clock, DollarSign } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { getCycleMetrics, getEventCategoryLabel } from "./panel-evento-utils";
+import type { CycleMetrics } from "./panel-evento-utils";
+import { getEventCategoryLabel } from "./panel-evento-utils";
 
 interface PanelKpiCardsProps {
-    parcela: Parcela;
+    parcelas: Parcela[];
     cultivo: Cultivo;
     zafra: Zafra;
     eventos: Evento[];
+    cycleMetrics: CycleMetrics;
     className?: string;
 }
 
-export function PanelKpiCards({ parcela, cultivo, zafra, eventos, className }: PanelKpiCardsProps) {
-    const { diasDesdeSiembra, eventoReciente, costoTotal, costoPorHa, cicloCerrado, fechaFinCiclo } = useMemo(() => {
-        const ciclo = getCycleMetrics(zafra, eventos);
+function formatSurface(value: number) {
+    return value.toLocaleString("de-DE", {
+        minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+        maximumFractionDigits: 2,
+    });
+}
+
+export function PanelKpiCards({ parcelas, cultivo, zafra, eventos, cycleMetrics, className }: PanelKpiCardsProps) {
+    const { eventoReciente, costoTotal, costoPorHa, superficieTotal, parcelasLabel } = useMemo(() => {
         const ultimoEvento = eventos.length > 0 ? eventos[eventos.length - 1] : null;
         const costo = eventos.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
-        const costoHa = parcela.superficie > 0 ? costo / parcela.superficie : 0;
+        const superficie = parcelas.reduce((sum, parcela) => sum + (Number(parcela.superficie) || 0), 0);
+        const costoHa = superficie > 0 ? costo / superficie : 0;
+        const label =
+            parcelas.length === 1
+                ? parcelas[0].nombre
+                : `${parcelas.length} parcelas`;
 
         return {
-            diasDesdeSiembra: ciclo.totalDays,
             eventoReciente: ultimoEvento,
             costoTotal: costo,
             costoPorHa: costoHa,
-            cicloCerrado: ciclo.isClosed,
-            fechaFinCiclo: ciclo.endDate,
+            superficieTotal: superficie,
+            parcelasLabel: label,
         };
-    }, [zafra, eventos, parcela.superficie]);
+    }, [eventos, parcelas]);
 
     return (
         <div className={className || "grid gap-4 md:grid-cols-2 lg:grid-cols-4"}>
@@ -39,15 +51,16 @@ export function PanelKpiCards({ parcela, cultivo, zafra, eventos, className }: P
                 <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Informacion General</CardTitle><Calendar className="h-5 w-5 text-muted-foreground"/></CardHeader>
                 <CardContent>
                     <p className="text-sm"><strong className="text-primary">{zafra.nombre}</strong></p>
-                    <p className="text-xs text-muted-foreground">{cultivo.nombre} en {parcela.nombre}</p>
+                    <p className="text-xs text-muted-foreground">{cultivo.nombre} en {parcelasLabel}</p>
+                    <p className="text-xs text-muted-foreground">{formatSurface(superficieTotal)} ha seleccionadas</p>
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">{cicloCerrado ? "Ciclo Cerrado" : "Ciclo a Hoy"}</CardTitle><Clock className="h-5 w-5 text-muted-foreground"/></CardHeader>
+                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">{cycleMetrics.isClosed ? "Ciclo Cerrado" : "Ciclo a Hoy"}</CardTitle><Clock className="h-5 w-5 text-muted-foreground"/></CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{diasDesdeSiembra} dias</div>
+                    <div className="text-2xl font-bold">{cycleMetrics.totalDays} dias</div>
                     <p className="text-xs text-muted-foreground">
-                        {cicloCerrado ? `cerrado el ${format(fechaFinCiclo, "dd/MM/yyyy")}` : "desde la siembra"}
+                        {cycleMetrics.isClosed ? `cerrado el ${format(cycleMetrics.endDate, "dd/MM/yyyy")}` : "desde la siembra"}
                     </p>
                 </CardContent>
             </Card>

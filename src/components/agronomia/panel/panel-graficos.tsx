@@ -6,7 +6,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import type { Evento, Insumo, Zafra, EtapaCultivo } from "@/lib/types";
 import { buildInsumoCostDistribution } from "@/lib/agronomia-cost-distribution";
 import { differenceInDays } from "date-fns";
-import { getCycleMetrics, getEventCategoryLabel, getEventDate, getSowingBaseDate } from "./panel-evento-utils";
+import type { CycleMetrics } from "./panel-evento-utils";
+import { getEventCategoryLabel, getEventDate } from "./panel-evento-utils";
 import { formatCurrency } from "@/lib/utils";
 
 const FALLBACK_COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
@@ -16,7 +17,8 @@ interface PanelGraficosProps {
     insumos: Insumo[];
     zafra: Zafra;
     etapas: EtapaCultivo[];
-    parcelaNombre?: string;
+    cycleMetrics: CycleMetrics;
+    selectionLabel?: string;
 }
 
 function formatCostShareLabel(value: unknown): string {
@@ -24,10 +26,9 @@ function formatCostShareLabel(value: unknown): string {
     return pct >= 8 ? `${Math.round(pct)}%` : "";
 }
 
-export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }: PanelGraficosProps) {
-    const fechaBaseSiembra = useMemo(() => getSowingBaseDate(zafra, eventos), [zafra, eventos]);
-    const cicloActual = useMemo(() => getCycleMetrics(zafra, eventos), [zafra, eventos]);
-    const diasCicloActual = cicloActual.totalDays;
+export function PanelGraficos({ eventos, insumos, zafra, etapas, cycleMetrics, selectionLabel }: PanelGraficosProps) {
+    const fechaBaseSiembra = cycleMetrics.sowingDate;
+    const diasCicloActual = cycleMetrics.totalDays;
 
     const {
         distribucionCostos,
@@ -91,7 +92,7 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }
                 totalServicios: costoTotalServicios,
                 composicionCostos: [
                     {
-                        name: parcelaNombre || zafra.nombre,
+                        name: selectionLabel || zafra.nombre,
                         Insumos: Number(insumosPct.toFixed(2)),
                         Servicios: Number(serviciosPct.toFixed(2)),
                     },
@@ -121,15 +122,15 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }
             usandoFrecuenciaEnCostos: dataCostosInsumo.length === 0 && eventos.length > 0,
             totalInsumos: costoTotalInsumos,
             totalServicios: costoTotalServicios,
-            composicionCostos: [
-                {
-                    name: parcelaNombre || zafra.nombre,
-                    Insumos: Number(insumosPct.toFixed(2)),
-                    Servicios: Number(serviciosPct.toFixed(2)),
-                },
-            ],
-        };
-    }, [eventos, insumos, etapas, zafra.cultivoId, zafra.nombre, fechaBaseSiembra, parcelaNombre]);
+                composicionCostos: [
+                    {
+                        name: selectionLabel || zafra.nombre,
+                        Insumos: Number(insumosPct.toFixed(2)),
+                        Servicios: Number(serviciosPct.toFixed(2)),
+                    },
+                ],
+            };
+    }, [eventos, insumos, etapas, zafra.cultivoId, zafra.nombre, fechaBaseSiembra, selectionLabel]);
 
     const hasProgreso = progresoZafraData.length > 0;
     const hasDistribucion = distribucionCostos.length > 0;
@@ -165,7 +166,7 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }
                                     stroke="hsl(var(--destructive))"
                                     strokeDasharray="4 4"
                                     label={{
-                                        value: `${cicloActual.isClosed ? "Cosecha" : "Hoy"} ${diasCicloActual}d`,
+                                        value: `${cycleMetrics.isClosed ? "Cosecha" : "Hoy"} ${diasCicloActual}d`,
                                         fill: "hsl(var(--destructive))",
                                         position: "insideTopRight",
                                     }}

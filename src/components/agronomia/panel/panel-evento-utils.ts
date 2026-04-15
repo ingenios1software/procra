@@ -98,6 +98,14 @@ export function getHarvestEndDate(eventos: Evento[]): Date | null {
   }, null);
 }
 
+export type CycleMetrics = {
+  sowingDate: Date;
+  harvestDate: Date | null;
+  endDate: Date;
+  totalDays: number;
+  isClosed: boolean;
+};
+
 export function getCycleMetrics(zafra: Zafra, eventos: Evento[], fallbackEndDate: Date = new Date()) {
   const sowingDate = getSowingBaseDate(zafra, eventos);
   const harvestDate = getHarvestEndDate(eventos);
@@ -110,5 +118,54 @@ export function getCycleMetrics(zafra: Zafra, eventos: Evento[], fallbackEndDate
     endDate,
     totalDays,
     isClosed: Boolean(harvestDate),
+  } satisfies CycleMetrics;
+}
+
+export function getCycleMetricsForParcelSelection(
+  zafra: Zafra,
+  eventos: Evento[],
+  parcelaIds: string[],
+  fallbackEndDate: Date = new Date()
+): CycleMetrics {
+  const uniqueParcelIds = [...new Set(parcelaIds.filter(Boolean))];
+  if (uniqueParcelIds.length <= 1) {
+    const singleParcelId = uniqueParcelIds[0];
+    const eventosParcela = singleParcelId ? eventos.filter((evento) => evento.parcelaId === singleParcelId) : eventos;
+    return getCycleMetrics(zafra, eventosParcela, fallbackEndDate);
+  }
+
+  let sowingDate: Date | null = null;
+  let latestHarvestDate: Date | null = null;
+  let allClosed = true;
+
+  uniqueParcelIds.forEach((parcelaId) => {
+    const eventosParcela = eventos.filter((evento) => evento.parcelaId === parcelaId);
+    const sowingDateParcela = getSowingBaseDate(zafra, eventosParcela);
+    const harvestDateParcela = getHarvestEndDate(eventosParcela);
+
+    if (!sowingDate || sowingDateParcela.getTime() < sowingDate.getTime()) {
+      sowingDate = sowingDateParcela;
+    }
+
+    if (!harvestDateParcela) {
+      allClosed = false;
+      return;
+    }
+
+    if (!latestHarvestDate || harvestDateParcela.getTime() > latestHarvestDate.getTime()) {
+      latestHarvestDate = harvestDateParcela;
+    }
+  });
+
+  const resolvedSowingDate = sowingDate || getSowingBaseDate(zafra, eventos);
+  const endDate = allClosed && latestHarvestDate ? latestHarvestDate : fallbackEndDate;
+  const totalDays = Math.max(0, differenceInDays(endDate, resolvedSowingDate));
+
+  return {
+    sowingDate: resolvedSowingDate,
+    harvestDate: latestHarvestDate,
+    endDate,
+    totalDays,
+    isClosed: allClosed && uniqueParcelIds.length > 0,
   };
 }
