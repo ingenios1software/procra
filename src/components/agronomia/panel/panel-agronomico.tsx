@@ -661,16 +661,16 @@ export function PanelAgronomico({
 
       <div id="panel-agronomico-print" className="print-area">
         <Card className="mb-6 no-print">
-          <CardContent className="grid gap-4 p-4 xl:grid-cols-[1.45fr_240px_2.1fr] xl:items-start">
-            <div className="space-y-4">
+          <CardContent className="grid gap-2.5 p-2.5 xl:grid-cols-[1.22fr_190px_2fr] xl:items-start">
+            <div className="space-y-2.5">
               <div className="space-y-1">
-                <CardTitle>Seleccion de Campana</CardTitle>
-                <CardDescription>Elija el cultivo, la zafra y las parcelas que desea analizar.</CardDescription>
+                <CardTitle className="text-[24px] leading-tight">Seleccion de Campana</CardTitle>
+                <CardDescription className="text-sm leading-tight">Elija cultivo, zafra y parcelas a analizar.</CardDescription>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-2 md:grid-cols-3">
                 <Select onValueChange={handleCultivoChange} value={selectedCultivoId || ""}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Cultivo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -683,7 +683,7 @@ export function PanelAgronomico({
                 </Select>
 
                 <Select onValueChange={handleZafraChange} value={selectedZafraId || ""} disabled={!selectedCultivoId}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Zafra" />
                   </SelectTrigger>
                   <SelectContent>
@@ -714,6 +714,7 @@ export function PanelAgronomico({
                     type="button"
                     variant={selectedZafraId === zafraActualAtajo?.id ? "secondary" : "outline"}
                     size="sm"
+                    className="h-8 px-3 text-xs"
                     disabled={!zafraActualAtajo}
                     onClick={() => zafraActualAtajo && handleZafraChange(zafraActualAtajo.id)}
                   >
@@ -723,6 +724,7 @@ export function PanelAgronomico({
                     type="button"
                     variant={selectedZafraId === zafraAnteriorAtajo?.id ? "secondary" : "outline"}
                     size="sm"
+                    className="h-8 px-3 text-xs"
                     disabled={!zafraAnteriorAtajo}
                     onClick={() => zafraAnteriorAtajo && handleZafraChange(zafraAnteriorAtajo.id)}
                   >
@@ -733,75 +735,76 @@ export function PanelAgronomico({
 
               {selectedZafraId ? (
                 parcelasDisponibles.length > 0 ? (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span className="rounded-full border px-3 py-1">{parcelasSeleccionadas.length} seleccionadas</span>
-                      <span className="rounded-full border px-3 py-1">{parcelasCerradasSeleccionadas} cerradas</span>
-                      <span className="rounded-full border px-3 py-1">{parcelasAbiertasSeleccionadas} abiertas</span>
-                      <span className="rounded-full border px-3 py-1">{formatSurface(superficieSeleccionada)} ha</span>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+                      <span className="rounded-full border px-2 py-0.5">{parcelasSeleccionadas.length} seleccionadas</span>
+                      <span className="rounded-full border px-2 py-0.5">{parcelasCerradasSeleccionadas} cerradas</span>
+                      <span className="rounded-full border px-2 py-0.5">{parcelasAbiertasSeleccionadas} abiertas</span>
+                      <span className="rounded-full border px-2 py-0.5">{formatSurface(superficieSeleccionada)} ha</span>
                     </div>
 
-                    <div className="rounded-xl border bg-muted/20 p-3">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <p className="text-sm font-medium">Selecciones frecuentes</p>
-                          <p className="text-xs text-muted-foreground">
-                            Guarde combinaciones de parcelas para reutilizarlas rapido en esta zafra.
+                    <div className="rounded-lg border bg-muted/10 px-2.5 py-2">
+                      <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+                        <div className="min-w-0 flex flex-wrap items-center gap-1.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                            Selecciones frecuentes
                           </p>
+                          {presetsForCurrentZafra.length === 0 ? (
+                            <span className="text-[11px] text-muted-foreground">Sin guardadas en esta zafra.</span>
+                          ) : null}
+                          {presetsForCurrentZafra.length > 0 ? (
+                            <span className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
+                              {presetsForCurrentZafra.length}
+                            </span>
+                          ) : null}
                         </div>
-                        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+                        <div className="flex w-full flex-col gap-1.5 sm:flex-row xl:w-auto">
                           <Input
                             value={presetName}
                             onChange={(event) => setPresetName(event.target.value)}
                             placeholder={defaultPresetName || "Nombre de la seleccion"}
-                            className="h-10 sm:w-[240px]"
+                            className="h-8 text-sm sm:w-[170px]"
                             disabled={!hasSelection}
                           />
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
+                            className="h-8 px-3 text-xs"
                             onClick={saveCurrentPreset}
                             disabled={!hasSelection}
                           >
-                            <BookmarkPlus className="mr-2 h-4 w-4" />
+                            <BookmarkPlus className="mr-1.5 h-3.5 w-3.5" />
                             {duplicatePreset ? "Actualizar" : "Guardar"}
                           </Button>
                         </div>
                       </div>
 
                       {presetsForCurrentZafra.length > 0 ? (
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="mt-2 flex flex-wrap gap-1">
                           {presetsForCurrentZafra.map((preset) => {
                             const isActive = haveSameIds(preset.parcelaIds, selectedParcelaIds);
-                            const parcelasTexto =
-                              preset.parcelaNames.length <= 2
-                                ? preset.parcelaNames.join(", ")
-                                : `${preset.parcelaNames[0]} + ${preset.parcelaNames.length - 1} mas`;
 
                             return (
                               <div
                                 key={preset.id}
-                                className="flex items-center gap-1 rounded-full border bg-background px-1 py-1"
+                                className="flex items-center rounded-full border bg-background/95 pr-0.5"
                               >
                                 <Button
                                   type="button"
                                   variant={isActive ? "secondary" : "ghost"}
                                   size="sm"
-                                  className="h-8 rounded-full px-3"
+                                  className="h-6 rounded-full px-2.5 text-[11px]"
                                   onClick={() => applySavedPreset(preset)}
                                 >
-                                  <Bookmark className="mr-2 h-3.5 w-3.5" />
+                                  <Bookmark className="mr-1.5 h-3.5 w-3.5" />
                                   {preset.name}
                                 </Button>
-                                <span className="hidden max-w-[220px] truncate text-xs text-muted-foreground md:inline">
-                                  {parcelasTexto}
-                                </span>
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 rounded-full"
+                                  className="h-6 w-6 rounded-full"
                                   onClick={() => deleteSavedPreset(preset.id)}
                                   aria-label={`Eliminar seleccion ${preset.name}`}
                                 >
@@ -811,11 +814,7 @@ export function PanelAgronomico({
                             );
                           })}
                         </div>
-                      ) : (
-                        <p className="mt-3 text-xs text-muted-foreground">
-                          Todavia no hay selecciones guardadas para esta zafra.
-                        </p>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 ) : (
@@ -824,13 +823,13 @@ export function PanelAgronomico({
               ) : null}
             </div>
 
-            <div className="flex min-h-[132px] flex-col justify-between rounded-xl border bg-muted/20 p-4">
+            <div className="flex min-h-[104px] flex-col justify-between rounded-xl border bg-muted/20 p-3">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Lluvia Acumulada</p>
                 <CloudRain className="h-5 w-5 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-4xl font-semibold leading-none">
+                <p className="text-[32px] font-semibold leading-none">
                   {hasSelection
                     ? lluviaPromedio.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 1 })
                     : "--"}
@@ -852,10 +851,10 @@ export function PanelAgronomico({
                 cultivo={cultivo!}
                 eventos={filteredEvents}
                 cycleMetrics={cycleMetrics!}
-                className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4"
+                className="grid gap-2 md:grid-cols-2 2xl:grid-cols-4"
               />
             ) : (
-              <div className="flex min-h-[132px] items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+              <div className="flex min-h-[104px] items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
                 Seleccione cultivo, zafra y una o mas parcelas para ver el resumen.
               </div>
             )}

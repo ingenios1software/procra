@@ -112,7 +112,7 @@ export function PanelParcelaSelector({
         <Button
           type="button"
           variant="outline"
-          className="w-full justify-between"
+          className="h-9 w-full justify-between text-sm"
           disabled={disabled || options.length === 0}
         >
           <span className="truncate text-left">{triggerLabel}</span>
@@ -126,37 +126,37 @@ export function PanelParcelaSelector({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[360px] p-0" align="start">
-        <div className="border-b p-3">
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <div className="border-b p-2.5">
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Buscar parcela..."
-            className="h-10 text-sm"
+            className="h-8 text-sm"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2 border-b p-3">
-          <Button type="button" variant="outline" size="sm" onClick={() => applySelection(optionIds)} disabled={optionIds.length === 0}>
+        <div className="grid grid-cols-2 gap-2 border-b p-2.5">
+          <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => applySelection(optionIds)} disabled={optionIds.length === 0}>
             <Layers3 className="mr-2 h-4 w-4" />
             Todas
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => applySelection(closedIds)} disabled={closedIds.length === 0}>
+          <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => applySelection(closedIds)} disabled={closedIds.length === 0}>
             <Filter className="mr-2 h-4 w-4" />
             Cerradas
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => applySelection(openIds)} disabled={openIds.length === 0}>
+          <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => applySelection(openIds)} disabled={openIds.length === 0}>
             <Sprout className="mr-2 h-4 w-4" />
             Abiertas
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => applySelection([])} disabled={selectedCount === 0}>
+          <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => applySelection([])} disabled={selectedCount === 0}>
             <X className="mr-2 h-4 w-4" />
             Limpiar
           </Button>
         </div>
 
-        <ScrollArea className="h-72">
-          <div className="p-2">
+        <ScrollArea className="h-64">
+          <div className="p-1.5">
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-8 text-center text-sm text-muted-foreground">
                 No hay parcelas que coincidan con el filtro.
@@ -169,7 +169,7 @@ export function PanelParcelaSelector({
                   <button
                     key={option.id}
                     type="button"
-                    className="flex w-full items-start gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-muted/60"
+                    className="flex w-full items-start gap-3 rounded-md px-3 py-1.5 text-left transition-colors hover:bg-muted/60"
                     onClick={() => toggleSelection(option.id)}
                   >
                     <Checkbox checked={checked} className="mt-1 pointer-events-none" />
@@ -195,7 +195,7 @@ export function PanelParcelaSelector({
           </div>
         </ScrollArea>
 
-        <div className="flex flex-wrap items-center gap-2 border-t px-3 py-3 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2 text-[11px] text-muted-foreground">
           <span>{selectedCount} seleccionadas</span>
           <span>{selectedClosedCount} cerradas</span>
           <span>{selectedOpenCount} abiertas</span>

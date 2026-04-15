@@ -46,36 +46,36 @@ export function PanelKpiCards({ parcelas, cultivo, zafra, eventos, cycleMetrics,
     }, [eventos, parcelas]);
 
     return (
-        <div className={className || "grid gap-4 md:grid-cols-2 lg:grid-cols-4"}>
+        <div className={className || "grid gap-3 md:grid-cols-2 lg:grid-cols-4"}>
             <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Informacion General</CardTitle><Calendar className="h-5 w-5 text-muted-foreground"/></CardHeader>
-                <CardContent>
+                <CardHeader className="flex-row items-center justify-between space-y-0 px-3.5 pb-1 pt-2.5"><CardTitle className="text-[13px] font-medium">Informacion General</CardTitle><Calendar className="h-4 w-4 text-muted-foreground"/></CardHeader>
+                <CardContent className="px-3.5 pb-2.5 pt-0">
                     <p className="text-sm"><strong className="text-primary">{zafra.nombre}</strong></p>
-                    <p className="text-xs text-muted-foreground">{cultivo.nombre} en {parcelasLabel}</p>
-                    <p className="text-xs text-muted-foreground">{formatSurface(superficieTotal)} ha seleccionadas</p>
+                    <p className="text-[11px] text-muted-foreground">{cultivo.nombre} en {parcelasLabel}</p>
+                    <p className="text-[11px] text-muted-foreground">{formatSurface(superficieTotal)} ha seleccionadas</p>
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">{cycleMetrics.isClosed ? "Ciclo Cerrado" : "Ciclo a Hoy"}</CardTitle><Clock className="h-5 w-5 text-muted-foreground"/></CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{cycleMetrics.totalDays} dias</div>
-                    <p className="text-xs text-muted-foreground">
+                <CardHeader className="flex-row items-center justify-between space-y-0 px-3.5 pb-1 pt-2.5"><CardTitle className="text-[13px] font-medium">{cycleMetrics.isClosed ? "Ciclo Cerrado" : "Ciclo a Hoy"}</CardTitle><Clock className="h-4 w-4 text-muted-foreground"/></CardHeader>
+                <CardContent className="px-3.5 pb-2.5 pt-0">
+                    <div className="text-[28px] font-bold leading-none">{cycleMetrics.totalDays} dias</div>
+                    <p className="text-[11px] text-muted-foreground">
                         {cycleMetrics.isClosed ? `cerrado el ${format(cycleMetrics.endDate, "dd/MM/yyyy")}` : "desde la siembra"}
                     </p>
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Eventos Totales</CardTitle><Activity className="h-5 w-5 text-muted-foreground"/></CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{eventos.length}</div>
-                    <p className="text-xs text-muted-foreground">Ultimo: {eventoReciente ? getEventCategoryLabel(eventoReciente) : "N/A"}</p>
+                <CardHeader className="flex-row items-center justify-between space-y-0 px-3.5 pb-1 pt-2.5"><CardTitle className="text-[13px] font-medium">Eventos Totales</CardTitle><Activity className="h-4 w-4 text-muted-foreground"/></CardHeader>
+                <CardContent className="px-3.5 pb-2.5 pt-0">
+                    <div className="text-[28px] font-bold leading-none">{eventos.length}</div>
+                    <p className="text-[11px] text-muted-foreground">Ultimo: {eventoReciente ? getEventCategoryLabel(eventoReciente) : "N/A"}</p>
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costo Total / Ha</CardTitle><DollarSign className="h-5 w-5 text-muted-foreground"/></CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">${formatCurrency(costoPorHa)}</div>
-                    <p className="text-xs text-muted-foreground">Total: ${formatCurrency(costoTotal)}</p>
+                <CardHeader className="flex-row items-center justify-between space-y-0 px-3.5 pb-1 pt-2.5"><CardTitle className="text-[13px] font-medium">Costo Total / Ha</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground"/></CardHeader>
+                <CardContent className="px-3.5 pb-2.5 pt-0">
+                    <div className="text-[28px] font-bold leading-none">${formatCurrency(costoPorHa)}</div>
+                    <p className="text-[11px] text-muted-foreground">Total: ${formatCurrency(costoTotal)}</p>
                 </CardContent>
             </Card>
         </div>
