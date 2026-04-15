@@ -70,9 +70,6 @@ export function getEventDate(evento: Pick<Evento, "fecha">): Date | null {
 }
 
 export function getSowingBaseDate(zafra: Zafra, eventos: Evento[]): Date {
-  const fromZafra = toDate(zafra.fechaSiembra);
-  if (fromZafra) return fromZafra;
-
   const ordered = [...eventos]
     .map((ev) => ({ ev, date: getEventDate(ev) }))
     .filter((x): x is { ev: Evento; date: Date } => !!x.date)
@@ -80,6 +77,9 @@ export function getSowingBaseDate(zafra: Zafra, eventos: Evento[]): Date {
 
   const firstSiembra = ordered.find(({ ev }) => getTipoBaseFromEvento(ev.tipo) === "siembra");
   if (firstSiembra) return firstSiembra.date;
+
+  const fromZafra = toDate(zafra.fechaSiembra);
+  if (fromZafra) return fromZafra;
 
   if (ordered.length > 0) return ordered[0].date;
 
