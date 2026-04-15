@@ -19,6 +19,7 @@ interface PanelGraficosProps {
     etapas: EtapaCultivo[];
     cycleMetrics: CycleMetrics;
     selectionLabel?: string;
+    pdfMode?: boolean;
 }
 
 function formatCostShareLabel(value: unknown): string {
@@ -26,7 +27,7 @@ function formatCostShareLabel(value: unknown): string {
     return pct >= 8 ? `${Math.round(pct)}%` : "";
 }
 
-export function PanelGraficos({ eventos, insumos, zafra, etapas, cycleMetrics, selectionLabel }: PanelGraficosProps) {
+export function PanelGraficos({ eventos, insumos, zafra, etapas, cycleMetrics, selectionLabel, pdfMode = false }: PanelGraficosProps) {
     const fechaBaseSiembra = cycleMetrics.sowingDate;
     const diasCicloActual = cycleMetrics.totalDays;
 
@@ -138,7 +139,7 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, cycleMetrics, s
     const totalDistribucion = distribucionCostos.reduce((acc, item) => acc + item.value, 0);
 
     return (
-        <div className="grid gap-6 xl:grid-cols-3">
+        <div className={pdfMode ? "grid gap-6 md:grid-cols-2" : "grid gap-6 xl:grid-cols-3"}>
             <Card>
                 <CardHeader>
                     <CardTitle>Ciclo Fenologico del Cultivo</CardTitle>
@@ -257,7 +258,7 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, cycleMetrics, s
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className={pdfMode ? "md:col-span-2" : undefined}>
                 <CardHeader>
                     <CardTitle>Composicion de Costos</CardTitle>
                     <CardDescription>

@@ -6,11 +6,13 @@ import * as XLSX from "xlsx";
 import { Bookmark, BookmarkPlus, CloudRain, Download, Eye, EyeOff, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReportActions } from "@/components/shared/report-actions";
-import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getLluviaAcumuladaParcelaZafra } from "@/lib/lluvias";
+import { formatCurrency, formatInteger } from "@/lib/utils";
 import type {
   Cultivo,
   EtapaCultivo,
@@ -447,6 +449,24 @@ export function PanelAgronomico({
     });
   }, [comparisonSummary, currentParcelBusiness, currentSelectionBusiness, cycleMetrics]);
 
+  const rankingRows = useMemo(() => {
+    return [...currentParcelBusiness].sort((first, second) => {
+      if (!currentSelectionBusiness || currentSelectionBusiness.rankingCriterion === "margen") {
+        return (
+          second.margenPorHa - first.margenPorHa ||
+          second.rendimientoKgHa - first.rendimientoKgHa ||
+          first.costoPorHa - second.costoPorHa
+        );
+      }
+
+      return (
+        first.costoPorHa - second.costoPorHa ||
+        second.eventosCount - first.eventosCount ||
+        first.parcelaNombre.localeCompare(second.parcelaNombre, "es", { sensitivity: "base", numeric: true })
+      );
+    });
+  }, [currentParcelBusiness, currentSelectionBusiness]);
+
   const presetsForCurrentZafra = useMemo(
     () =>
       savedSelections
@@ -640,7 +660,7 @@ export function PanelAgronomico({
       </PageHeader>
 
       <div id="panel-agronomico-print" className="print-area">
-        <Card className="mb-6">
+        <Card className="mb-6 no-print">
           <CardContent className="grid gap-4 p-4 xl:grid-cols-[1.45fr_240px_2.1fr] xl:items-start">
             <div className="space-y-4">
               <div className="space-y-1">
@@ -843,52 +863,277 @@ export function PanelAgronomico({
         </Card>
 
         {hasSelection ? (
-          <div className="space-y-6">
+          <>
             {currentSelectionBusiness ? (
-              <PanelInteligenciaRentabilidad
-                cultivo={cultivo!}
-                zafra={zafra!}
-                selectionLabel={selectionLabel}
-                selectionSummary={currentSelectionBusiness}
-                parcelSummaries={currentParcelBusiness}
-                comparisonSummary={comparisonSummary}
-                alerts={smartAlerts}
-              />
+              <div className="report-export-only space-y-8">
+                <section data-pdf-page className="space-y-6">
+                  <Card className="break-inside-avoid">
+                    <CardContent className="grid gap-6 p-6 md:grid-cols-[1.2fr_0.8fr]">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <CardTitle>Resumen de la campana seleccionada</CardTitle>
+                          <CardDescription>
+                            Reporte ordenado para PDF con foco en margen, rendimiento, comparacion historica y decisiones sobre la seleccion activa.
+                          </CardDescription>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-xl border p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Cultivo y zafra</p>
+                            <p className="mt-2 text-lg font-semibold">{cultivo!.nombre}</p>
+                            <p className="text-sm text-muted-foreground">{zafra!.nombre}</p>
+                          </div>
+                          <div className="rounded-xl border p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Seleccion</p>
+                            <p className="mt-2 text-lg font-semibold">{selectionLabel}</p>
+                            <p className="text-sm text-muted-foreground">{selectionDetail || selectionLabel}</p>
+                          </div>
+                          <div className="rounded-xl border p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Ciclo</p>
+                            <p className="mt-2 text-lg font-semibold">
+                              {cycleMetrics!.isClosed ? "Cerrado" : "En curso"} | {cycleMetrics!.totalDays} dias
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {cycleMetrics!.isClosed
+                                ? `Cerrado el ${format(cycleMetrics!.endDate, "dd/MM/yyyy")}`
+                                : `Abierto al ${format(cycleMetrics!.endDate, "dd/MM/yyyy")}`}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Superficie y clima</p>
+                            <p className="mt-2 text-lg font-semibold">{formatSurface(superficieSeleccionada)} ha</p>
+                            <p className="text-sm text-muted-foreground">
+                              {lluviaPromedio.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 1 })} mm promedio
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-xl border bg-muted/10 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Lectura principal</p>
+                          <p className="mt-2 text-2xl font-semibold">
+                            {comparisonSummary ? comparisonSummary.headline : `${currentSelectionBusiness.margenPct.toFixed(1)}% margen estimado`}
+                          </p>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {comparisonSummary
+                              ? comparisonSummary.detail
+                              : currentSelectionBusiness.ingresoTotal > 0
+                                ? `El margen actual se apoya en ${currentSelectionBusiness.toneladas.toLocaleString("de-DE", { maximumFractionDigits: 2 })} ton registradas con un precio medio de $${formatCurrency(currentSelectionBusiness.precioPromedioTonelada)}/ton.`
+                                : "La campana aun no tiene ingresos valorizados por cosecha; el resultado economico sigue provisorio."}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border bg-muted/10 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Mejor parcela</p>
+                          <p className="mt-2 text-xl font-semibold text-primary">
+                            {currentSelectionBusiness.bestParcel?.parcelaNombre || "Sin datos suficientes"}
+                          </p>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {currentSelectionBusiness.bestParcel
+                              ? `${currentSelectionBusiness.bestParcel.rendimientoKgHa > 0 ? `${formatInteger(currentSelectionBusiness.bestParcel.rendimientoKgHa)} kg/ha` : "Sin cosecha"} | $${formatCurrency(currentSelectionBusiness.bestParcel.margenPorHa)}/ha margen`
+                              : "Todavia no hay una parcela lider claramente definida con la informacion disponible."}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="rounded-xl border p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Costo total</p>
+                      <p className="mt-2 text-2xl font-semibold">${formatCurrency(currentSelectionBusiness.costoTotal)}</p>
+                      <p className="text-sm text-muted-foreground">${formatCurrency(currentSelectionBusiness.costoPorHa)}/ha</p>
+                    </div>
+                    <div className="rounded-xl border p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Ingresos estimados</p>
+                      <p className="mt-2 text-2xl font-semibold">${formatCurrency(currentSelectionBusiness.ingresoTotal)}</p>
+                      <p className="text-sm text-muted-foreground">${formatCurrency(currentSelectionBusiness.ingresoPorHa)}/ha</p>
+                    </div>
+                    <div className="rounded-xl border p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Margen neto</p>
+                      <p className="mt-2 text-2xl font-semibold">${formatCurrency(currentSelectionBusiness.margenNeto)}</p>
+                      <p className="text-sm text-muted-foreground">ROI {currentSelectionBusiness.roiPct.toFixed(1)}%</p>
+                    </div>
+                    <div className="rounded-xl border p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Rendimiento</p>
+                      <p className="mt-2 text-2xl font-semibold">
+                        {currentSelectionBusiness.rendimientoKgHa > 0 ? formatInteger(currentSelectionBusiness.rendimientoKgHa) : "--"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {currentSelectionBusiness.rendimientoKgHa > 0 ? "kg/ha" : "Sin cosecha valorizada"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Estado de parcelas</p>
+                      <p className="mt-2 text-2xl font-semibold">{parcelasCerradasSeleccionadas}/{parcelasSeleccionadas.length}</p>
+                      <p className="text-sm text-muted-foreground">cerradas | {parcelasAbiertasSeleccionadas} abiertas</p>
+                    </div>
+                    <div className="rounded-xl border p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Mix de costos</p>
+                      <p className="mt-2 text-2xl font-semibold">{currentSelectionBusiness.shareServiciosPct.toFixed(0)}%</p>
+                      <p className="text-sm text-muted-foreground">servicios | {currentSelectionBusiness.shareInsumosPct.toFixed(0)}% insumos</p>
+                    </div>
+                  </div>
+
+                  <Card className="break-inside-avoid">
+                    <CardHeader>
+                      <CardTitle>Alertas y observaciones clave</CardTitle>
+                      <CardDescription>Ordenadas para lectura rapida en PDF.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 md:grid-cols-2">
+                      {smartAlerts.slice(0, 4).map((alert) => (
+                        <div key={alert.id} className="rounded-xl border p-4">
+                          <p className="text-sm font-semibold">{alert.title}</p>
+                          <p className="mt-2 text-sm text-muted-foreground">{alert.description}</p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </section>
+
+                <section data-pdf-page className="space-y-6">
+                  <Card className="break-inside-avoid">
+                    <CardHeader>
+                      <CardTitle>Graficos agronomicos</CardTitle>
+                      <CardDescription>
+                        Vista ordenada de ciclo, distribucion de costos y composicion del gasto para la seleccion actual.
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                  <PanelGraficos
+                    eventos={filteredEvents}
+                    insumos={insumos}
+                    zafra={zafra!}
+                    etapas={etapas}
+                    cycleMetrics={cycleMetrics!}
+                    selectionLabel={selectionLabel}
+                    pdfMode
+                  />
+                </section>
+
+                <section data-pdf-page className="space-y-6">
+                  <Card className="break-inside-avoid">
+                    <CardHeader>
+                      <CardTitle>Ranking y lectura operativa</CardTitle>
+                      <CardDescription>
+                        Priorizacion de lotes segun {currentSelectionBusiness.rankingCriterion === "margen" ? "margen por hectarea" : "costo por hectarea"}.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+                        <div className="rounded-xl border p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Comentario gerencial</p>
+                          <p className="mt-3 text-lg font-semibold">
+                            {comparisonSummary ? comparisonSummary.headline : "Sin comparacion historica suficiente"}
+                          </p>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {comparisonSummary
+                              ? comparisonSummary.detail
+                              : "El panel usara la campaña cerrada anterior del mismo cultivo cuando existan parcelas comparables dentro del filtro actual."}
+                          </p>
+                          <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+                            <p>Parcela lider: {currentSelectionBusiness.bestParcel?.parcelaNombre || "N/A"}</p>
+                            <p>Toneladas registradas: {currentSelectionBusiness.toneladas.toLocaleString("de-DE", { maximumFractionDigits: 2 })}</p>
+                            <p>Eventos analizados: {filteredEvents.length}</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Top parcelas</p>
+                          <div className="mt-4">
+                            <Table resizable className="min-w-[640px]">
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Parcela</TableHead>
+                                  <TableHead className="text-right">Rendimiento</TableHead>
+                                  <TableHead className="text-right">Costo/ha</TableHead>
+                                  <TableHead className="text-right">Margen/ha</TableHead>
+                                  <TableHead className="text-right">Estado</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {rankingRows.slice(0, 8).map((item) => (
+                                  <TableRow key={`pdf-ranking-${item.parcelaId}`}>
+                                    <TableCell className="font-medium">{item.parcelaNombre}</TableCell>
+                                    <TableCell className="text-right">
+                                      {item.rendimientoKgHa > 0 ? `${formatInteger(item.rendimientoKgHa)} kg/ha` : "-"}
+                                    </TableCell>
+                                    <TableCell className="text-right">${formatCurrency(item.costoPorHa)}</TableCell>
+                                    <TableCell className="text-right">${formatCurrency(item.margenPorHa)}</TableCell>
+                                    <TableCell className="text-right">{item.isClosed ? "Cerrada" : "En curso"}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <PanelAnalisisEconomico eventos={filteredEvents} insumos={insumos} />
+                </section>
+
+                {showDetailedReport ? (
+                  <section data-pdf-page className="space-y-6">
+                    <PanelTablaAgronomica
+                      parcelas={parcelasSeleccionadasList}
+                      zafra={zafra!}
+                      eventos={filteredEvents}
+                      insumos={insumos}
+                    />
+                  </section>
+                ) : null}
+              </div>
             ) : null}
 
-            <PanelGraficos
-              eventos={filteredEvents}
-              insumos={insumos}
-              zafra={zafra!}
-              etapas={etapas}
-              cycleMetrics={cycleMetrics!}
-              selectionLabel={selectionLabel}
-            />
+            <div className="space-y-6 no-print">
+              {currentSelectionBusiness ? (
+                <PanelInteligenciaRentabilidad
+                  cultivo={cultivo!}
+                  zafra={zafra!}
+                  selectionLabel={selectionLabel}
+                  selectionSummary={currentSelectionBusiness}
+                  parcelSummaries={currentParcelBusiness}
+                  comparisonSummary={comparisonSummary}
+                  alerts={smartAlerts}
+                />
+              ) : null}
 
-            <div className="no-print flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDetailedReport((previous) => !previous)}
-                aria-expanded={showDetailedReport}
-              >
-                {showDetailedReport ? <EyeOff className="mr-2" /> : <Eye className="mr-2" />}
-                {showDetailedReport ? "Ocultar Informe Detallado" : "Mostrar Informe Detallado"}
-              </Button>
-            </div>
-
-            {showDetailedReport ? (
-              <PanelTablaAgronomica
-                parcelas={parcelasSeleccionadasList}
-                zafra={zafra!}
+              <PanelGraficos
                 eventos={filteredEvents}
                 insumos={insumos}
+                zafra={zafra!}
+                etapas={etapas}
+                cycleMetrics={cycleMetrics!}
+                selectionLabel={selectionLabel}
               />
-            ) : null}
 
-            <PanelAnalisisEconomico eventos={filteredEvents} insumos={insumos} />
-          </div>
+              <div className="no-print flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDetailedReport((previous) => !previous)}
+                  aria-expanded={showDetailedReport}
+                >
+                  {showDetailedReport ? <EyeOff className="mr-2" /> : <Eye className="mr-2" />}
+                  {showDetailedReport ? "Ocultar Informe Detallado" : "Mostrar Informe Detallado"}
+                </Button>
+              </div>
+
+              {showDetailedReport ? (
+                <PanelTablaAgronomica
+                  parcelas={parcelasSeleccionadasList}
+                  zafra={zafra!}
+                  eventos={filteredEvents}
+                  insumos={insumos}
+                />
+              ) : null}
+
+              <PanelAnalisisEconomico eventos={filteredEvents} insumos={insumos} />
+            </div>
+          </>
         ) : (
           <Card className="no-print flex h-64 items-center justify-center border-dashed">
             <p className="text-muted-foreground">
