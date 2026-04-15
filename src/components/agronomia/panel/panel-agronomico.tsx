@@ -22,8 +22,15 @@ import type {
 } from "@/lib/types";
 import { PanelAnalisisEconomico } from "./panel-analisis-economico";
 import { PanelGraficos } from "./panel-graficos";
+import { PanelInteligenciaRentabilidad } from "./panel-inteligencia-rentabilidad";
 import { PanelKpiCards } from "./panel-kpi-cards";
 import { PanelParcelaSelector } from "./panel-parcela-selector";
+import {
+  buildCampaignComparisonSummary,
+  buildParcelBusinessSummaries,
+  buildSelectionBusinessSummary,
+  buildSmartAlerts,
+} from "./panel-rentabilidad-utils";
 import { PanelTablaAgronomica } from "./panel-tabla-agronomica";
 import { getCycleMetrics, getCycleMetricsForParcelSelection, getEventCategoryLabel, getEventDate } from "./panel-evento-utils";
 
@@ -66,6 +73,24 @@ function compareEventsByDate(first: Evento, second: Evento) {
     first.parcelaId.localeCompare(second.parcelaId, "es", { sensitivity: "base", numeric: true }) ||
     Number(first.numeroItem ?? first.numeroLanzamiento ?? 0) - Number(second.numeroItem ?? second.numeroLanzamiento ?? 0) ||
     first.id.localeCompare(second.id, "es", { sensitivity: "base", numeric: true })
+  );
+}
+
+function toDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+}
+
+function getZafraSortTime(zafra: Zafra) {
+  return (
+    toDate(zafra.fechaFin)?.getTime() ||
+    toDate(zafra.fechaInicio)?.getTime() ||
+    0
   );
 }
 
@@ -201,6 +226,18 @@ export function PanelAgronomico({
     return zafras.filter((zafra) => zafra.cultivoId === selectedCultivoId);
   }, [selectedCultivoId, zafras]);
 
+  const zafraActualAtajo = useMemo(() => {
+    return [...zafrasFiltradas]
+      .filter((item) => item.estado === "en curso")
+      .sort((first, second) => getZafraSortTime(second) - getZafraSortTime(first))[0] || null;
+  }, [zafrasFiltradas]);
+
+  const zafraAnteriorAtajo = useMemo(() => {
+    return [...zafrasFiltradas]
+      .filter((item) => item.estado === "finalizada")
+      .sort((first, second) => getZafraSortTime(second) - getZafraSortTime(first))[0] || null;
+  }, [zafrasFiltradas]);
+
   const zafra = useMemo(
     () => zafras.find((item) => item.id === selectedZafraId) || null,
     [selectedZafraId, zafras]
@@ -309,6 +346,107 @@ export function PanelAgronomico({
   const defaultPresetName = buildDefaultPresetName(parcelasSeleccionadasList);
   const hasSelection = Boolean(zafra && cultivo && cycleMetrics && parcelasSeleccionadas.length > 0);
 
+  const currentParcelBusiness = useMemo(() => {
+    if (!zafra || parcelasSeleccionadasList.length === 0) return [];
+    return buildParcelBusinessSummaries(parcelasSeleccionadasList, filteredEvents, zafra);
+  }, [filteredEvents, parcelasSeleccionadasList, zafra]);
+
+  const currentSelectionBusiness = useMemo(() => {
+    if (!hasSelection) return null;
+    return buildSelectionBusinessSummary(currentParcelBusiness, filteredEvents, insumos);
+  }, [currentParcelBusiness, filteredEvents, hasSelection, insumos]);
+
+  const comparisonZafra = useMemo(() => {
+    if (!selectedCultivoId || !zafra) return null;
+
+    const closedZafras = [...zafrasFiltradas]
+      .filter((item) => item.estado === "finalizada")
+      .sort((first, second) => getZafraSortTime(second) - getZafraSortTime(first));
+
+    if (closedZafras.length === 0) return null;
+
+    if (zafra.estado !== "finalizada") {
+      return closedZafras[0] || null;
+    }
+
+    const currentIndex = closedZafras.findIndex((item) => item.id === zafra.id);
+    if (currentIndex >= 0) {
+      return closedZafras[currentIndex + 1] || null;
+    }
+
+    return closedZafras[0] || null;
+  }, [selectedCultivoId, zafra, zafrasFiltradas]);
+
+  const comparisonEventsAll = useMemo(() => {
+    if (!comparisonZafra || selectedParcelaIds.length === 0) return [];
+    const selectedIdSet = new Set(selectedParcelaIds);
+    return eventos
+      .filter((evento) => evento.zafraId === comparisonZafra.id && selectedIdSet.has(evento.parcelaId))
+      .sort(compareEventsByDate);
+  }, [comparisonZafra, eventos, selectedParcelaIds]);
+
+  const comparableParcelIds = useMemo(() => {
+    const availableInCurrent = new Set(parcelasSeleccionadasList.map((parcela) => parcela.id));
+    const availableInComparison = new Set(comparisonEventsAll.map((evento) => evento.parcelaId));
+    return [...availableInCurrent].filter((id) => availableInComparison.has(id));
+  }, [comparisonEventsAll, parcelasSeleccionadasList]);
+
+  const comparableParcelas = useMemo(
+    () =>
+      comparableParcelIds
+        .map((id) => parcelasById.get(id))
+        .filter((parcela): parcela is Parcela => Boolean(parcela)),
+    [comparableParcelIds, parcelasById]
+  );
+
+  const currentComparableEvents = useMemo(() => {
+    const comparableSet = new Set(comparableParcelIds);
+    return filteredEvents.filter((evento) => comparableSet.has(evento.parcelaId));
+  }, [comparableParcelIds, filteredEvents]);
+
+  const previousComparableBusiness = useMemo(() => {
+    if (!comparisonZafra || comparableParcelas.length === 0) return [];
+    return buildParcelBusinessSummaries(comparableParcelas, comparisonEventsAll, comparisonZafra);
+  }, [comparableParcelas, comparisonEventsAll, comparisonZafra]);
+
+  const currentComparableBusiness = useMemo(() => {
+    if (!zafra || comparableParcelas.length === 0) return [];
+    return buildParcelBusinessSummaries(comparableParcelas, currentComparableEvents, zafra);
+  }, [comparableParcelas, currentComparableEvents, zafra]);
+
+  const comparisonSummary = useMemo(() => {
+    if (!comparisonZafra || comparableParcelas.length === 0) return null;
+
+    const currentComparableSelection = buildSelectionBusinessSummary(currentComparableBusiness, currentComparableEvents, insumos);
+    const previousComparableSelection = buildSelectionBusinessSummary(previousComparableBusiness, comparisonEventsAll, insumos);
+
+    return buildCampaignComparisonSummary(
+      currentComparableSelection,
+      previousComparableSelection,
+      comparisonZafra.nombre,
+      comparableParcelas.length
+    );
+  }, [
+    comparisonEventsAll,
+    comparisonZafra,
+    comparableParcelas.length,
+    currentComparableBusiness,
+    currentComparableEvents,
+    insumos,
+    previousComparableBusiness,
+  ]);
+
+  const smartAlerts = useMemo(() => {
+    if (!currentSelectionBusiness || !cycleMetrics) return [];
+
+    return buildSmartAlerts({
+      selectionSummary: currentSelectionBusiness,
+      parcelSummaries: currentParcelBusiness,
+      comparisonSummary,
+      cycleClosed: cycleMetrics.isClosed,
+    });
+  }, [comparisonSummary, currentParcelBusiness, currentSelectionBusiness, cycleMetrics]);
+
   const presetsForCurrentZafra = useMemo(
     () =>
       savedSelections
@@ -329,7 +467,7 @@ export function PanelAgronomico({
   }, [defaultPresetName, presetName, presetsForCurrentZafra, selectedZafraId]);
 
   const shareSummary = hasSelection
-    ? `Campana: ${selectionLabel} - ${zafra!.nombre} (${cultivo!.nombre}) | Lluvia promedio: ${lluviaPromedio.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 1 })} mm | Eventos: ${filteredEvents.length} | Costo total: $${costoTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`
+    ? `Campana: ${selectionLabel} - ${zafra!.nombre} (${cultivo!.nombre}) | Lluvia promedio: ${lluviaPromedio.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 1 })} mm | Eventos: ${filteredEvents.length} | Costo total: $${costoTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${currentSelectionBusiness ? ` | Margen: $${currentSelectionBusiness.margenNeto.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}.`
     : "Panel agronomico sin seleccion de campana.";
 
   const exportToExcel = useCallback(() => {
@@ -351,6 +489,20 @@ export function PanelAgronomico({
       ["Eventos Totales", filteredEvents.length],
       ["Costo Total Acumulado", `$${costoTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
       ["Costo por Hectarea", `$${costoPorHa.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+      ...(currentSelectionBusiness
+        ? [
+            ["Ingresos Estimados", `$${currentSelectionBusiness.ingresoTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+            ["Margen Neto", `$${currentSelectionBusiness.margenNeto.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+            ["ROI", `${currentSelectionBusiness.roiPct.toFixed(2)}%`],
+            ["Rendimiento", currentSelectionBusiness.rendimientoKgHa > 0 ? `${currentSelectionBusiness.rendimientoKgHa.toLocaleString("de-DE", { maximumFractionDigits: 0 })} kg/ha` : "Sin cosecha"],
+          ]
+        : []),
+      ...(comparisonSummary
+        ? [
+            ["Comparacion", comparisonSummary.previousZafraNombre],
+            ["Comparacion Headline", comparisonSummary.headline],
+          ]
+        : []),
     ];
     const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
     XLSX.utils.sheet_add_aoa(wsResumen, [["Panel Agronomico - Resumen"]], { origin: "A1" });
@@ -403,8 +555,10 @@ export function PanelAgronomico({
   }, [
     costoPorHa,
     costoTotal,
+    currentSelectionBusiness,
     cultivo,
     cycleMetrics,
+    comparisonSummary,
     etapas,
     filteredEvents,
     hasSelection,
@@ -533,6 +687,29 @@ export function PanelAgronomico({
                   onSelectionChange={setSelectedParcelaIds}
                 />
               </div>
+
+              {selectedCultivoId ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={selectedZafraId === zafraActualAtajo?.id ? "secondary" : "outline"}
+                    size="sm"
+                    disabled={!zafraActualAtajo}
+                    onClick={() => zafraActualAtajo && handleZafraChange(zafraActualAtajo.id)}
+                  >
+                    Campana actual (en curso)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={selectedZafraId === zafraAnteriorAtajo?.id ? "secondary" : "outline"}
+                    size="sm"
+                    disabled={!zafraAnteriorAtajo}
+                    onClick={() => zafraAnteriorAtajo && handleZafraChange(zafraAnteriorAtajo.id)}
+                  >
+                    Campana anterior (cerrada)
+                  </Button>
+                </div>
+              ) : null}
 
               {selectedZafraId ? (
                 parcelasDisponibles.length > 0 ? (
@@ -667,6 +844,18 @@ export function PanelAgronomico({
 
         {hasSelection ? (
           <div className="space-y-6">
+            {currentSelectionBusiness ? (
+              <PanelInteligenciaRentabilidad
+                cultivo={cultivo!}
+                zafra={zafra!}
+                selectionLabel={selectionLabel}
+                selectionSummary={currentSelectionBusiness}
+                parcelSummaries={currentParcelBusiness}
+                comparisonSummary={comparisonSummary}
+                alerts={smartAlerts}
+              />
+            ) : null}
+
             <PanelGraficos
               eventos={filteredEvents}
               insumos={insumos}
