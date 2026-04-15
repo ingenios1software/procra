@@ -3,10 +3,10 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Parcela, Cultivo, Zafra, Evento } from "@/lib/types";
-import { differenceInDays } from "date-fns";
+import { format } from "date-fns";
 import { Calendar, Activity, Clock, DollarSign } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { getEventCategoryLabel, getSowingBaseDate } from "./panel-evento-utils";
+import { getCycleMetrics, getEventCategoryLabel } from "./panel-evento-utils";
 
 interface PanelKpiCardsProps {
     parcela: Parcela;
@@ -17,19 +17,19 @@ interface PanelKpiCardsProps {
 }
 
 export function PanelKpiCards({ parcela, cultivo, zafra, eventos, className }: PanelKpiCardsProps) {
-    const { diasDesdeSiembra, eventoReciente, costoTotal, costoPorHa } = useMemo(() => {
-        const siembra = getSowingBaseDate(zafra, eventos);
-        const dias = Math.max(0, differenceInDays(new Date(), siembra));
-
+    const { diasDesdeSiembra, eventoReciente, costoTotal, costoPorHa, cicloCerrado, fechaFinCiclo } = useMemo(() => {
+        const ciclo = getCycleMetrics(zafra, eventos);
         const ultimoEvento = eventos.length > 0 ? eventos[eventos.length - 1] : null;
         const costo = eventos.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
         const costoHa = parcela.superficie > 0 ? costo / parcela.superficie : 0;
 
         return {
-            diasDesdeSiembra: dias,
+            diasDesdeSiembra: ciclo.totalDays,
             eventoReciente: ultimoEvento,
             costoTotal: costo,
             costoPorHa: costoHa,
+            cicloCerrado: ciclo.isClosed,
+            fechaFinCiclo: ciclo.endDate,
         };
     }, [zafra, eventos, parcela.superficie]);
 
@@ -43,10 +43,12 @@ export function PanelKpiCards({ parcela, cultivo, zafra, eventos, className }: P
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ciclo a Hoy</CardTitle><Clock className="h-5 w-5 text-muted-foreground"/></CardHeader>
+                <CardHeader className="flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">{cicloCerrado ? "Ciclo Cerrado" : "Ciclo a Hoy"}</CardTitle><Clock className="h-5 w-5 text-muted-foreground"/></CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{diasDesdeSiembra} dias</div>
-                    <p className="text-xs text-muted-foreground">desde la siembra</p>
+                    <p className="text-xs text-muted-foreground">
+                        {cicloCerrado ? `cerrado el ${format(fechaFinCiclo, "dd/MM/yyyy")}` : "desde la siembra"}
+                    </p>
                 </CardContent>
             </Card>
             <Card>

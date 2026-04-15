@@ -1,6 +1,7 @@
 "use client";
 
 import type { Evento, Zafra } from "@/lib/types";
+import { differenceInDays } from "date-fns";
 import { getEventTypeDisplay, getTipoBaseFromEvento } from "@/lib/eventos/tipos";
 
 function toDate(value: unknown): Date | null {
@@ -83,4 +84,31 @@ export function getSowingBaseDate(zafra: Zafra, eventos: Evento[]): Date {
   if (ordered.length > 0) return ordered[0].date;
 
   return new Date();
+}
+
+export function getHarvestEndDate(eventos: Evento[]): Date | null {
+  return eventos.reduce<Date | null>((latest, evento) => {
+    if (getTipoBaseFromEvento(evento.tipo) !== "cosecha") return latest;
+
+    const eventDate = getEventDate(evento);
+    if (!eventDate) return latest;
+    if (!latest) return eventDate;
+
+    return eventDate.getTime() > latest.getTime() ? eventDate : latest;
+  }, null);
+}
+
+export function getCycleMetrics(zafra: Zafra, eventos: Evento[], fallbackEndDate: Date = new Date()) {
+  const sowingDate = getSowingBaseDate(zafra, eventos);
+  const harvestDate = getHarvestEndDate(eventos);
+  const endDate = harvestDate || fallbackEndDate;
+  const totalDays = Math.max(0, differenceInDays(endDate, sowingDate));
+
+  return {
+    sowingDate,
+    harvestDate,
+    endDate,
+    totalDays,
+    isClosed: Boolean(harvestDate),
+  };
 }

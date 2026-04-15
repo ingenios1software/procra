@@ -6,7 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import type { Evento, Insumo, Zafra, EtapaCultivo } from "@/lib/types";
 import { buildInsumoCostDistribution } from "@/lib/agronomia-cost-distribution";
 import { differenceInDays } from "date-fns";
-import { getEventCategoryLabel, getEventDate, getSowingBaseDate } from "./panel-evento-utils";
+import { getCycleMetrics, getEventCategoryLabel, getEventDate, getSowingBaseDate } from "./panel-evento-utils";
 import { formatCurrency } from "@/lib/utils";
 
 const FALLBACK_COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
@@ -26,7 +26,8 @@ function formatCostShareLabel(value: unknown): string {
 
 export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }: PanelGraficosProps) {
     const fechaBaseSiembra = useMemo(() => getSowingBaseDate(zafra, eventos), [zafra, eventos]);
-    const diasCicloActual = Math.max(0, differenceInDays(new Date(), fechaBaseSiembra));
+    const cicloActual = useMemo(() => getCycleMetrics(zafra, eventos), [zafra, eventos]);
+    const diasCicloActual = cicloActual.totalDays;
 
     const {
         distribucionCostos,
@@ -163,7 +164,11 @@ export function PanelGraficos({ eventos, insumos, zafra, etapas, parcelaNombre }
                                     x={diasCicloActual}
                                     stroke="hsl(var(--destructive))"
                                     strokeDasharray="4 4"
-                                    label={{ value: `Hoy ${diasCicloActual}d`, fill: "hsl(var(--destructive))", position: "insideTopRight" }}
+                                    label={{
+                                        value: `${cicloActual.isClosed ? "Cosecha" : "Hoy"} ${diasCicloActual}d`,
+                                        fill: "hsl(var(--destructive))",
+                                        position: "insideTopRight",
+                                    }}
                                 />
                                 <Bar dataKey="inicio" stackId="rango" fill="transparent" legendType="none" />
                                 <Bar

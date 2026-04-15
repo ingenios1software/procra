@@ -14,8 +14,8 @@ import { PanelGraficos } from "./panel-graficos";
 import { PanelTablaAgronomica } from "./panel-tabla-agronomica";
 import { PanelAnalisisEconomico } from "./panel-analisis-economico";
 import * as XLSX from 'xlsx';
-import { differenceInDays, format } from "date-fns";
-import { getEventCategoryLabel, getSowingBaseDate } from "./panel-evento-utils";
+import { format } from "date-fns";
+import { getCycleMetrics, getEventCategoryLabel } from "./panel-evento-utils";
 import { getLluviaAcumuladaParcelaZafra } from "@/lib/lluvias";
 
 interface PanelAgronomicoProps {
@@ -67,14 +67,29 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
                       .sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
     }, [parcela, zafra, eventos]);
     
-    const { diasDesdeSiembra, costoTotal, costoPorHa, lluviaAcumulada } = useMemo(() => {
-        if (!zafra || !parcela) return { diasDesdeSiembra: 0, costoTotal: 0, costoPorHa: 0, lluviaAcumulada: 0 };
-        const siembra = getSowingBaseDate(zafra, filteredEvents);
-        const dias = Math.max(0, differenceInDays(new Date(), siembra));
+    const { diasDesdeSiembra, costoTotal, costoPorHa, lluviaAcumulada, cicloCerrado, fechaFinCiclo } = useMemo(() => {
+        if (!zafra || !parcela) {
+            return {
+                diasDesdeSiembra: 0,
+                costoTotal: 0,
+                costoPorHa: 0,
+                lluviaAcumulada: 0,
+                cicloCerrado: false,
+                fechaFinCiclo: new Date(),
+            };
+        }
+        const ciclo = getCycleMetrics(zafra, filteredEvents);
         const costo = filteredEvents.reduce((sum, ev) => sum + (ev.costoTotal || 0), 0);
         const costoHa = parcela.superficie > 0 ? costo / parcela.superficie : 0;
         const lluvia = getLluviaAcumuladaParcelaZafra(parcelas, lluviasSector, parcela.id, zafra.id);
-        return { diasDesdeSiembra: dias, costoTotal: costo, costoPorHa: costoHa, lluviaAcumulada: lluvia };
+        return {
+            diasDesdeSiembra: ciclo.totalDays,
+            costoTotal: costo,
+            costoPorHa: costoHa,
+            lluviaAcumulada: lluvia,
+            cicloCerrado: ciclo.isClosed,
+            fechaFinCiclo: ciclo.endDate,
+        };
     }, [zafra, parcela, filteredEvents, parcelas, lluviasSector]);
     const shareSummary = parcela && zafra && cultivo
         ? `Campana: ${parcela.nombre} - ${zafra.nombre} (${cultivo.nombre}) | Lluvia: ${lluviaAcumulada.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} mm | Eventos: ${filteredEvents.length} | Costo total: $${costoTotal.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`
@@ -92,6 +107,7 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
             ["Campaña", `${parcela.nombre} - ${zafra.nombre}`],
             ["Cultivo", cultivo.nombre],
             ["Superficie", `${parcela.superficie} ha`],
+            ["Fecha Fin Ciclo", format(fechaFinCiclo, 'dd/MM/yyyy')],
             ["Ciclo a Hoy", `${diasDesdeSiembra} días`],
             ["Eventos Totales", filteredEvents.length],
             ["Costo Total Acumulado", `$${costoTotal.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
@@ -149,7 +165,7 @@ export function PanelAgronomico({ parcelas, cultivos, zafras, eventos, insumos, 
         
         // Escribir y descargar el archivo
         XLSX.writeFile(wb, "panel-agronomico.xlsx");
-    }, [parcela, zafra, cultivo, filteredEvents, costoTotal, costoPorHa, diasDesdeSiembra, etapas]);
+    }, [parcela, zafra, cultivo, filteredEvents, costoTotal, costoPorHa, diasDesdeSiembra, fechaFinCiclo, etapas]);
 
     return (
         <>
