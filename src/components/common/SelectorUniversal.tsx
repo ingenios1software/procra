@@ -257,6 +257,10 @@ export function SelectorUniversal<T extends { id: string }>({
                     key={item.id}
                     value={`${String(item[displayField] ?? "")} ${String(item[codeField] ?? "")} ${item.id}`}
                     onSelect={() => handleItemSelect(item)}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                    }}
+                    onClick={() => handleItemSelect(item)}
                     className="flex cursor-pointer flex-col items-start gap-1 rounded-md border border-transparent px-2 py-2 aria-selected:border-primary/30 aria-selected:bg-primary/10"
                   >
                     <div className="flex w-full items-center justify-between">
