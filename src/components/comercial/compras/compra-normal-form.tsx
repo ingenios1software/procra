@@ -29,6 +29,7 @@ import { useCollection, useUser, useMemoFirebase } from "@/firebase";
 import { doc, writeBatch, serverTimestamp, getDocs, query, orderBy, limit, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { SelectorUniversal } from '@/components/common';
+import { SelectorPlanDeCuentas } from '@/components/contabilidad/SelectorPlanDeCuentas';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CODIGOS_CUENTAS_BASE, findPlanCuentaByCodigo } from '@/lib/contabilidad/cuentas-base';
@@ -492,9 +493,51 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
           
           <TabsContent value="datos" className="space-y-4 sm:space-y-6 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                <FormField name="entidadId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Proveedor</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un proveedor" /></SelectTrigger></FormControl><SelectContent>{proveedores?.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField
+                  name="entidadId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Proveedor</FormLabel>
+                      <FormControl>
+                        <SelectorUniversal<Proveedor>
+                          label="Proveedor"
+                          collectionName="proveedores"
+                          displayField="nombre"
+                          codeField="numeroItem"
+                          value={proveedores?.find((proveedor) => proveedor.id === field.value)}
+                          onSelect={(proveedor) => field.onChange(proveedor?.id ?? "")}
+                          searchFields={['nombre', 'numeroItem', 'ruc']}
+                          disabled={disableTransactional}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField name="fechaEmision" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Fecha Emision</FormLabel><FormControl><Input type="date" lang="es-PY" disabled={disableTransactional} value={dateToInputValue(field.value)} onChange={(e) => field.onChange(inputValueToDate(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField name="zafraId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Plan de Financiacion / Zafra</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disableZafraSelection}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una zafra" /></SelectTrigger></FormControl><SelectContent>{zafras?.map(z => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField
+                  name="zafraId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Plan de Financiacion / Zafra</FormLabel>
+                      <FormControl>
+                        <SelectorUniversal<Zafra>
+                          label="Plan de Financiacion / Zafra"
+                          collectionName="zafras"
+                          displayField="nombre"
+                          codeField="numeroItem"
+                          value={zafras?.find((z) => z.id === field.value)}
+                          onSelect={(zafra) => field.onChange(zafra?.id ?? "")}
+                          searchFields={['nombre', 'numeroItem']}
+                          disabled={disableZafraSelection}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField name="moneda" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="PYG">PYG</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormItem><FormLabel>Condicion</FormLabel><div className="rounded-md border px-3 py-2 text-sm">Credito (flujo contable)</div></FormItem>
                 <FormField name="formaPago" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Forma de Pago</FormLabel><FormControl><Input {...field} disabled={disableReadonlyOrSaving} /></FormControl><FormMessage /></FormItem> )} />
@@ -569,14 +612,69 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
           </TabsContent>
 
           <TabsContent value="flete" className="space-y-4 sm:space-y-6 pt-4">
-              <FormField name="flete_transportadoraId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Transportadora</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione transportadora" /></SelectTrigger></FormControl><SelectContent>{proveedores?.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+              <FormField
+                name="flete_transportadoraId"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Transportadora</FormLabel>
+                    <FormControl>
+                      <SelectorUniversal<Proveedor>
+                        label="Transportadora"
+                        collectionName="proveedores"
+                        displayField="nombre"
+                        codeField="numeroItem"
+                        value={proveedores?.find((proveedor) => proveedor.id === field.value)}
+                        onSelect={(proveedor) => field.onChange(proveedor?.id ?? "")}
+                        searchFields={['nombre', 'numeroItem', 'ruc']}
+                        disabled={disableTransactional}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField name="flete_datos" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Datos del Flete</FormLabel><FormControl><Textarea {...field} disabled={disableTransactional} /></FormControl><FormMessage /></FormItem> )} />
               <FormField name="flete_valor" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Valor del Flete</FormLabel><FormControl><Input type="number" {...field} disabled={disableTransactional} /></FormControl><FormMessage /></FormItem> )} />
           </TabsContent>
 
           <TabsContent value="financiero" className="space-y-4 sm:space-y-6 pt-4">
-              <FormField name="financiero_cuentaInventarioId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cuenta de Inventario/Gasto (Debe)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una cuenta" /></SelectTrigger></FormControl><SelectContent>{planDeCuentas?.map(c => <SelectItem key={c.id} value={c.id}>{c.codigo} - {c.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-              <FormField name="financiero_cuentaPorPagarId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cuenta por Pagar (Haber)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una cuenta" /></SelectTrigger></FormControl><SelectContent>{planDeCuentas?.map(c => <SelectItem key={c.id} value={c.id}>{c.codigo} - {c.nombre}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+              <FormField
+                name="financiero_cuentaInventarioId"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cuenta de Inventario/Gasto (Debe)</FormLabel>
+                    <FormControl>
+                      <SelectorPlanDeCuentas
+                        label="Cuenta de Inventario/Gasto"
+                        value={field.value || null}
+                        onChange={(value) => field.onChange(value ?? "")}
+                        disabled={disableTransactional}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                name="financiero_cuentaPorPagarId"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cuenta por Pagar (Haber)</FormLabel>
+                    <FormControl>
+                      <SelectorPlanDeCuentas
+                        label="Cuenta por Pagar"
+                        value={field.value || null}
+                        onChange={(value) => field.onChange(value ?? "")}
+                        disabled={disableTransactional}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField name="financiero_cuentaId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Cuenta sugerida para pago futuro (opcional)</FormLabel><FormControl><Input placeholder="Referencia interna" {...field} disabled={disableTransactional} /></FormControl><FormMessage /></FormItem> )} />
               <FormField name="financiero_vencimiento" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Vencimiento</FormLabel><FormControl><Input type="date" lang="es-PY" disabled={disableTransactional} value={dateToInputValue(field.value)} onChange={(e) => field.onChange(inputValueToDate(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
               <div className="font-bold text-lg">Valor a Pagar: ${formatCurrency(totalFactura)}</div>

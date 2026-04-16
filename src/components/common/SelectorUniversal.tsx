@@ -140,29 +140,42 @@ export function SelectorUniversal<T extends { id: string }>({
   );
 
   const handleCodeSearch = React.useCallback(async () => {
-    if (!String(codeQuery).trim()) return;
+    const trimmedCodeQuery = String(codeQuery).trim();
+    if (!trimmedCodeQuery) return;
     if (!collectionRef) return;
 
-    const numericCode = Number(codeQuery);
-    if (Number.isNaN(numericCode)) {
-      toast({
-        variant: "destructive",
-        title: "Codigo invalido",
-        description: `El codigo "${codeQuery}" no es un numero valido.`,
-      });
-      return;
-    }
+    const normalizedCodeQuery = trimmedCodeQuery.toLowerCase();
+    const numericCode = Number(trimmedCodeQuery);
+    const hasNumericVariant = !Number.isNaN(numericCode);
 
-    const localItem = baseItems.find((item) => Number(item[codeField] as unknown) === numericCode);
+    const localItem = baseItems.find((item) => {
+      const fieldValue = item[codeField] as unknown;
+      if (fieldValue === undefined || fieldValue === null) return false;
+
+      if (String(fieldValue).trim().toLowerCase() === normalizedCodeQuery) return true;
+      return typeof fieldValue === "number" && hasNumericVariant && fieldValue === numericCode;
+    });
+
     if (localItem) {
       handleItemSelect(localItem);
       return;
     }
 
-    const codeQueryRef = query(collectionRef, where(codeField as string, "==", numericCode), limit(1));
-    const querySnapshot = await getDocs(codeQueryRef);
+    const candidateQueryValues: Array<string | number> = hasNumericVariant
+      ? [numericCode, trimmedCodeQuery]
+      : [trimmedCodeQuery];
+    const attemptedValues = new Set<string>();
 
-    if (!querySnapshot.empty) {
+    for (const queryValue of candidateQueryValues) {
+      const queryKey = `${typeof queryValue}:${String(queryValue)}`;
+      if (attemptedValues.has(queryKey)) continue;
+      attemptedValues.add(queryKey);
+
+      const codeQueryRef = query(collectionRef, where(codeField as string, "==", queryValue), limit(1));
+      const querySnapshot = await getDocs(codeQueryRef);
+
+      if (querySnapshot.empty) continue;
+
       const foundDoc = querySnapshot.docs[0];
       const foundItem = { id: foundDoc.id, ...foundDoc.data() } as T;
       handleItemSelect(foundItem);
@@ -172,7 +185,7 @@ export function SelectorUniversal<T extends { id: string }>({
     toast({
       variant: "destructive",
       title: "Registro no encontrado",
-      description: `No se encontro un registro con el codigo "${codeQuery}".`,
+      description: `No se encontro un registro con el codigo "${trimmedCodeQuery}".`,
     });
   }, [baseItems, codeField, codeQuery, collectionRef, handleItemSelect, toast]);
 
