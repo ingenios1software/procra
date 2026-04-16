@@ -55,6 +55,19 @@ function StockAlert({ insumo, cantidadNecesaria }: { insumo: Insumo; cantidadNec
 }
 
 export function InsumosTabla({ fields, hectareas, append, remove, form }: InsumosTablaProps) {
+  const [autoFocusFieldId, setAutoFocusFieldId] = React.useState<string | null>(null);
+  const [pendingAppendFocus, setPendingAppendFocus] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!pendingAppendFocus || fields.length === 0) return;
+
+    const lastFieldId = fields[fields.length - 1]?.id;
+    if (!lastFieldId) return;
+
+    setAutoFocusFieldId(lastFieldId);
+    setPendingAppendFocus(false);
+  }, [fields, pendingAppendFocus]);
+
   const handleSelectInsumo = (index: number, insumo: Insumo | undefined) => {
     if (!insumo) return;
 
@@ -64,6 +77,15 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
     });
     form.trigger(`productos.${index}.insumo`);
   };
+
+  const handleAppendProducto = React.useCallback(() => {
+    append({ insumo: undefined, cantidad: 0, dosis: 0, codigo: "" });
+    setPendingAppendFocus(true);
+  }, [append]);
+
+  const clearAutoFocusField = React.useCallback((fieldId: string) => {
+    setAutoFocusFieldId((current) => (current === fieldId ? null : current));
+  }, []);
 
   return (
     <>
@@ -116,6 +138,8 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
                             value={controllerField.value}
                             onSelect={(selectedInsumo) => handleSelectInsumo(index, selectedInsumo)}
                             searchFields={["nombre", "numeroItem", "principioActivo"]}
+                            autoFocus={autoFocusFieldId === field.id}
+                            onAutoFocusApplied={() => clearAutoFocusField(field.id)}
                             extraInfoFields={[
                               {
                                 label: "Stock",
@@ -224,7 +248,7 @@ export function InsumosTabla({ fields, hectareas, append, remove, form }: Insumo
         variant="outline"
         size="sm"
         className="mt-4 h-11 px-4 text-[17px]"
-        onClick={() => append({ insumo: undefined, cantidad: 0, dosis: 0, codigo: "" })}
+        onClick={handleAppendProducto}
       >
         <PlusCircle className="mr-2 h-4 w-4" />
         Agregar Producto

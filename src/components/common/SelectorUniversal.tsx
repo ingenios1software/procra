@@ -45,6 +45,8 @@ interface SelectorUniversalProps<T> {
   searchFields: (keyof T)[];
   disabled?: boolean;
   itemFilter?: (item: T) => boolean;
+  autoFocus?: boolean;
+  onAutoFocusApplied?: () => void;
 }
 
 export function SelectorUniversal<T extends { id: string }>({
@@ -59,6 +61,8 @@ export function SelectorUniversal<T extends { id: string }>({
   searchFields = [],
   disabled = false,
   itemFilter,
+  autoFocus = false,
+  onAutoFocusApplied,
 }: SelectorUniversalProps<T>) {
   const firestore = useFirestore();
   const tenant = useTenantFirestore();
@@ -66,6 +70,8 @@ export function SelectorUniversal<T extends { id: string }>({
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [codeQuery, setCodeQuery] = React.useState<string>((value?.[codeField] as string) || "");
+  const triggerButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const autoFocusDoneRef = React.useRef(false);
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const isTenantCollection = LEGACY_TENANT_COLLECTIONS.includes(collectionName as (typeof LEGACY_TENANT_COLLECTIONS)[number]);
 
@@ -203,6 +209,26 @@ export function SelectorUniversal<T extends { id: string }>({
     setCodeQuery(nextCode !== undefined && nextCode !== null ? String(nextCode) : "");
   }, [codeField, selectedItem]);
 
+  React.useEffect(() => {
+    if (!autoFocus || disabled || isLoading) {
+      autoFocusDoneRef.current = false;
+      return;
+    }
+    if (autoFocusDoneRef.current) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      const triggerButton = triggerButtonRef.current;
+      if (!triggerButton) return;
+
+      triggerButton.focus();
+      triggerButton.scrollIntoView({ block: "nearest", inline: "nearest" });
+      autoFocusDoneRef.current = true;
+      onAutoFocusApplied?.();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [autoFocus, disabled, isLoading, onAutoFocusApplied]);
+
   const selectorContent = (
     <Command shouldFilter={false} loop>
       <CommandInput
@@ -263,6 +289,7 @@ export function SelectorUniversal<T extends { id: string }>({
 
   const triggerButton = (
     <Button
+      ref={triggerButtonRef}
       variant="outline"
       role="combobox"
       aria-expanded={open}
