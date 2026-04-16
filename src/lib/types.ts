@@ -550,6 +550,11 @@ export type CompraNormal = {
   comprobante: {
     documento: string; // Serie + Numero
     timbre: string;
+    tipoOperacion?: string;
+    tipoDocumento?: string;
+    serie?: string;
+    numero?: string;
+    numeroCuotas?: number;
     ruc?: string;
     cdc?: string;
   };

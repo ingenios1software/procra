@@ -37,6 +37,70 @@ import { calcularEstadoCuenta } from "@/lib/cuentas";
 import { resolveZafraContext, withZafraContext } from "@/lib/contabilidad/asientos";
 import { useTenantFirestore } from "@/hooks/use-tenant-firestore";
 
+const COMPROBANTE_TIPO_OPERACION_DEFAULT = "8";
+const COMPROBANTE_TIPO_DOCUMENTO_DEFAULT = "1";
+
+const COMPROBANTE_TIPO_OPERACION_OPTIONS = [
+  { value: "8", label: "8 - Compras del periodo y credito fiscal por operaciones gravadas." },
+];
+
+const COMPROBANTE_TIPO_DOCUMENTO_OPTIONS = [
+  { value: "1", label: "1 - Factura" },
+];
+
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function formatSerieDocumento(value: string): string {
+  const digits = digitsOnly(value).slice(0, 6);
+  if (digits.length <= 3) return digits;
+  return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+}
+
+function normalizeDocumentoNumero(value: string): string {
+  return digitsOnly(value).slice(0, 7);
+}
+
+function normalizeTimbrado(value: string): string {
+  return digitsOnly(value).slice(0, 8);
+}
+
+function buildDocumentoLegal(serie: string, numero: string): string {
+  const normalizedSerie = formatSerieDocumento(serie);
+  const normalizedNumeroBase = normalizeDocumentoNumero(numero);
+  const normalizedNumero = normalizedNumeroBase ? normalizedNumeroBase.padStart(7, "0") : "";
+
+  if (!normalizedSerie && !normalizedNumero) return "";
+  if (!normalizedSerie) return normalizedNumero;
+  if (!normalizedNumero) return normalizedSerie;
+  return `${normalizedSerie}-${normalizedNumero}`;
+}
+
+function parseDocumentoLegal(documento?: string | null): { serie: string; numero: string } {
+  const trimmed = String(documento ?? "").trim();
+  if (!trimmed) return { serie: "", numero: "" };
+
+  const directMatch = trimmed.match(/^(\d{3})[- ]?(\d{3})[- ]?(\d{1,7})$/);
+  if (directMatch) {
+    return {
+      serie: `${directMatch[1]}-${directMatch[2]}`,
+      numero: directMatch[3].padStart(7, "0"),
+    };
+  }
+
+  const parts = trimmed.split("-").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 3) {
+    return {
+      serie: formatSerieDocumento(`${parts[0]}${parts[1]}`),
+      numero: normalizeDocumentoNumero(parts.slice(2).join("")).padStart(7, "0"),
+    };
+  }
+
+  const normalizedNumero = normalizeDocumentoNumero(trimmed);
+  return { serie: "", numero: normalizedNumero ? normalizedNumero.padStart(7, "0") : "" };
+}
+
 const mercaderiaSchema = z.object({
   insumo: z.any().refine(val => val && val.id, { message: "Debe seleccionar una mercaderia." }),
   cantidad: z.coerce.number().positive("La cantidad debe ser mayor a 0."),
@@ -72,8 +136,12 @@ const formSchema = z.object({
   financiero_vencimiento: z.date().optional(),
   
   // Comprobante
-  comprobante_documento: z.string().nonempty("El numero de documento es obligatorio."),
+  comprobante_tipoOperacion: z.string().default(COMPROBANTE_TIPO_OPERACION_DEFAULT),
+  comprobante_tipoDocumento: z.string().default(COMPROBANTE_TIPO_DOCUMENTO_DEFAULT),
+  comprobante_serie: z.string().regex(/^\d{3}-\d{3}$/, "Ingrese una serie valida (ej: 001-001)."),
+  comprobante_numero: z.string().regex(/^\d{7}$/, "Ingrese un numero valido de 7 digitos."),
   comprobante_timbre: z.string().nonempty("El timbre es obligatorio."),
+  comprobante_numeroCuotas: z.coerce.number().int().min(1, "Debe indicar al menos una cuota.").default(1),
 }).refine(data => data.condicionCompra === 'Cr\u00E9dito', {
   message: 'En este flujo las compras se registran como credito.',
   path: ['condicionCompra'],
@@ -119,6 +187,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
   const tenant = useTenantFirestore();
   const firestore = tenant.firestore;
   const { user } = useUser();
+  const parsedDocumento = parseDocumentoLegal(compra?.comprobante?.documento);
   const [isSaving, setIsSaving] = useState(false);
 
   const isViewMode = mode === 'view';
@@ -156,8 +225,12 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
       financiero_cuentaPorPagarId: compra.financiero?.cuentaPorPagarId || '',
       financiero_vencimiento: compra.financiero?.vencimiento ? new Date(compra.financiero.vencimiento as string) : undefined,
       
-      comprobante_documento: compra.comprobante.documento,
+      comprobante_tipoOperacion: compra.comprobante.tipoOperacion || COMPROBANTE_TIPO_OPERACION_DEFAULT,
+      comprobante_tipoDocumento: compra.comprobante.tipoDocumento || COMPROBANTE_TIPO_DOCUMENTO_DEFAULT,
+      comprobante_serie: compra.comprobante.serie || parsedDocumento.serie,
+      comprobante_numero: compra.comprobante.numero || parsedDocumento.numero,
       comprobante_timbre: compra.comprobante.timbre,
+      comprobante_numeroCuotas: compra.comprobante.numeroCuotas || 1,
     } : {
       fechaEmision: new Date(),
       zafraId: '',
@@ -167,6 +240,12 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
       mercaderias: [],
       financiero_cuentaInventarioId: '',
       financiero_cuentaPorPagarId: '',
+      comprobante_tipoOperacion: COMPROBANTE_TIPO_OPERACION_DEFAULT,
+      comprobante_tipoDocumento: COMPROBANTE_TIPO_DOCUMENTO_DEFAULT,
+      comprobante_serie: '',
+      comprobante_numero: '',
+      comprobante_timbre: '',
+      comprobante_numeroCuotas: 1,
     },
   });
 
@@ -174,6 +253,8 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
     control: form.control,
     name: "mercaderias",
   });
+  const [autoFocusFieldId, setAutoFocusFieldId] = useState<string | null>(null);
+  const [pendingAppendFocus, setPendingAppendFocus] = useState(false);
 
   const watchedMercaderias = useWatch({
     control: form.control,
@@ -219,6 +300,25 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
     }
   }, [compra, form, planDeCuentas]);
 
+  useEffect(() => {
+    if (!pendingAppendFocus || fields.length === 0) return;
+
+    const lastFieldId = fields[fields.length - 1]?.id;
+    if (!lastFieldId) return;
+
+    setAutoFocusFieldId(lastFieldId);
+    setPendingAppendFocus(false);
+  }, [fields, pendingAppendFocus]);
+
+  const handleAppendMercaderia = () => {
+    append({ insumo: undefined, cantidad: 0, valorUnitario: 0, lote: '', sinVencimiento: false });
+    setPendingAppendFocus(true);
+  };
+
+  const clearAutoFocusField = (fieldId: string) => {
+    setAutoFocusFieldId((current) => (current === fieldId ? null : current));
+  };
+
   const handleSubmit = async (data: CompraFormValues) => {
     if (isViewMode || isSaving) return;
     if (!firestore || !user || !tenant.isReady) {
@@ -228,6 +328,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
 
     setIsSaving(true);
     try {
+      const documentoLegal = buildDocumentoLegal(data.comprobante_serie, data.comprobante_numero);
       const zafraContext = resolveZafraContext(
         zafras,
         data.zafraId,
@@ -265,7 +366,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
         const asientoCompraRef = doc(asientosCol);
         const asientoCompra: Omit<AsientoDiario, "id"> = withZafraContext({
           fecha: data.fechaEmision.toISOString(),
-          descripcion: `Compra credito doc ${data.comprobante_documento}`,
+          descripcion: `Compra credito doc ${documentoLegal}`,
           movimientos: [
             { cuentaId: data.financiero_cuentaInventarioId, tipo: "debe", monto: totalFactura },
             { cuentaId: data.financiero_cuentaPorPagarId, tipo: "haber", monto: totalFactura },
@@ -320,7 +421,15 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
           fechaPago: compra?.financiero?.fechaPago,
           vencimiento: data.financiero_vencimiento ? data.financiero_vencimiento.toISOString() : undefined
         },
-        comprobante: { documento: data.comprobante_documento, timbre: data.comprobante_timbre }
+        comprobante: {
+          documento: documentoLegal,
+          timbre: data.comprobante_timbre,
+          tipoOperacion: data.comprobante_tipoOperacion,
+          tipoDocumento: data.comprobante_tipoDocumento,
+          serie: data.comprobante_serie,
+          numero: data.comprobante_numero,
+          numeroCuotas: data.comprobante_numeroCuotas,
+        }
       };
 
       const compraDataSanitized = omitUndefinedDeep(compraData);
@@ -342,7 +451,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
 
       const cuentaPorPagarData: Omit<CuentaPorPagar, "id"> = {
         compraId: compraRef.id,
-        compraDocumento: data.comprobante_documento,
+        compraDocumento: documentoLegal,
         proveedorId: data.entidadId,
         zafraId: data.zafraId,
         zafraNombre: zafraContext.zafraNombre || null,
@@ -583,7 +692,9 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
                                               if (disableTransactional) return;
                                               form.setValue(`mercaderias.${index}.insumo`, insumo);
                                             }}
-                                            searchFields={['nombre', 'numeroItem']} />
+                                            searchFields={['nombre', 'numeroItem']}
+                                            autoFocus={autoFocusFieldId === field.id}
+                                            onAutoFocusApplied={() => clearAutoFocusField(field.id)} />
                                         <FormMessage />
                                       </FormItem> 
                                     )} 
@@ -607,7 +718,7 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
                   </TableFooter>
               </Table>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={() => append({ insumo: undefined, cantidad: 0, valorUnitario: 0, lote: '', sinVencimiento: false })}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Item</Button>
+              <Button type="button" variant="outline" size="sm" onClick={handleAppendMercaderia}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Item</Button>
             </fieldset>
           </TabsContent>
 
@@ -681,8 +792,146 @@ export function CompraNormalForm({ compra, mode = 'create', onCancel }: CompraNo
           </TabsContent>
           
           <TabsContent value="comprobante" className="space-y-4 sm:space-y-6 pt-4">
-              <FormField name="comprobante_documento" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Numero de Documento Legal</FormLabel><FormControl><Input {...field} disabled={disableTransactional} /></FormControl><FormMessage /></FormItem> )} />
-              <FormField name="comprobante_timbre" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Timbre</FormLabel><FormControl><Input {...field} disabled={disableTransactional} /></FormControl><FormMessage /></FormItem> )} />
+              <div className="rounded-lg border bg-muted/20 p-4 sm:p-5">
+                <div className="mb-5 inline-flex rounded-md border bg-background px-4 py-2 text-sm font-semibold shadow-sm">
+                  Documento
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormField
+                    name="comprobante_tipoOperacion"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Tipo Operacion</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccione tipo de operacion" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {COMPROBANTE_TIPO_OPERACION_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="comprobante_tipoDocumento"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Tipo Documento</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={disableTransactional}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccione tipo de documento" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {COMPROBANTE_TIPO_DOCUMENTO_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="comprobante_serie"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Documento</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="001-001"
+                            inputMode="numeric"
+                            maxLength={7}
+                            disabled={disableTransactional}
+                            onChange={(e) => field.onChange(formatSerieDocumento(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="comprobante_numero"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="opacity-0">Numero</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="0020256"
+                            inputMode="numeric"
+                            maxLength={7}
+                            disabled={disableTransactional}
+                            onChange={(e) => field.onChange(normalizeDocumentoNumero(e.target.value))}
+                            onBlur={(e) => {
+                              const normalizedValue = normalizeDocumentoNumero(e.target.value);
+                              field.onChange(normalizedValue ? normalizedValue.padStart(7, "0") : "");
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="comprobante_timbre"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Timbrado</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="12345688"
+                            inputMode="numeric"
+                            maxLength={8}
+                            disabled={disableTransactional}
+                            onChange={(e) => field.onChange(normalizeTimbrado(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    name="comprobante_numeroCuotas"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Numero de Cuotas</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            disabled={disableTransactional}
+                            {...field}
+                            value={field.value ?? 1}
+                            onChange={(e) => field.onChange(Number(e.target.value) || 1)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
           </TabsContent>
         </Tabs>
 
